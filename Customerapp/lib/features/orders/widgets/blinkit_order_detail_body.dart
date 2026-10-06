@@ -14,10 +14,18 @@ import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
+import '../tracking/order_tracking_panel.dart';
 
 const _themeGreen = Color(0xFF2E7D32);
 const _billBg = Color(0xFFFFFFFF);
 const _tabSelectedBg = Color(0xFFEEF0F4);
+
+/// Dark-store home deliveries get the live tracking panel (map for Ready to Cook /
+/// Instant, timeline only for pre-orders). Courier and pickup orders keep the old tracker.
+bool _usesDarkStoreTracking(Order order) {
+  if (order.isPickup || order.shipment.hasTracking) return false;
+  return order.darkStore != null || order.storeParts.isNotEmpty;
+}
 
 List<List<OrderItem>> splitOrderShipments(List<OrderItem> items) {
   if (items.length <= 6) return [items];
@@ -232,11 +240,13 @@ class BlinkitOrderDetailBody extends ConsumerStatefulWidget {
     required this.order,
     required this.onInvoice,
     required this.onOrderAgain,
+    this.onTrackingStatusChanged,
   });
 
   final Order order;
   final VoidCallback onInvoice;
   final VoidCallback onOrderAgain;
+  final VoidCallback? onTrackingStatusChanged;
 
   @override
   ConsumerState<BlinkitOrderDetailBody> createState() =>
@@ -314,10 +324,17 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   statusLabel: statusLabel,
                   isDelivered: order.status == 'delivered',
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: _OrderStatusTracker(status: order.status, pickup: order.isPickup),
-                ),
+                if (_usesDarkStoreTracking(order))
+                  OrderTrackingPanel(
+                    key: ValueKey('tracking-${order.id}'),
+                    orderId: order.id,
+                    onStatusChanged: widget.onTrackingStatusChanged,
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    child: _OrderStatusTracker(status: order.status, pickup: order.isPickup),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
                   child: Text(

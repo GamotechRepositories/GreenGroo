@@ -1,4 +1,18 @@
 import mongoose from "mongoose";
+import { ORDER_TYPES, deriveOrderType } from "../../../legacy/utils/departmentHelpers.js";
+
+/** Last known rider position for live tracking (GeoJSON Point, [lng, lat]). */
+const driverLocationSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["Point"], default: "Point" },
+    coordinates: { type: [Number], default: undefined },
+    heading: { type: Number, default: null },
+    speed: { type: Number, default: null },
+    riderId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryBoy", default: null },
+    updatedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -209,6 +223,10 @@ const storeOrderSchema = new mongoose.Schema(
     },
     /** Departments in this order (preorder / ready2cook / instant) */
     departments: { type: [String], default: [], index: true },
+    /** ready_to_cook | instant get live rider tracking; preorder gets status updates only */
+    orderType: { type: String, enum: ORDER_TYPES, index: true },
+    /** Throttled copy of the rider's live position while this order is on the way */
+    driverLocation: { type: driverLocationSchema, default: undefined },
     /** How the dark store was chosen, e.g. within_3km / same_pincode */
     routingReason: { type: String, trim: true, default: "" },
 
@@ -232,6 +250,15 @@ const storeOrderSchema = new mongoose.Schema(
     forwardedByName: { type: String, default: "", trim: true },
     /** Note from Product Manager to Delivery Manager (packing / handling info) */
     preOrderNote: { type: String, default: "", trim: true, maxlength: 500 },
+
+    // ── Full-Time driver delivery (salary-based; never earns per-KM) ─────────
+    fullTimeDelivery: { type: Boolean, default: false, index: true },
+    fullTimeAssignedAt: { type: Date },
+    fullTimeAssignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      default: null,
+    },
 
     // ── Payment fields (extended for delivery workflow) ─────────────────────
     paymentMethod: {
@@ -299,6 +326,18 @@ const storeOrderSchema = new mongoose.Schema(
 storeOrderSchema.index({ managerId: 1, status: 1, createdAt: -1 });
 storeOrderSchema.index({ sourceOrderId: 1 });
 storeOrderSchema.index({ isPreOrder: 1, preOrderDate: 1, preOrderStage: 1 });
+storeOrderSchema.index({ driverLocation: "2dsphere" });
+
+storeOrderSchema.pre("validate", function deriveStoreOrderType() {
+  if (
+    this.isNew ||
+    this.isModified("isPreOrder") ||
+    this.isModified("sourcePart") ||
+    this.isModified("departments")
+  ) {
+    this.orderType = deriveOrderType(this);
+  }
+});
 
 storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
   const items = this.items.map((item) => {
@@ -410,6 +449,7 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     sourcePart: this.sourcePart || "",
     fulfillmentType: this.fulfillmentType || "delivery",
     departments: this.departments || [],
+    orderType: this.orderType || deriveOrderType(this),
     routingReason: this.routingReason || "",
     // Pre-order
     isPreOrder: Boolean(this.isPreOrder),
@@ -421,6 +461,8 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     forwardedAt: this.forwardedAt,
     forwardedByName: this.forwardedByName || "",
     preOrderNote: this.preOrderNote || "",
+    fullTimeDelivery: Boolean(this.fullTimeDelivery),
+    fullTimeAssignedAt: this.fullTimeAssignedAt || null,
     // Payment
     paymentMethod: this.paymentMethod || "",
     paymentStatus: this.paymentStatus || "pending",

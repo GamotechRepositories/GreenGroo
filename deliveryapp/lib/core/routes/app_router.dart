@@ -26,6 +26,8 @@ import '../../presentation/screens/onboarding/vehicle_selection_screen.dart';
 import '../../presentation/screens/orders/new_orders_screen.dart';
 import '../../presentation/screens/onboarding/employment_type_screen.dart';
 import '../../presentation/screens/fulltime/fulltime_rules_screen.dart';
+import '../../presentation/screens/fulltime/fulltime_attendance_screen.dart';
+import '../../presentation/screens/fulltime/assigned_orders_screen.dart';
 import '../../presentation/screens/shifts/my_shifts_screen.dart';
 import '../../presentation/screens/performance/performance_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
@@ -80,7 +82,9 @@ class AppRouter {
           AppRoutes.earnings => const EarningsScreen(),
           AppRoutes.wallet => const WalletScreen(),
           AppRoutes.gigs => const AllGigsScreen(),
-          AppRoutes.attendance => const AttendanceScreen(),
+          AppRoutes.attendance => AuthService.instance.deliveryBoy?.isFullTime == true
+              ? const FullTimeAttendanceScreen()
+              : const AttendanceScreen(),
           AppRoutes.leave => const ApplyLeaveScreen(),
           AppRoutes.performance => const PerformanceScreen(),
           AppRoutes.notifications => const NotificationsScreen(),
@@ -92,6 +96,8 @@ class AppRouter {
           AppRoutes.settings => const SettingsScreen(),
           AppRoutes.selectEmploymentType => const EmploymentTypeScreen(),
           AppRoutes.fullTimeRules => const FullTimeRulesScreen(),
+          AppRoutes.fullTimeAttendance => const FullTimeAttendanceScreen(),
+          AppRoutes.assignedOrders => const AssignedOrdersScreen(),
           _ => const SplashScreen(),
         },
       ),

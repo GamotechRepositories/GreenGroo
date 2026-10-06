@@ -17,6 +17,7 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("ALL");
 
   const load = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -54,6 +55,16 @@ export default function DriversPage() {
 
   const onlineCount = riders.filter((r) => r.status === "online").length;
   const offlineCount = Math.max(0, riders.length - onlineCount);
+  const fullTimeCount = riders.filter((r) => r.employmentType === "FULL_TIME").length;
+  const typeTabs = [
+    ["ALL", "All", riders.length],
+    ["FULL_TIME", "🟢 Full-Time", fullTimeCount],
+    ["PART_TIME", "🔵 Part-Time", riders.length - fullTimeCount],
+  ];
+  const visibleRiders =
+    typeFilter === "ALL"
+      ? riders
+      : riders.filter((r) => (r.employmentType || "PART_TIME") === typeFilter);
 
   return (
     <PageShell>
@@ -223,6 +234,23 @@ export default function DriversPage() {
           </p>
         </div>
       ) : (
+        <>
+        <div className="flex flex-wrap gap-1.5">
+          {typeTabs.map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTypeFilter(key)}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                typeFilter === key
+                  ? "bg-black text-white"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-xs">
           <table className="w-full text-left text-sm">
             <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
@@ -235,7 +263,14 @@ export default function DriversPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {riders.map((r) => {
+              {visibleRiders.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-xs font-semibold text-slate-400">
+                    No drivers match this filter.
+                  </td>
+                </tr>
+              )}
+              {visibleRiders.map((r) => {
                 const isOnline = r.status === "online";
                 return (
                   <tr
@@ -248,11 +283,11 @@ export default function DriversPage() {
                         <span>{r.name || "Delivery Partner"}</span>
                         {r.employmentType === 'FULL_TIME' ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200">
-                            Full-Time
+                            🟢 Full-Time
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 border border-blue-200">
-                            Part-Time
+                            🔵 Part-Time
                           </span>
                         )}
                       </div>
@@ -284,6 +319,7 @@ export default function DriversPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </PageShell>
   );

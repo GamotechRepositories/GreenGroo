@@ -22,6 +22,15 @@ class Env {
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
+  /// Live order tracking map (Google Maps SDK). Set to false when no Maps key is
+  /// configured in the native projects; tracking then shows ETA + timeline only.
+  static bool get liveMapEnabled =>
+      dotenv.env['LIVE_MAP_ENABLED']?.trim().toLowerCase() != 'false';
+
+  /// `osm` (default) = OpenStreetMap tiles, no API key. `google` = Google Maps SDK.
+  static bool get useGoogleMaps =>
+      dotenv.env['MAP_PROVIDER']?.trim().toLowerCase() == 'google';
+
   static String get merchantUpiId => dotenv.env['MERCHANT_UPI_ID']?.trim() ?? '';
 
   static String get merchantUpiName =>

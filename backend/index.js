@@ -11,6 +11,7 @@ import { memoryCacheStats } from "./shared/cache/memoryCache.js";
 import { LIVE_ROUTES } from "./realtime/liveRoutes.js";
 import { startCatalogPublisher } from "./realtime/catalogPublisher.js";
 import { startOrderStatusNotifier } from "./realtime/orderStatusNotifier.js";
+import { registerOrderTrackingSocket, startOrderStatusRelay } from "./realtime/orderTracking.js";
 import { startNotificationScheduler } from "./legacy/services/promotionalBroadcast.js";
 // Ensure User model is registered for admin JWT role resolution
 import "./legacy/models/user.js";
@@ -189,6 +190,8 @@ connectDB("server").then(async () => {
   startLiveViews({ port: PORT, routes: LIVE_ROUTES });
   startCatalogPublisher(io);
   startOrderStatusNotifier();
+  registerOrderTrackingSocket(io);
+  startOrderStatusRelay();
   void startNotificationScheduler();
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`GreenGrocc backend running on port ${PORT}`);

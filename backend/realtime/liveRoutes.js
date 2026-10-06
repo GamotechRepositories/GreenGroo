@@ -39,6 +39,8 @@ const FARM_COLLECTIONS = [
 const CATALOG_COLLECTIONS = ["greengroccproducts", "greengrocccategories", "greengroccsections"];
 
 const RIDER_PRESENCE_FIELDS = ["currentLocation", "lastSeenAt", "updatedAt", "fcmToken", "pendingSlotAlerts"];
+/** Live rider GPS copied onto an order every few seconds; dashboards don't depend on it. */
+const ORDER_TRACKING_FIELDS = ["driverLocation", "updatedAt"];
 
 const sameId = (a, b) => String(a || "") === String(b || "");
 
@@ -62,13 +64,13 @@ export const LIVE_ROUTES = [
     path: "/api/delivery-managers",
     deps: STORE_COLLECTIONS,
     scope: storeScope,
-    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS },
+    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS, storeorders: ORDER_TRACKING_FIELDS },
   },
   { path: "/api/alerts", deps: ["alerts"], scope: storeScope },
   {
     path: "/api/staff/preorders",
     deps: ["storeorders", "deliveryboys", "deliverymanagers"],
-    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS },
+    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS, storeorders: ORDER_TRACKING_FIELDS },
   },
   { path: "/api/staff/inventory-requests", deps: ["inventoryrequests", "deliverymanagers"] },
   { path: "/api/staff", exact: true, deps: ["staffs"] },
@@ -76,14 +78,18 @@ export const LIVE_ROUTES = [
   {
     path: "/api/admin-ops/delivery",
     deps: ["storeorders", "deliveryboys"],
-    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS },
+    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS, storeorders: ORDER_TRACKING_FIELDS },
   },
   {
     path: "/api/admin-ops/govt-schemes/applications",
     exact: true,
     deps: ["adminfarmerschemeapplications", "admingovernmentschemes"],
   },
-  { path: "/api/admin/dark-stores", deps: ["deliverymanagers", "storeinventories", "storeorders"] },
+  {
+    path: "/api/admin/dark-stores",
+    deps: ["deliverymanagers", "storeinventories", "storeorders"],
+    ignoreFields: { storeorders: ORDER_TRACKING_FIELDS },
+  },
   { path: "/api/products/all", deps: CATALOG_COLLECTIONS },
   { path: "/api/categories", deps: ["greengrocccategories"], public: true },
   { path: "/api/sections", deps: ["greengroccsections"], public: true },

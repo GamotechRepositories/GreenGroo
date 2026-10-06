@@ -74,6 +74,10 @@
 		<string>We need your location to verify store proximity and track deliveries while you are online.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>We need your location to assign and track deliveries while on duty.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

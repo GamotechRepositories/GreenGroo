@@ -76,6 +76,7 @@ import {
   markFullTimeAttendance,
   getFullTimeAttendanceToday,
   getFullTimeRulesForRider,
+  getFullTimeAssignedOrdersForRider,
 } from "../controllers/fullTimeAttendanceController.js";
 
 const router = express.Router();
@@ -152,5 +153,6 @@ router.get("/performance", protect, getPerformanceStats);
 router.post("/attendance/mark", protect, markFullTimeAttendance);
 router.get("/attendance/fulltime-today", protect, getFullTimeAttendanceToday);
 router.get("/fulltime-rules", protect, getFullTimeRulesForRider);
+router.get("/fulltime/assigned-orders", protect, getFullTimeAssignedOrdersForRider);
 
 export default router;

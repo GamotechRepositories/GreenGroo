@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/utils/image_upload_utils.dart';
+import '../../../data/services/live_tracking_service.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../utils/map_navigation.dart';
@@ -874,6 +875,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
+                  _LiveTrackingBanner(delivery: d),
                   _StoreInfoCard(
                     storeName: d.darkStoreName,
                     address: d.darkStoreAddress,
@@ -1970,6 +1972,73 @@ class _BottomActions extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Tells the rider whether the customer can see them on the map for this order.
+class _LiveTrackingBanner extends StatelessWidget {
+  const _LiveTrackingBanner({required this.delivery});
+
+  final ActiveDeliveryData delivery;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LiveTrackingService.instance,
+      builder: (context, _) {
+        final service = LiveTrackingService.instance;
+        final IconData icon;
+        final String text;
+        final Color color;
+        if (delivery.isPreOrder) {
+          icon = Icons.event_note_outlined;
+          text = 'Pre-order delivery — customer gets status updates only (no live map).';
+          color = Colors.blueGrey;
+        } else if (!delivery.trackingEnabled) {
+          return const SizedBox.shrink();
+        } else if (service.trackedOrderIds.contains(delivery.id)) {
+          icon = Icons.my_location;
+          text = 'Sharing live location with the customer.';
+          color = const Color(0xFF126B43);
+        } else if (delivery.shouldStreamLocation && service.lastError != null) {
+          icon = Icons.location_off_outlined;
+          text = service.lastError!;
+          color = Colors.red.shade700;
+        } else if (delivery.shouldStreamLocation) {
+          icon = Icons.gps_not_fixed;
+          text = 'Starting live location…';
+          color = Colors.orange.shade800;
+        } else {
+          icon = Icons.location_searching;
+          text = 'Live location starts automatically after pickup.';
+          color = Colors.grey.shade700;
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

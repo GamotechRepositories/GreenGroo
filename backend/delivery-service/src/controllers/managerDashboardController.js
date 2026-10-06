@@ -62,8 +62,16 @@ const stockMapForManager = async (managerId) => {
 async function backfillRiderEarningIfMissing(order, darkStore) {
   if (!order || order.status !== "delivered") return order;
   if (Number(order.riderDeliveryEarning || 0) > 0) return order;
+  if (order.fullTimeDelivery) return order;
 
   try {
+    if (order.assignedRiderId) {
+      const assignee = await DeliveryBoy.findById(order.assignedRiderId)
+        .select("employmentType")
+        .lean();
+      if (assignee?.employmentType === "FULL_TIME") return order;
+    }
+
     const earningResult = await calculateRiderEarning({
       shiftId: order.shiftId || null,
       managerId: order.managerId,
@@ -145,12 +153,12 @@ const approvedFilter = {
   ],
 };
 
-const riderQuery = (manager, extra = {}) => ({
+export const riderQuery = (manager, extra = {}) => ({
   ...extra,
   $and: [areaMatch(manager), approvedFilter],
 });
 
-const serializeRider = (r) => ({
+export const serializeRider = (r) => ({
   id: r._id.toString(),
   name: r.name || "Rider",
   phone: r.phone,

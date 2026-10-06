@@ -17,6 +17,15 @@ import {
   getCurrentMinutesIST,
   isSlotEnded,
 } from "../utils/shiftTimeHelper.js";
+import {
+  computeMonthPayroll,
+  effectiveMonthlySalary,
+  getActiveFullTimeRule,
+  getDriverFullTimeShift,
+  istMonthString,
+  resolveRiderManager,
+  shiftPayPolicy,
+} from "../services/fullTimeService.js";
 
 const istDayRange = (dateString) => ({
   start: new Date(`${dateString}T00:00:00+05:30`),
@@ -406,7 +415,39 @@ export const getWalletSummary = async (req, res, next) => {
       };
     });
 
-    const totalEarnings = Number(totalAgg[0]?.total || 0);
+    let totalEarnings = Number(totalAgg[0]?.total || 0);
+    let fullTime = null;
+    if (rider.employmentType === "FULL_TIME") {
+      const manager = await resolveRiderManager(rider);
+      const [rule, shift] = manager
+        ? await Promise.all([
+            getActiveFullTimeRule(manager._id),
+            getDriverFullTimeShift(manager._id, rider._id),
+          ])
+        : [null, null];
+      const credits = [...(rider.salaryCredits || [])].sort((a, b) =>
+        String(b.month).localeCompare(String(a.month))
+      );
+      const totalSalaryCredited = credits.reduce((s, c) => s + Number(c.amount || 0), 0);
+      const currentMonth = istMonthString();
+      totalEarnings += totalSalaryCredited;
+      fullTime = {
+        employmentType: "FULL_TIME",
+        monthlySalary: effectiveMonthlySalary(rider, manager, shift),
+        currentMonth,
+        currentMonthCredited: credits.some((c) => c.month === currentMonth),
+        totalSalaryCredited,
+        salaryCredits: credits.map((c) => ({
+          month: c.month,
+          amount: c.amount,
+          creditedAt: c.creditedAt,
+          breakdown: c.breakdown || null,
+        })),
+        perKmEarnings: false,
+        payPolicy: shiftPayPolicy(shift),
+        currentMonthPayroll: await computeMonthPayroll({ rider, manager, shift, rule }),
+      };
+    }
     const withdrawEnabled = Boolean(rider.withdrawEnabled);
     const canWithdraw = withdrawEnabled && totalEarnings > 0;
 
@@ -432,6 +473,7 @@ export const getWalletSummary = async (req, res, next) => {
         : withdrawEnabled
           ? "No earnings available to withdraw yet."
           : "Withdraw is inactive until Admin activates it.",
+      fullTime,
     });
   } catch (error) {
     next(error);

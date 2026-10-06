@@ -38,6 +38,7 @@ class RiderNotification {
     if (b == 'online' || b == 'new') return b!;
     if (!isRead &&
         (type == 'ORDER_RECEIVED' ||
+            type == 'ORDER_ASSIGNED' ||
             type == 'NEW_GIG' ||
             type == 'VERIFICATION_COMPLETED' ||
             type == 'ANNOUNCEMENT')) {

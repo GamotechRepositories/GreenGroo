@@ -7,6 +7,7 @@ import '../../core/config/api_config.dart';
 import '../../core/l10n/locale_controller.dart';
 import '../../core/routes/app_routes.dart';
 import 'rider_live_service.dart';
+import 'live_tracking_service.dart';
 import 'location_service.dart';
 import 'notification_inbox_service.dart';
 import 'push_notification_service.dart';
@@ -297,6 +298,7 @@ class AuthService {
   }
 
   Future<void> clearSession() async {
+    await LiveTrackingService.instance.stop();
     SocketService.instance.disconnect();
     NotificationInboxService.instance.clear();
     _token = null;

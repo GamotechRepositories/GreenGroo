@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { useLive } from "../../realtime/useLive";
+import FullTimeDriverPanel from "../fulltime/FullTimeDriverPanel";
 
 export default function DriverDetailPage() {
   const { driverId } = useParams();
@@ -314,6 +315,12 @@ export default function DriverDetailPage() {
           </div>
         </div>
       </div>
+
+      <FullTimeDriverPanel
+        driverId={driverId}
+        employmentType={driver.employmentType || "PART_TIME"}
+        onChanged={() => loadDriverDetails({ silent: true })}
+      />
 
       {/* Performance — closed by default; pick a date to view that day only */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { apiError, currentMonthIst, formatMoney, salarySourceLabel } from "./fullTimeUi";
 
 export default function FullTimeSalaryPage() {
   const [salary, setSalary] = useState(0);
@@ -122,6 +124,207 @@ export default function FullTimeSalaryPage() {
           </div>
         </form>
       </div>
+
+      <DriverSalaryTable refreshKey={salary} />
     </PageShell>
+  );
+}
+
+function DriverSalaryTable({ refreshKey }) {
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [drafts, setDrafts] = useState({});
+  const [busyId, setBusyId] = useState(null);
+  const [month, setMonth] = useState(currentMonthIst());
+  const [notice, setNotice] = useState({ type: "", text: "" });
+
+  const load = async () => {
+    try {
+      const res = await managerApi.getFullTimeDrivers();
+      setDrivers(res.data?.drivers || []);
+    } catch (err) {
+      setNotice({ type: "error", text: apiError(err, "Failed to load Full-Time drivers") });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [refreshKey]);
+
+  const saveOverride = async (driver, value) => {
+    setBusyId(driver.id);
+    setNotice({ type: "", text: "" });
+    try {
+      await managerApi.setFullTimeDriverSalary(driver.id, value === "" ? null : Number(value));
+      setDrafts((d) => ({ ...d, [driver.id]: undefined }));
+      setNotice({ type: "ok", text: `Salary updated for ${driver.name}` });
+      await load();
+    } catch (err) {
+      setNotice({ type: "error", text: apiError(err, "Failed to update salary") });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const credit = async (driver) => {
+    const isCurrent = month === currentMonthIst();
+    const amountText =
+      isCurrent && driver.payroll
+        ? `${formatMoney(driver.payroll.netSalary)} (after ${formatMoney(driver.payroll.totalDeductions)} deductions)`
+        : "the net salary (after leave / late deductions)";
+    if (!window.confirm(`Credit ${amountText} for ${month} to ${driver.name}'s wallet?`)) return;
+    setBusyId(driver.id);
+    setNotice({ type: "", text: "" });
+    try {
+      const res = await managerApi.creditFullTimeSalary(driver.id, { month });
+      setNotice({ type: "ok", text: res.data?.message || "Salary credited" });
+      await load();
+    } catch (err) {
+      setNotice({ type: "error", text: apiError(err, "Failed to credit salary") });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">Per-Driver Salary</h3>
+          <p className="text-[11px] text-slate-500">
+            Leave the override blank to use the store salary above. Crediting adds the salary to the driver&apos;s
+            wallet once per month.
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Salary Month</label>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {notice.text && (
+        <div
+          className={`rounded-xl border p-2.5 text-xs font-semibold ${
+            notice.type === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {notice.text}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="h-24 animate-pulse rounded-xl bg-slate-100" />
+      ) : drivers.length === 0 ? (
+        <p className="py-6 text-center text-xs text-slate-500">No Full-Time drivers yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-black text-xs font-bold uppercase tracking-wider text-white">
+              <tr>
+                <th className="px-4 py-2">Driver</th>
+                <th className="px-4 py-2">Effective Salary</th>
+                <th className="px-4 py-2">Override (₹)</th>
+                <th className="px-4 py-2">This Month (net)</th>
+                <th className="px-4 py-2 text-right">Wallet Credit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {drivers.map((d) => {
+                const draft = drafts[d.id];
+                const value = draft !== undefined ? draft : d.salaryOverride ?? "";
+                const dirty = draft !== undefined && String(draft) !== String(d.salaryOverride ?? "");
+                const creditedThisMonth = d.salaryCreditedThisMonth && month === currentMonthIst();
+                return (
+                  <tr key={d.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <Link to={`/drivers/${d.id}`} className="font-bold text-slate-900 hover:text-emerald-700">
+                        {d.name}
+                      </Link>
+                      <div className="text-[11px] text-slate-400">{d.phone}</div>
+                    </td>
+                    <td className="px-4 py-3 font-black text-emerald-600">
+                      {formatMoney(d.monthlySalary)}
+                      <div className="text-[10px] font-semibold text-slate-400">
+                        {salarySourceLabel(d.salarySource)}
+                        {d.shift?.name ? ` · ${d.shift.name}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          placeholder="Store default"
+                          value={value}
+                          onChange={(e) => setDrafts((p) => ({ ...p, [d.id]: e.target.value }))}
+                          className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none"
+                        />
+                        {dirty && (
+                          <button
+                            type="button"
+                            disabled={busyId === d.id}
+                            onClick={() => saveOverride(d, draft)}
+                            className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            Save
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                      {d.payroll ? (
+                        <>
+                          <div className="font-black text-slate-900">{formatMoney(d.payroll.netSalary)}</div>
+                          {d.payroll.totalDeductions > 0 && (
+                            <div className="text-[10px] font-bold text-rose-600">
+                              −{formatMoney(d.payroll.totalDeductions)}
+                              {d.payroll.leave.unpaid > 0 && ` · ${d.payroll.leave.unpaid} unpaid leave`}
+                              {d.payroll.late.count > 0 && ` · ${d.payroll.late.count} late`}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-slate-400">
+                            {d.monthPresentDays} present
+                            {d.payroll.leave.enabled &&
+                              ` · ${d.payroll.leave.taken} leave (${d.payroll.leave.paid} paid)`}
+                          </div>
+                        </>
+                      ) : (
+                        <>{d.monthPresentDays} present</>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {creditedThisMonth ? (
+                        <span className="text-[11px] font-bold text-emerald-700">
+                          ✓ {formatMoney(d.salaryCreditedThisMonth.amount)} credited
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busyId === d.id || !(d.monthlySalary > 0)}
+                          onClick={() => credit(d)}
+                          className="rounded-lg border border-emerald-300 px-3 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                          Credit {month}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

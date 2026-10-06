@@ -1,22 +1,36 @@
 import { useState, useEffect } from "react";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { DayPicker, apiError, formatDays, inputCls, labelCls, to24h } from "./fullTimeUi";
 
 const EMPTY_RULE = {
   ruleName: "Standard Full-Time Rule",
-  attendanceStartTime: "09:00 AM",
-  attendanceEndTime: "06:00 PM",
+  attendanceStartTime: "09:00",
+  attendanceEndTime: "18:00",
   requireLocationValidation: true,
   attendanceRadiusMeters: 200,
   minimumAttendanceDays: 26,
+  workingDays: [1, 2, 3, 4, 5, 6],
   notes: "",
+  customRules: [],
 };
+
+/** "18:00" → "06:00 PM" — rules store 12-hour strings like the rest of the shift system. */
+function to12h(value) {
+  const m = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return value;
+  const h = parseInt(m[1], 10);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(h12).padStart(2, "0")}:${m[2]} ${period}`;
+}
 
 export default function FullTimeRulesPage() {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_RULE);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +41,7 @@ export default function FullTimeRulesPage() {
       setRules(res.data?.rules || []);
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load rules");
+      setError(apiError(err, "Failed to load rules"));
     } finally {
       setLoading(false);
     }
@@ -37,23 +51,62 @@ export default function FullTimeRulesPage() {
     load();
   }, []);
 
+  const set = (key, value) => setForm((p) => ({ ...p, [key]: value }));
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(EMPTY_RULE);
+    setIsFormOpen(true);
+  };
+
+  const openEdit = (rule) => {
+    setEditingId(rule._id);
+    setForm({
+      ruleName: rule.ruleName,
+      attendanceStartTime: to24h(rule.attendanceStartTime),
+      attendanceEndTime: to24h(rule.attendanceEndTime),
+      requireLocationValidation: rule.requireLocationValidation !== false,
+      attendanceRadiusMeters: rule.attendanceRadiusMeters ?? 200,
+      minimumAttendanceDays: rule.minimumAttendanceDays ?? 26,
+      workingDays: rule.workingDays || [],
+      notes: rule.notes || "",
+      customRules: (rule.customRules || []).map((c) => ({ title: c.title, description: c.description || "" })),
+    });
+    setIsFormOpen(true);
+  };
+
+  const updateCustomRule = (index, key, value) =>
+    set(
+      "customRules",
+      form.customRules.map((c, i) => (i === index ? { ...c, [key]: value } : c))
+    );
+
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (!form.workingDays.length) {
+      setError("Select at least one working day");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     setError("");
+    const payload = {
+      ...form,
+      attendanceStartTime: to12h(form.attendanceStartTime),
+      attendanceEndTime: to12h(form.attendanceEndTime),
+      attendanceRadiusMeters: Number(form.attendanceRadiusMeters),
+      minimumAttendanceDays: Number(form.minimumAttendanceDays),
+      customRules: form.customRules.filter((c) => c.title.trim()),
+    };
     try {
-      await managerApi.createFullTimeRule({
-        ...form,
-        attendanceRadiusMeters: Number(form.attendanceRadiusMeters),
-        minimumAttendanceDays: Number(form.minimumAttendanceDays),
-      });
-      setMessage("Full-Time rule created successfully!");
-      setForm(EMPTY_RULE);
-      setIsCreateOpen(false);
+      if (editingId) await managerApi.updateFullTimeRule(editingId, payload);
+      else await managerApi.createFullTimeRule(payload);
+      setMessage(editingId ? "Rule updated." : "Full-Time rule created successfully!");
+      setIsFormOpen(false);
+      setEditingId(null);
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create rule");
+      setError(apiError(err, "Failed to save rule"));
     } finally {
       setSubmitting(false);
     }
@@ -66,181 +119,244 @@ export default function FullTimeRulesPage() {
       setMessage("Rule deleted.");
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete rule");
+      setError(apiError(err, "Failed to delete rule"));
     }
   };
 
   return (
-    <PageShell>
+    <PageShell
+      title="Full-Time Rules"
+      subtitle="Attendance and conduct rules for Full-Time drivers. Drivers see these on the My Rules page in the app."
+    >
       {message && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 shadow-xs flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 shadow-xs">
           <span>{message}</span>
-          <button type="button" onClick={() => setMessage("")} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+          <button type="button" onClick={() => setMessage("")} className="font-bold text-slate-400 hover:text-slate-600">✕</button>
         </div>
       )}
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
           <span>{error}</span>
-          <button type="button" onClick={() => setError("")} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+          <button type="button" onClick={() => setError("")} className="font-bold text-slate-400 hover:text-slate-600">✕</button>
         </div>
       )}
 
-      {/* Actions row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900">Full-Time Attendance Rules</h2>
-          <p className="text-[11px] text-slate-500">Configure attendance requirements for Full-Time drivers.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[11px] text-slate-500">
+          The most recently updated rule is used for attendance. A driver&apos;s Full-Time shift timing, when
+          assigned, takes priority over the rule timing.
+        </p>
         <button
           type="button"
-          onClick={() => setIsCreateOpen((v) => !v)}
-          className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs hover:bg-emerald-700 transition"
+          onClick={() => (isFormOpen ? setIsFormOpen(false) : openCreate())}
+          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs transition hover:bg-emerald-700"
         >
-          {isCreateOpen ? "✕ Close Form" : "+ Create Rule"}
+          {isFormOpen ? "✕ Close Form" : "+ Create Rule"}
         </button>
       </div>
 
-      {/* Create Form */}
-      {isCreateOpen && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">New Attendance Rule</h3>
-          <form onSubmit={onSubmit} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Rule Name</label>
-                <input
-                  value={form.ruleName}
-                  onChange={(e) => setForm((p) => ({ ...p, ruleName: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Attendance Radius (meters)</label>
-                <input
-                  type="number"
-                  min="50"
-                  value={form.attendanceRadiusMeters}
-                  onChange={(e) => setForm((p) => ({ ...p, attendanceRadiusMeters: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Start Time</label>
-                <input
-                  value={form.attendanceStartTime}
-                  onChange={(e) => setForm((p) => ({ ...p, attendanceStartTime: e.target.value }))}
-                  placeholder="e.g. 09:00 AM"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">End Time</label>
-                <input
-                  value={form.attendanceEndTime}
-                  onChange={(e) => setForm((p) => ({ ...p, attendanceEndTime: e.target.value }))}
-                  placeholder="e.g. 06:00 PM"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Minimum Attendance Days / Month</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={form.minimumAttendanceDays}
-                  onChange={(e) => setForm((p) => ({ ...p, minimumAttendanceDays: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-2 pt-4">
-                <input
-                  type="checkbox"
-                  id="reqLoc"
-                  checked={form.requireLocationValidation}
-                  onChange={(e) => setForm((p) => ({ ...p, requireLocationValidation: e.target.checked }))}
-                  className="accent-emerald-600 h-4 w-4"
-                />
-                <label htmlFor="reqLoc" className="text-xs font-bold text-slate-700">Require Location Validation</label>
-              </div>
+      {isFormOpen && (
+        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <h3 className="border-b border-slate-100 pb-2 text-sm font-bold text-slate-900">
+            {editingId ? "Edit Rule" : "New Rule"}
+          </h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Rule Name</label>
+              <input required value={form.ruleName} onChange={(e) => set("ruleName", e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Notes (optional)</label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                rows={2}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none resize-none"
+              <label className={labelCls}>Attendance Start</label>
+              <input
+                type="time"
+                required
+                value={form.attendanceStartTime}
+                onChange={(e) => set("attendanceStartTime", e.target.value)}
+                className={inputCls}
               />
             </div>
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+            <div>
+              <label className={labelCls}>Attendance End</label>
+              <input
+                type="time"
+                required
+                value={form.attendanceEndTime}
+                onChange={(e) => set("attendanceEndTime", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Dark Store Radius (m)</label>
+              <input
+                type="number"
+                min="10"
+                required
+                value={form.attendanceRadiusMeters}
+                onChange={(e) => set("attendanceRadiusMeters", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Minimum Attendance Days / Month</label>
+              <input
+                type="number"
+                min="0"
+                max="31"
+                required
+                value={form.minimumAttendanceDays}
+                onChange={(e) => set("minimumAttendanceDays", e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <label className="flex items-center gap-2 pt-5 text-xs font-bold text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.requireLocationValidation}
+                onChange={(e) => set("requireLocationValidation", e.target.checked)}
+                className="h-4 w-4 accent-emerald-600"
+              />
+              Must be present near the dark store
+            </label>
+          </div>
+
+          <div>
+            <label className={labelCls}>Working Days</label>
+            <DayPicker value={form.workingDays} onChange={(v) => set("workingDays", v)} />
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-800">Custom Rules</span>
               <button
                 type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                onClick={() => set("customRules", [...form.customRules, { title: "", description: "" }])}
+                className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-200"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-60 transition"
-              >
-                {submitting ? "Creating…" : "Create Rule"}
+                + Add Rule
               </button>
             </div>
-          </form>
-        </div>
+            {form.customRules.length === 0 && (
+              <p className="text-[11px] text-slate-400">e.g. “Wear company uniform”, “Report to store manager at shift start”.</p>
+            )}
+            {form.customRules.map((c, i) => (
+              <div key={i} className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-2.5">
+                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    placeholder="Rule title"
+                    value={c.title}
+                    onChange={(e) => updateCustomRule(i, "title", e.target.value)}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Description (optional)"
+                    value={c.description}
+                    onChange={(e) => updateCustomRule(i, "description", e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => set("customRules", form.customRules.filter((_, idx) => idx !== i))}
+                  className="pt-2 text-sm font-bold text-rose-500 hover:text-rose-700"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <label className={labelCls}>Notes (optional)</label>
+            <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} className={inputCls} />
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-slate-100 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(false)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {submitting ? "Saving…" : editingId ? "Save Changes" : "Create Rule"}
+            </button>
+          </div>
+        </form>
       )}
 
-      {/* Rules List */}
       {loading ? (
-        <div className="h-40 rounded-2xl bg-slate-200/60 animate-pulse" />
+        <div className="h-40 animate-pulse rounded-2xl bg-slate-200/60" />
       ) : rules.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-xs">
           <p className="text-sm font-bold text-slate-700">No rules configured yet</p>
-          <p className="mt-1 text-xs text-slate-400">Click &quot;+ Create Rule&quot; to add attendance requirements for Full-Time drivers.</p>
+          <p className="mt-1 text-xs text-slate-400">Click &quot;+ Create Rule&quot; to add requirements for Full-Time drivers.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-xs">
           <table className="w-full text-left text-sm">
-            <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+            <thead className="bg-black text-xs font-bold uppercase tracking-wider text-white">
               <tr>
-                <th className="py-2 px-4">Rule Name</th>
-                <th className="py-2 px-4">Hours</th>
-                <th className="py-2 px-4">Radius (m)</th>
-                <th className="py-2 px-4">Location Check</th>
-                <th className="py-2 px-4">Min Days</th>
-                <th className="py-2 px-4">Notes</th>
-                <th className="py-2 px-4 text-right">Actions</th>
+                <th className="px-4 py-2">Rule Name</th>
+                <th className="px-4 py-2">Hours</th>
+                <th className="px-4 py-2">Days</th>
+                <th className="px-4 py-2">Location Check</th>
+                <th className="px-4 py-2">Min Days</th>
+                <th className="px-4 py-2">Custom Rules</th>
+                <th className="px-4 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rules.map((rule) => (
-                <tr key={rule._id} className="hover:bg-slate-50 transition">
-                  <td className="py-3 px-4 font-bold text-slate-900">{rule.ruleName}</td>
-                  <td className="py-3 px-4 text-slate-700 font-medium">
+                <tr key={rule._id} className="align-top transition hover:bg-slate-50">
+                  <td className="px-4 py-3 font-bold text-slate-900">
+                    {rule.ruleName}
+                    {rule.notes && <div className="max-w-[180px] truncate text-[11px] font-normal text-slate-400">{rule.notes}</div>}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-700">
                     {rule.attendanceStartTime} – {rule.attendanceEndTime}
                   </td>
-                  <td className="py-3 px-4 font-medium text-slate-700">{rule.attendanceRadiusMeters}m</td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold border ${rule.requireLocationValidation ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                      {rule.requireLocationValidation ? "Required" : "Optional"}
+                  <td className="px-4 py-3 text-xs text-slate-600">{formatDays(rule.workingDays)}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                        rule.requireLocationValidation
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-slate-200 bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {rule.requireLocationValidation ? `Within ${rule.attendanceRadiusMeters}m` : "Optional"}
                     </span>
                   </td>
-                  <td className="py-3 px-4 font-medium text-slate-700">{rule.minimumAttendanceDays} days</td>
-                  <td className="py-3 px-4 text-xs text-slate-500 max-w-[160px] truncate">{rule.notes || "—"}</td>
-                  <td className="py-3 px-4 text-right">
+                  <td className="px-4 py-3 font-medium text-slate-700">{rule.minimumAttendanceDays} days</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    {(rule.customRules || []).length === 0 ? (
+                      "—"
+                    ) : (
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        {rule.customRules.map((c, i) => (
+                          <li key={i}>{c.title}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(rule)}
+                      className="mr-2 rounded-lg border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={() => onDelete(rule._id)}
-                      className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 transition"
+                      className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
                     >
                       Delete
                     </button>

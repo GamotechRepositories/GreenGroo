@@ -44,6 +44,11 @@ const fullTimeAttendanceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    /** Minutes after the required start time when attendance was marked (0 = on time). */
+    lateMinutes: {
+      type: Number,
+      default: null,
+    },
   },
   { timestamps: true }
 );

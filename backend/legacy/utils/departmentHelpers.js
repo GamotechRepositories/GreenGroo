@@ -67,3 +67,36 @@ export function collectDepartments(items = []) {
   const found = new Set(items.map((item) => item?.department).filter(Boolean));
   return DEPARTMENT_KEYS.filter((key) => found.has(key));
 }
+
+/** Customer-facing order types. Only ready_to_cook and instant get live rider tracking. */
+export const ORDER_TYPES = ["ready_to_cook", "instant", "preorder"];
+export const TRACKABLE_ORDER_TYPES = ["ready_to_cook", "instant"];
+
+export function isTrackableOrderType(orderType) {
+  return TRACKABLE_ORDER_TYPES.includes(orderType);
+}
+
+function typeFromLiveDepartments(departments = []) {
+  if (departments.includes("instant")) return "instant";
+  if (departments.includes("ready2cook")) return "ready_to_cook";
+  return "instant";
+}
+
+/** Order type of a dark-store (split) order. */
+export function deriveOrderType({ isPreOrder = false, sourcePart = "", departments = [] } = {}) {
+  if (isPreOrder || sourcePart === "preorder") return "preorder";
+  return typeFromLiveDepartments(departments || []);
+}
+
+/**
+ * Order type of a customer order. A slot-booked cart made only of pre-order items is a
+ * preorder; anything delivered now (instant / ready-to-cook items, or no slot at all) is live.
+ */
+export function deriveCustomerOrderType(order = {}) {
+  const departments = order.departments?.length
+    ? order.departments
+    : collectDepartments(order.items || []);
+  const liveDepartments = departments.filter((dept) => dept !== "preorder");
+  if (order.preOrderSlot && !liveDepartments.length) return "preorder";
+  return typeFromLiveDepartments(liveDepartments);
+}

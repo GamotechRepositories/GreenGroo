@@ -41,6 +41,16 @@ const fullTimeRuleSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    /** Manager-defined operational rules shown to Full-Time drivers as-is. */
+    customRules: {
+      type: [
+        {
+          title: { type: String, trim: true, required: true },
+          description: { type: String, trim: true, default: "" },
+        },
+      ],
+      default: [],
+    },
     isActive: {
       type: Boolean,
       default: true,

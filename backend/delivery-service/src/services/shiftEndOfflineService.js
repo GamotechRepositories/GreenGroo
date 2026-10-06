@@ -278,6 +278,8 @@ async function processGigOnlyOnlineRiders() {
 
   const onlineRiders = await DeliveryBoy.find({
     status: "online",
+    // Full-Time drivers have no Part-Time bookings/gigs by design.
+    employmentType: { $ne: "FULL_TIME" },
     $or: [
       { "currentBooking.shiftId": null },
       { "currentBooking.shiftId": { $exists: false } },

@@ -145,6 +145,23 @@ export const managerApi = {
   createFullTimeRule: (data) => api.post(`${BASE}/fulltime-rules`, data),
   updateFullTimeRule: (id, data) => api.put(`${BASE}/fulltime-rules/${id}`, data),
   deleteFullTimeRule: (id) => api.delete(`${BASE}/fulltime-rules/${id}`),
-  getFullTimeShifts: () => api.get(`${BASE}/shifts?category=FULL_TIME`),
-  createFullTimeShift: (data) => api.post(`${BASE}/shifts`, { ...data, shiftCategory: 'FULL_TIME' }),
+  getFullTimeShifts: () => api.get(`${BASE}/fulltime/shifts`),
+  createFullTimeShift: (data) => api.post(`${BASE}/fulltime/shifts`, data),
+  updateFullTimeShift: (id, data) => api.put(`${BASE}/fulltime/shifts/${id}`, data),
+  deleteFullTimeShift: (id) => api.delete(`${BASE}/fulltime/shifts/${id}`),
+  getFullTimeDrivers: () => api.get(`${BASE}/fulltime/drivers`),
+  getFullTimeDriver: (driverId) => api.get(`${BASE}/fulltime/drivers/${driverId}`),
+  setFullTimeDriverSalary: (driverId, monthlySalary) =>
+    api.put(`${BASE}/fulltime/drivers/${driverId}/salary`, { monthlySalary }),
+  creditFullTimeSalary: (driverId, body = {}) =>
+    api.post(`${BASE}/fulltime/drivers/${driverId}/credit-salary`, body),
+  setDriverEmploymentType: (driverId, employmentType) =>
+    api.put(`${BASE}/drivers/${driverId}/employment-type`, { employmentType }),
+  getFullTimeAttendance: (date) => api.get(`${BASE}/fulltime/attendance`, { params: { date } }),
+  getFullTimeAssignableOrders: () => api.get(`${BASE}/fulltime/assignable-orders`),
+  getFullTimeAssignedOrders: (riderId) =>
+    api.get(`${BASE}/fulltime/assigned-orders`, { params: riderId ? { riderId } : {} }),
+  assignOrdersToFullTime: (riderId, orderIds) =>
+    api.post(`${BASE}/fulltime/assign-orders`, { riderId, orderIds }),
+  unassignFullTimeOrder: (orderId) => api.post(`${BASE}/fulltime/orders/${orderId}/unassign`),
 };

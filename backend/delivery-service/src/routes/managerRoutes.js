@@ -81,6 +81,22 @@ import {
   setFullTimeConfig,
 } from "../controllers/fullTimeRuleController.js";
 import {
+  listFullTimeShifts,
+  createFullTimeShift,
+  updateFullTimeShift,
+  deleteFullTimeShift,
+  listFullTimeDrivers,
+  getFullTimeDriverSummary,
+  setFullTimeDriverSalary,
+  creditFullTimeSalary,
+  setDriverEmploymentType,
+  listFullTimeAttendance,
+  listFullTimeAssignableOrders,
+  listFullTimeAssignedOrders,
+  assignOrdersToFullTimeDriver,
+  unassignFullTimeOrder,
+} from "../controllers/fullTimeManagementController.js";
+import {
   listManagerReturnPickups,
   getManagerReturnPickup,
   assignReturnPickup,
@@ -178,5 +194,19 @@ router.get("/fulltime-rules", listFullTimeRules);
 router.post("/fulltime-rules", createFullTimeRule);
 router.put("/fulltime-rules/:id", updateFullTimeRule);
 router.delete("/fulltime-rules/:id", deleteFullTimeRule);
+router.get("/fulltime/shifts", listFullTimeShifts);
+router.post("/fulltime/shifts", createFullTimeShift);
+router.put("/fulltime/shifts/:id", updateFullTimeShift);
+router.delete("/fulltime/shifts/:id", deleteFullTimeShift);
+router.get("/fulltime/drivers", listFullTimeDrivers);
+router.get("/fulltime/drivers/:driverId", getFullTimeDriverSummary);
+router.put("/fulltime/drivers/:driverId/salary", setFullTimeDriverSalary);
+router.post("/fulltime/drivers/:driverId/credit-salary", creditFullTimeSalary);
+router.put("/drivers/:driverId/employment-type", setDriverEmploymentType);
+router.get("/fulltime/attendance", listFullTimeAttendance);
+router.get("/fulltime/assignable-orders", listFullTimeAssignableOrders);
+router.get("/fulltime/assigned-orders", listFullTimeAssignedOrders);
+router.post("/fulltime/assign-orders", assignOrdersToFullTimeDriver);
+router.post("/fulltime/orders/:orderId/unassign", unassignFullTimeOrder);
 
 export default router;

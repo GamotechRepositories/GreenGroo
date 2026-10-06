@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../core/config/api_config.dart';
 import 'auth_service.dart';
+import 'live_tracking_service.dart';
 
 class OrderOffer {
   const OrderOffer({
@@ -87,6 +89,9 @@ class ActiveDeliveryData {
     this.deliveryComment = '',
     this.pickupQrUnlocked = true,
     this.routeBatchWindowEndsAt,
+    this.orderType = 'instant',
+    this.trackingEnabled = false,
+    this.sourceOrderId,
   });
 
   final String id;
@@ -129,6 +134,19 @@ class ActiveDeliveryData {
   final String deliveryComment;
   final bool pickupQrUnlocked;
   final DateTime? routeBatchWindowEndsAt;
+  /// ready_to_cook | instant | preorder (from the backend)
+  final String orderType;
+  /// Backend says live GPS may be shared for this order type (never for preorder).
+  final bool trackingEnabled;
+  final String? sourceOrderId;
+
+  bool get isPreOrder => orderType == 'preorder';
+
+  /// Rider has the parcel and the customer can follow them on the map.
+  bool get shouldStreamLocation =>
+      trackingEnabled &&
+      !isPreOrder &&
+      (status == 'pickup_verified' || status == 'out_for_delivery');
 
   /// True if payment is already settled online — rider must NOT collect cash
   bool get isPaidOnline => paymentStatus == 'paid_online';
@@ -182,6 +200,9 @@ class ActiveDeliveryData {
         routeBatchWindowEndsAt: json['routeBatchWindowEndsAt'] != null
             ? DateTime.tryParse(json['routeBatchWindowEndsAt'].toString())
             : null,
+        orderType: json['orderType'] as String? ?? 'instant',
+        trackingEnabled: json['trackingEnabled'] as bool? ?? false,
+        sourceOrderId: json['sourceOrderId'] as String?,
       );
 }
 
@@ -280,6 +301,11 @@ class OrderService extends ChangeNotifier {
     }
   }
 
+  /// Start / stop background GPS streaming to match the current deliveries.
+  void _syncLiveTracking() {
+    unawaited(LiveTrackingService.instance.syncWithDeliveries(_activeDeliveries));
+  }
+
   Future<ActiveDeliveryData?> fetchActiveDelivery() async {
     if (!AuthService.instance.isLoggedIn) return null;
     try {
@@ -296,6 +322,7 @@ class OrderService extends ChangeNotifier {
             .map((e) => ActiveDeliveryData.fromJson(Map<String, dynamic>.from(e)))
             .toList();
         _activeDelivery = _activeDeliveries.first;
+        _syncLiveTracking();
         notifyListeners();
         return _activeDelivery;
       }
@@ -304,11 +331,13 @@ class OrderService extends ChangeNotifier {
           body['activeDelivery'] as Map<String, dynamic>,
         );
         _activeDeliveries = [_activeDelivery!];
+        _syncLiveTracking();
         notifyListeners();
         return _activeDelivery;
       }
       _activeDelivery = null;
       _activeDeliveries = const [];
+      _syncLiveTracking();
       notifyListeners();
       return null;
     } catch (_) {
@@ -355,6 +384,9 @@ class OrderService extends ChangeNotifier {
             otpCode: unlocked['otpCode'] as String? ?? _activeDelivery!.otpCode,
             pickupQrUnlocked: true,
             routeBatchWindowEndsAt: null,
+            orderType: _activeDelivery!.orderType,
+            trackingEnabled: _activeDelivery!.trackingEnabled,
+            sourceOrderId: _activeDelivery!.sourceOrderId,
           );
         }
         await fetchActiveDelivery();

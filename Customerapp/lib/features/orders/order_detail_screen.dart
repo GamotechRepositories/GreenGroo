@@ -32,7 +32,8 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     Future.microtask(_loadOrder);
   }
 
-  Future<void> _loadOrder() async {
+  /// [silent] refreshes in place (live status changes) without the skeleton.
+  Future<void> _loadOrder({bool silent = false}) async {
     final auth = ref.read(authControllerProvider);
     if (!auth.isLoggedIn) {
       setState(() {
@@ -42,10 +43,12 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final order = await ref.read(apiServiceProvider).fetchOrderById(widget.orderId);
@@ -56,7 +59,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
       });
       ref.read(ordersControllerProvider.notifier).upsertOrder(order);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || (silent && _order != null)) return;
       setState(() {
         _order = null;
         _loading = false;
@@ -133,6 +136,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
         order: order,
         onInvoice: () => context.push('/orders/${order.id}/invoice'),
         onOrderAgain: () => _handleOrderAgain(order),
+        onTrackingStatusChanged: () => _loadOrder(silent: true),
       ),
     );
   }

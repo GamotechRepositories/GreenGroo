@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../../core/config/api_config.dart';
+import 'auth_service.dart';
 
 class SocketService {
   SocketService._();
@@ -63,10 +64,12 @@ class SocketService {
     final serverUrl = ApiConfig.baseUrl;
     debugPrint('[Socket] Connecting to $serverUrl for rider $riderId');
 
+    final token = AuthService.instance.token;
     _socket = IO.io(
       serverUrl,
       IO.OptionBuilder()
           .setTransports(['websocket', 'polling'])
+          .setAuth({if (token != null && token.isNotEmpty) 'token': token})
           .enableAutoConnect()
           .enableReconnection()
           .setReconnectionAttempts(99999)
@@ -177,6 +180,36 @@ class SocketService {
         }
       }
     });
+  }
+
+  /// Live GPS for one delivery. The server only accepts it for assigned
+  /// ready-to-cook / instant orders after pickup; the ack says why if not.
+  Future<Map<String, dynamic>?> emitDriverLocation({
+    required String orderId,
+    required double lat,
+    required double lng,
+    double? heading,
+    double? speed,
+    Duration timeout = const Duration(seconds: 5),
+  }) {
+    final socket = _socket;
+    if (socket == null || !socket.connected) return Future.value(null);
+    final completer = Completer<Map<String, dynamic>?>();
+    socket.emitWithAck(
+      'driver_location',
+      {
+        'orderId': orderId,
+        'lat': lat,
+        'lng': lng,
+        'heading': ?heading,
+        'speed': ?speed,
+      },
+      ack: (dynamic data) {
+        if (completer.isCompleted) return;
+        completer.complete(data is Map ? Map<String, dynamic>.from(data) : null);
+      },
+    );
+    return completer.future.timeout(timeout, onTimeout: () => null);
   }
 
   void _joinRoom() {

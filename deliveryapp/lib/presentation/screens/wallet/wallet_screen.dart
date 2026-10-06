@@ -29,6 +29,7 @@ class _WalletScreenState extends State<WalletScreen> {
   String _withdrawNote = '';
   bool _canWithdraw = false;
   bool _withdrawEnabled = false;
+  Map<String, dynamic>? _fullTime;
 
   @override
   void initState() {
@@ -65,6 +66,9 @@ class _WalletScreenState extends State<WalletScreen> {
             'Withdraw stays inactive until Admin activates it for your account.';
         _canWithdraw = body['canWithdraw'] == true;
         _withdrawEnabled = body['withdrawEnabled'] == true;
+        _fullTime = body['fullTime'] is Map
+            ? Map<String, dynamic>.from(body['fullTime'] as Map)
+            : null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -150,6 +154,10 @@ class _WalletScreenState extends State<WalletScreen> {
                         ],
                       ),
                     ),
+                    if (_fullTime != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      _FullTimeSalaryCard(data: _fullTime!),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     PrimaryButton(
                       label: l10n.withdraw,
@@ -314,6 +322,124 @@ class _WalletScreenState extends State<WalletScreen> {
       backgroundColor: AppColors.background,
       appBar: CustomAppBar(title: l10n.wallet, showBackButton: true),
       body: body,
+    );
+  }
+}
+
+class _FullTimeSalaryCard extends StatelessWidget {
+  const _FullTimeSalaryCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  static String _deductedLabel(dynamic breakdown) {
+    if (breakdown is! Map) return '';
+    final cut = ((breakdown['leaveDeduction'] as num?) ?? 0) +
+        ((breakdown['lateDeduction'] as num?) ?? 0);
+    return cut > 0 ? '  (−₹${cut.toInt()})' : '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final salary = (data['monthlySalary'] as num?)?.toInt() ?? 0;
+    final credited = data['currentMonthCredited'] == true;
+    final credits = (data['salaryCredits'] as List? ?? const [])
+        .whereType<Map>()
+        .take(3)
+        .toList();
+    final payroll = data['currentMonthPayroll'] as Map?;
+    final leave = (payroll?['leave'] as Map?) ?? const {};
+    final late = (payroll?['late'] as Map?) ?? const {};
+    final leaveCut = (leave['deduction'] as num?)?.toInt() ?? 0;
+    final lateCut = (late['deduction'] as num?)?.toInt() ?? 0;
+    final showPayroll = payroll != null &&
+        !credited &&
+        (leave['enabled'] == true || late['enabled'] == true);
+
+    return DashboardCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Monthly Salary', style: textTheme.titleMedium),
+              Text(
+                '₹$salary',
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            credited
+                ? '${data['currentMonth']} salary credited to your wallet'
+                : '${data['currentMonth']} salary will be credited by your Delivery Manager',
+            style: textTheme.bodySmall?.copyWith(
+              color: credited ? AppColors.success : AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            'Full-Time: fixed monthly salary, no per-KM earnings.',
+            style: textTheme.bodySmall?.copyWith(color: AppColors.textMuted, fontSize: 11),
+          ),
+          if (showPayroll) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('This month (estimated)', style: textTheme.bodySmall),
+                Text(
+                  '₹${(payroll['netSalary'] as num?)?.toInt() ?? 0}',
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            if (leave['enabled'] == true)
+              Text(
+                'Leaves: ${leave['taken'] ?? 0} taken · ${leave['paid'] ?? 0} paid · '
+                '${leave['unpaid'] ?? 0} unpaid${leaveCut > 0 ? ' (−₹$leaveCut)' : ''}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: leaveCut > 0 ? AppColors.error : AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            if (late['enabled'] == true)
+              Text(
+                'Late marks: ${late['count'] ?? 0}${lateCut > 0 ? ' (−₹$lateCut)' : ''}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: lateCut > 0 ? AppColors.error : AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+          ],
+          if (credits.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ...credits.map(
+              (c) => Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(c['month']?.toString() ?? '', style: textTheme.bodySmall),
+                    Text(
+                      '₹${(c['amount'] as num?)?.toInt() ?? 0}${_deductedLabel(c['breakdown'])}',
+                      style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

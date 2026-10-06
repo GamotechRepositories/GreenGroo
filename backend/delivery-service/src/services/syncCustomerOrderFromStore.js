@@ -2,6 +2,7 @@ import EcommerceOrder from "../../../legacy/models/order/Order.js";
 import StoreOrder from "../models/StoreOrder.js";
 import { notifyOrderStatusChange } from "../../../legacy/services/orderNotificationDispatcher.js";
 import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
+import { emitOrderStatus } from "./orderTrackingService.js";
 
 const CUSTOMER_STATUS_BY_STORE = {
   preorder_hold: "confirm",
@@ -53,6 +54,7 @@ async function combinedStatusForSplitOrder(storeOrder, storeStatus) {
 
 export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   if (!storeOrder?.sourceOrderId) return null;
+  emitOrderStatus(storeOrder, storeStatus);
 
   const customerOrder = await EcommerceOrder.findById(storeOrder.sourceOrderId);
   if (!customerOrder) return null;

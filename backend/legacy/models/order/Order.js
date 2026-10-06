@@ -4,7 +4,9 @@ import Product from "../Product.js";
 import {
   DEPARTMENT_KEYS,
   FULFILLMENT_TYPES,
+  ORDER_TYPES,
   collectDepartments,
+  deriveCustomerOrderType,
   sectionToDepartment,
 } from "../../utils/departmentHelpers.js";
 
@@ -224,6 +226,12 @@ const orderSchema = new mongoose.Schema(
       default: "delivery",
       index: true,
     },
+    /** ready_to_cook | instant get live rider tracking; preorder gets status updates only */
+    orderType: {
+      type: String,
+      enum: ORDER_TYPES,
+      index: true,
+    },
   },
 
   { timestamps: true }
@@ -274,6 +282,15 @@ orderSchema.pre("save", async function preSaveOrder() {
     !this.departments?.length
   ) {
     await stampDepartments(this);
+  }
+
+  if (
+    this.isNew ||
+    this.isModified("items") ||
+    this.isModified("preOrderSlot") ||
+    this.isModified("departments")
+  ) {
+    this.orderType = deriveCustomerOrderType(this);
   }
 
   if (this.isModified("status") && this.status === "delivered") {

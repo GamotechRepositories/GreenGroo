@@ -87,6 +87,15 @@ GoogleService-Info.plist
 android/local.properties
 android/captures/
 
+# Secrets / signing (never commit)
+**/android/local.properties
+**/android/key.properties
+*.jks
+*.keystore
+**/ios/Flutter/Secrets.xcconfig
+*ServiceAccount*.json
+*serviceAccount*.json
+
 # Xcode
 ios/DerivedData/
 *.xcworkspace

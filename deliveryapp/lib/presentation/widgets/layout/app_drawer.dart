@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -13,6 +14,7 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     Theme.of(context);
+    final isFullTime = AuthService.instance.deliveryBoy?.isFullTime ?? false;
 
     return Drawer(
       backgroundColor: AppColors.background,
@@ -65,6 +67,18 @@ class AppDrawer extends StatelessWidget {
                     label: l10n.dashboard,
                     onTap: () => _nav(context, AppRoutes.home),
                   ),
+                  if (isFullTime) ...[
+                    _DrawerItem(
+                      icon: Icons.assignment_outlined,
+                      label: 'Assigned Orders',
+                      onTap: () => _nav(context, AppRoutes.assignedOrders),
+                    ),
+                    _DrawerItem(
+                      icon: Icons.rule_outlined,
+                      label: 'My Rules',
+                      onTap: () => _nav(context, AppRoutes.fullTimeRules),
+                    ),
+                  ],
                   _DrawerItem(
                     icon: Icons.schedule_outlined,
                     label: l10n.myShifts,

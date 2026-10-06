@@ -307,8 +307,10 @@ class NotificationService {
       const notificationDetails = NotificationDetails(android: androidDetails);
 
       await _localNotifications.show(
-        id: payload.messageId?.hashCode ??
-            DateTime.now().millisecondsSinceEpoch,
+        // Android notification ids must fit in a 32-bit int.
+        id: (payload.messageId?.hashCode ??
+                DateTime.now().millisecondsSinceEpoch) &
+            0x7fffffff,
         title: title ?? ordersChannelName,
         body: body ?? '',
         notificationDetails: notificationDetails,

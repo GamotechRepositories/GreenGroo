@@ -110,6 +110,7 @@ abstract final class ApiConfig {
   static const fullTimeAttendanceMark = '/api/delivery-boys/attendance/mark';
   static const fullTimeAttendanceToday = '/api/delivery-boys/attendance/fulltime-today';
   static const fullTimeRules = '/api/delivery-boys/fulltime-rules';
+  static const fullTimeAssignedOrders = '/api/delivery-boys/fulltime/assigned-orders';
 
   // Shift earning slabs (rider reads from shift screen)
   static String shiftEarningSlabs(String shiftId) =>

@@ -32,6 +32,8 @@ function screenForType(type) {
   switch (type) {
     case "ORDER_RECEIVED":
       return "home";
+    case "ORDER_ASSIGNED":
+      return "assigned_orders";
     case "ORDER_COMPLETED":
     case "WALLET_CREDITED":
       return "wallet";
@@ -317,6 +319,33 @@ export async function notifyOrderReceived(riderId, { orderId, orderNumber, estim
       orderNumber: orderNumber || "",
       estimatedEarnings: estimatedEarnings != null ? String(estimatedEarnings) : "",
       event: "order_received",
+    },
+  });
+}
+
+/** Full-Time driver: manager manually assigned one or more orders. */
+export async function notifyOrdersAssigned(riderId, { orders = [] } = {}) {
+  if (!orders.length) return { created: 0, notifications: [], skipped: 0 };
+  const numbers = orders.map((o) => o.orderNumber).filter(Boolean);
+  const single = orders.length === 1;
+  return notifyRiders({
+    riderIds: [riderId],
+    type: "ORDER_ASSIGNED",
+    title: single ? "New Order Assigned" : `${orders.length} New Orders Assigned`,
+    message: single
+      ? `Order #${numbers[0] || ""} has been assigned to you.`
+      : `Orders ${numbers.map((n) => `#${n}`).join(", ")} have been assigned to you.`,
+    orderId: single ? orders[0].orderId : null,
+    priority: "high",
+    dedupeKey: `${orders.map((o) => String(o.orderId)).sort().join(",")}:assigned`,
+    data: {
+      screen: "assigned_orders",
+      badge: "new",
+      orderId: single ? String(orders[0].orderId) : "",
+      orderIds: orders.map((o) => String(o.orderId)).join(","),
+      orderNumbers: numbers.join(","),
+      orderCount: String(orders.length),
+      event: "order_assigned",
     },
   });
 }

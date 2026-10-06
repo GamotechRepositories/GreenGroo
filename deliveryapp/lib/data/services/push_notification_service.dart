@@ -129,6 +129,11 @@ class PushNotificationService {
 
     void goTab(int i) => shell.goToTab(i);
 
+    if (screen == 'assigned_orders' || type == 'ORDER_ASSIGNED') {
+      goTab(0);
+      nav?.pushNamed(AppRoutes.assignedOrders);
+      return;
+    }
     if (screen == 'wallet' ||
         type == 'ORDER_COMPLETED' ||
         type == 'WALLET_CREDITED') {

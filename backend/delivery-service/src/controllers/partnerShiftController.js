@@ -542,8 +542,10 @@ export const goOnline = async (req, res, next) => {
       }
     }
 
+    const isFullTime = rider.employmentType === "FULL_TIME";
+
     if (!todayBooking || !targetSlot) {
-      if (!liveGig) {
+      if (!liveGig && !isFullTime) {
         return res.status(400).json({
           success: false,
           code: "NO_SHIFT_BOOKED",
@@ -658,7 +660,9 @@ export const goOnline = async (req, res, next) => {
       await shift.save();
       await checkInToBooking(rider).catch(() => {});
     }
-    await checkAndTrackIncentive(rider._id, manager._id).catch(() => {});
+    if (!isFullTime) {
+      await checkAndTrackIncentive(rider._id, manager._id).catch(() => {});
+    }
 
     await emitRiderStatusUpdated(rider, {
       todayOnlineMinutes: liveOnlineMinutes(rider),
@@ -667,7 +671,9 @@ export const goOnline = async (req, res, next) => {
     const minutesUntilStart =
       targetSlot && startMin > currentMin ? startMin - currentMin : 0;
     let shiftMessage = "";
-    if (liveGig && !targetSlot) {
+    if (isFullTime && !targetSlot) {
+      shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! You are ONLINE 🟢. Orders are assigned to you by your Delivery Manager.`;
+    } else if (liveGig && !targetSlot) {
       shiftMessage = `You're online for ${liveGig.title} (${liveGig.startTime} - ${liveGig.endTime}). No booking needed — stay online to earn the gig bonus.`;
     } else if (minutesUntilStart > 0) {
       shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts in ${minutesUntilStart} minute${minutesUntilStart > 1 ? "s" : ""} at ${targetSlot.startTime}. You are checked in and ONLINE 🟢!`;
@@ -682,8 +688,8 @@ export const goOnline = async (req, res, next) => {
       distanceMeters,
       allowedRadius,
       minutesUntilStart,
-      startTime: targetSlot?.startTime || liveGig?.startTime,
-      endTime: targetSlot?.endTime || liveGig?.endTime,
+      startTime: targetSlot?.startTime || (isFullTime ? undefined : liveGig?.startTime),
+      endTime: targetSlot?.endTime || (isFullTime ? undefined : liveGig?.endTime),
       deliveryBoy: rider.toSafeJSON(),
     });
   } catch (error) {

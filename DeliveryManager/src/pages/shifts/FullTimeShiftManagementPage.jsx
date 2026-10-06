@@ -2,102 +2,55 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { managerApi } from "../../api/managerApi";
-
-const getTodayString = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-
-const formatDateWithDay = (dateStr) => {
-  if (!dateStr) return { formatted: "", dayName: "" };
-  try {
-    const d = new Date(dateStr + "T00:00:00");
-    const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
-    return { formatted, dayName };
-  } catch (e) {
-    return { formatted: dateStr, dayName: "" };
-  }
-};
+import { apiError, formatDays, formatMinutes, formatMoney } from "../fulltime/fullTimeUi";
 
 export default function FullTimeShiftManagementPage() {
-  const [selectedDate, setSelectedDate] = useState(getTodayString());
-  const [allShifts, setAllShifts] = useState([]);
+  const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadShifts = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await managerApi.getManagerSlots(selectedDate, { filter: "all" });
-      // Filter client-side: only FULL_TIME shifts
-      const all = res.data.shifts || [];
-      setAllShifts(all.filter((s) => s.shiftCategory === "FULL_TIME"));
+      const res = await managerApi.getFullTimeShifts();
+      setShifts(res.data.shifts || []);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load shifts");
+      setError(apiError(err, "Failed to load Full-Time shifts"));
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, []);
 
   useEffect(() => {
-    loadShifts();
-  }, [loadShifts]);
+    load();
+  }, [load]);
 
-  const currentDateObj = formatDateWithDay(getTodayString());
-  const selectedDateObj = formatDateWithDay(selectedDate);
+  const handleDelete = async (shift) => {
+    if (!window.confirm(`Remove Full-Time shift "${shift.name}"?`)) return;
+    try {
+      await managerApi.deleteFullTimeShift(shift.id);
+      load();
+    } catch (err) {
+      setError(apiError(err, "Failed to remove shift"));
+    }
+  };
 
   return (
-    <PageShell>
-      {/* Info banner */}
-      <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800 flex items-start gap-2">
-        <span>ℹ️</span>
-        <span>
-          Full-Time shifts are assigned to Full-Time drivers only. These shifts do <strong>not</strong> use per-KM earnings — drivers earn a fixed monthly salary instead.
-        </span>
-      </div>
-
-      {/* Stat row */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Today</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5 whitespace-nowrap">
-            <span className="text-sm font-black text-slate-900">{currentDateObj.formatted}</span>
-            <span className="text-[11px] font-medium text-slate-400">({currentDateObj.dayName})</span>
-          </div>
+    <PageShell
+      title="Full-Time Shifts"
+      subtitle="Recurring shifts for Full-Time drivers. Part-Time shifts & slots are managed separately under My Shift & Slots."
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+          Full-Time drivers don&apos;t book slots and earn a monthly salary — no per-KM earnings.
         </div>
-
-        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Selected Date</p>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full rounded-lg border border-slate-200/90 bg-slate-50/70 px-2 py-1 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none cursor-pointer"
-          />
-        </div>
-
-        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full-Time Shifts</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="text-base font-black text-slate-900">{allShifts.length}</span>
-            <span className="text-[11px] font-medium text-slate-400">shifts</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Actions</p>
-          <Link
-            to="/shifts/fulltime/create"
-            className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs hover:bg-emerald-700 transition whitespace-nowrap"
-          >
-            + Create Full-Time Shift
-          </Link>
-        </div>
+        <Link
+          to="/shifts/fulltime/create"
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
+        >
+          + Create Full-Time Shift
+        </Link>
       </div>
 
       {error && (
@@ -106,66 +59,101 @@ export default function FullTimeShiftManagementPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-xs text-[12px] text-slate-500">
-        Showing Full-Time shifts for <span className="font-bold text-slate-800">{selectedDateObj.formatted}</span>
-        {" "}({selectedDateObj.dayName}). Only shifts with <code className="bg-slate-100 px-1 rounded text-[11px]">shiftCategory=FULL_TIME</code> are listed here.
-      </div>
-
-      {/* Shifts Table */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xs">
         {loading ? (
           <div className="py-16 text-center text-xs font-semibold text-slate-400">Loading…</div>
-        ) : allShifts.length === 0 ? (
-          <div className="py-16 text-center text-slate-500 space-y-2">
+        ) : shifts.length === 0 ? (
+          <div className="space-y-2 py-16 text-center text-slate-500">
             <p className="text-2xl">📅</p>
-            <p className="text-sm font-bold text-slate-700">No Full-Time shifts for this date.</p>
-            <p className="text-xs text-slate-400">
-              Pick another date or click &quot;+ Create Full-Time Shift&quot;.
-            </p>
+            <p className="text-sm font-bold text-slate-700">No Full-Time shifts yet.</p>
+            <p className="text-xs text-slate-400">Click “+ Create Full-Time Shift” to add one.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+              <thead className="bg-black text-xs font-bold uppercase tracking-wider text-white">
                 <tr>
-                  <th className="px-5 py-2">SHIFT</th>
-                  <th className="px-5 py-2">DATE</th>
-                  <th className="px-5 py-2">TIME</th>
-                  <th className="px-5 py-2">STATUS</th>
-                  <th className="px-5 py-2">AVAILABLE</th>
-                  <th className="px-5 py-2">RIDERS</th>
+                  <th className="px-5 py-2">Shift</th>
+                  <th className="px-5 py-2">Timing</th>
+                  <th className="px-5 py-2">Working Days</th>
+                  <th className="px-5 py-2">Attendance</th>
+                  <th className="px-5 py-2">Salary &amp; Policy</th>
+                  <th className="px-5 py-2">Drivers</th>
+                  <th className="px-5 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allShifts.map((shift) => {
-                  const dateObj = formatDateWithDay(shift.dateString);
-                  return (shift.slots || []).map((slot, index) => {
-                    const available = Math.max(0, slot.capacity - slot.bookedCount);
-                    return (
-                      <tr key={`${shift.id}-${slot.id || index}`} className="hover:bg-emerald-50/40 transition">
-                        <td className="px-5 py-4 font-bold text-slate-900">{shift.name || shift.shiftName}</td>
-                        <td className="px-5 py-4">
-                          <div className="font-bold text-slate-900">{dateObj.formatted}</div>
-                          <div className="text-[11px] text-slate-400">{dateObj.dayName}</div>
-                        </td>
-                        <td className="px-5 py-4 font-bold text-slate-900">
-                          {slot.startTime} – {slot.endTime}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold bg-emerald-100 text-emerald-800 border-emerald-200">
-                            Full-Time
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 font-black text-emerald-600">
-                          {available} / {slot.capacity}
-                        </td>
-                        <td className="px-5 py-4 font-bold text-slate-700">
-                          {slot.bookedCount || 0} joined
-                        </td>
-                      </tr>
-                    );
-                  });
-                })}
+                {shifts.map((s) => (
+                  <tr key={s.id} className="align-top transition hover:bg-emerald-50/40">
+                    <td className="px-5 py-4">
+                      <div className="font-bold text-slate-900">{s.name}</div>
+                      {s.notes && <div className="text-[11px] text-slate-400">{s.notes}</div>}
+                    </td>
+                    <td className="px-5 py-4 font-bold text-slate-900">
+                      {s.startTime} – {s.endTime}
+                    </td>
+                    <td className="px-5 py-4 text-xs font-semibold text-slate-700">{formatDays(s.workingDays)}</td>
+                    <td className="px-5 py-4 text-xs text-slate-600">
+                      {s.requireAttendance ? "Required" : "Not required"}
+                      {s.requireAttendance && s.requireLocationValidation && (
+                        <div className="text-[11px] text-slate-400">
+                          GPS within {s.attendanceRadiusMeters ?? "rule default"}
+                          {s.attendanceRadiusMeters ? "m" : ""}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-xs text-slate-600">
+                      <div className="font-bold text-emerald-700">
+                        {s.monthlySalary != null ? `${formatMoney(s.monthlySalary)} / month` : "Store salary"}
+                      </div>
+                      {s.leavePolicyEnabled && (
+                        <div className="text-[11px]">
+                          {s.paidLeavesPerMonth} paid leave{s.paidLeavesPerMonth === 1 ? "" : "s"} · extra{" "}
+                          {s.unpaidLeaveDeductionPerDay != null
+                            ? `−${formatMoney(s.unpaidLeaveDeductionPerDay)}`
+                            : "−1 day salary"}
+                        </div>
+                      )}
+                      {s.latePenaltyEnabled && (
+                        <div className="text-[11px]">
+                          Late {formatMinutes(s.lateAfterMinutes)}+ → −{formatMoney(s.latePenaltyAmount)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-xs">
+                      {s.drivers.length === 0 ? (
+                        <span className="text-slate-400">No drivers</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {s.drivers.map((d) => (
+                            <Link
+                              key={d.id}
+                              to={`/drivers/${d.id}`}
+                              className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-800 hover:bg-emerald-100"
+                            >
+                              {d.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-right">
+                      <Link
+                        to={`/shifts/fulltime/${s.id}/edit`}
+                        className="mr-2 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(s)}
+                        className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

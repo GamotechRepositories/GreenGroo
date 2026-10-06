@@ -23,6 +23,7 @@ import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
+import { resolveStoreOrderType, isStoreOrderTrackable } from "../services/orderTrackingService.js";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -316,11 +317,15 @@ export const getActiveDelivery = async (req, res, next) => {
       );
       const amountToCollect = Number(order.amountToCollect || 0);
       const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
+      const orderType = resolveStoreOrderType(order);
       return {
         id: order._id.toString(),
         orderNumber: order.orderNumber,
         status: order.status,
         assignmentStatus: order.assignmentStatus,
+        sourceOrderId: order.sourceOrderId ? order.sourceOrderId.toString() : null,
+        orderType,
+        trackingEnabled: isStoreOrderTrackable(order),
         batchId: order.batchId || "",
         batchSequence: order.batchSequence || 0,
         distanceKm: order.distanceKm,
@@ -877,7 +882,7 @@ export const completeDelivery = async (req, res, next) => {
     const darkStore = await DeliveryManager.findById(order.managerId);
 
     const shiftIdForCalc = order.shiftId || rider?.currentBooking?.shiftId || null;
-    const earningResult = await calculateRiderEarning({
+    const rawEarningResult = await calculateRiderEarning({
       shiftId: shiftIdForCalc,
       managerId: order.managerId,
       riderId,
@@ -887,6 +892,12 @@ export const completeDelivery = async (req, res, next) => {
       customerLat: order.customerLat ?? null,
       customerLng: order.customerLng ?? null,
     });
+    // Full-Time drivers are salary-based: keep distance for tracking, never credit per-KM.
+    const isFullTimeRider = rider?.employmentType === "FULL_TIME";
+    const earningResult = isFullTimeRider
+      ? { ...rawEarningResult, riderEarning: 0, earningSlab: null, shift: null }
+      : rawEarningResult;
+    if (isFullTimeRider) order.fullTimeDelivery = true;
 
     const distanceKm = earningResult.distanceKm;
     const riderDeliveryEarning = earningResult.riderEarning;
@@ -917,7 +928,9 @@ export const completeDelivery = async (req, res, next) => {
     }
 
     // ── Gig / Incentive bonus (separate from delivery earning) ─────────────
-    await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
+    if (!isFullTimeRider) {
+      await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
+    }
 
     if (riderDeliveryEarning > 0) {
       try {

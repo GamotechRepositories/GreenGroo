@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import 'fulltime_widgets.dart';
 
 class FullTimeRulesScreen extends StatefulWidget {
   const FullTimeRulesScreen({super.key});
@@ -20,6 +21,11 @@ class _FullTimeRulesScreenState extends State<FullTimeRulesScreen> {
   List<dynamic> _rules = [];
   double _monthlySalary = 0;
   String _darkStoreName = '';
+  Map<String, dynamic>? _shift;
+  List<dynamic> _customRules = [];
+  String _assignmentMode = 'manual';
+  Map<String, dynamic>? _payPolicy;
+  Map<String, dynamic>? _payroll;
 
   @override
   void initState() {
@@ -43,6 +49,17 @@ class _FullTimeRulesScreenState extends State<FullTimeRulesScreen> {
           _rules = (body['rules'] as List?) ?? [];
           _monthlySalary = (body['monthlySalary'] as num?)?.toDouble() ?? 0;
           _darkStoreName = body['darkStoreName']?.toString() ?? '';
+          _shift = body['shift'] is Map
+              ? Map<String, dynamic>.from(body['shift'] as Map)
+              : null;
+          _customRules = (body['customRules'] as List?) ?? [];
+          _assignmentMode = body['orderAssignmentMode']?.toString() ?? 'manual';
+          _payPolicy = body['payPolicy'] is Map
+              ? Map<String, dynamic>.from(body['payPolicy'] as Map)
+              : null;
+          _payroll = body['payroll'] is Map
+              ? Map<String, dynamic>.from(body['payroll'] as Map)
+              : null;
           _loading = false;
         });
       } else {
@@ -174,8 +191,90 @@ class _FullTimeRulesScreenState extends State<FullTimeRulesScreen> {
                       const SizedBox(height: 16),
                     ],
 
+                    if (_shift != null)
+                      FtSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'My Shift',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _RuleRow(
+                              icon: Icons.badge_outlined,
+                              label: 'Shift',
+                              value: _shift!['name']?.toString() ?? '—',
+                            ),
+                            _RuleRow(
+                              icon: Icons.schedule_outlined,
+                              label: 'Timing',
+                              value: '${_shift!['startTime']} – ${_shift!['endTime']}',
+                            ),
+                            _RuleRow(
+                              icon: Icons.today_outlined,
+                              label: 'Working Days',
+                              value: formatWorkingDays(_shift!['workingDays'] as List?),
+                            ),
+                            if (_shift!['requireAttendance'] == true)
+                              const _RuleRow(
+                                icon: Icons.how_to_reg_outlined,
+                                label: 'Attendance',
+                                value: 'Required daily',
+                              ),
+                          ],
+                        ),
+                      ),
+
+                    if (_shift != null && _payPolicy != null)
+                      PayPolicyCard(policy: _payPolicy!, monthlySalary: _monthlySalary),
+
+                    if (_payroll != null && _monthlySalary > 0)
+                      PayrollCard(payroll: _payroll!),
+
+                    FtSectionCard(
+                      child: _RuleRow(
+                        icon: Icons.assignment_ind_outlined,
+                        label: 'Order Assignment',
+                        value: _assignmentMode == 'manual'
+                            ? 'Orders are assigned to you by your Delivery Manager. Salary is monthly — no per-KM earnings.'
+                            : _assignmentMode,
+                      ),
+                    ),
+
+                    if (_customRules.isNotEmpty)
+                      FtSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Store Rules',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ..._customRules.whereType<Map>().map(
+                                  (c) => _RuleRow(
+                                    icon: Icons.rule_outlined,
+                                    label: c['title']?.toString() ?? 'Rule',
+                                    value: c['description']?.toString().isNotEmpty == true
+                                        ? c['description'].toString()
+                                        : '✓',
+                                  ),
+                                ),
+                          ],
+                        ),
+                      ),
+
                     // Rules list
-                    if (_rules.isEmpty)
+                    if (_rules.isEmpty && _shift == null)
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
@@ -188,7 +287,7 @@ class _FullTimeRulesScreenState extends State<FullTimeRulesScreen> {
                           ),
                         ),
                       )
-                    else
+                    else if (_rules.isNotEmpty)
                       ...(_rules.map((rule) {
                         final r = rule as Map<String, dynamic>;
                         final workingDays = (r['workingDays'] as List?)?.length ?? 0;
@@ -230,7 +329,7 @@ class _FullTimeRulesScreenState extends State<FullTimeRulesScreen> {
                               _RuleRow(
                                 icon: Icons.today_outlined,
                                 label: 'Working Days',
-                                value: '$workingDays days per week',
+                                value: '${formatWorkingDays(r['workingDays'] as List?)} ($workingDays days/week)',
                               ),
                               if (r['requireLocationValidation'] == true)
                                 _RuleRow(

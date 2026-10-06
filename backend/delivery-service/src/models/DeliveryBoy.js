@@ -284,6 +284,26 @@ const deliveryBoySchema = new mongoose.Schema(
       enum: ['PART_TIME', 'FULL_TIME'],
       default: 'PART_TIME',
     },
+    /** Full-Time only: overrides the store's fullTimeMonthlySalary when set. */
+    monthlySalary: { type: Number, default: null, min: 0 },
+    /** Full-Time only: one wallet credit per salary month (YYYY-MM). */
+    salaryCredits: {
+      type: [
+        {
+          month: { type: String, required: true },
+          amount: { type: Number, required: true, min: 0 },
+          creditedAt: { type: Date, default: Date.now },
+          creditedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "DeliveryManager",
+            default: null,
+          },
+          /** { baseSalary, leaveDeduction, lateDeduction, unpaidLeaves, lateCount } at credit time. */
+          breakdown: { type: mongoose.Schema.Types.Mixed, default: null },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -356,6 +376,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     onboardingComplete: this.onboardingComplete,
     onboardingStep: this.onboardingStep,
     employmentType: this.employmentType || 'PART_TIME',
+    monthlySalary: this.monthlySalary ?? null,
     pendingSlotAlerts: (this.pendingSlotAlerts || [])
       .filter((a) => !a.seen)
       .map((a) => ({

@@ -1,6 +1,18 @@
 import DeliveryManager from "../models/DeliveryManager.js";
 import FullTimeRule from "../models/FullTimeRule.js";
 
+/** [{ title, description }] — drops blank titles; undefined when not sent. */
+function readCustomRules(value) {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .map((r) => ({
+      title: String(r?.title || "").trim(),
+      description: String(r?.description || "").trim(),
+    }))
+    .filter((r) => r.title)
+    .slice(0, 50);
+}
+
 /** GET /api/delivery-managers/fulltime-rules */
 export const listFullTimeRules = async (req, res, next) => {
   try {
@@ -11,11 +23,14 @@ export const listFullTimeRules = async (req, res, next) => {
   }
 };
 
-/** POST /api/delivery-managers/fulltime-rules */
+/**
+ * POST /api/delivery-managers/fulltime-rules
+ * The collection has a unique index on managerId, so an existing (possibly
+ * soft-deleted) rule for this store is updated and reactivated instead.
+ */
 export const createFullTimeRule = async (req, res, next) => {
   try {
-    const rule = await FullTimeRule.create({
-      managerId: req.user.id,
+    const fields = {
       ruleName: req.body.ruleName,
       attendanceStartTime: req.body.attendanceStartTime,
       attendanceEndTime: req.body.attendanceEndTime,
@@ -24,7 +39,18 @@ export const createFullTimeRule = async (req, res, next) => {
       workingDays: req.body.workingDays,
       minimumAttendanceDays: req.body.minimumAttendanceDays,
       notes: req.body.notes,
-    });
+      customRules: readCustomRules(req.body.customRules),
+    };
+    Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
+
+    const existing = await FullTimeRule.findOne({ managerId: req.user.id }).sort({ updatedAt: -1 });
+    if (existing) {
+      existing.set({ ...fields, isActive: true });
+      await existing.save();
+      return res.status(201).json({ success: true, rule: existing });
+    }
+
+    const rule = await FullTimeRule.create({ managerId: req.user.id, ...fields });
     return res.status(201).json({ success: true, rule });
   } catch (err) {
     next(err);
@@ -46,6 +72,7 @@ export const updateFullTimeRule = async (req, res, next) => {
           workingDays: req.body.workingDays,
           minimumAttendanceDays: req.body.minimumAttendanceDays,
           notes: req.body.notes,
+          customRules: readCustomRules(req.body.customRules),
         },
       },
       { new: true }

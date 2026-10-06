@@ -170,7 +170,7 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     const now = new Date();
 
     // Calculate earning (backend is source of truth)
-    const earningResult = await calculateRiderEarning({
+    const rawEarningResult = await calculateRiderEarning({
       shiftId,
       managerId: order.managerId,
       riderId,
@@ -180,6 +180,12 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
       customerLat,
       customerLng,
     });
+    // Full-Time drivers are salary-based: keep distance for tracking, never credit per-KM.
+    const isFullTimeRider = rider?.employmentType === "FULL_TIME";
+    const earningResult = isFullTimeRider
+      ? { ...rawEarningResult, riderEarning: 0, earningSlab: null, shift: null }
+      : rawEarningResult;
+    if (isFullTimeRider) order.fullTimeDelivery = true;
 
     const riderEarning = earningResult.riderEarning;
     const distanceKm = earningResult.distanceKm;

@@ -284,6 +284,13 @@ export async function approvePickupProof({ orderId, managerId }) {
   await order.save();
 
   try {
+    const { syncCustomerOrderFromStore } = await import("./syncCustomerOrderFromStore.js");
+    await syncCustomerOrderFromStore(order, "out_for_delivery");
+  } catch (err) {
+    console.warn("[pickup-proof] customer order sync failed:", err.message);
+  }
+
+  try {
     getIO()
       .to(`rider_${order.assignedRiderId}`)
       .emit("customer_address_unlocked", {

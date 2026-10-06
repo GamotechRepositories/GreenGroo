@@ -18,6 +18,7 @@ import '../../../data/services/socket_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shell/shell_navigation.dart';
 import '../shifts/select_shift_screen.dart';
+import '../fulltime/fulltime_widgets.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
 
 const _kRupee = '\u20B9';
@@ -750,6 +751,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     continueLabel: l10n.continueDelivery,
                   ),
                   const SizedBox(height: 14),
+                ],
+
+                if (AuthService.instance.deliveryBoy?.isFullTime ?? false) ...[
+                  const FullTimeHomeCard(),
+                  const SizedBox(height: 2),
                 ],
 
                 // 2. FEATURED INCENTIVE / GIG BANNER CARD (Only shown if backend has registered gigs for the store)

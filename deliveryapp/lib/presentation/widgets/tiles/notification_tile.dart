@@ -51,7 +51,7 @@ class NotificationTile extends StatelessWidget {
       'VERIFICATION_COMPLETED' => NotificationType.verificationCompleted,
       'SHIFT_STARTED' => NotificationType.shiftStarted,
       'SHIFT_REMINDER' => NotificationType.shiftReminder,
-      'ORDER_RECEIVED' => NotificationType.orderReceived,
+      'ORDER_RECEIVED' || 'ORDER_ASSIGNED' => NotificationType.orderReceived,
       'ORDER_COMPLETED' => NotificationType.orderCompleted,
       'WALLET_CREDITED' => NotificationType.walletCredited,
       'NEW_GIG' => NotificationType.newGig,

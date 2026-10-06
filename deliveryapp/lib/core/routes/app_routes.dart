@@ -36,4 +36,6 @@ abstract final class AppRoutes {
   static const settings = '/settings';
   static const selectEmploymentType = '/select-employment-type';
   static const fullTimeRules = '/fulltime-rules';
+  static const assignedOrders = '/assigned-orders';
+  static const fullTimeAttendance = '/fulltime-attendance';
 }

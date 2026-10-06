@@ -1,1 +1,4 @@
 #include "Generated.xcconfig"
+
+// Google Maps SDK key (MAPS_API_KEY=...) lives in the untracked Secrets.xcconfig
+#include? "Secrets.xcconfig"

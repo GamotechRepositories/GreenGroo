@@ -19,6 +19,19 @@ const navItems = [
     children: [
       { to: "/shifts/create", label: "Create Shift & Slot" },
       { to: "/shifts", label: "My Shift & Slots", end: true },
+      { to: "/shifts/fulltime/create", label: "Create Full-Time Shift" },
+      { to: "/shifts/fulltime", label: "Full-Time Shifts", end: true },
+    ],
+  },
+  {
+    key: "fulltime",
+    label: "Full-Time Management",
+    icon: "user",
+    children: [
+      { to: "/fulltime/assign-orders", label: "Assign Orders" },
+      { to: "/fulltime/attendance", label: "Attendance" },
+      { to: "/fulltime/salary", label: "Salary" },
+      { to: "/fulltime/rules", label: "Rules" },
     ],
   },
   {
@@ -50,6 +63,7 @@ export default function ManagerLayout() {
   const [openDropdowns, setOpenDropdowns] = useState({
     shifts: false,
     gigs: false,
+    fulltime: false,
   });
 
   const toggleDropdown = (key) => {

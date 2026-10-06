@@ -104,11 +104,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       final boy = result.deliveryBoy;
-      final route = AuthService.routeForStep(
+      var route = AuthService.routeForStep(
         boy.onboardingStep,
         complete: boy.onboardingComplete,
         boy: boy,
       );
+      // New registrations choose Part-Time / Full-Time before vehicle selection.
+      if (_isRegister && route == AppRoutes.selectVehicle) {
+        route = AppRoutes.selectEmploymentType;
+      }
       Navigator.pushReplacementNamed(
         context,
         route,
