@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId from "../../components/ui/CopyId";
+import VendorProductEditModal from "./VendorProductEditModal";
+
+const PRODUCT_ID_TEXT = "font-mono text-[10px] font-semibold tracking-wide text-[#217346]";
 
 const STATUS_STYLES = {
   Pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -36,6 +40,8 @@ export default function VendorMyProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [notice, setNotice] = useState("");
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,11 +71,20 @@ export default function VendorMyProductsPage() {
     }
   };
 
+  const applyUpdate = (updated, message) => {
+    if (updated) setProducts((prev) => prev.map((p) => (p.productId === updated.productId ? updated : p)));
+    setEditing(null);
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), 3000);
+  };
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return products;
     return products.filter((p) =>
-      [p.name, p.sku, p.category, p.subcategory].some((v) => String(v || "").toLowerCase().includes(query))
+      [p.name, p.sku, p.category, p.subcategory, p.brandName, p.varietyName].some((v) =>
+        String(v || "").toLowerCase().includes(query)
+      )
     );
   }, [products, q]);
 
@@ -90,6 +105,9 @@ export default function VendorMyProductsPage() {
       </div>
 
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
+      {notice ? (
+        <div className="border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{notice}</div>
+      ) : null}
 
       {loading ? (
         <p className="text-xs text-gray-400">Loading…</p>
@@ -126,7 +144,9 @@ export default function VendorMyProductsPage() {
                       <th className="px-4 py-2">Category</th>
                       <th className="px-4 py-2">Unit</th>
                       <th className="px-4 py-2">Price</th>
+                      <th className="px-4 py-2">Stock</th>
                       <th className="px-4 py-2">Added</th>
+                      <th className="px-4 py-2" />
                     </tr>
                   </thead>
                   <tbody>
@@ -135,9 +155,17 @@ export default function VendorMyProductsPage() {
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <Thumb src={p.image} name={p.name} />
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-semibold text-gray-900">{p.name}</p>
-                              <p className="text-[10px] text-gray-400">{p.sku || p.productId}</p>
+                              <CopyId value={p.sku || p.productId} textClassName={PRODUCT_ID_TEXT} />
+                              {p.brandName || p.varietyName ? (
+                                <p className="text-[10px] text-gray-500">
+                                  {[p.brandName, p.varietyName].filter(Boolean).join(" · ")}
+                                </p>
+                              ) : null}
+                              {!p.catalogMissing && p.inStock === false ? (
+                                <p className="text-[10px] font-semibold text-amber-700">Out of stock</p>
+                              ) : null}
                               {p.catalogMissing ? (
                                 <p className="text-[10px] font-semibold text-red-600">No longer active in admin catalog</p>
                               ) : null}
@@ -157,10 +185,29 @@ export default function VendorMyProductsPage() {
                               {Number(p.price) > Number(p.discountedPrice) ? (
                                 <span className="ml-1 text-[10px] text-gray-400 line-through">{formatPrice(p.price)}</span>
                               ) : null}
+                              {p.customPricing ? (
+                                <span className="ml-1.5 inline-block border border-emerald-200 bg-emerald-50 px-1 text-[9px] font-semibold uppercase text-emerald-700">
+                                  Custom
+                                </span>
+                              ) : null}
                             </>
                           )}
                         </td>
+                        <td className="px-4 py-2 text-gray-600">
+                          {p.stock === null || p.stock === undefined ? "—" : Number(p.stock).toLocaleString("en-IN")}
+                        </td>
                         <td className="px-4 py-2 text-gray-600">{formatDate(p.createdAt)}</td>
+                        <td className="px-4 py-2 text-right">
+                          {p.catalogMissing ? null : (
+                            <button
+                              type="button"
+                              onClick={() => setEditing(p)}
+                              className="text-[11px] font-semibold text-[#217346] hover:underline"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -231,6 +278,15 @@ export default function VendorMyProductsPage() {
           </section>
         </>
       )}
+
+      {editing ? (
+        <VendorProductEditModal
+          key={editing.productId}
+          product={editing}
+          onClose={() => setEditing(null)}
+          onSaved={applyUpdate}
+        />
+      ) : null}
     </div>
   );
 }

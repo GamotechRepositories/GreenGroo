@@ -154,6 +154,7 @@ import {
 import {
   listVendorCatalogProducts,
   listVendorMyProducts,
+  updateVendorMyProduct,
   createVendorProductRequest,
   cancelVendorProductRequest,
 } from "./vendorProductRequestControllers.js";
@@ -447,6 +448,7 @@ vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRe
 vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
 vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
 vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
+vendorRouter.patch("/my-products/:productId", requireVendor, updateVendorMyProduct);
 vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);
 vendorRouter.post("/product-requests/:requestId/cancel", requireVendor, cancelVendorProductRequest);
 vendorRouter.get("/catalog-crops", requireVendor, listVendorCatalogCrops);

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId from "../../components/ui/CopyId";
 
 const PAGE_SIZE = 24;
 const INPUT = "w-full border border-gray-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#217346]";
+const PRODUCT_ID_TEXT = "font-mono text-[10px] font-semibold tracking-wide text-[#217346]";
 
 function formatPrice(value) {
   return `₹${Number(value || 0).toLocaleString("en-IN")}`;
@@ -142,9 +144,9 @@ export default function VendorProductRequestPage() {
                           {String(p.name || "P").charAt(0)}
                         </div>
                       )}
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-gray-900">{p.name}</p>
-                        <p className="text-[10px] text-gray-400">{p.sku || p.brandName || p.productId}</p>
+                        <CopyId value={p.sku || p.productId} textClassName={PRODUCT_ID_TEXT} />
                       </div>
                     </div>
                   </td>
@@ -222,8 +224,9 @@ export default function VendorProductRequestPage() {
               {selected.image ? (
                 <img src={selected.image} alt={selected.name} className="h-14 w-14 rounded border border-gray-200 object-cover" />
               ) : null}
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-900">{selected.name}</p>
+                <CopyId value={selected.sku || selected.productId} textClassName={PRODUCT_ID_TEXT} />
                 <p className="text-[11px] text-gray-500">{[selected.category, selected.unit].filter(Boolean).join(" · ")}</p>
               </div>
             </div>

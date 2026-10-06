@@ -942,6 +942,16 @@ const vendorProductSchema = new mongoose.Schema(
     ...catalogProductSnapshot,
     requestId: { type: String, default: "" },
     addedBy: { type: String, default: "" },
+    // Vendor-only overrides; null means "use the admin catalog value".
+    price: { type: Number, default: null, min: 0 },
+    discountedPrice: { type: Number, default: null, min: 0 },
+    stock: { type: Number, default: null, min: 0 },
+    // custom* fields: "" / null means "use the catalog value". Not named like the snapshot
+    // fields above, which are overwritten from the catalog on re-approval.
+    customDescription: { type: String, default: "", trim: true },
+    customUnit: { type: String, default: "", trim: true },
+    customInStock: { type: Boolean, default: null },
+    pricingUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

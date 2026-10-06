@@ -131,6 +131,7 @@ export const vendorApi = {
 
   // Products from the admin catalog (added only after admin approval)
   getMyProducts: () => api.get("/api/vendor/my-products"),
+  updateMyProduct: (productId, data) => api.patch(`/api/vendor/my-products/${productId}`, data),
   getCatalogProducts: (params) => api.get("/api/vendor/catalog-products", { params }),
   createProductRequest: (data) => api.post("/api/vendor/product-requests", data),
   cancelProductRequest: (id) => api.post(`/api/vendor/product-requests/${id}/cancel`),
