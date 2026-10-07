@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getManagerPickups } from "../../api/farmerApi";
+import ReadyBatchFlow from "../../components/pickup/ReadyBatchFlow";
 import StatusBadge from "../../components/ui/StatusBadge";
 import EmptyState from "../../components/ui/EmptyState";
 import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId";
@@ -185,16 +186,22 @@ function Fact({ label, value }) {
   );
 }
 
-function PickupCard({ pickup, isIncoming, onView, onAssign }) {
+function PickupCard({ pickup, isIncoming, onView, onAssign, selectable = false, selected = false, onToggleSelect }) {
   const unit = pickup.unit || "Kg";
   const assigned = Boolean(pickup.driverId || pickup.driverName);
   const map = gradeDetailMap(pickup);
   const location = pickupLocation(pickup);
 
   return (
-    <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-      <div className="mb-2">
+    <article className={`rounded-xl border bg-white p-3 shadow-sm ${selected ? "border-[#217346] ring-1 ring-[#217346]" : "border-slate-200/80"}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
         <StatusBadge status={pickup.status} />
+        {selectable ? (
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-[#374151]">
+            <input type="checkbox" className="h-4 w-4 accent-[#217346]" checked={selected} onChange={onToggleSelect} />
+            Select
+          </label>
+        ) : null}
       </div>
       <div className="min-w-0">
         <p className="truncate text-[14px] font-bold text-[#1F2937]">{pickup.farmerName || "Farmer"}</p>
@@ -250,13 +257,15 @@ function PickupCard({ pickup, isIncoming, onView, onAssign }) {
         <button type="button" className={`${EXCEL_BTN} flex-1`} onClick={onView}>
           View
         </button>
-        <button
-          type="button"
-          className={`${isIncoming || pickup.status === "READY_FOR_PICKUP" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} flex-1`}
-          onClick={onAssign}
-        >
-          {isIncoming || isCentreIncoming(pickup) ? "Receive" : pickup.status === "READY_FOR_PICKUP" ? "Assign Driver" : "Open"}
-        </button>
+        {onAssign ? (
+          <button
+            type="button"
+            className={`${isIncoming || pickup.status === "READY_FOR_PICKUP" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} flex-1`}
+            onClick={onAssign}
+          >
+            {isIncoming || isCentreIncoming(pickup) ? "Receive" : pickup.status === "READY_FOR_PICKUP" ? "Assign Driver" : "Open"}
+          </button>
+        ) : null}
       </div>
     </article>
   );
@@ -342,13 +351,15 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   const [pickupDate, setPickupDate] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [reloadKey, setReloadKey] = useState(0);
 
   useLive(() => {
     getManagerPickups({ filter: meta.filter })
       .then((data) => setGroups(data?.farmers || []))
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
-  }, [meta.filter]);
+  }, [meta.filter, reloadKey]);
 
   const isIncoming = meta.filter === "incoming" || meta.filter === "centre";
   const isAll = meta.filter === "all";
@@ -388,6 +399,33 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   );
   const batchCards = useMemo(() => (isBatchView ? groupByBatch(filtered) : []), [isBatchView, filtered]);
   const hasFilter = Boolean(q || farmerId || product || pickupDate);
+
+  const bulkMode = meta.filter === "ready";
+  const tableRows = useMemo(
+    () => (bulkMode ? filtered.filter((p) => !p.collectionBatchId) : filtered),
+    [bulkMode, filtered]
+  );
+  const selectableRows = useMemo(
+    () => (bulkMode ? tableRows.filter((p) => p.status === "READY_FOR_PICKUP") : []),
+    [bulkMode, tableRows]
+  );
+  const selectedRows = useMemo(
+    () => selectableRows.filter((p) => selectedIds.has(p.id)),
+    [selectableRows, selectedIds]
+  );
+  const allSelected = selectableRows.length > 0 && selectedRows.length === selectableRows.length;
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableRows.map((p) => p.id)));
+  };
 
   const openScanned = (value) => {
     if (isBatchQrPayload(value)) {
@@ -510,12 +548,32 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
         ) : null}
       </div>
 
+      {bulkMode && !loading && pickups.length > 0 ? (
+        <ReadyBatchFlow
+          pickups={pickups}
+          selectedIds={selectedRows.map((p) => p.id)}
+          onClearSelection={() => setSelectedIds(new Set())}
+          onChanged={() => setReloadKey((k) => k + 1)}
+        />
+      ) : null}
+
+      {bulkMode && !loading && pickups.length > 0 ? (
+        <p className="text-xs font-semibold text-[#374151]">
+          Orders not in a batch ({tableRows.length})
+          {selectableRows.length ? <span className="font-normal text-[#6B7280]"> · tick orders and use “Create batch with selected”, or click “+ Create Batch”</span> : null}
+        </p>
+      ) : null}
+
       {loading ? (
         <p className="text-xs text-[#6B7280]">Loading pickups…</p>
       ) : pickups.length === 0 ? (
         <EmptyState title="No pickups" description={meta.empty} />
       ) : filtered.length === 0 ? (
         <EmptyState title="No matching pickups" description="No orders match this filter. Clear filters to see all." />
+      ) : bulkMode && tableRows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-[#C5D4C8] px-3 py-6 text-center text-xs text-[#6B7280]">
+          All ready orders are in batches. Assign a driver to each batch above.
+        </p>
       ) : isBatchView ? (
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {batchCards.map((card) => {
@@ -547,13 +605,16 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
         ) : (
         <>
           <div className="space-y-2.5 md:hidden">
-            {filtered.map((p) => (
+            {tableRows.map((p) => (
               <PickupCard
                 key={p.id}
                 pickup={p}
                 isIncoming={isIncoming}
                 onView={() => navigate(orderPath(p))}
-                onAssign={() => navigate(pickupPath(p, isIncoming))}
+                onAssign={bulkMode ? null : () => navigate(pickupPath(p, isIncoming))}
+                selectable={bulkMode && p.status === "READY_FOR_PICKUP"}
+                selected={selectedIds.has(p.id)}
+                onToggleSelect={() => toggleSelect(p.id)}
               />
             ))}
             </div>
@@ -561,9 +622,10 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
           <div className="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
             <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
               <colgroup>
+                {bulkMode ? <col className="w-[3%]" /> : null}
                 <col className="w-[4%]" />
                 <col className="w-[13%]" />
-                <col className="w-[16%]" />
+                <col className={bulkMode ? "w-[13%]" : "w-[16%]"} />
                 <col className="w-[16%]" />
                 <col className="w-[13%]" />
                 <col className="w-[8%]" />
@@ -573,6 +635,18 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
               </colgroup>
                 <thead>
                   <tr>
+                  {bulkMode ? (
+                    <th className={TH}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select all"
+                        className="h-3.5 w-3.5 accent-[#217346]"
+                        checked={allSelected}
+                        disabled={!selectableRows.length}
+                        onChange={toggleSelectAll}
+                      />
+                    </th>
+                  ) : null}
                   <th className={TH}>#</th>
                   <th className={TH}>Farmer</th>
                   <th className={TH}>Location</th>
@@ -585,12 +659,25 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                   </tr>
                 </thead>
                 <tbody>
-                {filtered.map((p, idx) => {
+                {tableRows.map((p, idx) => {
                   const id = p.orderDisplayId || p.orderId || p.id;
                   const location = pickupLocation(p);
                   const secondLabel = p.status === "READY_FOR_PICKUP" ? "Assign Driver" : isIncoming || isCentreIncoming(p) ? "Receive" : "Open";
                   return (
-                    <tr key={p.id} className="hover:bg-[#F9FBF9]">
+                    <tr key={p.id} className={selectedIds.has(p.id) ? "bg-[#E8F5E9]" : "hover:bg-[#F9FBF9]"}>
+                      {bulkMode ? (
+                        <td className={`${TD} text-center align-middle`}>
+                          {p.status === "READY_FOR_PICKUP" ? (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${id}`}
+                              className="h-3.5 w-3.5 accent-[#217346]"
+                              checked={selectedIds.has(p.id)}
+                              onChange={() => toggleSelect(p.id)}
+                            />
+                          ) : null}
+                        </td>
+                      ) : null}
                       <td className={`${TD} min-w-0 text-center align-middle text-[#9CA3AF]`}>{idx + 1}</td>
                       <td className={`${TD} min-w-0 align-middle font-semibold`} title={p.farmerName || ""}>
                         <span className="block truncate">{p.farmerName || "—"}</span>
@@ -618,6 +705,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                           <button type="button" className={ACTION_BTN} onClick={() => navigate(orderPath(p))}>
                             View
                             </button>
+                            {bulkMode ? null : (
                             <button
                               type="button"
                             className={p.status === "READY_FOR_PICKUP" || isIncoming ? ACTION_BTN_PRIMARY : ACTION_BTN}
@@ -625,6 +713,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                             >
                             {secondLabel}
                             </button>
+                            )}
                         </div>
                           </td>
                     </tr>

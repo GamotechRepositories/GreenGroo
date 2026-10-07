@@ -946,7 +946,10 @@ export async function listVendorDrivers(req, res) {
         productName: p.productName || "",
         farmerId: p.farmerId,
         status: p.status,
+        driverStatus: p.driverStatus || "",
+        collectionBatchId: p.collectionBatchId || "",
         pickupDate: p.pickupDate || p.scheduledDate || "",
+        updatedAt: p.updatedAt || null,
       });
     }
     res.json(
@@ -1237,6 +1240,98 @@ export async function assignVendorPickupDriver(req, res) {
     res.json(await enrichPickup(pickup));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to assign driver" });
+  }
+}
+
+async function assignableVendorDriver(vendorId, driverId) {
+  if (!driverId) return { driver: null };
+  const driver = await PickupDriver.findOne({ vendorId, id: driverId });
+  if (!driver) return { error: [404, "Driver not found"] };
+  if (!ASSIGNABLE_DRIVER_STATUSES.includes(normalizeDriverStatus(driver.status))) {
+    return { error: [400, "Driver is not available for assignment"] };
+  }
+  return { driver };
+}
+
+export async function reserveVendorBatchId(req, res) {
+  try {
+    res.json({ batchId: await generateId({ module: "BAT" }) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create batch" });
+  }
+}
+
+export async function createVendorPickupBatch(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const ids = [...new Set((req.body?.pickupIds || []).map((v) => String(v || "").trim()).filter(Boolean))];
+    if (!ids.length) return res.status(400).json({ message: "Select at least one order for the batch" });
+    const pickups = await Pickup.find({ vendorId, $or: [{ id: { $in: ids } }, { pickupId: { $in: ids } }] });
+    if (pickups.length !== ids.length) return res.status(404).json({ message: "Some selected orders were not found" });
+    const notReady = pickups.filter((p) => !PRE_ASSIGN_STATUSES.includes(p.status));
+    if (notReady.length) {
+      return res.status(400).json({
+        message: `Only ready-for-pickup orders can be batched: ${notReady.map((p) => p.orderId).join(", ")}`,
+      });
+    }
+    const { driver, error } = await assignableVendorDriver(vendorId, req.body?.driverId);
+    if (error) return res.status(error[0]).json({ message: error[1] });
+
+    const batchId = String(req.body?.batchId || "").trim() || (await generateId({ module: "BAT" }));
+    const clash = await Pickup.findOne({ collectionBatchId: batchId, vendorId: { $ne: vendorId } }).lean();
+    if (clash) return res.status(409).json({ message: "Batch ID already belongs to another vendor" });
+
+    const now = new Date();
+    for (const p of pickups) {
+      p.collectionBatchId = batchId;
+      p.collectionBatchAssignedAt = now;
+      await p.save();
+    }
+    if (driver) {
+      for (const p of pickups) await assignDriverToPickup(p, driver, { managerId: p.managerId });
+    } else {
+      pickups.forEach((p) => emitPickupUpdate(p, { event: "BATCH_CREATED" }));
+    }
+    res.status(201).json({ batchId, driverId: driver?.id || "", pickups: await enrichPickups(pickups) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create batch" });
+  }
+}
+
+export async function assignVendorBatchDriver(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const batchId = String(req.params.batchId || "").trim();
+    const { driver, error } = await assignableVendorDriver(vendorId, req.body?.driverId);
+    if (error) return res.status(error[0]).json({ message: error[1] });
+    if (!driver) return res.status(400).json({ message: "Select a driver" });
+    const pickups = await Pickup.find({ vendorId, collectionBatchId: batchId, status: { $in: PRE_ASSIGN_STATUSES } });
+    if (!pickups.length) return res.status(404).json({ message: "No ready orders in this batch" });
+    for (const p of pickups) await assignDriverToPickup(p, driver, { managerId: p.managerId });
+    res.json({ batchId, assigned: pickups.length, pickups: await enrichPickups(pickups) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to assign driver to batch" });
+  }
+}
+
+export async function ungroupVendorBatch(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const batchId = String(req.params.batchId || "").trim();
+    const filter = { vendorId, collectionBatchId: batchId, status: { $in: PRE_ASSIGN_STATUSES } };
+    const ids = (req.body?.pickupIds || []).map(String).filter(Boolean);
+    if (ids.length) filter.id = { $in: ids };
+    const pickups = await Pickup.find(filter);
+    if (!pickups.length) return res.status(404).json({ message: "No unassigned orders in this batch" });
+    for (const p of pickups) {
+      p.collectionBatchId = "";
+      p.collectionBatchAssignedAt = null;
+      await p.save();
+      emitPickupUpdate(p, { event: "BATCH_UPDATED" });
+    }
+    res.json({ batchId, removed: pickups.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update batch" });
   }
 }
 

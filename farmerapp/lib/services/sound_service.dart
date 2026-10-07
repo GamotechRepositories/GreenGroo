@@ -18,6 +18,9 @@ class NotificationSoundService {
 
   DateTime? _lastPlayedTime;
 
+  /// A push banner just played the same sound; skip the in-app replay triggered by the follow-up sync.
+  void markPlayed() => _lastPlayedTime = DateTime.now();
+
   /// Plays the custom notification sound with safe fallback and debounce
   Future<void> playNotificationSound({bool force = false}) async {
     final now = DateTime.now();

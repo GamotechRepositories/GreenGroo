@@ -7,9 +7,25 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "dist");
 const PORT = Number(process.env.PORT || 5173);
-const API_TARGET = String(
-  process.env.API_PROXY_TARGET || process.env.VITE_API_URL || "http://api.greengrocc.com"
-).trim().replace(/\/+$/, "");
+function isLocalHost(hostname) {
+  return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+}
+
+function normalizeTarget(raw) {
+  const value = String(raw || "").trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" && !isLocalHost(url.hostname)) url.protocol = "https:";
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return value;
+  }
+}
+
+const API_TARGET = normalizeTarget(
+  process.env.API_PROXY_TARGET || process.env.VITE_API_URL || "https://api.greengrocc.com"
+);
+const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -28,6 +44,34 @@ function shouldProxy(urlPath) {
   return urlPath === "/health" || urlPath.startsWith("/api/") || urlPath === "/api";
 }
 
+function forward(target, req, body, res, hops = 0) {
+  const lib = target.protocol === "https:" ? https : http;
+  const headers = { ...req.headers, host: target.host };
+  delete headers.connection;
+  if (body) headers["content-length"] = String(body.length);
+  else delete headers["content-length"];
+
+  const upstream = lib.request(target, { method: req.method, headers }, (incoming) => {
+    const location = incoming.headers.location;
+    if (REDIRECT_CODES.has(incoming.statusCode) && location && hops < 3) {
+      incoming.resume();
+      forward(new URL(location, target), req, body, res, hops + 1);
+      return;
+    }
+    res.writeHead(incoming.statusCode || 502, incoming.headers);
+    incoming.pipe(res);
+  });
+
+  upstream.on("error", () => {
+    if (!res.headersSent) {
+      res.writeHead(502, { "content-type": "application/json" });
+    }
+    res.end(JSON.stringify({ message: "Unable to reach API server" }));
+  });
+
+  upstream.end(body || undefined);
+}
+
 function proxy(req, res) {
   let target;
   try {
@@ -38,27 +82,16 @@ function proxy(req, res) {
     return;
   }
 
-  const lib = target.protocol === "https:" ? https : http;
-  const headers = { ...req.headers, host: target.host };
-  delete headers.connection;
-
-  const upstream = lib.request(
-    target,
-    { method: req.method, headers },
-    (incoming) => {
-      res.writeHead(incoming.statusCode || 502, incoming.headers);
-      incoming.pipe(res);
-    }
-  );
-
-  upstream.on("error", () => {
-    if (!res.headersSent) {
-      res.writeHead(502, { "content-type": "application/json" });
-    }
-    res.end(JSON.stringify({ message: "Unable to reach API server" }));
+  const chunks = [];
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", () => {
+    const body = chunks.length ? Buffer.concat(chunks) : null;
+    forward(target, req, body, res);
   });
-
-  req.pipe(upstream);
+  req.on("error", () => {
+    if (!res.headersSent) res.writeHead(400);
+    res.end();
+  });
 }
 
 function sendFile(file, res) {

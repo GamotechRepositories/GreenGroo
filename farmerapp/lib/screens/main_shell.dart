@@ -525,8 +525,8 @@ class FarmerSidebarDrawer extends StatelessWidget {
         title: Text(lang.tr(mr: 'लॉग आउट', en: 'Sign Out')),
         content: Text(
           lang.tr(
-            mr: 'तुम्हाला नक्की Hritsetu वरून लॉग आउट करायचे आहे का?',
-            en: 'Are you sure you want to sign out from Hritsetu?',
+            mr: 'तुम्हाला नक्की Haritsetu वरून लॉग आउट करायचे आहे का?',
+            en: 'Are you sure you want to sign out from Haritsetu?',
           ),
         ),
         actions: [

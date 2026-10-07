@@ -43,6 +43,9 @@ export function VendorAuthProvider({ children }) {
 
   const login = async (credentials) => {
     const res = await vendorApi.login(credentials);
+    if (!res?.data?.token || !res.data.vendor) {
+      throw new Error("Cannot reach the API server. Check VITE_API_URL / API_PROXY_TARGET for this deployment.");
+    }
     persist(res.data.vendor, res.data.token);
     return res.data;
   };

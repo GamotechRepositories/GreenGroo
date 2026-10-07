@@ -117,6 +117,10 @@ import {
   getVendorPickup,
   assignVendorPickupDriver,
   reassignVendorPickupDriver,
+  reserveVendorBatchId,
+  createVendorPickupBatch,
+  assignVendorBatchDriver,
+  ungroupVendorBatch,
   startVendorPickup,
   arriveVendorPickup,
   listVendorCentres,
@@ -447,6 +451,10 @@ vendorRouter.put("/drivers/:driverId", requireVendor, updateVendorDriver);
 vendorRouter.patch("/drivers/:driverId/status", requireVendor, setVendorDriverStatus);
 vendorRouter.delete("/drivers/:driverId", requireVendor, deleteVendorDriver);
 vendorRouter.get("/pickups", requireVendor, listVendorPickups);
+vendorRouter.post("/pickup-batches/new", requireVendor, reserveVendorBatchId);
+vendorRouter.post("/pickup-batches", requireVendor, createVendorPickupBatch);
+vendorRouter.post("/pickup-batches/:batchId/assign", requireVendor, assignVendorBatchDriver);
+vendorRouter.post("/pickup-batches/:batchId/ungroup", requireVendor, ungroupVendorBatch);
 vendorRouter.get("/batches/:batchId", requireVendor, getVendorBatch);
 vendorRouter.get("/pickups/:pickupId", requireVendor, getVendorPickup);
 vendorRouter.post("/pickups/:pickupId/assign", requireVendor, assignVendorPickupDriver);

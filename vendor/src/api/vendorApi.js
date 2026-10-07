@@ -117,6 +117,12 @@ export const vendorApi = {
   getPickup: (id) => api.get(`/api/vendor/pickups/${id}`),
   getBatch: (id) => api.get(`/api/vendor/batches/${encodeURIComponent(id)}`),
   assignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/assign`, { driverId }),
+  reservePickupBatchId: () => api.post("/api/vendor/pickup-batches/new"),
+  createPickupBatch: (data) => api.post("/api/vendor/pickup-batches", data),
+  assignPickupBatchDriver: (batchId, driverId) =>
+    api.post(`/api/vendor/pickup-batches/${encodeURIComponent(batchId)}/assign`, { driverId }),
+  ungroupPickupBatch: (batchId, pickupIds) =>
+    api.post(`/api/vendor/pickup-batches/${encodeURIComponent(batchId)}/ungroup`, { pickupIds }),
   reassignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/reassign`, { driverId }),
   startPickup: (id, driverId) => api.post(`/api/vendor/pickups/${id}/start`, { driverId }),
   arrivePickup: (id, driverId) => api.post(`/api/vendor/pickups/${id}/arrive`, { driverId }),

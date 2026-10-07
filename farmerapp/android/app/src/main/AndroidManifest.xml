@@ -14,7 +14,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
     <application
-        android:label="Hritsetu"
+        android:label="Haritsetu"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
@@ -43,7 +43,7 @@
         <!-- Background FCM notifications use the channel created by PushNotificationService -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="farmer_alerts" />
+            android:value="farmer_alerts_v2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />

@@ -40,7 +40,7 @@ export default function ManagerPickupDetailPage() {
     try {
       const data = await getManagerPickup(pickupId);
       setPickup(data);
-      setDriverId(data.availableDrivers?.[0]?.id || data.driverId || "");
+      setDriverId((cur) => cur || data.availableDrivers?.[0]?.id || data.driverId || "");
       if (!silent) setError("");
     } catch (err) {
       setError(err.message || "Pickup not found");

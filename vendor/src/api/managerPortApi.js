@@ -72,7 +72,11 @@ export async function getManagerPickups(params = {}) {
 
 export async function getManagerPickup(pickupId) {
   const res = await vendorApi.getPickup(pickupId);
-  return res?.data;
+  const data = res?.data;
+  if (data?.pickup && typeof data.pickup === "object") {
+    return { ...data.pickup, availableDrivers: data.availableDrivers || [] };
+  }
+  return data;
 }
 
 export async function assignManagerPickup(pickupId, driverId) {

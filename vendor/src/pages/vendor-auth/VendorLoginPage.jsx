@@ -15,13 +15,24 @@ export default function VendorLoginPage() {
 
   const handleChange = (e) => {
     setError("");
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name } = e.target;
+    let { value } = e.target;
+    if (name === "mobile") {
+      value = value.replace(/\D/g, "");
+      if (value.length > 10 && value.startsWith("91")) value = value.slice(-10);
+      value = value.slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.mobile || !form.password) {
       setError("Mobile and password are required");
+      return;
+    }
+    if (!/^\d{10}$/.test(form.mobile)) {
+      setError("Enter a valid 10 digit mobile number");
       return;
     }
     setSubmitting(true);
@@ -54,7 +65,15 @@ export default function VendorLoginPage() {
 
     const vendorErr = vendorResult.status === "rejected" ? vendorResult.reason : null;
     const driverErr = driverResult.status === "rejected" ? driverResult.reason : null;
-    setError(vendorErr?.response?.data?.message || driverErr?.response?.data?.message || "Invalid credentials");
+    const isAuthError = (err) => [400, 401, 403].includes(err?.response?.status);
+    const authErr = [vendorErr, driverErr].find(isAuthError);
+    setError(
+      authErr?.response?.data?.message ||
+        vendorErr?.response?.data?.message ||
+        driverErr?.response?.data?.message ||
+        vendorErr?.message ||
+        "Invalid credentials"
+    );
   };
 
   return (
@@ -80,12 +99,19 @@ export default function VendorLoginPage() {
             <input
               type="tel"
               name="mobile"
+              inputMode="numeric"
+              maxLength={10}
+              pattern="\d{10}"
+              title="10 digit mobile number"
               value={form.mobile}
               onChange={handleChange}
-              placeholder="Mobile number"
+              placeholder="10 digit mobile number"
               className="w-full border border-[#D4D4D4] px-3 py-2 text-xs outline-none focus:border-[#217346]"
-              autoComplete="tel"
+              autoComplete="tel-national"
             />
+            {form.mobile && form.mobile.length < 10 ? (
+              <p className="mt-1 text-[10px] text-[#9CA3AF]">{10 - form.mobile.length} more digit{10 - form.mobile.length === 1 ? "" : "s"}</p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-[#1F2937]">Password</label>
@@ -101,7 +127,7 @@ export default function VendorLoginPage() {
           </div>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || form.mobile.length !== 10 || !form.password}
             className="w-full bg-[#217346] py-2 text-xs font-semibold text-white hover:bg-[#1a5c38] disabled:opacity-60"
           >
             {submitting ? "Signing in…" : "Sign In"}

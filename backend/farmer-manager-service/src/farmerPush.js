@@ -5,7 +5,10 @@
  */
 import { Farmer } from "./models.js";
 
-export const FARMER_CHANNEL_ID = "farmer_alerts";
+// Must match kFarmerChannelId in farmerapp/lib/services/push_notification_service.dart.
+export const FARMER_CHANNEL_ID = "farmer_alerts_v2";
+// farmerapp/android/app/src/main/res/raw/farmer_alert.mp3 (Android 8+ takes the sound from the channel).
+const FARMER_SOUND = "farmer_alert";
 const MAX_TOKENS_PER_FARMER = 5;
 const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
@@ -75,7 +78,15 @@ export async function notifyFarmer(farmerKey, { title, body = "", data = {}, tag
         data: stringifyData({ ...data, title: t, body: b, tag }),
         android: {
           priority: "high",
-          notification: { channelId: FARMER_CHANNEL_ID, sound: "default", ...(tag ? { tag } : {}) },
+          notification: {
+            channelId: FARMER_CHANNEL_ID,
+            sound: FARMER_SOUND,
+            defaultVibrateTimings: true,
+            // Show and ring on the lock screen, including Android 7 and older (no channels there).
+            visibility: "public",
+            notificationPriority: "PRIORITY_MAX",
+            ...(tag ? { tag } : {}),
+          },
         },
         apns: { payload: { aps: { sound: "default" } } },
       });

@@ -6,6 +6,10 @@ function isLoopbackHost(hostname) {
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
+function isPrivateHost(hostname) {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname);
+}
+
 function hostnameOf(url) {
   try {
     return new URL(url).hostname;
@@ -25,6 +29,10 @@ export function getApiBaseUrl() {
   }
 
   if (inBrowser && window.location.protocol === "https:") {
+    const envHost = hostnameOf(envUrl);
+    if (envHost && !isLoopbackHost(envHost) && !isPrivateHost(envHost)) {
+      return envUrl.replace(/^http:\/\//i, "https://");
+    }
     return window.location.origin;
   }
 

@@ -21,9 +21,15 @@ import '../screens/schemes/schemes_screen.dart';
 import 'api_service.dart';
 import 'app_language.dart';
 import 'farmer_state.dart';
+import 'sound_service.dart';
 
 /// Must match FARMER_CHANNEL_ID in backend/farmer-manager-service/src/farmerPush.js.
-const String kFarmerChannelId = 'farmer_alerts';
+/// Android fixes a channel's sound when it is created, so a new sound needs a new channel id.
+const String kFarmerChannelId = 'farmer_alerts_v2';
+const String _kOldChannelId = 'farmer_alerts';
+
+/// android/app/src/main/res/raw/farmer_alert.mp3 (same file as the in-app notification sound).
+const _kAlertSound = RawResourceAndroidNotificationSound('farmer_alert');
 
 Future<bool> _ensureFirebase() async {
   if (Firebase.apps.isNotEmpty) return true;
@@ -113,14 +119,17 @@ class PushNotificationService {
       },
     );
 
-    await _local
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(const AndroidNotificationChannel(
-          kFarmerChannelId,
-          'Farmer alerts',
-          description: 'Orders, pickups, payments, documents and scheme updates',
-          importance: Importance.high,
-        ));
+    final android = _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      kFarmerChannelId,
+      'Farmer alerts',
+      description: 'Orders, pickups, payments, documents and scheme updates',
+      importance: Importance.high,
+      playSound: true,
+      sound: _kAlertSound,
+      enableVibration: true,
+    ));
+    await android?.deleteNotificationChannel(channelId: _kOldChannelId);
 
     final launch = await _local.getNotificationAppLaunchDetails();
     final payload = launch?.notificationResponse?.payload;
@@ -133,14 +142,22 @@ class PushNotificationService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    FarmerState().requestSync();
-    // Document reviews already raise an in-app snackbar with a View button.
-    if ((message.data['type'] ?? '').toString().toUpperCase() == 'DOCUMENT') return;
+    // Document reviews already raise an in-app snackbar with a View button; they still get the sound.
+    if ((message.data['type'] ?? '').toString().toUpperCase() == 'DOCUMENT') {
+      NotificationSoundService().playNotificationSound(force: true);
+      FarmerState().requestSync();
+      return;
+    }
 
     final title = message.notification?.title ?? message.data['title']?.toString() ?? '';
     final body = message.notification?.body ?? message.data['body']?.toString() ?? '';
-    if (title.isEmpty && body.isEmpty) return;
+    if (title.isEmpty && body.isEmpty) {
+      FarmerState().requestSync();
+      return;
+    }
     final tag = message.data['tag']?.toString();
+    NotificationSoundService().markPlayed();
+    FarmerState().requestSync();
 
     _local.show(
       id: (tag != null && tag.isNotEmpty ? tag : message.messageId ?? '$title$body').hashCode & 0x7fffffff,
@@ -153,6 +170,9 @@ class PushNotificationService {
           channelDescription: 'Orders, pickups, payments, documents and scheme updates',
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          sound: _kAlertSound,
+          visibility: NotificationVisibility.public,
           icon: '@mipmap/ic_launcher',
           tag: (tag != null && tag.isNotEmpty) ? tag : null,
           styleInformation: BigTextStyleInformation(body),

@@ -1,6 +1,6 @@
 class FarmerConstants {
   // Brand & Storage
-  static const String appTitle = 'Hritsetu';
+  static const String appTitle = 'Haritsetu';
   static const String storageKey = 'greengroo_farmer_auth';
 
   // Gender & Languages
