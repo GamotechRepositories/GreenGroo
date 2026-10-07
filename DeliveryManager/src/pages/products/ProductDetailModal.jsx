@@ -329,7 +329,7 @@ export default function ProductDetailModal({ product, onClose, onEdit, onDelete 
               </button>
             </>
           ) : (
-            <p className="text-xs text-slate-500">Admin catalog product · request stock from the Stock page</p>
+            <p className="text-xs text-slate-500">Admin catalog product · set your store's stock from the Stock column</p>
           )}
         </footer>
       </div>

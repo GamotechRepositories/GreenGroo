@@ -568,6 +568,174 @@ class _NoteSheetState extends State<_NoteSheet> {
   }
 }
 
+// ─── Delivery delay ──────────────────────────────────────────────────────────
+
+const _amber = Color(0xFFD97706);
+
+/// Returns the delay the rider picked, or null when cancelled.
+Future<({int hours, int minutes, String reason})?> showDeliveryDelaySheet(BuildContext context) {
+  return _showSheet<({int hours, int minutes, String reason})>(context, (_) => const _DelaySheet());
+}
+
+class _DelaySheet extends StatefulWidget {
+  const _DelaySheet();
+
+  @override
+  State<_DelaySheet> createState() => _DelaySheetState();
+}
+
+class _DelaySheetState extends State<_DelaySheet> {
+  static const _reasons = ['Heavy traffic', 'Vehicle issue', 'Bad weather', 'Other deliveries first', 'Other'];
+  static const _presets = [15, 30, 45, 60, 90, 120];
+  final _controller = TextEditingController();
+  String? _selected;
+  int _hours = 0;
+  int _minutes = 30;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int get _total => _hours * 60 + _minutes;
+
+  String get _reason {
+    final typed = _controller.text.trim();
+    if (_selected == null || _selected == 'Other') return typed;
+    return typed.isEmpty ? _selected! : '$_selected · $typed';
+  }
+
+  void _setTotal(int total) => setState(() {
+        _hours = total ~/ 60;
+        _minutes = total % 60;
+      });
+
+  String _label(int total) {
+    final h = total ~/ 60;
+    final m = total % 60;
+    if (h == 0) return '$m min';
+    return m == 0 ? '$h hr' : '$h hr $m min';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _total >= 1 && _total <= 12 * 60;
+    return _SheetFrame(
+      icon: Icons.schedule_rounded,
+      iconColor: _amber,
+      title: 'Delivery running late?',
+      subtitle: 'Tell your Delivery Manager how late you will be. They can update the customer.',
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _Stepper(
+                label: 'Hours',
+                value: _hours,
+                onChanged: (v) => setState(() => _hours = v.clamp(0, 12)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _Stepper(
+                label: 'Minutes',
+                value: _minutes,
+                step: 5,
+                onChanged: (v) => setState(() => _minutes = v.clamp(0, 55)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final p in _presets)
+              ActionChip(
+                label: Text(_label(p)),
+                onPressed: () => _setTotal(p),
+                labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _ink),
+                backgroundColor: _total == p ? _amber.withValues(alpha: 0.18) : const Color(0xFFF3F4F6),
+                side: BorderSide(color: _total == p ? _amber : _line),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _ChoiceChips(
+          options: _reasons,
+          selected: _selected,
+          color: _amber,
+          onSelected: (value) => setState(() => _selected = value),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controller,
+          maxLines: 2,
+          maxLength: 200,
+          onChanged: (_) => setState(() {}),
+          style: GoogleFonts.inter(fontSize: 14),
+          decoration: _fieldDecoration('Add details (optional)'),
+        ),
+        const SizedBox(height: 8),
+        _SheetButton(
+          label: valid ? 'Send delay · ${_label(_total)}' : 'Pick a delay',
+          color: _amber,
+          icon: Icons.send_rounded,
+          onPressed: valid
+              ? () => Navigator.pop(context, (hours: _hours, minutes: _minutes, reason: _reason))
+              : null,
+        ),
+        _GhostButton(label: 'Cancel', onPressed: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+class _Stepper extends StatelessWidget {
+  const _Stepper({required this.label, required this.value, required this.onChanged, this.step = 1});
+
+  final String label;
+  final int value;
+  final int step;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: _muted)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: value > 0 ? () => onChanged(value - step) : null,
+                icon: const Icon(Icons.remove_circle_outline_rounded),
+                color: _amber,
+              ),
+              Text('$value', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: _ink)),
+              IconButton(
+                onPressed: () => onChanged(value + step),
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                color: _amber,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Failed delivery ─────────────────────────────────────────────────────────
 
 /// Returns the failure reason, or null when cancelled.

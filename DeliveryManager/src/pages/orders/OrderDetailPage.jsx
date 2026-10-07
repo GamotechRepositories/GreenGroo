@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import LiveRiderTrack from "../../components/LiveRiderTrack";
+import OrderTrackingDrawer from "../../components/tracking/OrderTrackingDrawer";
 import { useLive } from "../../realtime/useLive";
 import { useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
 import { subscribeToSocketEvent } from "../../services/socket";
@@ -44,6 +45,7 @@ export default function OrderDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmingCash, setConfirmingCash] = useState(false);
   const [handoverOtp, setHandoverOtp] = useState("");
+  const [trackingOpen, setTrackingOpen] = useState(false);
 
   const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
@@ -379,6 +381,15 @@ export default function OrderDetailPage() {
               {busyKey === `cancel-${oid}` ? "Cancelling…" : "Cancel order"}
             </button>
           )}
+          {!isPickup && order.assignedRider ? (
+            <button
+              type="button"
+              onClick={() => setTrackingOpen(true)}
+              className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
+            >
+              📍 {isDelivered ? "Delivery details" : "Live tracking"}
+            </button>
+          ) : null}
           <Link
             to="/orders"
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -624,7 +635,7 @@ export default function OrderDetailPage() {
           )}
         </InfoCard>
         <InfoCard title="Assigned Driver">
-          <DriverAssignmentText order={order} />
+          <DriverAssignmentText order={order} onRiderClick={() => setTrackingOpen(true)} />
         </InfoCard>
       </div>
 
@@ -849,6 +860,10 @@ export default function OrderDetailPage() {
           </form>
         </div>
       )}
+
+      {trackingOpen && oid ? (
+        <OrderTrackingDrawer orderId={oid} onClose={() => setTrackingOpen(false)} />
+      ) : null}
     </PageShell>
   );
 }

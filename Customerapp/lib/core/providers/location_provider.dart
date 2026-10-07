@@ -95,9 +95,14 @@ class DeliveryLocation {
 const _storageKey = 'greengrocc_delivery_location';
 
 class LocationNotifier extends Notifier<DeliveryLocation?> {
+  late Future<void> _restored;
+
+  /// Completes once the saved location (if any) has been read from storage.
+  Future<void> get restored => _restored;
+
   @override
   DeliveryLocation? build() {
-    _loadFromStorage();
+    _restored = _loadFromStorage();
     return null;
   }
 
@@ -105,7 +110,7 @@ class LocationNotifier extends Notifier<DeliveryLocation?> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_storageKey);
-      if (raw != null && raw.isNotEmpty) {
+      if (raw != null && raw.isNotEmpty && state == null) {
         state = DeliveryLocation.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
     } catch (_) {}

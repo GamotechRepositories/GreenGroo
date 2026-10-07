@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { managerApi } from "../../api/managerApi";
 import { DepartmentBadge } from "../products/productDepartments";
 
 const ROUTING_LABELS = {
@@ -93,7 +95,71 @@ export function OrderStatusText({ status, order }) {
   );
 }
 
-export function DriverAssignmentText({ order }) {
+export function formatDelay(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} hr ${m} min` : `${h} hr`;
+}
+
+/** Rider-reported delay, with a button to forward it to the customer app. */
+export function DeliveryDelayNotice({ order }) {
+  const [busy, setBusy] = useState(false);
+  const [sentAt, setSentAt] = useState(null);
+  const [error, setError] = useState("");
+  const delay = order?.deliveryDelay;
+  if (!(delay?.minutes > 0)) return null;
+  if (["delivered", "cancelled", "delivery_failed"].includes(order.status)) return null;
+
+  const notifiedAt = sentAt || delay.customerNotifiedAt;
+  const reportedAt = delay.reportedAt ? new Date(delay.reportedAt) : null;
+  const alreadySent =
+    notifiedAt && (!reportedAt || new Date(notifiedAt).getTime() >= reportedAt.getTime());
+
+  const send = async (e) => {
+    e.stopPropagation();
+    const message = window.prompt(
+      `Message to the customer for #${order.orderNumber} (leave as is or edit):`,
+      `Your order is running about ${formatDelay(delay.minutes)} late. Sorry for the wait — it's on the way.`
+    );
+    if (message === null) return;
+    setBusy(true);
+    setError("");
+    try {
+      await managerApi.notifyCustomerOfDelay(order.id, message.trim());
+      setSentAt(new Date().toISOString());
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not send update");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-left">
+      <p className="text-[11px] font-bold text-amber-900">
+        ⏱ Rider reports {formatDelay(delay.minutes)} delay
+        {reportedAt ? ` · ${formatOrderTime(reportedAt)}` : ""}
+      </p>
+      {delay.reason ? <p className="text-[10px] text-amber-800">{delay.reason}</p> : null}
+      {alreadySent ? (
+        <p className="mt-0.5 text-[10px] font-semibold text-emerald-700">✓ Customer updated</p>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={send}
+          className="mt-1 rounded-md bg-amber-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+        >
+          {busy ? "Sending…" : "Send update to customer"}
+        </button>
+      )}
+      {error ? <p className="mt-0.5 text-[10px] font-semibold text-rose-600">{error}</p> : null}
+    </div>
+  );
+}
+
+export function DriverAssignmentText({ order, onRiderClick }) {
   if (isPickupOrder(order)) {
     return (
       <p className="text-[11px] font-semibold text-amber-700">
@@ -121,9 +187,23 @@ export function DriverAssignmentText({ order }) {
   if (order.assignedRider) {
     return (
       <div>
-        <p className="text-[11px] font-bold text-teal-800">
-          {order.assignedRider.name || order.assignedRider.phone}
-        </p>
+        {onRiderClick ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRiderClick(order);
+            }}
+            className="text-left text-[11px] font-bold text-teal-800 underline decoration-dotted underline-offset-2 hover:text-teal-600"
+            title="Live tracking & delivery details"
+          >
+            {order.assignedRider.name || order.assignedRider.phone} · Track 📍
+          </button>
+        ) : (
+          <p className="text-[11px] font-bold text-teal-800">
+            {order.assignedRider.name || order.assignedRider.phone}
+          </p>
+        )}
         {order.pickupProofStatus === "pending" ? (
           <p className="mt-1 text-[10px] font-semibold text-amber-700">Item proof pending approval</p>
         ) : order.pickupVerified ? (
@@ -136,6 +216,7 @@ export function DriverAssignmentText({ order }) {
             Same-route wait · {clockLeft} left
           </p>
         ) : null}
+        <DeliveryDelayNotice order={order} />
       </div>
     );
   }

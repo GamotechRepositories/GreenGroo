@@ -674,120 +674,216 @@ export const listFullTimeAssignedOrders = async (req, res, next) => {
 };
 
 /** POST /fulltime/assign-orders  { riderId, orderIds: [] } */
+function readAssignBody(req, res) {
+  const riderId = String(req.body?.riderId || "").trim();
+  const orderIds = [
+    ...new Set(
+      (Array.isArray(req.body?.orderIds) ? req.body.orderIds : []).map(String).filter(Boolean)
+    ),
+  ];
+  if (!riderId || !orderIds.length) {
+    badRequest(res, "riderId and at least one orderId are required");
+    return null;
+  }
+  if (orderIds.some((id) => !mongoose.isValidObjectId(id))) {
+    badRequest(res, "orderIds contains an invalid id");
+    return null;
+  }
+  return { riderId, orderIds };
+}
+
 export const assignOrdersToFullTimeDriver = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const riderId = String(req.body?.riderId || "").trim();
-    const orderIds = [
-      ...new Set((Array.isArray(req.body?.orderIds) ? req.body.orderIds : []).map(String).filter(Boolean)),
-    ];
-    if (!riderId || !orderIds.length) return badRequest(res, "riderId and at least one orderId are required");
-    if (orderIds.some((id) => !mongoose.isValidObjectId(id))) return badRequest(res, "orderIds contains an invalid id");
+    const body = readAssignBody(req, res);
+    if (!body) return;
 
-    const rider = await findFullTimeDriver(manager, riderId);
+    const rider = await findFullTimeDriver(manager, body.riderId);
     if (!rider || rider.isActive === false) {
-      return res.status(404).json({ success: false, message: "Active Full-Time driver not found for this store" });
+      return res.status(404).json({
+        success: false,
+        message: "Active Full-Time driver not found for this store",
+      });
     }
-
-    const orders = await StoreOrder.find({ _id: { $in: orderIds }, managerId: manager._id });
-    const now = new Date();
-    const assigned = [];
-    const skipped = [];
-
-    for (const id of orderIds) {
-      const order = orders.find((o) => String(o._id) === id);
-      if (!order) {
-        skipped.push({ orderId: id, reason: "Order not found" });
-        continue;
-      }
-      if (order.fulfillmentType === "pickup") {
-        skipped.push({ orderId: id, orderNumber: order.orderNumber, reason: "Customer pickup order — no rider needed" });
-        continue;
-      }
-      if (order.status !== "packed") {
-        skipped.push({ orderId: id, orderNumber: order.orderNumber, reason: `Order must be packed (status: ${order.status})` });
-        continue;
-      }
-
-      const updated = await StoreOrder.findOneAndUpdate(
-        { _id: order._id, managerId: manager._id, status: "packed" },
-        {
-          $set: {
-            status: "assigned",
-            assignmentStatus: "DRIVER_ASSIGNED",
-            assignedRiderId: rider._id,
-            assignedAt: now,
-            currentOfferDriverId: null,
-            offeredRiderId: null,
-            offerStartedAt: null,
-            offerExpiresAt: null,
-            pickupVerified: false,
-            customerAddressUnlocked: false,
-            pickupQrUnlocked: true,
-            routeBatchWindowEndsAt: null,
-            darkStoreId: order.darkStoreId || manager._id,
-            darkStoreQrCode: order.darkStoreQrCode || `DARKSTORE_${manager._id}`,
-            fullTimeDelivery: true,
-            fullTimeAssignedAt: now,
-            fullTimeAssignedBy: manager._id,
-          },
-        },
-        { new: true }
-      );
-      if (!updated) {
-        skipped.push({ orderId: id, orderNumber: order.orderNumber, reason: "Order was taken by another assignment" });
-        continue;
-      }
-      assigned.push(updated);
-    }
-
-    if (assigned.length) {
-      const storeRoom = `store_${manager._id}`;
-      try {
-        const io = getIO();
-        for (const o of assigned) {
-          io.to(storeRoom).emit("order_status_updated", {
-            orderId: o._id.toString(),
-            orderNumber: o.orderNumber,
-            status: o.status,
-            assignmentStatus: o.assignmentStatus,
-            assignedRiderId: rider._id.toString(),
-            fullTimeDelivery: true,
-          });
-          io.to(`rider_${rider._id}`).emit("new_order_assigned", {
-            orderId: o._id.toString(),
-            orderNumber: o.orderNumber,
-            status: o.status,
-            pickupQrUnlocked: true,
-            fullTimeDelivery: true,
-          });
-        }
-        io.to(`rider_${rider._id}`).emit("active_delivery_updated", {
-          reason: "fulltime_orders_assigned",
-          orderIds: assigned.map((o) => o._id.toString()),
-        });
-      } catch (err) {
-        console.warn("[socket] full-time assign emit failed:", err.message);
-      }
-
-      notifyOrdersAssigned(rider._id, {
-        orders: assigned.map((o) => ({ orderId: o._id, orderNumber: o.orderNumber })),
-      }).catch((err) => console.warn("[fulltime] assign notify failed:", err.message));
-    }
-
-    res.status(assigned.length ? 200 : 400).json({
-      success: assigned.length > 0,
-      message: assigned.length
-        ? `${assigned.length} order${assigned.length > 1 ? "s" : ""} assigned to ${rider.name || rider.phone}`
-        : "No orders could be assigned",
-      assigned: assigned.map(orderSummary),
-      skipped,
-      rider: lightDriver(rider),
+    await assignOrdersDirectly({
+      res,
+      manager,
+      rider,
+      orderIds: body.orderIds,
+      fullTime: true,
     });
   } catch (err) {
     next(err);
   }
 };
+
+/**
+ * POST /preorders/assign — the manager hands several packed pre-orders to one
+ * rider (any employment type) in one go; they all show up in the rider's
+ * active deliveries without an Accept/Decline offer.
+ */
+export const assignPreOrdersToDriver = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const body = readAssignBody(req, res);
+    if (!body) return;
+
+    const rider = await DeliveryBoy.findOne(
+      riderQuery(manager, { _id: body.riderId, isActive: true })
+    );
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Active rider not found for this store",
+      });
+    }
+    await assignOrdersDirectly({
+      res,
+      manager,
+      rider,
+      orderIds: body.orderIds,
+      fullTime: rider.employmentType === "FULL_TIME",
+      preOrdersOnly: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+async function assignOrdersDirectly({
+  res,
+  manager,
+  rider,
+  orderIds,
+  fullTime,
+  preOrdersOnly = false,
+}) {
+  const orders = await StoreOrder.find({
+    _id: { $in: orderIds },
+    managerId: manager._id,
+  });
+  const now = new Date();
+  const assigned = [];
+  const skipped = [];
+
+  for (const id of orderIds) {
+    const order = orders.find((o) => String(o._id) === id);
+    if (!order) {
+      skipped.push({ orderId: id, reason: "Order not found" });
+      continue;
+    }
+    if (preOrdersOnly && !order.isPreOrder) {
+      skipped.push({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        reason: "Not a pre-order",
+      });
+      continue;
+    }
+    if (order.fulfillmentType === "pickup") {
+      skipped.push({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        reason: "Customer pickup order — no rider needed",
+      });
+      continue;
+    }
+    if (order.status !== "packed") {
+      skipped.push({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        reason: `Order must be packed (status: ${order.status})`,
+      });
+      continue;
+    }
+
+    const updated = await StoreOrder.findOneAndUpdate(
+      { _id: order._id, managerId: manager._id, status: "packed" },
+      {
+        $set: {
+          status: "assigned",
+          assignmentStatus: "DRIVER_ASSIGNED",
+          assignedRiderId: rider._id,
+          assignedAt: now,
+          currentOfferDriverId: null,
+          offeredRiderId: null,
+          offerStartedAt: null,
+          offerExpiresAt: null,
+          pickupVerified: false,
+          customerAddressUnlocked: false,
+          pickupQrUnlocked: true,
+          routeBatchWindowEndsAt: null,
+          darkStoreId: order.darkStoreId || manager._id,
+          darkStoreQrCode: order.darkStoreQrCode || `DARKSTORE_${manager._id}`,
+          ...(fullTime
+            ? {
+                fullTimeDelivery: true,
+                fullTimeAssignedAt: now,
+                fullTimeAssignedBy: manager._id,
+              }
+            : {}),
+        },
+      },
+      { new: true }
+    );
+    if (!updated) {
+      skipped.push({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        reason: "Order was taken by another assignment",
+      });
+      continue;
+    }
+    assigned.push(updated);
+  }
+
+  if (assigned.length) {
+    const storeRoom = `store_${manager._id}`;
+    try {
+      const io = getIO();
+      for (const o of assigned) {
+        io.to(storeRoom).emit("order_status_updated", {
+          orderId: o._id.toString(),
+          orderNumber: o.orderNumber,
+          status: o.status,
+          assignmentStatus: o.assignmentStatus,
+          assignedRiderId: rider._id.toString(),
+          fullTimeDelivery: fullTime,
+        });
+        io.to(`rider_${rider._id}`).emit("new_order_assigned", {
+          orderId: o._id.toString(),
+          orderNumber: o.orderNumber,
+          status: o.status,
+          pickupQrUnlocked: true,
+          fullTimeDelivery: fullTime,
+        });
+      }
+      io.to(`rider_${rider._id}`).emit("active_delivery_updated", {
+        reason: fullTime ? "fulltime_orders_assigned" : "preorders_assigned",
+        orderIds: assigned.map((o) => o._id.toString()),
+      });
+    } catch (err) {
+      console.warn("[socket] full-time assign emit failed:", err.message);
+    }
+
+    notifyOrdersAssigned(rider._id, {
+      orders: assigned.map((o) => ({
+        orderId: o._id,
+        orderNumber: o.orderNumber,
+      })),
+    }).catch((err) => console.warn("[fulltime] assign notify failed:", err.message));
+  }
+
+  res.status(assigned.length ? 200 : 400).json({
+    success: assigned.length > 0,
+    message: assigned.length
+      ? `${assigned.length} order${assigned.length > 1 ? "s" : ""} assigned to ${rider.name || rider.phone}`
+      : "No orders could be assigned",
+    assigned: assigned.map(orderSummary),
+    skipped,
+    rider: lightDriver(rider),
+  });
+}
 
 /** POST /fulltime/orders/:orderId/unassign — only before the rider scans the pickup QR. */
 export const unassignFullTimeOrder = async (req, res, next) => {

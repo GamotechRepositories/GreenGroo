@@ -242,6 +242,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if ((_offline || _socketDown) && !tracking.isClosed) _ConnectionBanner(offline: _offline),
+        if (tracking.delay != null && !tracking.isClosed) _DelayBanner(delay: tracking.delay!),
         if (tracking.showLiveMap) ..._liveSection(tracking) else ..._preOrderSection(tracking),
         _Card(
           child: Column(
@@ -522,6 +523,39 @@ class _ConnectionBanner extends StatelessWidget {
             child: Text(
               offline ? 'You are offline. Live updates resume when you reconnect.' : 'Reconnecting to live updates…',
               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.orange.shade900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DelayBanner extends StatelessWidget {
+  const _DelayBanner({required this.delay});
+
+  final TrackingDelay delay;
+
+  @override
+  Widget build(BuildContext context) {
+    final by = delay.expectedBy;
+    final byText = by == null ? '' : ' · now expected by ${TimeOfDay.fromDateTime(by).format(context)}';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFCC80)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 20, color: Colors.orange.shade800),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Running about ${delay.label} late$byText. Sorry for the wait!',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.orange.shade900),
             ),
           ),
         ],

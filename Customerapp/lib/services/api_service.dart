@@ -280,6 +280,9 @@ class ApiService {
   Future<Response<dynamic>> cancelOrder(String id) =>
       _dio.patch('/api/orders/$id/cancel');
 
+  Future<Response<dynamic>> reschedulePreOrder(String id, String slot) =>
+      _dio.patch('/api/orders/$id/preorder-slot', data: {'slot': slot});
+
   Future<Response<dynamic>> submitSupportMessage(Map<String, dynamic> data) =>
       _dio.post('/api/support', data: data);
 
@@ -428,6 +431,23 @@ class ApiService {
   Future<List<Product>> fetchProducts([Map<String, dynamic>? params]) async {
     final response = await getProducts(params);
     return parseOnBackground(parseProductsResponse, response.data);
+  }
+
+  /// One page of `/api/products`; `hasMore` comes from the server's pagination block.
+  Future<({List<Product> items, bool hasMore})> fetchProductsPage(
+    Map<String, dynamic> params, {
+    required int page,
+    int limit = 20,
+  }) async {
+    final response = await getProducts({...params, 'page': page, 'limit': limit});
+    final items = await parseOnBackground(parseProductsResponse, response.data);
+    final data = response.data;
+    final pagination = data is Map ? data['pagination'] : null;
+    final totalPages = pagination is Map
+        ? int.tryParse(pagination['totalPages']?.toString() ?? '')
+        : null;
+    final hasMore = totalPages != null ? page < totalPages : items.length >= limit;
+    return (items: items, hasMore: hasMore);
   }
 
   Future<Product> fetchProductById(String id) async {

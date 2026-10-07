@@ -17,7 +17,7 @@ export function inventorySkuForProduct(product) {
   return id ? `P-${id.slice(-8)}` : "";
 }
 
-function catalogFields(product) {
+export function catalogFields(product) {
   return {
     name: product.name,
     category: product.categories?.[0] || product.subcategory || "General",

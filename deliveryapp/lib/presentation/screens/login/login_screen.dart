@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
@@ -110,7 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
         boy: boy,
       );
       // New registrations choose Part-Time / Full-Time before vehicle selection.
-      if (_isRegister && route == AppRoutes.selectVehicle) {
+      if (kFullTimeSignupEnabled &&
+          _isRegister &&
+          route == AppRoutes.selectVehicle) {
         route = AppRoutes.selectEmploymentType;
       }
       Navigator.pushReplacementNamed(

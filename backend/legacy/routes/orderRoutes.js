@@ -15,6 +15,7 @@ import {
   syncOrderShipmentTracking,
   cancelOrderShipment,
   cancelOrder,
+  reschedulePreOrder,
   createReturnClaim,
   getDashboardStats,
   getOrderUnreadCount,
@@ -45,6 +46,7 @@ router.post("/checkout-attempt", createCheckoutAttempt);
 router.post("/", placeOrder);
 router.get("/", getMyOrders);
 router.patch("/:id/cancel", cancelOrder);
+router.patch("/:id/preorder-slot", reschedulePreOrder);
 router.post("/:id/return-claim", createReturnClaim);
 router.get("/:id", getOrderById);
 

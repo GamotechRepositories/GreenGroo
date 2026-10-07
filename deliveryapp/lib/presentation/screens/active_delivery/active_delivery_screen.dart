@@ -380,6 +380,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
     }
   }
 
+  Future<void> _reportDelay() async {
+    final d = _delivery;
+    if (d == null) return;
+    final picked = await showDeliveryDelaySheet(context);
+    if (picked == null || !mounted) return;
+
+    final result = await OrderService.instance.reportDelay(
+      d.id,
+      hours: picked.hours,
+      minutes: picked.minutes,
+      reason: picked.reason,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.success
+              ? 'Delay sent to your Delivery Manager.'
+              : (result.error ?? 'Could not send the delay.'),
+        ),
+        backgroundColor: result.success ? const Color(0xFFB45309) : Colors.red,
+      ),
+    );
+    if (result.success) await _loadDelivery();
+  }
+
   Future<bool> _askCustomerOtp() async {
     final d = _delivery!;
     return showCustomerOtpSheet(
@@ -702,6 +728,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
                       phone: d.customerPhone,
                       onCall: () => _callNumber(d.customerPhone, 'Customer'),
                     ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (d.canReportDelay) ...[
+                    _DelayCard(delivery: d, onReport: _reportDelay),
                     const SizedBox(height: 12),
                   ],
                   _OrderItemsSummaryCard(
@@ -1363,6 +1393,59 @@ class _CustomerContactCard extends StatelessWidget {
             ),
             icon: const Icon(Icons.call_rounded, size: 16),
             label: Text('Call', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DelayCard extends StatelessWidget {
+  const _DelayCard({required this.delivery, required this.onReport});
+
+  final ActiveDeliveryData delivery;
+  final VoidCallback onReport;
+
+  static String _late(int total) {
+    final h = total ~/ 60;
+    final m = total % 60;
+    if (h == 0) return '$m min';
+    return m == 0 ? '$h hr' : '$h hr $m min';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const amber = Color(0xFFB45309);
+    final reported = delivery.delayMinutes > 0;
+    final status = !reported
+        ? 'Stuck or running late? Let your manager know.'
+        : delivery.delayCustomerNotifiedAt != null
+            ? 'Reported ${_late(delivery.delayMinutes)} late · manager updated the customer'
+            : 'Reported ${_late(delivery.delayMinutes)} late · waiting for manager';
+    return _WhiteCard(
+      child: Row(
+        children: [
+          const Icon(Icons.schedule_rounded, color: amber, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              status,
+              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: onReport,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: amber,
+              side: const BorderSide(color: amber),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+            ),
+            child: Text(
+              reported ? 'Update' : 'Report delay',
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),

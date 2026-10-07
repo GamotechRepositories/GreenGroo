@@ -53,21 +53,21 @@ function pincodeValidForState(pincode, state) {
   return true;
 }
 
+function stripAdminSuffix(value) {
+  return String(value || "")
+    .replace(/\s+(city|district|subdistrict|sub-district|taluka|tehsil|division)\b/gi, "")
+    .trim();
+}
+
+// In India, Nominatim's `county` is the taluka (e.g. "Mulshi Subdistrict") while
+// `state_district` is the district ("Pune District"), which customers know as their city.
 function extractCity(addr = {}) {
   if (addr.city) return String(addr.city).trim();
   if (addr.town) return String(addr.town).trim();
 
-  const admin =
-    addr.county ||
-    addr.state_district ||
-    addr.city_district ||
-    "";
-
-  const fromAdmin = String(admin)
-    .replace(/\s+(city|district|subdistrict|taluka|sub-district)\b/gi, "")
-    .trim();
-  if (fromAdmin && fromAdmin.length > 2) {
-    return fromAdmin.split(/\s+/)[0];
+  for (const admin of [addr.state_district, addr.county]) {
+    const name = stripAdminSuffix(admin);
+    if (name.length > 2) return name;
   }
 
   return String(addr.village || "").trim();
@@ -75,8 +75,8 @@ function extractCity(addr = {}) {
 
 function extractArea(addr = {}, addresstype = "") {
   const urban = [
-    addr.suburb,
     addr.neighbourhood,
+    addr.suburb,
     addr.quarter,
     addr.city_district,
     addr.residential,
@@ -150,9 +150,130 @@ async function fetchNominatim(lat, lng, zoom) {
   return data;
 }
 
+const OVERPASS_URLS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+const NEARBY_PIN_RADIUS_M = 1000;
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /**
- * Reverse-geocode GPS coordinates with India-aware pincode validation.
- * Tries coarser zoom first (suburb level) — street-level often returns wrong PIN.
+ * OSM village/area boundaries in India often carry a wrong `postal_code`
+ * (e.g. Hinjewadi Phase 2 tagged as 411115 instead of 411057). Buildings and
+ * offices around the point carry their own `addr:postcode`, so a distance-weighted
+ * vote over them is far more reliable.
+ */
+async function fetchOverpassElements(url, query) {
+  const { data } = await axios.post(url, `data=${encodeURIComponent(query)}`, {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "GreenGroo/1.0 (delivery location lookup)",
+    },
+    timeout: 6000,
+  });
+  if (!Array.isArray(data?.elements)) throw new Error("Bad Overpass response");
+  return data.elements;
+}
+
+async function nearbyPostcodeVote(lat, lng) {
+  const query = `[out:json][timeout:6];nwr(around:${NEARBY_PIN_RADIUS_M},${lat},${lng})["addr:postcode"];out tags center 150;`;
+
+  let elements;
+  try {
+    elements = await Promise.any(OVERPASS_URLS.map((url) => fetchOverpassElements(url, query)));
+  } catch {
+    return null;
+  }
+
+  const scores = new Map();
+  let samples = 0;
+  for (const el of elements) {
+    const pin = parsePincode(el.tags?.["addr:postcode"]);
+    const pLat = el.lat ?? el.center?.lat;
+    const pLng = el.lon ?? el.center?.lon;
+    if (!pin || !Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
+    const weight = 1 / Math.max(distanceMeters(lat, lng, pLat, pLng), 50);
+    scores.set(pin, (scores.get(pin) || 0) + weight);
+    samples += 1;
+  }
+  if (!samples) return null;
+
+  const total = [...scores.values()].reduce((s, v) => s + v, 0);
+  const [pin, score] = [...scores.entries()].sort((a, b) => b[1] - a[1])[0];
+  return { pin, share: score / total, samples };
+}
+
+/** India Post lookup by locality name, restricted to the same district. */
+async function indiaPostPincodeForArea(addr = {}) {
+  const district = norm(stripAdminSuffix(addr.state_district || addr.county));
+  const names = [];
+  for (const raw of [addr.neighbourhood, addr.suburb, addr.quarter, addr.village, addr.city_district]) {
+    const name = String(raw || "").trim();
+    if (!name) continue;
+    names.push(name);
+    const firstWord = name.split(/\s+/)[0];
+    if (firstWord.length > 3 && firstWord !== name) names.push(firstWord);
+  }
+
+  const lookups = [...new Set(names)].slice(0, 4).map(async (name) => {
+    try {
+      const { data } = await axios.get(
+        `https://api.postalpincode.in/postoffice/${encodeURIComponent(name)}`,
+        { timeout: 5000 }
+      );
+      const offices = Array.isArray(data?.[0]?.PostOffice) ? data[0].PostOffice : [];
+      const match = offices.find(
+        (o) => !district || norm(o.District).includes(district) || district.includes(norm(o.District))
+      );
+      return parsePincode(match?.Pincode);
+    } catch {
+      return "";
+    }
+  });
+  const pins = await Promise.all(lookups);
+  return pins.find(Boolean) || "";
+}
+
+function withDeadline(promise, ms, fallback) {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
+async function correctedPincode(lat, lng, parsed, rawAddress) {
+  const [vote, postPin] = await Promise.all([
+    withDeadline(nearbyPostcodeVote(lat, lng), 7000, null),
+    withDeadline(indiaPostPincodeForArea(rawAddress), 7000, ""),
+  ]);
+  const validVote = vote && pincodeValidForState(vote.pin, parsed.state) ? vote : null;
+
+  if (validVote && validVote.samples >= 2 && validVote.share >= 0.6) return validVote.pin;
+  if (postPin && pincodeValidForState(postPin, parsed.state)) return postPin;
+  if (validVote && validVote.share >= 0.5) return validVote.pin;
+  return parsed.pincodeValid ? parsed.pincode : "";
+}
+
+const geocodeCache = new Map();
+const GEOCODE_CACHE_MS = 60 * 60 * 1000;
+
+function cacheKey(lat, lng) {
+  return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+}
+
+/**
+ * Reverse-geocode GPS coordinates with India-aware pincode correction.
+ * Uses the most detailed Nominatim result for the area name, then fixes the PIN
+ * from nearby addressed buildings / India Post.
  */
 export async function reverseGeocodeCoords(lat, lng) {
   const latNum = Number(lat);
@@ -161,39 +282,36 @@ export async function reverseGeocodeCoords(lat, lng) {
     return { error: "Invalid coordinates" };
   }
 
-  const zoomLevels = [14, 16, 18];
-  const candidates = [];
-  let fallback = null;
+  const key = cacheKey(latNum, lngNum);
+  const cached = geocodeCache.get(key);
+  if (cached && Date.now() - cached.at < GEOCODE_CACHE_MS) {
+    return { ...cached.value, lat: latNum, lng: lngNum };
+  }
 
-  for (const zoom of zoomLevels) {
+  let data = null;
+  let parsed = null;
+  for (const zoom of [18, 16, 14]) {
     try {
-      const data = await fetchNominatim(latNum, lngNum, zoom);
+      data = await fetchNominatim(latNum, lngNum, zoom);
       if (!data?.address) continue;
-
-      const parsed = parseNominatimResult(data, { lat: latNum, lng: lngNum, zoom });
-      candidates.push(parsed);
-
-      if (parsed.pincode && parsed.pincodeValid) {
-        return parsed;
-      }
-      if (!fallback) fallback = parsed;
+      parsed = parseNominatimResult(data, { lat: latNum, lng: lngNum, zoom });
+      break;
     } catch {
       // try next zoom
     }
   }
 
-  if (candidates.length) {
-    const withPin = candidates.find((c) => c.pincode && c.pincodeValid);
-    if (withPin) return withPin;
-
-    const anyPin = candidates.find((c) => c.pincode);
-    if (anyPin) {
-      return { ...anyPin, pincode: "", pincodeValid: false };
-    }
-  }
-
-  if (fallback) {
-    return { ...fallback, pincode: fallback.pincodeValid ? fallback.pincode : "" };
+  if (parsed) {
+    const pincode = await correctedPincode(latNum, lngNum, parsed, data.address);
+    const result = {
+      ...parsed,
+      pincode,
+      pincodeValid: Boolean(pincode),
+      address: buildAddressLine(parsed.area, parsed.city, parsed.state, pincode) || parsed.address,
+    };
+    if (geocodeCache.size > 2000) geocodeCache.clear();
+    geocodeCache.set(key, { at: Date.now(), value: result });
+    return result;
   }
 
   return {

@@ -88,6 +88,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         categoryName: widget.categoryName,
         search: widget.searchQuery,
         brandName: widget.brand,
+        subcategory: widget.subcategory,
+        minPrice: widget.minPrice,
+        maxPrice: widget.maxPrice,
+        sort: _sort.id,
       );
 
 
@@ -176,14 +180,13 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       (_sort != ProductSortOption.listingDefault &&
           _sort.id != ProductSortOption.listingDefault.id);
 
-  Future<void> _refreshProducts() async {
-    ref.invalidate(productListProvider(_query));
-    await ref.read(productListProvider(_query).future);
-  }
+  Future<void> _refreshProducts() =>
+      ref.read(pagedProductsProvider(_query).notifier).refresh();
 
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(productListProvider(_query));
+    final query = _query;
+    final paged = ref.watch(pagedProductsProvider(query));
     final showLeftSidebar =
         widget.categoryName != null && widget.categoryName!.isNotEmpty;
     final topInset = MediaQuery.paddingOf(context).top;
@@ -211,13 +214,18 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           ),
         ),
       ],
-      body: productsAsync.when(
-        loading: () => const SkeletonProductGrid(useShellBottomInset: true),
-        error: (_, _) => ApiErrorView(
-          message: 'Could not load products',
-          onRetry: _refreshProducts,
-        ),
-        data: (products) {
+      body: Builder(
+        builder: (context) {
+          if (paged.loadingFirst) {
+            return const SkeletonProductGrid(useShellBottomInset: true);
+          }
+          if (paged.error != null && paged.items.isEmpty) {
+            return ApiErrorView(
+              message: 'Could not load products',
+              onRetry: _refreshProducts,
+            );
+          }
+          final products = paged.items;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -254,6 +262,11 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                           maxPrice: widget.maxPrice,
                           sort: _sort,
                           onAdd: _handleAdd,
+                          hasMore: paged.hasMore,
+                          loadingMore: paged.loadingMore,
+                          loadMoreFailed: paged.error != null,
+                          onLoadMore: () =>
+                              ref.read(pagedProductsProvider(query).notifier).loadMore(),
                         ),
                       ),
                     ),
@@ -389,8 +402,8 @@ class _LeftSubcategorySidebarState
       }
     }
 
-    // Only subcategories that have products here, in the category's own order,
-    // followed by any product subcategories the category doesn't list.
+    // Products arrive page by page (and filtered by the selected subcategory), so
+    // list every subcategory the category defines, then any extra ones seen on products.
     String key(String value) => value.toLowerCase().trim();
     final productSubs = <String, String>{
       for (final p in widget.products)
@@ -398,9 +411,15 @@ class _LeftSubcategorySidebarState
     };
     final subcategoryNames = <String>[];
     for (final sub in activeCat?.subcategories ?? const <String>[]) {
-      if (productSubs.remove(key(sub)) != null) subcategoryNames.add(sub);
+      if (sub.trim().isEmpty) continue;
+      productSubs.remove(key(sub));
+      subcategoryNames.add(sub);
     }
     subcategoryNames.addAll(productSubs.values);
+    final active = widget.activeSubcategory?.trim() ?? '';
+    if (active.isNotEmpty && !subcategoryNames.any((s) => key(s) == key(active))) {
+      subcategoryNames.add(active);
+    }
 
     final subItems = <_SubcategoryItem>[
       _SubcategoryItem(
@@ -537,6 +556,10 @@ class _ProductResultsView extends ConsumerStatefulWidget {
     required this.maxPrice,
     required this.sort,
     required this.onAdd,
+    required this.hasMore,
+    required this.loadingMore,
+    required this.loadMoreFailed,
+    required this.onLoadMore,
   });
 
   final List<Product> products;
@@ -548,6 +571,10 @@ class _ProductResultsView extends ConsumerStatefulWidget {
   final String? maxPrice;
   final ProductSortOption sort;
   final Future<void> Function(Product, BuildContext) onAdd;
+  final bool hasMore;
+  final bool loadingMore;
+  final bool loadMoreFailed;
+  final VoidCallback onLoadMore;
 
   @override
   ConsumerState<_ProductResultsView> createState() =>
@@ -661,8 +688,24 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
         );
   }
 
+  /// Fetch the next page once the user is within ~1.5 screens of the end
+  /// (also fires on layout, so a short first page tops itself up).
+  bool _maybeLoadMore(ScrollMetrics metrics) {
+    if (widget.hasMore && !widget.loadingMore && !widget.loadMoreFailed &&
+        metrics.extentAfter < metrics.viewportDimension * 1.5) {
+      widget.onLoadMore();
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_filtered.isEmpty && widget.hasMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !widget.loadingMore && !widget.loadMoreFailed) widget.onLoadMore();
+      });
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
     if (_filtered.isEmpty) {
       return Center(
         child: Text(
@@ -676,12 +719,25 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
       );
     }
 
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (n) => _maybeLoadMore(n.metrics),
+      child: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (n) => _maybeLoadMore(n.metrics),
+        child: _buildGrid(context),
+      ),
+    );
+  }
+
+  Widget _buildGrid(BuildContext context) {
+    final bottomPadding = ShellBottomInsets.listPadding(context, top: 12);
     return CustomScrollView(
       physics: AppScrollConfig.listPhysics,
       cacheExtent: AppScrollConfig.cacheExtent,
       slivers: [
         SliverPadding(
-          padding: ShellBottomInsets.listPadding(context, top: 12),
+          padding: widget.hasMore || widget.loadMoreFailed
+              ? bottomPadding.copyWith(bottom: 0)
+              : bottomPadding,
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -705,6 +761,25 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
             ),
           ),
         ),
+        if (widget.hasMore || widget.loadMoreFailed)
+          SliverPadding(
+            padding: EdgeInsets.only(top: 12, bottom: bottomPadding.bottom),
+            sliver: SliverToBoxAdapter(
+              child: Center(
+                child: widget.loadMoreFailed
+                    ? TextButton.icon(
+                        onPressed: widget.onLoadMore,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Couldn\'t load more · Retry'),
+                      )
+                    : const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+              ),
+            ),
+          ),
       ],
     );
   }

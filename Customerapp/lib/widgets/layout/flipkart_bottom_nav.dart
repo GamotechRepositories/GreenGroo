@@ -30,13 +30,6 @@ class FlipkartBottomNav extends StatefulWidget {
   static const barHeight = 62.0;
   static const iconInactive = Color(0xFF64748B);
 
-  static const inactiveIconFilter = ColorFilter.matrix(<double>[
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0.2126, 0.7152, 0.0722, 0, 0,
-    0, 0, 0, 0.6, 0,
-  ]);
-
   @override
   State<FlipkartBottomNav> createState() => _FlipkartBottomNavState();
 }
@@ -260,18 +253,15 @@ class _FloatingNavTab extends StatelessWidget {
 
     final iconSize = item.showBadge ? 26.0 : 22.0;
     if (item.assetIcon != null && item.assetIcon!.isNotEmpty) {
+      // The nav PNGs are single-colour glyphs, so tint them with the department accent.
       iconWidget = Image.asset(
         item.assetIcon!,
         width: iconSize,
         height: iconSize,
         fit: BoxFit.contain,
+        color: selected ? activeColor : FlipkartBottomNav.iconInactive,
+        colorBlendMode: BlendMode.srcIn,
       );
-      if (!selected) {
-        iconWidget = ColorFiltered(
-          colorFilter: FlipkartBottomNav.inactiveIconFilter,
-          child: iconWidget,
-        );
-      }
     } else if (isAccount && accountInitial != null) {
       iconWidget = _AccountAvatar(
         initial: accountInitial!,

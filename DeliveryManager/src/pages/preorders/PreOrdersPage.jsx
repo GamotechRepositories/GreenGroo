@@ -4,8 +4,10 @@ import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
+import OrderTrackingDrawer from "../../components/tracking/OrderTrackingDrawer";
 import { useLive } from "../../realtime/useLive";
 import {
+  DeliveryDelayNotice,
   OrderDepartmentTags,
   OrderStatusText,
   actionBtnDanger,
@@ -66,6 +68,15 @@ function isAssignableRider(rider) {
   return rider.isActive !== false && rider.status === "online" && !rider.activeOrderId;
 }
 
+function canBulkAssign(order) {
+  return order.status === "packed" && !isPickupOrder(order);
+}
+
+function bulkRiderLabel(rider) {
+  const state = rider.activeOrderId ? "on delivery" : rider.status || "offline";
+  return `${rider.name || rider.phone} · ${state}`;
+}
+
 export default function PreOrdersPage() {
   const { manager } = useAuth();
   const navigate = useNavigate();
@@ -81,6 +92,9 @@ export default function PreOrdersPage() {
   const [slotFilter, setSlotFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRider, setSelectedRider] = useState({});
+  const [bulkIds, setBulkIds] = useState([]);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [bulkRiderId, setBulkRiderId] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
   const [pickupQr, setPickupQr] = useState({ orderId: null, loading: false, error: "", data: null });
 
@@ -125,6 +139,19 @@ export default function PreOrdersPage() {
     () => riders.filter((r) => r.isActive !== false && !isAssignableRider(r)),
     [riders]
   );
+
+  const bulkRiders = useMemo(() => {
+    const active = riders.filter((r) => r.isActive !== false);
+    const rank = (r) => (r.status === "online" ? (r.activeOrderId ? 1 : 0) : 2);
+    return [...active].sort((a, b) => rank(a) - rank(b));
+  }, [riders]);
+
+  useEffect(() => {
+    setBulkIds((prev) => {
+      const still = prev.filter((id) => orders.some((o) => o.id === id && canBulkAssign(o)));
+      return still.length === prev.length ? prev : still;
+    });
+  }, [orders]);
 
   const slots = useMemo(
     () => [...new Set(orders.map((o) => o.preOrderSlot).filter(Boolean))].sort(),
@@ -180,6 +207,43 @@ export default function PreOrdersPage() {
       await load({ silent: true });
     } catch (err) {
       showToast(err.response?.data?.message || "Could not assign rider");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const toggleBulk = (oid) =>
+    setBulkIds((prev) => (prev.includes(oid) ? prev.filter((id) => id !== oid) : [...prev, oid]));
+
+  const toggleGroupBulk = (groupOrders) => {
+    const ids = groupOrders.filter(canBulkAssign).map((o) => o.id);
+    const allOn = ids.length > 0 && ids.every((id) => bulkIds.includes(id));
+    setBulkIds((prev) =>
+      allOn ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
+    );
+  };
+
+  const onBulkAssign = async () => {
+    if (!bulkRiderId || !bulkIds.length) return;
+    setBusyKey("bulk-assign");
+    try {
+      const res = await managerApi.assignPreOrders(bulkRiderId, bulkIds);
+      const skipped = res.data.skipped || [];
+      showToast(
+        skipped.length
+          ? `${res.data.message} · ${skipped.length} skipped (${skipped[0].reason})`
+          : res.data.message || "Pre-orders assigned"
+      );
+      setBulkIds([]);
+      setBulkRiderId("");
+      await load({ silent: true });
+    } catch (err) {
+      const skipped = err.response?.data?.skipped || [];
+      showToast(
+        skipped.length
+          ? `No orders assigned — ${skipped[0].reason}`
+          : err.response?.data?.message || "Could not assign pre-orders"
+      );
     } finally {
       setBusyKey("");
     }
@@ -379,6 +443,40 @@ export default function PreOrdersPage() {
         </div>
       </div>
 
+      {bulkIds.length > 0 && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3 shadow-sm">
+          <p className="text-xs font-bold text-emerald-900">
+            {bulkIds.length} pre-order{bulkIds.length === 1 ? "" : "s"} selected — assign all to one rider
+          </p>
+          <select
+            value={bulkRiderId}
+            onChange={(e) => setBulkRiderId(e.target.value)}
+            className="min-w-[200px] rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-slate-800 focus:outline-none"
+          >
+            <option value="">{bulkRiders.length ? "Choose rider…" : "No active riders"}</option>
+            {bulkRiders.map((r) => (
+              <option key={r.id} value={r.id}>
+                {bulkRiderLabel(r)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!bulkRiderId || busyKey === "bulk-assign"}
+            onClick={onBulkAssign}
+            className={actionBtnPrimary}
+          >
+            {busyKey === "bulk-assign" ? "Assigning…" : `Assign ${bulkIds.length}`}
+          </button>
+          <button type="button" onClick={() => setBulkIds([])} className={actionBtnOutline}>
+            Clear
+          </button>
+          <p className="w-full text-[10px] text-emerald-800">
+            Assigned directly (no Accept / Decline). The rider sees every order in Active Delivery.
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <div className="h-64 animate-pulse rounded-2xl bg-slate-200/60" />
       ) : groups.length === 0 ? (
@@ -400,9 +498,24 @@ export default function PreOrdersPage() {
                   <span className="text-white/40">·</span>
                   <span className="text-emerald-300">{group.slot || "No slot"}</span>
                 </div>
-                <span className="text-xs font-semibold text-white/70">
-                  {group.orders.length} order{group.orders.length === 1 ? "" : "s"}
-                </span>
+                <div className="flex items-center gap-3">
+                  {group.orders.some(canBulkAssign) && (
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-white/80">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 accent-emerald-500"
+                        checked={group.orders
+                          .filter(canBulkAssign)
+                          .every((o) => bulkIds.includes(o.id))}
+                        onChange={() => toggleGroupBulk(group.orders)}
+                      />
+                      Select all ready
+                    </label>
+                  )}
+                  <span className="text-xs font-semibold text-white/70">
+                    {group.orders.length} order{group.orders.length === 1 ? "" : "s"}
+                  </span>
+                </div>
               </header>
 
               <div className="divide-y divide-slate-100">
@@ -424,6 +537,15 @@ export default function PreOrdersPage() {
                     <div key={oid} className="grid gap-4 p-4 lg:grid-cols-[1.3fr_1fr_1fr]">
                       <div className="min-w-0 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
+                          {canBulkAssign(order) && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select pre-order ${order.orderNumber}`}
+                              className="h-4 w-4 cursor-pointer accent-emerald-600"
+                              checked={bulkIds.includes(oid)}
+                              onChange={() => toggleBulk(oid)}
+                            />
+                          )}
                           <button
                             type="button"
                             onClick={() => navigate(`/orders/${oid}`, { state: { order } })}
@@ -543,11 +665,17 @@ export default function PreOrdersPage() {
                         )}
 
                         {order.assignedRider && (
-                          <p className="text-[11px] font-bold text-teal-800">
+                          <button
+                            type="button"
+                            onClick={() => setTrackingOrderId(oid)}
+                            className="text-left text-[11px] font-bold text-teal-800 underline decoration-dotted underline-offset-2 hover:text-teal-600"
+                            title="Delivery details"
+                          >
                             Rider: {order.assignedRider.name}{" "}
-                            <span className="font-normal text-slate-500">{order.assignedRider.phone}</span>
-                          </p>
+                            <span className="font-normal text-slate-500">{order.assignedRider.phone}</span> · Details 📍
+                          </button>
                         )}
+                        <DeliveryDelayNotice order={order} />
                         {order.pickupProofStatus === "pending" && order.pickupProofImageUrl && (
                           <div className="flex items-center gap-2">
                             <img
@@ -613,6 +741,10 @@ export default function PreOrdersPage() {
         driverName={pickupQr.data?.driverName}
         pickupQrPayload={pickupQr.data?.pickupQrPayload}
       />
+
+      {trackingOrderId ? (
+        <OrderTrackingDrawer orderId={trackingOrderId} onClose={() => setTrackingOrderId(null)} />
+      ) : null}
     </PageShell>
   );
 }

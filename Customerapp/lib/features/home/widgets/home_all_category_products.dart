@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/providers/app_providers.dart';
 import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
-import '../../../widgets/product/cart_add_button.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import '../../../widgets/product/deal_product_card.dart';
 import '../../../features/cart/cart_controller.dart';
 import '../home_providers.dart';
 
+/// Category rows on home, as a sliver: each row is built — and its products
+/// fetched — only when it scrolls near the screen, instead of all at once.
 class HomeAllCategoryProducts extends ConsumerWidget {
   const HomeAllCategoryProducts({super.key});
 
@@ -20,38 +21,20 @@ class HomeAllCategoryProducts extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return categoriesAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFF0C831F),
-          ),
-        ),
-      ),
-      error: (err, stack) => const SizedBox.shrink(),
+      loading: () => const SliverToBoxAdapter(child: _CategorySectionSkeleton()),
+      error: (err, stack) => const SliverToBoxAdapter(child: SizedBox.shrink()),
       data: (categories) {
-        final activeCategories = categories
+        final names = categories
             .where((c) => c.isActive && c.categoryName.trim().isNotEmpty)
+            .map((c) => c.categoryName)
             .toList();
+        if (names.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 
-        if (activeCategories.isEmpty) return const SizedBox.shrink();
-
-        // Select 5 to 8 categories total across departments
-        final displayCategories = activeCategories.take(8).toList();
-
-        return Container(
-          width: double.infinity,
-          color: const Color(0xFFF8FAFC),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: displayCategories
-                .map(
-                  (cat) => _CategoryProductSection(
-                    categoryName: cat.categoryName,
-                  ),
-                )
-                .toList(),
+        return SliverList.builder(
+          itemCount: names.length,
+          itemBuilder: (context, index) => _CategoryProductSection(
+            key: ValueKey('home-cat-${names[index]}'),
+            categoryName: names[index],
           ),
         );
       },
@@ -59,65 +42,61 @@ class HomeAllCategoryProducts extends ConsumerWidget {
   }
 }
 
-class _CategoryProductSection extends ConsumerStatefulWidget {
-  const _CategoryProductSection({
-    required this.categoryName,
-  });
+class _CategoryProductSection extends ConsumerWidget {
+  const _CategoryProductSection({super.key, required this.categoryName});
 
   final String categoryName;
 
   @override
-  ConsumerState<_CategoryProductSection> createState() =>
-      __CategoryProductSectionState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(categoryPreviewProductsProvider(categoryName));
+    return productsAsync.when(
+      loading: () => const _CategorySectionSkeleton(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (products) => products.isEmpty
+          ? const SizedBox.shrink()
+          : _CategoryProductGrid(categoryName: categoryName, products: products),
+    );
+  }
 }
 
-class __CategoryProductSectionState
-    extends ConsumerState<_CategoryProductSection> {
-  List<Product> _products = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchProducts();
-  }
-
-  Future<void> _fetchProducts() async {
-    try {
-      final products = await ref.read(apiServiceProvider).fetchProducts({
-        'categoryName': widget.categoryName,
-        'limit': 12,
-      });
-      if (mounted) {
-        setState(() {
-          _products = products.where((p) => p.isActive).take(6).toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
+class _CategorySectionSkeleton extends StatelessWidget {
+  const _CategorySectionSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const SizedBox(
-        height: 140,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFF0C831F),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SkeletonBox(width: 150, height: 22, borderRadius: 6),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+            children: List.generate(3, (_) => const SkeletonBox(borderRadius: 12)),
           ),
-        ),
-      );
-    }
+        ],
+      ),
+    );
+  }
+}
 
-    if (_products.isEmpty) return const SizedBox.shrink();
+class _CategoryProductGrid extends StatelessWidget {
+  const _CategoryProductGrid({required this.categoryName, required this.products});
 
-    final productImages = _products.map((p) => p.primaryImage ?? '').toList();
+  final String categoryName;
+  final List<Product> products;
+
+  @override
+  Widget build(BuildContext context) {
+    final productImages = products.map((p) => p.primaryImage ?? '').toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
@@ -126,7 +105,7 @@ class __CategoryProductSectionState
         children: [
           // Category Title
           Text(
-            widget.categoryName,
+            categoryName,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 20.5,
               fontWeight: FontWeight.w900,
@@ -146,9 +125,9 @@ class __CategoryProductSectionState
               crossAxisSpacing: 10,
               childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
             ),
-            itemCount: _products.length,
+            itemCount: products.length,
             itemBuilder: (context, index) {
-              final product = _products[index];
+              final product = products[index];
               return _Image2ProductTile(product: product);
             },
           ),
@@ -156,11 +135,11 @@ class __CategoryProductSectionState
 
           // Full-width See All Button
           _SeeAllButton(
-            title: 'See all ${widget.categoryName} products',
+            title: 'See all ${categoryName} products',
             categoryImages: productImages,
             onTap: () {
               context.push(
-                '${RoutePaths.product}?categoryName=${Uri.encodeComponent(widget.categoryName)}',
+                '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
               );
             },
           ),

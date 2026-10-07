@@ -182,6 +182,22 @@ const storeOrderSchema = new mongoose.Schema(
       ref: "DeliveryBoy",
       default: null,
     },
+    /** Rider-reported delay; the manager decides when to forward it to the customer */
+    deliveryDelay: {
+      minutes: { type: Number, default: 0 },
+      reason: { type: String, default: "", trim: true },
+      reportedAt: { type: Date },
+      expectedBy: { type: Date },
+      customerNotifiedAt: { type: Date },
+    },
+    /** ETA promised when the rider left with the parcel; delay is measured against it */
+    dispatchEta: {
+      seconds: { type: Number, default: null },
+      distanceMeters: { type: Number, default: null },
+      expectedAt: { type: Date, default: null },
+      computedAt: { type: Date, default: null },
+      source: { type: String, default: "" },
+    },
 
     // ── Same-route batching ─────────────────────────────────────────────────
     routeBatchWindowEndsAt: { type: Date },
@@ -339,6 +355,17 @@ storeOrderSchema.pre("validate", function deriveStoreOrderType() {
   }
 });
 
+export function deliveryDelayJSON(delay) {
+  if (!delay || !(delay.minutes > 0)) return null;
+  return {
+    minutes: delay.minutes,
+    reason: delay.reason || "",
+    reportedAt: delay.reportedAt || null,
+    expectedBy: delay.expectedBy || null,
+    customerNotifiedAt: delay.customerNotifiedAt || null,
+  };
+}
+
 storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
   const items = this.items.map((item) => {
     const base = {
@@ -437,6 +464,15 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     failedByRiderId: this.failedByRiderId
       ? this.failedByRiderId.toString()
       : null,
+    deliveryDelay: deliveryDelayJSON(this.deliveryDelay),
+    dispatchEta: this.dispatchEta?.expectedAt
+      ? {
+          seconds: this.dispatchEta.seconds,
+          distanceMeters: this.dispatchEta.distanceMeters,
+          expectedAt: this.dispatchEta.expectedAt,
+          source: this.dispatchEta.source || "",
+        }
+      : null,
     routeBatchWindowEndsAt: this.routeBatchWindowEndsAt,
     pickupQrUnlocked: Boolean(this.pickupQrUnlocked),
     batchId: this.batchId || "",
@@ -502,6 +538,32 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };
+};
+
+const RIDER_CLOSED_STATUSES = new Set(["delivered", "cancelled", "delivery_failed"]);
+
+/**
+ * What a rider may see: customer phone from assignment, address only after the
+ * pickup is approved, and neither once the order is closed.
+ */
+storeOrderSchema.methods.toRiderJSON = function toRiderJSON() {
+  const json = this.toSafeJSON();
+  const closed = RIDER_CLOSED_STATUSES.has(this.status);
+  if (closed) {
+    json.customerName = "Customer";
+    json.customerPhone = "";
+  }
+  if (closed || !this.customerAddressUnlocked) {
+    json.customerAddress = "";
+    json.customerLat = null;
+    json.customerLng = null;
+    if (json.earningSnapshot) {
+      json.earningSnapshot.customerAddress = "";
+      json.earningSnapshot.customerLat = null;
+      json.earningSnapshot.customerLng = null;
+    }
+  }
+  return json;
 };
 
 if (mongoose.models.StoreOrder) {

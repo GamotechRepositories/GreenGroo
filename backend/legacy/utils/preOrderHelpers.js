@@ -23,7 +23,7 @@ export function computePreOrderDate(from = new Date()) {
  * Checks the slot is configured, active and still has capacity for tomorrow.
  * Capacity 0 means unlimited. Returns { preOrderSlot, preOrderDate } or { error, status, code }.
  */
-export async function validatePreOrderSlot(rawSlot, { excludeOrderId } = {}) {
+export async function validatePreOrderSlot(rawSlot, { excludeOrderId, preOrderDate: forDate } = {}) {
   const preOrderSlot = normalizePreOrderSlot(rawSlot);
   if (!preOrderSlot) return { preOrderSlot: "", preOrderDate: "" };
 
@@ -39,7 +39,7 @@ export async function validatePreOrderSlot(rawSlot, { excludeOrderId } = {}) {
     };
   }
 
-  const preOrderDate = computePreOrderDate();
+  const preOrderDate = forDate || computePreOrderDate();
   const capacity = Number(slot.capacity) || 0;
   if (capacity > 0) {
     const booked = await Order.countDocuments({
@@ -50,7 +50,7 @@ export async function validatePreOrderSlot(rawSlot, { excludeOrderId } = {}) {
     });
     if (booked >= capacity) {
       return {
-        error: `The ${preOrderSlot} slot for tomorrow is fully booked. Please choose another slot.`,
+        error: `The ${preOrderSlot} slot ${forDate ? `on ${forDate}` : "for tomorrow"} is fully booked. Please choose another slot.`,
         status: 409,
         code: "PREORDER_SLOT_FULL",
       };

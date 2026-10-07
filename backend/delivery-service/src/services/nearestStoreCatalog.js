@@ -229,8 +229,9 @@ export async function resolveMatchingProducts(items) {
 
 function applyStoreStock(doc, item, catalog) {
   const hasStore = Boolean(catalog?.store?.id || catalog?.store?._id || catalog?.manager);
-  // No resolved dark store (or no location) → keep catalog stock as-is
-  if (!hasStore && !item) {
+  // No location yet → keep catalog stock as-is. A known location with no dark
+  // store serving it falls through and shows everything out of stock.
+  if (!hasStore && catalog?.needsLocation !== false) {
     return {
       ...doc,
       storeStock: null,
@@ -342,16 +343,14 @@ export async function loadNearestStoreCatalog(query = {}) {
 }
 
 /**
- * Products a customer may see. With a resolved dark store: that store's own
- * products plus admin products it stocks. Without one: the admin catalog only.
+ * Products a customer may see: the whole admin catalog, plus the resolved dark
+ * store's own products. Admin products the store doesn't stock still show —
+ * attachStoreAvailability marks them out of stock.
  */
 export function storeProductScope(catalog) {
   const manager = catalog?.manager;
   if (!manager) return { ownerManagerId: null };
-  const items = Array.isArray(catalog.items) ? catalog.items : [];
-  const carried = [{ ownerManagerId: manager._id }];
-  if (items.length) carried.push({ ownerManagerId: null, ...mongoMatchForInventory(items) });
-  return { $or: carried };
+  return { $or: [{ ownerManagerId: null }, { ownerManagerId: manager._id }] };
 }
 
 export function mergeStoreFilter(baseFilter, _catalog) {

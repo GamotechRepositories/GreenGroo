@@ -393,6 +393,27 @@ export async function sendRiderAssigned(order, rider = {}) {
   });
 }
 
+export function formatDelayMinutes(total) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours} hr${hours > 1 ? "s" : ""}`);
+  if (minutes) parts.push(`${minutes} min`);
+  return parts.join(" ") || "a few minutes";
+}
+
+export async function sendDeliveryDelayed(order, { minutes = 0, message = "" } = {}) {
+  const ref = orderRef(order);
+  const late = formatDelayMinutes(minutes);
+  return deliverToUser(order.user, {
+    title: "Delivery Delayed",
+    body: message || `${ref} is running about ${late} late. Sorry for the wait — it's on the way.`,
+    type: "delivery_delayed",
+    order,
+    data: buildOrderData(order, { type: "delivery_delayed", delayMinutes: minutes }),
+  });
+}
+
 export async function sendDeliveryFailed(order) {
   const ref = orderRef(order);
   return deliverToUser(order.user, {

@@ -283,6 +283,10 @@ export async function approvePickupProof({ orderId, managerId }) {
   await refreshStoreOrderCustomerCoords(order);
   await order.save();
 
+  import("./orderTrackingService.js")
+    .then(({ recordDispatchEta }) => recordDispatchEta(order))
+    .catch(() => {});
+
   try {
     const { syncCustomerOrderFromStore } = await import("./syncCustomerOrderFromStore.js");
     await syncCustomerOrderFromStore(order, "out_for_delivery");

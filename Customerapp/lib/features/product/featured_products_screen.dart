@@ -7,6 +7,7 @@ import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/home/home_providers.dart';
+import '../../features/product/product_providers.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../widgets/common/api_error_view.dart';
@@ -118,9 +119,25 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
         );
   }
 
+  ProductQuery get _query => ProductQuery(
+        justArrived: widget.filter == FeaturedProductFilter.justArrived,
+        hotSelling: widget.filter == FeaturedProductFilter.hotSelling,
+        sort: _sort.id,
+      );
+
+  bool _maybeLoadMore(ScrollMetrics metrics, PagedProducts paged) {
+    if (paged.hasMore && !paged.loadingMore && paged.error == null &&
+        metrics.extentAfter < metrics.viewportDimension * 1.5) {
+      ref.read(pagedProductsProvider(_query).notifier).loadMore();
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(featuredProductsProvider(widget.filter));
+    final query = _query;
+    final paged = ref.watch(pagedProductsProvider(query));
+    final notifier = ref.read(pagedProductsProvider(query).notifier);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -161,19 +178,18 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
             ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(featuredProductsProvider(widget.filter));
-                await ref.read(featuredProductsProvider(widget.filter).future);
-              },
-              child: productsAsync.when(
-                loading: () => const SkeletonProductGrid(),
-                error: (_, _) => ApiErrorView(
-                  message: 'Could not load products',
-                  onRetry: () => ref.invalidate(featuredProductsProvider(widget.filter)),
-                ),
-                data: (products) {
+              onRefresh: notifier.refresh,
+              child: Builder(
+                builder: (context) {
+                  if (paged.loadingFirst) return const SkeletonProductGrid();
+                  if (paged.error != null && paged.items.isEmpty) {
+                    return ApiErrorView(
+                      message: 'Could not load products',
+                      onRetry: notifier.refresh,
+                    );
+                  }
                   final sorted = filterAndSortProducts(
-                    products: products,
+                    products: paged.items,
                     sort: _sort,
                   );
                   if (sorted.isEmpty) {
@@ -193,25 +209,57 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
                     );
                   }
 
-                  return GridView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+                  final showFooter = paged.hasMore || paged.error != null;
+                  return NotificationListener<ScrollMetricsNotification>(
+                    onNotification: (n) => _maybeLoadMore(n.metrics, paged),
+                    child: NotificationListener<ScrollUpdateNotification>(
+                      onNotification: (n) => _maybeLoadMore(n.metrics, paged),
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        slivers: [
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(16, 12, 16, showFooter ? 0 : 24),
+                            sliver: SliverGrid.builder(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 10,
+                                childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+                              ),
+                              itemCount: sorted.length,
+                              itemBuilder: (context, index) {
+                                final product = sorted[index];
+                                return _FeaturedProductCard(
+                                  product: product,
+                                  onAdd: (ctx) => _handleAdd(product, ctx),
+                                  onIncrease: () => _handleIncrease(product),
+                                  onDecrease: () => _handleDecrease(product),
+                                );
+                              },
+                            ),
+                          ),
+                          if (showFooter)
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                              sliver: SliverToBoxAdapter(
+                                child: Center(
+                                  child: paged.error != null
+                                      ? TextButton.icon(
+                                          onPressed: notifier.loadMore,
+                                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                                          label: const Text('Couldn\'t load more · Retry'),
+                                        )
+                                      : const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    itemCount: sorted.length,
-                    itemBuilder: (context, index) {
-                      final product = sorted[index];
-                      return _FeaturedProductCard(
-                        product: product,
-                        onAdd: (ctx) => _handleAdd(product, ctx),
-                        onIncrease: () => _handleIncrease(product),
-                        onDecrease: () => _handleDecrease(product),
-                      );
-                    },
                   );
                 },
               ),

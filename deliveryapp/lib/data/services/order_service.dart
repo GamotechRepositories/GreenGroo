@@ -92,6 +92,9 @@ class ActiveDeliveryData {
     this.orderType = 'instant',
     this.trackingEnabled = false,
     this.sourceOrderId,
+    this.delayMinutes = 0,
+    this.delayReportedAt,
+    this.delayCustomerNotifiedAt,
   });
 
   final String id;
@@ -139,8 +142,15 @@ class ActiveDeliveryData {
   /// Backend says live GPS may be shared for this order type (never for preorder).
   final bool trackingEnabled;
   final String? sourceOrderId;
+  /// Delay this rider last reported to the Delivery Manager (0 = none).
+  final int delayMinutes;
+  final DateTime? delayReportedAt;
+  final DateTime? delayCustomerNotifiedAt;
 
   bool get isPreOrder => orderType == 'preorder';
+
+  bool get canReportDelay =>
+      status == 'assigned' || status == 'pickup_verified' || status == 'out_for_delivery';
 
   bool get hasCustomerPhone => RegExp(r'\d{6,}').hasMatch(customerPhone.replaceAll(RegExp(r'\D'), ''));
 
@@ -205,6 +215,11 @@ class ActiveDeliveryData {
         orderType: json['orderType'] as String? ?? 'instant',
         trackingEnabled: json['trackingEnabled'] as bool? ?? false,
         sourceOrderId: json['sourceOrderId'] as String?,
+        delayMinutes: ((json['deliveryDelay'] as Map?)?['minutes'] as num?)?.toInt() ?? 0,
+        delayReportedAt:
+            DateTime.tryParse('${(json['deliveryDelay'] as Map?)?['reportedAt'] ?? ''}'),
+        delayCustomerNotifiedAt:
+            DateTime.tryParse('${(json['deliveryDelay'] as Map?)?['customerNotifiedAt'] ?? ''}'),
       );
 }
 
@@ -492,6 +507,33 @@ class OrderService extends ChangeNotifier {
       return (
         success: false,
         error: body['message'] as String? ?? 'Could not mark delivery as failed.',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<({bool success, String? error})> reportDelay(
+    String orderId, {
+    required int hours,
+    required int minutes,
+    String reason = '',
+  }) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.reportDelay(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'hours': hours, 'minutes': minutes, 'reason': reason.trim()}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Could not send the delay.',
       );
     } catch (_) {
       return (success: false, error: 'Network error. Please try again.');

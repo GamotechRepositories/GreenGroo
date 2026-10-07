@@ -38,6 +38,7 @@ import '../../presentation/screens/vehicle/vehicle_details_screen.dart';
 import '../../presentation/screens/profile/bank_details_screen.dart';
 import '../../presentation/screens/wallet/wallet_screen.dart';
 import '../../presentation/shell/main_shell.dart';
+import '../services/secure_screen.dart';
 import '../../core/theme/theme_rebuild.dart';
 import '../../data/services/auth_service.dart';
 import 'app_routes.dart';
@@ -76,7 +77,7 @@ class AppRouter {
           AppRoutes.home => const MainShell(),
           AppRoutes.myShifts => const MyShiftsScreen(),
           AppRoutes.newOrders => const NewOrdersScreen(),
-          AppRoutes.activeDelivery => const ActiveDeliveryScreen(),
+          AppRoutes.activeDelivery => const SecureScreen(child: ActiveDeliveryScreen()),
           AppRoutes.liveNavigation => const LiveNavigationScreen(),
           AppRoutes.deliveryHistory => const DeliveryHistoryScreen(),
           AppRoutes.earnings => const EarningsScreen(),
@@ -97,7 +98,7 @@ class AppRouter {
           AppRoutes.selectEmploymentType => const EmploymentTypeScreen(),
           AppRoutes.fullTimeRules => const FullTimeRulesScreen(),
           AppRoutes.fullTimeAttendance => const FullTimeAttendanceScreen(),
-          AppRoutes.assignedOrders => const AssignedOrdersScreen(),
+          AppRoutes.assignedOrders => const SecureScreen(child: AssignedOrdersScreen()),
           _ => const SplashScreen(),
         },
       ),

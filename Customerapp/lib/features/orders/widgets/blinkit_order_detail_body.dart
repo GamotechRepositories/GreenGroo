@@ -16,6 +16,7 @@ import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
 import '../feedback/order_feedback_sheet.dart';
 import '../tracking/order_tracking_panel.dart';
+import 'preorder_manage_card.dart';
 
 const _themeGreen = Color(0xFF2E7D32);
 const _billBg = Color(0xFFFFFFFF);
@@ -340,6 +341,11 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   _DeliveryOtpBanner(otp: order.deliveryOtp, pickup: order.isPickup),
                 if (order.darkStore != null || order.storeParts.length > 1)
                   _FulfillmentInfo(order: order),
+                if (PreOrderManageCard.appliesTo(order))
+                  PreOrderManageCard(
+                    order: order,
+                    onChanged: () => widget.onTrackingStatusChanged?.call(),
+                  ),
                 _ShipmentStatusBlock(
                   shipmentNumber: _selectedShipment + 1,
                   statusLabel: statusLabel,

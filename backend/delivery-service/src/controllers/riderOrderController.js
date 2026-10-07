@@ -1,4 +1,4 @@
-import StoreOrder from "../models/StoreOrder.js";
+import StoreOrder, { deliveryDelayJSON } from "../models/StoreOrder.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import {
@@ -365,6 +365,7 @@ export const getActiveDelivery = async (req, res, next) => {
         customerOtpVerified: Boolean(order.customerOtpVerified),
         deliveryComment: order.deliveryComment || "",
         failureReason: order.failureReason || "",
+        deliveryDelay: deliveryDelayJSON(order.deliveryDelay),
         paymentMethod: order.paymentMethod || "",
         paymentStatus: order.paymentStatus || "pending",
         amountToCollect,
@@ -794,7 +795,7 @@ export const completeDelivery = async (req, res, next) => {
 
     // Already delivered?
     if (order.status === "delivered") {
-      return res.json({ success: true, alreadyDelivered: true, message: "Order already delivered", order: order.toSafeJSON() });
+      return res.json({ success: true, alreadyDelivered: true, message: "Order already delivered", order: order.toRiderJSON() });
     }
 
     // ── Condition 1: Customer address must have been unlocked ──────────────
@@ -980,7 +981,7 @@ export const completeDelivery = async (req, res, next) => {
     return res.json({
       success: true,
       message: "Order delivered successfully!",
-      order: order.toSafeJSON(),
+      order: order.toRiderJSON(),
       deliverySummary: {
         distanceKm: order.deliveryDistanceKm,
         riderDeliveryEarning: order.riderDeliveryEarning,
@@ -1075,7 +1076,74 @@ export const failDelivery = async (req, res, next) => {
     return res.json({
       success: true,
       message: "Delivery marked as failed",
-      order: order.toSafeJSON(),
+      order: order.toRiderJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const DELAY_REPORTABLE_STATUSES = new Set(["assigned", "pickup_verified", "out_for_delivery"]);
+const MAX_DELAY_MINUTES = 12 * 60;
+
+/** POST /orders/:orderId/delay  { hours, minutes, reason } — rider tells the store the order will be late. */
+export const reportDeliveryDelay = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+    const hours = Math.max(0, Math.floor(Number(req.body.hours) || 0));
+    const mins = Math.max(0, Math.floor(Number(req.body.minutes) || 0));
+    const total = hours * 60 + mins;
+    const reason = String(req.body.reason || "").trim().slice(0, 300);
+
+    if (total < 1 || total > MAX_DELAY_MINUTES) {
+      return res.status(400).json({
+        success: false,
+        message: "Delay must be between 1 minute and 12 hours",
+      });
+    }
+
+    const order = await StoreOrder.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({ success: false, message: "You are not assigned to this order" });
+    }
+    if (!DELAY_REPORTABLE_STATUSES.has(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot report a delay — order is ${order.status}`,
+      });
+    }
+
+    const now = new Date();
+    order.deliveryDelay = {
+      minutes: total,
+      reason,
+      reportedAt: now,
+      expectedBy: new Date(now.getTime() + total * 60000),
+      customerNotifiedAt: null,
+    };
+    await order.save();
+
+    try {
+      getIO().to(`store_${order.managerId}`).emit("order_delay_reported", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        riderId: String(riderId),
+        deliveryDelay: deliveryDelayJSON(order.deliveryDelay),
+      });
+      getIO().to(`store_${order.managerId}`).emit("order_status_updated", {
+        orderId: order._id.toString(),
+        status: order.status,
+      });
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: "Delay sent to your Delivery Manager",
+      deliveryDelay: deliveryDelayJSON(order.deliveryDelay),
     });
   } catch (error) {
     next(error);

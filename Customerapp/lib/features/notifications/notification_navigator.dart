@@ -159,6 +159,7 @@ abstract final class NotificationNavigator {
     return type.startsWith('order_') ||
         type == 'out_for_delivery' ||
         type == 'rider_assigned' ||
+        type == 'delivery_delayed' ||
         type == 'delivery_failed';
   }
 

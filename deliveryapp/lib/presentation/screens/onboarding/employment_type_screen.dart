@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -15,9 +16,13 @@ class EmploymentTypeScreen extends StatefulWidget {
 }
 
 class _EmploymentTypeScreenState extends State<EmploymentTypeScreen> {
-  String? _selected;
+  String? _selected = kFullTimeSignupEnabled ? null : 'PART_TIME';
 
-  static const _options = [
+  static List<_EmploymentOption> get _options => kFullTimeSignupEnabled
+      ? _allOptions
+      : _allOptions.where((o) => o.id != 'FULL_TIME').toList();
+
+  static const _allOptions = [
     _EmploymentOption(
       id: 'PART_TIME',
       icon: Icons.access_time_outlined,

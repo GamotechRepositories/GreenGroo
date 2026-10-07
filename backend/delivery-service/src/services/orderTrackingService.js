@@ -222,6 +222,55 @@ export async function recordDriverLocation({ storeOrder, rider, lat, lng, headin
   }
 }
 
+/** Customer drop point of a store order, from the order or its customer order. */
+export async function storeOrderDestination(storeOrder, customerOrder = null) {
+  const direct = toPoint({ lat: storeOrder?.customerLat, lng: storeOrder?.customerLng });
+  if (direct) return direct;
+  const source =
+    customerOrder ||
+    (storeOrder?.sourceOrderId
+      ? await EcommerceOrder.findById(storeOrder.sourceOrderId).select("deliveryAddress").lean()
+      : null);
+  return toPoint(source?.deliveryAddress?.location) || toPoint(source?.deliveryAddress) || null;
+}
+
+/**
+ * Save the ETA promised at dispatch (store → customer) once, so the delay can be
+ * measured against it while live and after delivery.
+ */
+export async function recordDispatchEta(storeOrder, { origin = null } = {}) {
+  if (!storeOrder?._id || storeOrder.dispatchEta?.expectedAt) return storeOrder?.dispatchEta || null;
+  try {
+    const [manager, destination] = await Promise.all([
+      origin ? null : DeliveryManager.findById(storeOrder.managerId).select("latitude longitude").lean(),
+      storeOrderDestination(storeOrder),
+    ]);
+    const from = toPoint(origin) || toPoint(manager);
+    if (!from || !destination) return null;
+    const route = await getRouteAndEta({ origin: from, destination });
+    if (!route?.etaSeconds) return null;
+
+    const startedAt = storeOrder.pickupVerifiedAt || storeOrder.pickupProofApprovedAt || new Date();
+    const dispatchEta = {
+      seconds: route.etaSeconds,
+      distanceMeters: route.distanceMeters ?? null,
+      expectedAt: new Date(new Date(startedAt).getTime() + route.etaSeconds * 1000),
+      computedAt: new Date(),
+      source: route.source || "",
+    };
+    await StoreOrder.updateOne(
+      { _id: storeOrder._id, "dispatchEta.expectedAt": { $in: [null] } },
+      { $set: { dispatchEta } },
+      { timestamps: false }
+    );
+    storeOrder.dispatchEta = dispatchEta;
+    return dispatchEta;
+  } catch (err) {
+    console.warn("[tracking] dispatch ETA failed:", err.message);
+    return null;
+  }
+}
+
 // ── Order status events ──────────────────────────────────────────────────────
 
 export function buildStatusPayload(storeOrder, storeStatus = storeOrder?.status) {
@@ -397,6 +446,17 @@ function preOrderInfo(storeOrder, customerOrder) {
   };
 }
 
+/** Only delays the manager chose to forward are shown to the customer. */
+function customerDelayInfo(storeOrder, closed) {
+  const delay = storeOrder?.deliveryDelay;
+  if (closed || !delay?.customerNotifiedAt || !(delay.minutes > 0)) return null;
+  return {
+    minutes: delay.minutes,
+    expectedBy: delay.expectedBy || null,
+    notifiedAt: delay.customerNotifiedAt,
+  };
+}
+
 export async function buildTrackingSnapshot({ customerOrder, storeOrders = [], part = "" }) {
   const primary = pickPrimaryPart(storeOrders, part);
   const orderType = primary ? resolveStoreOrderType(primary) : resolveCustomerOrderType(customerOrder);
@@ -488,6 +548,7 @@ export async function buildTrackingSnapshot({ customerOrder, storeOrders = [], p
     destination,
     lastLocation,
     eta,
+    delay: customerDelayInfo(primary, closed),
     route,
     refreshRouteSeconds: ROUTE_REFRESH_SECONDS,
     serverTime: new Date().toISOString(),

@@ -6,7 +6,7 @@ import {
   updateProductRecord,
 } from "../../../legacy/controllers/productController.js";
 import { getManager } from "./managerDashboardController.js";
-import { inventorySkuForProduct } from "../services/catalogStoreInventory.js";
+import { catalogFields, inventorySkuForProduct } from "../services/catalogStoreInventory.js";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -140,6 +140,60 @@ export const updateManagerProduct = async (req, res, next) => {
       });
     }
     return res.status(result.status).json(result.body);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const MAX_STOCK = 100000;
+
+/**
+ * PUT /products/:id/stock  { stock } — set this store's stock for an admin
+ * catalog product or one of the store's own products (0 = out of stock).
+ */
+export const setManagerProductStock = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const stock = Number(req.body?.stock);
+    if (!Number.isInteger(stock) || stock < 0 || stock > MAX_STOCK) {
+      return res.status(400).json({
+        success: false,
+        message: `Stock must be a whole number between 0 and ${MAX_STOCK}`,
+      });
+    }
+
+    const product = mongoose.Types.ObjectId.isValid(req.params.id)
+      ? await Product.findOne({
+          _id: req.params.id,
+          $or: [{ ownerManagerId: manager._id }, { ownerManagerId: null }],
+        }).lean()
+      : null;
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const sku = inventorySkuForProduct(product);
+    const row = await StoreInventory.findOneAndUpdate(
+      { managerId: manager._id, sku: { $regex: `^${escapeRegex(sku)}$`, $options: "i" } },
+      { $set: { stockCount: stock, isActive: true } },
+      { new: true }
+    );
+    if (!row) {
+      await StoreInventory.create({
+        managerId: manager._id,
+        sku,
+        ...catalogFields(product),
+        stockCount: stock,
+        lowStockThreshold: 10,
+        isActive: true,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: stock > 0 ? `"${product.name}" is in stock (${stock})` : `"${product.name}" marked out of stock`,
+      storeStock: stock,
+    });
   } catch (error) {
     next(error);
   }

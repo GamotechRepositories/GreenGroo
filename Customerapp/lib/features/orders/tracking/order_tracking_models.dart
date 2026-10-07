@@ -170,6 +170,7 @@ class OrderTracking {
     this.lastLocation,
     this.eta,
     this.routePolyline,
+    this.delay,
   });
 
   final String orderId;
@@ -193,6 +194,8 @@ class OrderTracking {
   final DriverFix? lastLocation;
   final TrackingEta? eta;
   final String? routePolyline;
+  /// Delay the store forwarded to the customer (null when on time).
+  final TrackingDelay? delay;
 
   bool get isDelivered => status == 'delivered';
   bool get isCancelled => status == 'cancelled';
@@ -230,6 +233,7 @@ class OrderTracking {
       lastLocation: DriverFix.fromJson(json['lastLocation']),
       eta: TrackingEta.fromJson(json['eta']),
       routePolyline: json['route'] is Map ? (json['route'] as Map)['polyline']?.toString() : null,
+      delay: TrackingDelay.fromJson(json['delay']),
     );
   }
 
@@ -269,6 +273,31 @@ class OrderTracking {
       lastLocation: lastLocation,
       eta: eta,
       routePolyline: routePolyline,
+      delay: delay,
+    );
+  }
+}
+
+class TrackingDelay {
+  const TrackingDelay({required this.minutes, this.expectedBy});
+
+  final int minutes;
+  final DateTime? expectedBy;
+
+  String get label {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '$m min';
+    return m == 0 ? '$h hr' : '$h hr $m min';
+  }
+
+  static TrackingDelay? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final minutes = (json['minutes'] as num?)?.toInt() ?? 0;
+    if (minutes <= 0) return null;
+    return TrackingDelay(
+      minutes: minutes,
+      expectedBy: DateTime.tryParse('${json['expectedBy'] ?? ''}')?.toLocal(),
     );
   }
 }

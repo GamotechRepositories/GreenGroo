@@ -13,6 +13,7 @@ import {
   markDelivered,
   handOverPickupOrder,
   cancelStoreOrder,
+  notifyCustomerOfDelay,
   verifyDriver,
   getDriverDetails,
   getDriverActivityHistory,
@@ -33,11 +34,13 @@ import {
   listMyInventoryRequests,
 } from "../controllers/inventoryRequestController.js";
 import { listManagerPreOrders } from "../controllers/preOrderController.js";
+import { getManagerOrderTracking } from "../controllers/managerTrackingController.js";
 import {
   listManagerProducts,
   createManagerProduct,
   updateManagerProduct,
   deleteManagerProduct,
+  setManagerProductStock,
 } from "../controllers/managerProductController.js";
 import {
   getLiveRiders,
@@ -94,6 +97,7 @@ import {
   listFullTimeAssignableOrders,
   listFullTimeAssignedOrders,
   assignOrdersToFullTimeDriver,
+  assignPreOrdersToDriver,
   unassignFullTimeOrder,
 } from "../controllers/fullTimeManagementController.js";
 import {
@@ -117,11 +121,13 @@ router.get("/me", me);
 router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
 router.get("/preorders", listManagerPreOrders);
+router.post("/preorders/assign", assignPreOrdersToDriver);
 router.get("/inventory", listInventory);
 router.get("/products", listManagerProducts);
 router.post("/products", createManagerProduct);
 router.put("/products/:id", updateManagerProduct);
 router.delete("/products/:id", deleteManagerProduct);
+router.put("/products/:id/stock", setManagerProductStock);
 router.get("/inventory-requests", listMyInventoryRequests);
 router.post("/inventory-requests", createInventoryRequest);
 router.get("/riders", listRiders);
@@ -149,6 +155,8 @@ router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);
 router.post("/orders/:orderId/pickup-handover", handOverPickupOrder);
 router.post("/orders/:orderId/cancel", cancelStoreOrder);
+router.post("/orders/:orderId/delay/notify-customer", notifyCustomerOfDelay);
+router.get("/orders/:orderId/tracking", getManagerOrderTracking);
 
 router.get("/return-pickups", listManagerReturnPickups);
 router.get("/return-pickups/:id", getManagerReturnPickup);

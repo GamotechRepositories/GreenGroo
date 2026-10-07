@@ -69,6 +69,10 @@ class SocketService {
     socket.on('order_status', (data) {
       if (data is Map) _orderStatusController.add(Map<String, dynamic>.from(data));
     });
+    // No `status` field, so listeners just refetch tracking (which carries the delay).
+    socket.on('order_delay', (data) {
+      if (data is Map) _orderStatusController.add(Map<String, dynamic>.from(data));
+    });
 
     _socket = socket;
     socket.connect();

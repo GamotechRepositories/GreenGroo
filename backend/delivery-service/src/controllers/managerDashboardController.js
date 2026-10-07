@@ -16,6 +16,9 @@ import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeSer
 import { calculateRiderEarning } from "../services/ShiftEarningService.js";
 import { applyStoreOrderStatus } from "../services/storeOrderLifecycle.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
+import { orderRoom } from "../services/orderTrackingService.js";
+import EcommerceOrder from "../../../legacy/models/order/Order.js";
+import { sendDeliveryDelayed } from "../../../legacy/services/notificationService.js";
 import {
   ensureTodayOnlineTracking,
   liveOnlineMinutes,
@@ -1287,6 +1290,65 @@ export const cancelStoreOrder = async (req, res, next) => {
       success: true,
       message: result.message || "Order cancelled",
       order: result.order.toSafeJSON ? result.order.toSafeJSON(stockMap) : result.order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /orders/:orderId/delay/notify-customer  { message? }
+ * Forwards the rider-reported delay to the customer (push + live tracking).
+ */
+export const notifyCustomerOfDelay = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const order = await StoreOrder.findOne({
+      _id: req.params.orderId,
+      managerId: manager._id,
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    const delay = order.deliveryDelay;
+    if (!(delay?.minutes > 0)) {
+      return res.status(400).json({ success: false, message: "The rider has not reported a delay" });
+    }
+    if (["delivered", "cancelled", "delivery_failed"].includes(order.status)) {
+      return res.status(400).json({ success: false, message: `Order already ${order.status}` });
+    }
+    const customerOrder = order.sourceOrderId
+      ? await EcommerceOrder.findById(order.sourceOrderId)
+      : null;
+    if (!customerOrder) {
+      return res.status(400).json({
+        success: false,
+        message: "This order is not linked to a customer app order",
+      });
+    }
+
+    const message = String(req.body?.message || "").trim().slice(0, 300);
+    order.deliveryDelay.customerNotifiedAt = new Date();
+    await order.save();
+
+    const push = await sendDeliveryDelayed(customerOrder, { minutes: delay.minutes, message });
+    try {
+      getIO().to(orderRoom(customerOrder._id.toString())).emit("order_delay", {
+        orderId: customerOrder._id.toString(),
+        storeOrderId: order._id.toString(),
+        minutes: delay.minutes,
+        expectedBy: delay.expectedBy || null,
+        message,
+        at: new Date().toISOString(),
+      });
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: push?.delivered
+        ? "Delay update sent to the customer"
+        : "Delay update saved — the customer will see it in the app",
+      order: order.toSafeJSON(),
     });
   } catch (error) {
     next(error);

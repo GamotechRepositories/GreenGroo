@@ -56,6 +56,7 @@ export const managerApi = {
   createProduct: (data) => api.post(`${BASE}/products`, data),
   updateProduct: (id, data) => api.put(`${BASE}/products/${id}`, data),
   deleteProduct: (id) => api.delete(`${BASE}/products/${id}`),
+  setProductStock: (id, stock) => api.put(`${BASE}/products/${id}/stock`, { stock }),
   sections: () => api.get("/api/sections"),
   categories: (section) => api.get("/api/categories", { params: { section } }),
   uploadMedia: (files, folder = "products") => {
@@ -85,6 +86,8 @@ export const managerApi = {
   createDemoOrder: (body) => api.post(`${BASE}/orders/demo`, body || {}),
   assignOrder: (orderId, riderId) =>
     api.post(`${BASE}/orders/${orderId}/assign`, { riderId }),
+  assignPreOrders: (riderId, orderIds) =>
+    api.post(`${BASE}/preorders/assign`, { riderId, orderIds }),
   routeSuggestions: () => api.get(`${BASE}/orders/route-suggestions`),
   dispatchOrderNow: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/dispatch-now`),
@@ -96,6 +99,9 @@ export const managerApi = {
     api.post(`${BASE}/orders/${orderId}/pickup-handover`, { otp }),
   cancelOrder: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/cancel`),
+  notifyCustomerOfDelay: (orderId, message = "") =>
+    api.post(`${BASE}/orders/${orderId}/delay/notify-customer`, { message }),
+  orderTracking: (orderId) => api.get(`${BASE}/orders/${orderId}/tracking`),
   getPickupQr: (orderId) => api.get(`${BASE}/orders/${orderId}/pickup-qr`),
   verifyPickup: (orderId, qrPayload) =>
     api.post(`${BASE}/orders/${orderId}/verify-pickup`, { qrPayload }),

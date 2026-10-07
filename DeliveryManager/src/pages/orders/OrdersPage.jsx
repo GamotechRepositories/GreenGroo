@@ -4,6 +4,7 @@ import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
+import OrderTrackingDrawer from "../../components/tracking/OrderTrackingDrawer";
 import { useLive } from "../../realtime/useLive";
 import { mapsLink, useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
 import { subscribeToSocketEvent } from "../../services/socket";
@@ -28,6 +29,9 @@ export default function OrdersPage() {
   const [routeSuggestions, setRouteSuggestions] = useState([]);
   const [openWindowOrders, setOpenWindowOrders] = useState([]);
   const [nowTick, setNowTick] = useState(Date.now());
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const openTracking = useCallback((order) => setTrackingOrderId(order.id || order._id), []);
+  const closeTracking = useCallback(() => setTrackingOrderId(null), []);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -880,7 +884,7 @@ export default function OrdersPage() {
                       <OrderStatusText status={order.status} order={order} />
                     </td>
                     <td className="py-3.5 px-4">
-                      <DriverAssignmentText order={order} />
+                      <DriverAssignmentText order={order} onRiderClick={openTracking} />
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex flex-col items-end gap-2">
@@ -1033,6 +1037,10 @@ export default function OrdersPage() {
         driverName={pickupQrData?.driverName}
         pickupQrPayload={pickupQrData?.pickupQrPayload}
       />
+
+      {trackingOrderId ? (
+        <OrderTrackingDrawer orderId={trackingOrderId} onClose={closeTracking} />
+      ) : null}
     </PageShell>
   );
 }

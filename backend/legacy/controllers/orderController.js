@@ -747,6 +747,132 @@ function applyCancelledPaymentRule(order, updates) {
   }
 }
 
+const PREORDER_CHANGE_WINDOW_MS = 4 * 60 * 60 * 1000;
+/** Store-side statuses where nothing has been packed or handed to a rider yet. */
+const STORE_PARTS_NOT_STARTED = new Set(["preorder_hold", "incoming", "order_received", "stock_issue"]);
+
+async function loadStoreOrderModel() {
+  return (await import("../../delivery-service/src/models/StoreOrder.js")).default;
+}
+
+/** Customers may reschedule or cancel a pre-order only within 4 hours of placing it. */
+function preOrderWindowError(order) {
+  if (!order.preOrderSlot) return "This is not a pre-order";
+  if (["attempted", "cancelled", "delivered", "return"].includes(order.status)) {
+    return `Order is already ${order.status}`;
+  }
+  const placedAt = new Date(order.createdAt || 0).getTime();
+  if (Date.now() - placedAt > PREORDER_CHANGE_WINDOW_MS) {
+    return "Pre-orders can only be rescheduled or cancelled within 4 hours of placing them";
+  }
+  return null;
+}
+
+async function cancelPreOrder(order, res) {
+  const windowError = preOrderWindowError(order);
+  if (windowError) {
+    return res.status(400).json({ success: false, code: "PREORDER_CHANGE_CLOSED", message: windowError });
+  }
+
+  const StoreOrder = await loadStoreOrderModel();
+  const parts = await StoreOrder.find({ sourceOrderId: order._id });
+  const open = parts.filter((part) => part.status !== "cancelled");
+  if (open.some((part) => !STORE_PARTS_NOT_STARTED.has(part.status))) {
+    return res.status(400).json({
+      success: false,
+      code: "PREORDER_ALREADY_STARTED",
+      message: "Part of this order is already packed or on the way and can no longer be cancelled",
+    });
+  }
+
+  const { applyStoreOrderStatus } = await import(
+    "../../delivery-service/src/services/storeOrderLifecycle.js"
+  );
+  for (const part of open) {
+    await applyStoreOrderStatus({ storeOrderId: part._id, status: "cancelled", restoreStockOnCancel: true });
+  }
+
+  const fresh = await Order.findById(order._id);
+  if (fresh.status !== "cancelled") {
+    const previousStatus = fresh.status;
+    fresh.status = "cancelled";
+    if (fresh.paymentMethod === "online" && fresh.paymentStatus === "paid") {
+      fresh.paymentStatus = "refundable";
+    }
+    await fresh.save();
+    await reverseOrderRewardPoints(fresh);
+    void notifyOrderStatusChange(fresh, previousStatus);
+  }
+
+  return res.status(200).json({ success: true, message: "Pre-order cancelled", data: fresh });
+}
+
+/** PATCH /orders/:id/preorder-slot  { slot } — move a pre-order to another delivery slot. */
+export const reschedulePreOrder = async (req, res) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    const windowError = preOrderWindowError(order);
+    if (windowError) {
+      return res.status(400).json({ success: false, code: "PREORDER_CHANGE_CLOSED", message: windowError });
+    }
+
+    const slot = await validatePreOrderSlot(req.body?.slot, {
+      excludeOrderId: order._id,
+      preOrderDate: order.preOrderDate || undefined,
+    });
+    if (slot.error) {
+      return res.status(slot.status || 400).json({ success: false, code: slot.code, message: slot.error });
+    }
+    if (!slot.preOrderSlot) {
+      return res.status(400).json({ success: false, message: "Choose a delivery slot" });
+    }
+    if (slot.preOrderSlot === order.preOrderSlot) {
+      return res.status(400).json({ success: false, message: "Your pre-order is already in this slot" });
+    }
+
+    const StoreOrder = await loadStoreOrderModel();
+    const preParts = await StoreOrder.find({ sourceOrderId: order._id, isPreOrder: true });
+    if (preParts.some((part) => part.status !== "cancelled" && !STORE_PARTS_NOT_STARTED.has(part.status))) {
+      return res.status(400).json({
+        success: false,
+        code: "PREORDER_ALREADY_STARTED",
+        message: "Your pre-order is already packed and can no longer be rescheduled",
+      });
+    }
+
+    order.preOrderSlot = slot.preOrderSlot;
+    await order.save();
+    await StoreOrder.updateMany(
+      { sourceOrderId: order._id, isPreOrder: true, status: { $ne: "cancelled" } },
+      { $set: { preOrderSlot: slot.preOrderSlot } }
+    );
+
+    try {
+      const { getIO } = await import("../../socket.js");
+      for (const part of preParts) {
+        getIO().to(`store_${part.managerId}`).emit("order_status_updated", {
+          orderId: part._id.toString(),
+          orderNumber: part.orderNumber,
+          status: part.status,
+          preOrderSlot: slot.preOrderSlot,
+          rescheduled: true,
+        });
+      }
+    } catch (_) {}
+
+    return res.status(200).json({
+      success: true,
+      message: `Pre-order moved to ${slot.preOrderSlot}`,
+      data: order,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const cancelOrder = async (req, res) => {
   try {
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
@@ -756,6 +882,10 @@ export const cancelOrder = async (req, res) => {
         success: false,
         message: "Order not found",
       });
+    }
+
+    if (order.preOrderSlot && order.status !== "attempted") {
+      return cancelPreOrder(order, res);
     }
 
     if (!["confirm", "attempted"].includes(order.status)) {

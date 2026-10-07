@@ -53,6 +53,18 @@ final departmentCategoriesProvider =
   return _shopCategories(categories);
 });
 
+/// Six-product preview for one category row on home. Cached per category, so a
+/// row scrolled away and back shows instantly instead of reloading.
+final categoryPreviewProductsProvider =
+    FutureProvider.family<List<Product>, String>((ref, categoryName) async {
+  ref.watch(deliveryLocationKeyProvider);
+  final products = await ref.read(apiServiceProvider).fetchProducts({
+    'categoryName': categoryName,
+    'limit': 12,
+  });
+  return products.where((p) => p.isActive).take(6).toList();
+});
+
 final homeDealsProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final products = await ref.read(apiServiceProvider).fetchProducts({
@@ -125,14 +137,3 @@ final recentlyViewedProductsProvider = FutureProvider<List<Product>>((ref) async
 });
 
 enum FeaturedProductFilter { justArrived, hotSelling }
-
-final featuredProductsProvider =
-    FutureProvider.family<List<Product>, FeaturedProductFilter>((ref, filter) async {
-  ref.watch(deliveryLocationKeyProvider);
-  final params = filter == FeaturedProductFilter.justArrived
-      ? {'justArrived': true}
-      : {'hotSelling': true};
-
-  final products = await ref.read(apiServiceProvider).fetchProducts(params);
-  return products.where((product) => product.isActive).toList();
-});

@@ -26,6 +26,106 @@ const categoryOf = (p) => p.categories?.[0] || "Uncategorised";
 const rackLabel = (p) =>
   p.rackRow || p.rackColumn ? `${p.rackRow ? `R${p.rackRow}` : ""}${p.rackColumn ? `C${p.rackColumn}` : ""}` : "—";
 
+function StockCell({ product, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const stock = Number(product.storeStock) || 0;
+
+  const save = async (next) => {
+    const count = Number(next);
+    if (!Number.isInteger(count) || count < 0) {
+      setError("Enter 0 or more");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await managerApi.setProductStock(product._id, count);
+      setEditing(false);
+      onSaved(product._id, count, res.data?.message);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <form
+        className="flex items-center gap-1"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save(value);
+        }}
+      >
+        <input
+          type="number"
+          min="0"
+          step="1"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus:border-emerald-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-60"
+        >
+          {saving ? "…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="px-1 text-[11px] font-bold text-slate-500"
+        >
+          ✕
+        </button>
+        {error ? <span className="text-[10px] font-semibold text-rose-600">{error}</span> : null}
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+          stock > 10
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : stock > 0
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-rose-200 bg-rose-50 text-rose-700"
+        }`}
+      >
+        {stock > 0 ? `${stock} in stock` : "Out of stock"}
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          setValue(String(stock || ""));
+          setEditing(true);
+        }}
+        className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100"
+      >
+        {stock > 0 ? "Edit" : "Make in stock"}
+      </button>
+      {stock > 0 ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => save(0)}
+          className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
+        >
+          Mark out
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "preorder", label: "Pre-order" },
@@ -43,6 +143,7 @@ export default function ProductsPage() {
   const [filter, setFilter] = useState("all");
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const [outOfStockOnly, setOutOfStockOnly] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [viewing, setViewing] = useState(null);
@@ -73,13 +174,24 @@ export default function ProductsPage() {
       .filter((p) => {
         if (filter !== "all" && toDepartment(p.section) !== filter) return false;
         if (category !== "all" && categoryOf(p) !== category) return false;
+        if (outOfStockOnly && Number(p.storeStock) > 0) return false;
         if (!q) return true;
         return [p.name, p.sku, p.departmentId, p.brandName, p.categories?.[0], p.subcategory]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(q));
       })
       .sort(byDepartmentThenNumber);
-  }, [products, filter, category, search]);
+  }, [products, filter, category, search, outOfStockOnly]);
+
+  const outOfStockCount = useMemo(
+    () => products.filter((p) => !(Number(p.storeStock) > 0)).length,
+    [products]
+  );
+
+  const onStockSaved = (id, count, message) => {
+    setProducts((prev) => prev.map((p) => (p._id === id ? { ...p, storeStock: count } : p)));
+    if (message) showToast(message);
+  };
 
   const counts = useMemo(() => {
     const result = { all: products.length, preorder: 0, ready2cook: 0, instant: 0 };
@@ -150,6 +262,17 @@ export default function ProductsPage() {
             ))}
           </div>
           <div className="flex w-full gap-2 sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setOutOfStockOnly((v) => !v)}
+              className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold ${
+                outOfStockOnly
+                  ? "border-rose-300 bg-rose-600 text-white"
+                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+              }`}
+            >
+              Out of stock ({outOfStockCount})
+            </button>
             <input
               type="text"
               value={search}
@@ -289,18 +412,8 @@ export default function ProductsPage() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-center font-mono text-xs font-bold text-slate-600">{rackLabel(p)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
-                          p.storeStock > 10
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : p.storeStock > 0
-                              ? "border-amber-200 bg-amber-50 text-amber-800"
-                              : "border-rose-200 bg-rose-50 text-rose-700"
-                        }`}
-                      >
-                        {p.storeStock > 0 ? `${p.storeStock} in stock` : "Out of stock"}
-                      </span>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <StockCell product={p} onSaved={onStockSaved} />
                     </td>
                     <td className="px-4 py-3 text-xs font-bold">
                       {p.isActive ? (
