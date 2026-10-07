@@ -69,6 +69,7 @@ import {
   getFarmerDocuments,
   uploadFarmerDocument,
   updateFarmerDocumentStatus,
+  updateVendorFarmerDocumentStatus,
   deleteFarmerDocument,
   getManagers,
   getManagerById,
@@ -98,6 +99,7 @@ import {
   getManagerAllCrops,
   getManagerAllOrders,
   getManagerAllInventory,
+  listVendorFarmerInventory,
   getManagerAllDocuments,
   getManagerAllStockHistory,
   getManagerAllHarvestOrders,
@@ -160,6 +162,7 @@ import {
 } from "./vendorProductRequestControllers.js";
 import {
   listVendorCatalogCrops,
+  listFarmerVendorCrops,
   listVendorMyCrops,
   createVendorCropRequest,
   cancelVendorCropRequest,
@@ -228,6 +231,7 @@ farmerRouter.put("/me/farm-location", requireFarmer, updateFarmerFarmLocation);
 farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmLocation);
 farmerRouter.get("/crops", requireFarmer, listFarmerCrops);
 farmerRouter.get("/crops/catalog", getPublicCropsCatalog);
+farmerRouter.get("/crops/vendor-available", requireFarmer, listFarmerVendorCrops);
 farmerRouter.post("/crops", requireFarmer, createFarmerCrop);
 farmerRouter.get("/crops/:cropId", requireFarmer, getFarmerCrop);
 farmerRouter.put("/crops/:cropId", requireFarmer, updateFarmerCrop);
@@ -352,7 +356,7 @@ vendorFarmerRouter.get("/:farmerId/orders", getFarmerOrders);
 vendorFarmerRouter.get("/:farmerId/earnings", getFarmerEarnings);
 vendorFarmerRouter.get("/:farmerId/documents", getFarmerDocuments);
 vendorFarmerRouter.post("/:farmerId/documents", uploadFarmerDocument);
-vendorFarmerRouter.patch("/:farmerId/documents/:documentId/status", updateFarmerDocumentStatus);
+vendorFarmerRouter.patch("/:farmerId/documents/:documentId/status", requireVendor, updateVendorFarmerDocumentStatus);
 vendorFarmerRouter.get("/:farmerId/stock-history", getStockHistory);
 
 vendorFarmerRouter.get("/:farmerId/harvest-orders", getHarvestOrders);
@@ -387,6 +391,7 @@ vendorRouter.get("/dashboard", requireVendor, getVendorDashboard);
 vendorRouter.get("/inventory-alerts", requireVendor, listInventoryAlerts);
 vendorRouter.put("/inventory-alerts", requireVendor, saveInventoryAlert);
 vendorRouter.delete("/inventory-alerts/:alertId", requireVendor, deleteInventoryAlert);
+vendorRouter.get("/farmer-inventory", requireVendor, listVendorFarmerInventory);
 vendorRouter.get("/farmers", requireVendor, getFarmers);
 vendorRouter.post("/farmers", requireVendor, createFarmer);
 vendorRouter.get("/farmers/:farmerId", requireVendor, getFarmerById);

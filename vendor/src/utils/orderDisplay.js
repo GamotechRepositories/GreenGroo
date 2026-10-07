@@ -78,8 +78,27 @@ export function rejectionText(order) {
   return note ? `${reason}${reason ? " — " : ""}${note}` : reason;
 }
 
+// Sub-stages of "accepted" (same groupings the backend uses for order filters / centre receiving).
+const ORDER_STAGE_STATUSES = {
+  preparing: ["ACCEPTED", "PREPARING", "PACKING"],
+  "at-centre": [
+    "ARRIVED_AT_CENTRE",
+    "COLLECTION_CENTRE_RECEIVED",
+    "RECEIVED_AT_COLLECTION_CENTRE",
+    "QUALITY_PENDING",
+    "INSPECTION",
+    "GRADING",
+  ],
+};
+
+export function managerOrderStage(status) {
+  const s = String(canonicalOrderStatus(status)).toUpperCase();
+  return Object.keys(ORDER_STAGE_STATUSES).find((stage) => ORDER_STAGE_STATUSES[stage].includes(s)) || "";
+}
+
 export function matchesManagerOrderFilter(status, filter) {
   if (!filter || filter === "all") return true;
+  if (ORDER_STAGE_STATUSES[filter]) return managerOrderStage(status) === filter;
   return managerOrderBucket(status) === filter;
 }
 

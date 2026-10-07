@@ -45,28 +45,8 @@ class _AddCropScreenState extends State<AddCropScreen> {
 
   final _formKey = GlobalKey<FormState>();
 
-  static const Map<String, List<String>> _knownCropVarieties = {
-    'Tomato': ['Bajeerao', 'Abhinav', 'Sahoo', 'Namdhari', 'Heemsohna', 'Hybrid', 'Local'],
-    'Onion': ['Nashik Red', 'Agrifound Light Red', 'Pusa Red', 'Hybrid', 'Local'],
-    'Potato': ['Kufri Jyoti', 'Kufri Pukhraj', 'Kufri Chandramukhi', 'Hybrid', 'Local'],
-    'Capsicum': ['California Wonder', 'Indra', 'Hybrid', 'Local'],
-    'Brinjal': ['Pusa Purple Long', 'Hybrid', 'Local'],
-    'Cabbage': ['Golden Acre', 'Hybrid', 'Local'],
-    'Cauliflower': ['Pusa Snowball', 'Hybrid', 'Local'],
-    'Okra': ['Parbhani Kranti', 'Hybrid', 'Local'],
-    'Chilli': ['Guntur', 'Byadgi', 'Hybrid', 'Local'],
-    'Cotton': ['Bt Hybrid', 'Desi', 'Hybrid', 'Local'],
-    'Soybean': ['JS 335', 'MAUS', 'Hybrid', 'Local'],
-    'Wheat': ['Lokwan', 'HD 2967', 'Hybrid', 'Local'],
-    'Rice': ['Indrayani', 'Kolam', 'Basmati', 'Hybrid', 'Local'],
-    'Sugarcane': ['Co 86032', 'Local'],
-    'Grapes': ['Thompson Seedless', 'Sharad Seedless', 'Local'],
-    'Pomegranate': ['Bhagwa', 'Ganesh', 'Local'],
-    'Banana': ['Grand Naine', 'Robusta', 'Local'],
-    'Maize': ['Hybrid', 'Local'],
-    'Groundnut': ['TAG 24', 'Hybrid', 'Local'],
-    'Turmeric': ['Salem', 'Rajapore', 'Local'],
-  };
+  /// Shown when a vendor crop was approved without a variety.
+  static const String _generalVariety = 'General';
 
   static const List<String> _areaUnits = ['Acre', 'Hectare'];
   static const List<String> _quantityUnits = ['Kg', 'Quintal', 'Ton'];
@@ -82,14 +62,15 @@ class _AddCropScreenState extends State<AddCropScreen> {
     'Closed',
   ];
 
-  List<Map<String, dynamic>> _catalog = [];
+  /// Exactly the crops in the farmer's vendor "My Crops" — the only crops a farmer may add.
+  List<Map<String, dynamic>> _vendorCrops = [];
+  bool _vendorCropsLoading = true;
+  bool _vendorCropsFailed = false;
+  bool _noVendor = false;
 
   // Nothing selected by default in UI
   String? _selectedCrop;
-  final _customCropController = TextEditingController();
-
   String? _selectedVariety;
-  final _customVarietyController = TextEditingController();
 
   final _areaController = TextEditingController();
   String _selectedAreaUnit = 'Acre';
@@ -119,7 +100,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCatalog();
+    _loadVendorCrops();
 
     if (isEdit) {
       final c = widget.editCrop!;
@@ -167,93 +148,149 @@ class _AddCropScreenState extends State<AddCropScreen> {
     }
   }
 
-  Future<void> _loadCatalog() async {
-    try {
-      final res = await ApiService().fetchCropsCatalog();
-      if (res is List) {
-        setState(() {
-          _catalog = res.map((item) => item as Map<String, dynamic>).toList();
-        });
-      }
-    } catch (_) {}
-  }
-
-  List<String> get _registeredCropOptions {
-    final set = <String>{};
-
-    for (final c in _catalog) {
-      final name = (c['cropName'] ?? c['name'] ?? '').toString().trim();
-      if (name.isNotEmpty) set.add(name);
+  Future<void> _loadVendorCrops() async {
+    if (!_vendorCropsLoading) {
+      setState(() {
+        _vendorCropsLoading = true;
+        _vendorCropsFailed = false;
+      });
     }
-
-    for (final c in FarmerState().crops) {
-      final clean = c.cropName.split('(')[0].trim();
-      if (clean.isNotEmpty) set.add(clean);
-    }
-
-    if (isEdit && _selectedCrop != null && _selectedCrop!.isNotEmpty) {
-      set.add(_selectedCrop!);
-    }
-
-    if (set.isEmpty) {
-      return ['Tomato', 'Brinjal', 'Onion', 'Other'];
-    }
-
-    return [...set, 'Other'];
-  }
-
-  List<String> _getVarietiesForSelectedCrop(String? cropName) {
-    if (cropName == null || cropName.isEmpty) return [];
-
-    final set = <String>{};
-
-    for (final c in _catalog) {
-      final cName = (c['cropName'] ?? c['name'] ?? '').toString().trim().toLowerCase();
-      if (cName == cropName.toLowerCase()) {
-        final v = (c['variety'] ?? '').toString().trim();
-        if (v.isNotEmpty) set.add(v);
-      }
-    }
-
-    if (_knownCropVarieties.containsKey(cropName)) {
-      set.addAll(_knownCropVarieties[cropName]!);
-    }
-
-    if (isEdit && _selectedVariety != null && _selectedVariety!.isNotEmpty) {
-      set.add(_selectedVariety!);
-    }
-
-    if (set.isEmpty) {
-      return ['Hybrid', 'Local', 'Other'];
-    }
-
-    return [...set, 'Other'];
-  }
-
-  void _onCropSelected(String? crop) {
+    final res = await ApiService().fetchVendorAvailableCrops();
+    if (!mounted) return;
+    final list = res?['crops'];
     setState(() {
-      _selectedCrop = crop;
-      _selectedVariety = null;
-      if (crop != 'Other') {
-        _customCropController.clear();
-      }
+      _vendorCropsLoading = false;
+      _vendorCropsFailed = res == null;
+      _noVendor = res != null && (res['vendorId'] ?? '').toString().trim().isEmpty;
+      _vendorCrops = list is List ? list.whereType<Map>().map((c) => Map<String, dynamic>.from(c)).toList() : [];
     });
   }
 
-  String get _resolvedCropName {
-    if (_selectedCrop == 'Other') {
-      final custom = _customCropController.text.trim();
-      return custom.isNotEmpty ? custom : '';
-    }
-    return _selectedCrop ?? '';
+  List<Map<String, dynamic>> _vendorRowsFor(String cropName) {
+    final name = cropName.trim().toLowerCase();
+    return _vendorCrops.where((c) => (c['cropName'] ?? '').toString().trim().toLowerCase() == name).toList();
   }
 
-  String get _resolvedVariety {
-    if (_selectedVariety == 'Other') {
-      final custom = _customVarietyController.text.trim();
-      return custom.isNotEmpty ? custom : '';
+  /// One selectable option per vendor crop row ({crop, variety}), plus the current crop in edit mode.
+  List<Map<String, String>> get _cropOptions {
+    final seen = <String>{};
+    final options = <Map<String, String>>[];
+    void add(String crop, String variety) {
+      final c = crop.trim();
+      final v = variety.trim().isEmpty ? _generalVariety : variety.trim();
+      if (c.isEmpty || !seen.add('${c.toLowerCase()}|${v.toLowerCase()}')) return;
+      options.add({'crop': c, 'variety': v});
     }
-    return _selectedVariety ?? '';
+
+    for (final row in _vendorCrops) {
+      add((row['cropName'] ?? '').toString(), (row['variety'] ?? '').toString());
+    }
+    if (isEdit && (_selectedCrop ?? '').isNotEmpty) add(_selectedCrop!, _selectedVariety ?? '');
+    return options;
+  }
+
+  bool _isOptionSelected(Map<String, String> option) =>
+      (_selectedCrop ?? '').toLowerCase() == option['crop']!.toLowerCase() &&
+      (_selectedVariety ?? '').toLowerCase() == option['variety']!.toLowerCase();
+
+  Widget _buildCropOptionTile(Map<String, String> option) {
+    final selected = _isOptionSelected(option);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() {
+        _selectedCrop = option['crop'];
+        _selectedVariety = option['variety'];
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFECFDF5) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: selected ? AppColors.primary : const Color(0xFFE2E8F0), width: selected ? 1.5 : 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.check_circle : Icons.eco_outlined,
+              size: 16,
+              color: selected ? AppColors.primary : const Color(0xFF94A3B8),
+            ),
+            const SizedBox(width: 6),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _translateOption(option['crop']!),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                Text(
+                  _translateOption(option['variety']!),
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _resolvedCropName => _selectedCrop ?? '';
+
+  String get _resolvedVariety => _selectedVariety ?? '';
+
+  Widget _buildVendorCropsNotice(bool empty) {
+    final warn = _vendorCropsFailed || _noVendor || empty;
+    final String message;
+    if (_vendorCropsFailed) {
+      message = AppLanguage().tr(mr: 'पिकांची यादी लोड झाली नाही.', en: 'Could not load the crop list.');
+    } else if (_noVendor) {
+      message = AppLanguage().tr(
+        mr: 'तुमचे खाते अद्याप कोणत्याही संकलन केंद्राशी जोडलेले नाही.',
+        en: 'Your account is not linked to a collection centre yet.',
+      );
+    } else if (empty) {
+      message = AppLanguage().tr(
+        mr: 'तुमच्या संकलन केंद्रात अद्याप कोणतेही पीक उपलब्ध नाही. कृपया तुमच्या व्हेंडरशी संपर्क साधा.',
+        en: 'No crops are available at your collection centre yet. Please contact your vendor.',
+      );
+    } else {
+      message = AppLanguage().tr(
+        mr: 'फक्त तुमच्या संकलन केंद्रात उपलब्ध असलेली पिके दाखवली आहेत.',
+        en: 'Showing only crops available at your collection centre.',
+      );
+    }
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: warn ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: warn ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: warn ? const Color(0xFF92400E) : const Color(0xFF166534),
+              ),
+            ),
+          ),
+          if (_vendorCropsFailed)
+            TextButton(
+              onPressed: _loadVendorCrops,
+              child: Text(AppLanguage().tr(mr: 'पुन्हा प्रयत्न करा', en: 'Retry'), style: const TextStyle(fontSize: 11)),
+            ),
+        ],
+      ),
+    );
   }
 
   String _formatDate(DateTime d) {
@@ -342,15 +379,21 @@ class _AddCropScreenState extends State<AddCropScreen> {
     final cropName = _resolvedCropName;
     final variety = _resolvedVariety;
 
-    if (cropName.isEmpty) {
+    if (cropName.isEmpty || variety.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया पीक निवडा किंवा प्रविष्ट करा.', en: 'Please select or enter a crop name.'))),
+        SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया यादीतून पीक निवडा.', en: 'Please select a crop from the list.'))),
       );
       return;
     }
-    if (variety.isEmpty) {
+
+    if (!isEdit && _vendorRowsFor(cropName).isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया वाण निवडा किंवा प्रविष्ट करा.', en: 'Please select or enter a variety.'))),
+        SnackBar(
+          content: Text(AppLanguage().tr(
+            mr: 'हे पीक तुमच्या संकलन केंद्रात उपलब्ध नाही. यादीतून पीक निवडा.',
+            en: 'This crop is not available at your collection centre. Choose a crop from the list.',
+          )),
+        ),
       );
       return;
     }
@@ -458,8 +501,6 @@ class _AddCropScreenState extends State<AddCropScreen> {
 
   @override
   void dispose() {
-    _customCropController.dispose();
-    _customVarietyController.dispose();
     _areaController.dispose();
     _quantityController.dispose();
     _customFarmingMethodController.dispose();
@@ -469,8 +510,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final registeredCrops = _registeredCropOptions;
-    final availableVarieties = _getVarietiesForSelectedCrop(_selectedCrop);
+    final cropOptions = _cropOptions;
     final previewId = _getPreviewId();
 
     return Scaffold(
@@ -564,73 +604,27 @@ class _AddCropScreenState extends State<AddCropScreen> {
                 // SECTION 1: CROP (2 Columns)
                 _buildSectionHeader(AppLanguage().tr(mr: 'पीक माहिती', en: 'CROP')),
                 const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel(AppLanguage().tr(mr: 'पीक निवडा *', en: 'Select Crop *')),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedCrop != null && registeredCrops.contains(_selectedCrop) ? _selectedCrop : null,
-                            hint: Text(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select Crop'), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                            decoration: _inputDecoration(),
-                            isDense: true,
-                            items: registeredCrops.map((c) => DropdownMenuItem(value: c, child: Text(_translateOption(c), style: const TextStyle(fontSize: 12)))).toList(),
-                            onChanged: _onCropSelected,
-                            validator: (val) => val == null || val.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
-                          ),
-                          if (_selectedCrop == 'Other') ...[
-                            const SizedBox(height: 4),
-                            TextFormField(
-                              controller: _customCropController,
-                              decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'पिकाचे नाव', en: 'Crop name')),
-                              validator: (v) => _selectedCrop == 'Other' && (v == null || v.trim().isEmpty) ? AppLanguage().tr(mr: 'पिकाचे नाव लिहा', en: 'Enter crop name') : null,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ],
-                        ],
-                      ),
+                if (!isEdit && !_vendorCropsLoading) _buildVendorCropsNotice(cropOptions.isEmpty),
+                if (_vendorCropsLoading && cropOptions.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppLanguage().tr(mr: 'पिके लोड होत आहेत…', en: 'Loading crops…'),
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildLabel(AppLanguage().tr(mr: 'वाण *', en: 'Variety *')),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedVariety != null && availableVarieties.contains(_selectedVariety) ? _selectedVariety : null,
-                            hint: Text(
-                              _selectedCrop == null ? AppLanguage().tr(mr: 'आधी पीक निवडा', en: 'Select crop first') : AppLanguage().tr(mr: 'वाण निवडा', en: 'Select Variety'),
-                              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
-                            ),
-                            decoration: _inputDecoration(),
-                            isDense: true,
-                            items: _selectedCrop == null
-                                ? []
-                                : availableVarieties.map((v) => DropdownMenuItem(value: v, child: Text(_translateOption(v), style: const TextStyle(fontSize: 12)))).toList(),
-                            onChanged: _selectedCrop == null
-                                ? null
-                                : (val) {
-                                    setState(() => _selectedVariety = val);
-                                  },
-                            validator: (val) => val == null || val.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
-                          ),
-                          if (_selectedVariety == 'Other') ...[
-                            const SizedBox(height: 4),
-                            TextFormField(
-                              controller: _customVarietyController,
-                              decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'वाणाचे नाव', en: 'Variety name')),
-                              validator: (v) => _selectedVariety == 'Other' && (v == null || v.trim().isEmpty) ? AppLanguage().tr(mr: 'वाण लिहा', en: 'Enter variety') : null,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  )
+                else if (cropOptions.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: cropOptions.map(_buildCropOptionTile).toList(),
+                  ),
                 const SizedBox(height: 12),
 
                 // SECTION 2: AREA & QUANTITY (2 Columns, well-adjusted without overflow)

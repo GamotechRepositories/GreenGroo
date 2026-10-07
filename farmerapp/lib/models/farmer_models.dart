@@ -513,32 +513,41 @@ class ProductItem {
       gradeCPrice = (json['gradeCPrice'] is num) ? (json['gradeCPrice'] as num).toDouble() : (double.tryParse(json['gradeCPrice'].toString()) ?? 0.0);
     }
 
-    if (json['grades'] is List) {
-      for (final g in (json['grades'] as List)) {
-        if (g is Map) {
-          final gName = (g['label'] ?? g['grade'] ?? g['name'] ?? '').toString().toUpperCase();
-          final q = (g['quantity'] ?? g['qty'] ?? g['stock'] ?? 0);
-          final numQty = (q is num) ? q.toDouble() : (double.tryParse(q.toString()) ?? 0.0);
-          final p = (g['price'] ?? g['rate'] ?? g['pricePerKg'] ?? 0);
-          final numPrice = (p is num) ? p.toDouble() : (double.tryParse(p.toString()) ?? 0.0);
+    final gradeRows = json['grades'] is List ? (json['grades'] as List).whereType<Map>().toList() : <Map>[];
+    if (gradeRows.isNotEmpty) {
+      // The grades list is the source of truth; the flat gradeXQty fields can be stale.
+      gradeAQty = 0.0;
+      gradeBQty = 0.0;
+      gradeCQty = 0.0;
+      double gradesTotal = 0.0;
+      final gradePrefix = RegExp(r'^\s*GRADE\s*');
+      for (final g in gradeRows) {
+        final rawGrade = (g['grade'] ?? '').toString().trim().toUpperCase().replaceFirst(gradePrefix, '');
+        final rawLabel = (g['label'] ?? g['name'] ?? '').toString().trim().toUpperCase().replaceFirst(gradePrefix, '');
+        final key = rawGrade.isNotEmpty ? rawGrade : rawLabel;
+        final q = (g['quantity'] ?? g['qty'] ?? g['stock'] ?? 0);
+        final numQty = (q is num) ? q.toDouble() : (double.tryParse(q.toString()) ?? 0.0);
+        final p = (g['price'] ?? g['rate'] ?? g['pricePerKg'] ?? 0);
+        final numPrice = (p is num) ? p.toDouble() : (double.tryParse(p.toString()) ?? 0.0);
+        gradesTotal += numQty;
 
-          if (gName.contains('A')) {
-            if (numQty > 0 || gradeAQty == 0) gradeAQty = numQty;
-            if (numPrice > 0 || gradeAPrice == 0) gradeAPrice = numPrice;
-          } else if (gName.contains('B')) {
-            if (numQty > 0 || gradeBQty == 0) gradeBQty = numQty;
-            if (numPrice > 0 || gradeBPrice == 0) gradeBPrice = numPrice;
-          } else if (gName.contains('C')) {
-            if (numQty > 0 || gradeCQty == 0) gradeCQty = numQty;
-            if (numPrice > 0 || gradeCPrice == 0) gradeCPrice = numPrice;
-          }
+        if (key == 'A') {
+          gradeAQty += numQty;
+          if (numPrice > 0) gradeAPrice = numPrice;
+        } else if (key == 'B') {
+          gradeBQty += numQty;
+          if (numPrice > 0) gradeBPrice = numPrice;
+        } else if (key == 'C') {
+          gradeCQty += numQty;
+          if (numPrice > 0) gradeCPrice = numPrice;
         }
       }
-    }
-
-    final gradesSum = gradeAQty + gradeBQty + gradeCQty;
-    if (stock <= 0 && gradesSum > 0) {
-      stock = gradesSum;
+      stock = gradesTotal;
+    } else {
+      final gradesSum = gradeAQty + gradeBQty + gradeCQty;
+      if (stock <= 0 && gradesSum > 0) {
+        stock = gradesSum;
+      }
     }
 
     List<String> photoList = [];

@@ -45,6 +45,7 @@ import { vendorApi } from './api/vendorApi'
 import { driverApi } from './api/driverApi'
 import ManagerInventoryPage from './pages/manager/ManagerInventoryPage'
 import ManagerInventoryHistoryPage from './pages/manager/ManagerInventoryHistoryPage'
+import AllFarmerInventoryPage from './pages/manager/AllFarmerInventoryPage'
 import ManagerOrdersPage from './pages/manager/ManagerOrdersPage'
 import ManagerCreateOrderPage from './pages/manager/ManagerCreateOrderPage'
 import ManagerOrderDetailPage from './pages/manager/ManagerOrderDetailPage'
@@ -159,6 +160,7 @@ function App() {
                 <Route path="/vendor/quality/:orderId" element={<ManagerQualityInspectionPage />} />
                 <Route path="/vendor/inventory" element={<ManagerInventoryPage />} />
                 <Route path="/vendor/inventory/history" element={<ManagerInventoryHistoryPage />} />
+                <Route path="/vendor/inventory/farmers" element={<AllFarmerInventoryPage />} />
                 <Route path="/vendor/orders" element={<ManagerOrdersPage mode="farmer" />} />
                 <Route path="/vendor/orders/farmer" element={<ManagerOrdersPage mode="farmer" />} />
                 <Route path="/vendor/orders/products" element={<ManagerOrdersPage mode="products" />} />

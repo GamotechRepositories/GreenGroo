@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/farmer_models.dart';
 import '../../services/api_service.dart';
@@ -745,38 +745,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 }
 
-/// Dynamic grade entry item for stock bottomsheet
-class _GradeRowItem {
-  final String id;
-  final TextEditingController nameController;
-  final TextEditingController qtyController;
-  final TextEditingController priceController;
+String _fmtQty(double q) =>
+    q % 1 == 0 ? q.toStringAsFixed(0) : q.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
+
+/// One grade row of the stock sheet: its current quantity and the amount to add / deduct.
+class _GradeStockRow {
+  final String grade;
+  final double current;
   final Color color;
-  final bool isDefault;
+  final TextEditingController controller = TextEditingController();
 
-  _GradeRowItem({
-    required this.id,
-    required String name,
-    double qty = 0,
-    double price = 0,
-    required this.color,
-    this.isDefault = false,
-  })  : nameController = TextEditingController(text: name),
-        qtyController = TextEditingController(
-          text: qty > 0 ? (qty % 1 == 0 ? qty.toStringAsFixed(0) : qty.toStringAsFixed(1)) : '0',
-        ),
-        priceController = TextEditingController(
-          text: price > 0 ? (price % 1 == 0 ? price.toStringAsFixed(0) : price.toStringAsFixed(2)) : '',
-        );
+  _GradeStockRow({required this.grade, required this.current, required this.color});
 
-  void dispose() {
-    nameController.dispose();
-    qtyController.dispose();
-    priceController.dispose();
-  }
+  double get entered => double.tryParse(controller.text.trim()) ?? 0.0;
 }
 
-/// BottomSheet for quick stock adjustment
+/// Bottom sheet to add stock to, or deduct stock from, each grade.
 class _StockUpdateBottomSheet extends StatefulWidget {
   final ProductItem product;
   final ValueChanged<double> onStockUpdated;
@@ -791,215 +775,266 @@ class _StockUpdateBottomSheet extends StatefulWidget {
 }
 
 class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
-  late TextEditingController _totalStockController;
-  final List<_GradeRowItem> _grades = [];
+  late final List<_GradeStockRow> _grades;
+  final _reasonController = TextEditingController();
+  bool _isAdd = true;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _totalStockController = TextEditingController(
-      text: widget.product.stockQuantity > 0
-          ? widget.product.stockQuantity.toStringAsFixed(widget.product.stockQuantity % 1 == 0 ? 0 : 1)
-          : '0',
-    );
-
-    _grades.add(
-      _GradeRowItem(
-        id: 'grade_a',
-        name: 'Grade A',
-        qty: widget.product.gradeAQty,
-        price: widget.product.gradeAPrice,
-        color: const Color(0xFF059669),
-        isDefault: true,
-      ),
-    );
-    _grades.add(
-      _GradeRowItem(
-        id: 'grade_b',
-        name: 'Grade B',
-        qty: widget.product.gradeBQty,
-        price: widget.product.gradeBPrice,
-        color: const Color(0xFF2563EB),
-        isDefault: true,
-      ),
-    );
-    _grades.add(
-      _GradeRowItem(
-        id: 'grade_c',
-        name: 'Grade C',
-        qty: widget.product.gradeCQty,
-        price: widget.product.gradeCPrice,
-        color: const Color(0xFFD97706),
-        isDefault: true,
-      ),
-    );
+    final p = widget.product;
+    _grades = [
+      _GradeStockRow(grade: 'A', current: p.gradeAQty, color: const Color(0xFF059669)),
+      _GradeStockRow(grade: 'B', current: p.gradeBQty, color: const Color(0xFF2563EB)),
+      _GradeStockRow(grade: 'C', current: p.gradeCQty, color: const Color(0xFFD97706)),
+    ];
   }
 
   @override
   void dispose() {
-    _totalStockController.dispose();
     for (final g in _grades) {
-      g.dispose();
+      g.controller.dispose();
     }
+    _reasonController.dispose();
     super.dispose();
   }
 
-  void _recalcTotalFromGrades() {
-    double sum = 0.0;
-    for (final g in _grades) {
-      final q = double.tryParse(g.qtyController.text.trim()) ?? 0.0;
-      sum += q;
-    }
-    if (sum > 0 || _grades.isNotEmpty) {
-      _totalStockController.text = sum.toStringAsFixed(sum % 1 == 0 ? 0 : 1);
-    }
-  }
+  double _signed(double q) => _isAdd ? q : -q;
 
-  void _addNewGrade() {
-    final nextIndex = _grades.length;
-    final alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    final letter = nextIndex < alphabet.length ? alphabet[nextIndex] : '${nextIndex + 1}';
-    final colors = [
-      const Color(0xFF7C3AED),
-      const Color(0xFFDB2777),
-      const Color(0xFF0891B2),
-      const Color(0xFF4F46E5),
-      const Color(0xFFEA580C),
-      const Color(0xFF059669),
-    ];
-    final color = colors[nextIndex % colors.length];
+  double _newQtyOf(_GradeStockRow g) => g.current + _signed(g.entered);
 
-    setState(() {
-      _grades.add(
-        _GradeRowItem(
-          id: UniqueKey().toString(),
-          name: 'Grade $letter',
-          qty: 0,
-          price: widget.product.pricePerUnit,
-          color: color,
-          isDefault: false,
-        ),
-      );
-    });
-    _recalcTotalFromGrades();
-  }
+  bool _exceeds(_GradeStockRow g) => !_isAdd && g.entered > g.current;
 
-  void _removeGrade(int index) {
-    if (index >= 0 && index < _grades.length) {
-      setState(() {
-        _grades[index].dispose();
-        _grades.removeAt(index);
-      });
-      _recalcTotalFromGrades();
-    }
-  }
+  double get _currentTotal => _grades.fold(0.0, (s, g) => s + g.current);
+
+  double get _changeTotal => _grades.fold(0.0, (s, g) => s + g.entered);
+
+  double get _newTotal => _grades.fold(0.0, (s, g) => s + _newQtyOf(g));
 
   Future<void> _saveStock() async {
     final lang = AppLanguage();
-    final total = double.tryParse(_totalStockController.text.trim()) ?? 0.0;
+    final unit = widget.product.unit.isNotEmpty ? widget.product.unit : 'Kg';
 
-    if (total < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(lang.tr(mr: 'कृपया वैध साठा प्रविष्ट करा.', en: 'Please enter valid stock quantity.')),
-          backgroundColor: const Color(0xFFDC2626),
-        ),
-      );
+    if (_grades.any((g) => g.entered < 0)) {
+      _showError(lang.tr(mr: 'कृपया वैध प्रमाण प्रविष्ट करा.', en: 'Please enter a valid quantity.'));
+      return;
+    }
+    final over = _grades.where(_exceeds).toList();
+    if (over.isNotEmpty) {
+      final g = over.first;
+      _showError(lang.tr(
+        mr: 'ग्रेड ${g.grade} मध्ये फक्त ${_fmtQty(g.current)} $unit आहे — ${_fmtQty(g.entered)} $unit वजा करता येणार नाही.',
+        en: 'Grade ${g.grade} has only ${_fmtQty(g.current)} $unit — cannot deduct ${_fmtQty(g.entered)} $unit.',
+      ));
+      return;
+    }
+    final adjustments = [
+      for (final g in _grades)
+        if (g.entered > 0) {'grade': g.grade, 'change': _signed(g.entered)},
+    ];
+    if (adjustments.isEmpty) {
+      _showError(lang.tr(mr: 'किमान एका ग्रेडसाठी प्रमाण प्रविष्ट करा.', en: 'Enter a quantity for at least one grade.'));
       return;
     }
 
     setState(() => _saving = true);
-
     try {
-      double gradeA = 0.0, gradeB = 0.0, gradeC = 0.0;
-      double gradeAPrice = widget.product.gradeAPrice;
-      double gradeBPrice = widget.product.gradeBPrice;
-      double gradeCPrice = widget.product.gradeCPrice;
-
-      final gradesPayload = <Map<String, dynamic>>[];
-
-      for (final g in _grades) {
-        final rawName = g.nameController.text.trim();
-        final name = rawName.isEmpty ? 'Grade' : rawName;
-        final q = double.tryParse(g.qtyController.text.trim()) ?? 0.0;
-
-        final norm = name.toUpperCase();
-        if (norm.contains('GRADE A') || norm == 'A') {
-          gradeA = q;
-        } else if (norm.contains('GRADE B') || norm == 'B') {
-          gradeB = q;
-        } else if (norm.contains('GRADE C') || norm == 'C') {
-          gradeC = q;
+      final res = await ApiService().updateProductStock(widget.product.id, {
+        'adjustments': adjustments,
+        if (_reasonController.text.trim().isNotEmpty) 'reason': _reasonController.text.trim(),
+      });
+      if (res is! Map<String, dynamic>) {
+        throw Exception(lang.tr(mr: 'सर्व्हरकडून उत्तर मिळाले नाही.', en: 'No response from the server.'));
+      }
+      final saved = ProductItem.fromJson(res);
+      final expected = [_newQtyOf(_grades[0]), _newQtyOf(_grades[1]), _newQtyOf(_grades[2])];
+      final actual = [saved.gradeAQty, saved.gradeBQty, saved.gradeCQty];
+      for (var i = 0; i < expected.length; i++) {
+        if ((expected[i] - actual[i]).abs() > 0.001) {
+          throw Exception(lang.tr(
+            mr: 'सर्व्हरने साठा बदल सेव्ह केला नाही. कृपया बॅकएंड रीस्टार्ट करा.',
+            en: 'The server did not save the stock change. Please restart the backend.',
+          ));
         }
-
-        gradesPayload.add({
-          'grade': name.replaceFirst(RegExp(r'^Grade\s*', caseSensitive: false), '').trim(),
-          'label': name,
-          'quantity': q,
-          'price': widget.product.pricePerUnit,
-        });
       }
 
-      final payload = {
-        'stock': total,
-        'stockQuantity': total,
-        'availableQuantity': total,
-        'totalQuantity': total,
-        'gradeAQty': gradeA,
-        'gradeBQty': gradeB,
-        'gradeCQty': gradeC,
-        'gradeAPrice': gradeAPrice,
-        'gradeBPrice': gradeBPrice,
-        'gradeCPrice': gradeCPrice,
-        'grades': gradesPayload,
-      };
-
-      await ApiService().updateProductStock(widget.product.id, payload);
-
-      // Locally update product in FarmerState
-      widget.product.stockQuantity = total;
-      widget.product.gradeAQty = gradeA;
-      widget.product.gradeBQty = gradeB;
-      widget.product.gradeCQty = gradeC;
-      widget.product.gradeAPrice = gradeAPrice;
-      widget.product.gradeBPrice = gradeBPrice;
-      widget.product.gradeCPrice = gradeCPrice;
-
-      FarmerState().updateProductStock(widget.product.id, total);
+      final p = widget.product;
+      p.gradeAQty = saved.gradeAQty;
+      p.gradeBQty = saved.gradeBQty;
+      p.gradeCQty = saved.gradeCQty;
+      final total = saved.stockQuantity;
+      p.stockQuantity = total;
+      FarmerState().updateProductStock(p.id, total);
       widget.onStockUpdated(total);
+      FarmerState().refreshProducts();
 
       if (mounted) {
+        final change = _fmtQty(_changeTotal);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              lang.tr(
-                mr: 'साठा यशस्वीरित्या अपडेट केला! ($total ${widget.product.unit})',
-                en: 'Stock updated successfully! ($total ${widget.product.unit})',
-              ),
+              _isAdd
+                  ? lang.tr(mr: '$change $unit साठा जोडला. एकूण: ${_fmtQty(total)} $unit', en: 'Added $change $unit. Total stock: ${_fmtQty(total)} $unit')
+                  : lang.tr(mr: '$change $unit साठा वजा केला. एकूण: ${_fmtQty(total)} $unit', en: 'Deducted $change $unit. Total stock: ${_fmtQty(total)} $unit'),
             ),
             backgroundColor: const Color(0xFF217346),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              lang.tr(
-                mr: 'साठा सेव्ह करण्यात अयशस्वी: $e',
-                en: 'Failed to update stock: $e',
-              ),
-            ),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
+      final reason = e is ApiHttpException ? e.message : e.toString().replaceFirst('Exception: ', '');
+      _showError(lang.tr(mr: 'साठा सेव्ह करण्यात अयशस्वी: $reason', en: 'Failed to update stock: $reason'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: const Color(0xFFDC2626)),
+    );
+  }
+
+  Widget _buildModeButton({required bool add, required String label, required IconData icon}) {
+    final selected = _isAdd == add;
+    final color = add ? const Color(0xFF059669) : const Color(0xFFDC2626);
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => setState(() => _isAdd = add),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? color : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? color : const Color(0xFFCBD5E1)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: selected ? Colors.white : color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: selected ? Colors.white : color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradeRow(_GradeStockRow g, String unit, AppLanguage lang) {
+    final next = _newQtyOf(g);
+    final exceeds = _exceeds(g);
+    final hasChange = g.entered > 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: exceeds ? const Color(0xFFDC2626) : g.color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            decoration: BoxDecoration(
+              color: g.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Grade ${g.grade}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: g.color)),
+                Text(
+                  '${_fmtQty(g.current)} $unit',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: TextField(
+                controller: g.controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixText: _isAdd ? '+ ' : '− ',
+                  prefixStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: _isAdd ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                  ),
+                  labelText: _isAdd ? lang.tr(mr: 'जोडा', en: 'Add') : lang.tr(mr: 'वजा करा', en: 'Deduct'),
+                  labelStyle: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                  suffixText: unit,
+                  suffixStyle: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 64,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  lang.tr(mr: 'नवीन', en: 'New'),
+                  style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                ),
+                Text(
+                  exceeds ? lang.tr(mr: 'अपुरा', en: 'Too much') : '${_fmtQty(next)} $unit',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: exceeds
+                        ? const Color(0xFFDC2626)
+                        : hasChange
+                            ? (_isAdd ? const Color(0xFF059669) : const Color(0xFFB45309))
+                            : const Color(0xFF334155),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalRow(String label, String value, {Color color = const Color(0xFF334155), bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.bold : FontWeight.w500, color: const Color(0xFF475569))),
+          Text(value, style: TextStyle(fontSize: bold ? 15 : 12, fontWeight: FontWeight.w800, color: color)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1008,6 +1043,8 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
     final unit = widget.product.unit.isNotEmpty ? widget.product.unit : 'Kg';
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final anyExceeds = _grades.any(_exceeds);
+    final changeColor = _isAdd ? const Color(0xFF059669) : const Color(0xFFDC2626);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -1037,7 +1074,6 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
                   Row(
                     children: [
                       Expanded(
@@ -1045,7 +1081,7 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              lang.tr(mr: 'उपलब्ध साठा अपडेट करा', en: 'Update Available Stock'),
+                              lang.tr(mr: 'साठा अपडेट करा', en: 'Update Stock'),
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                             ),
                             Text(
@@ -1063,199 +1099,84 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
                   ),
                   const Divider(height: 20),
 
-                  // Header with Grade label and "+ Add Grade" button
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        lang.tr(mr: 'ग्रेडनुसार साठा ($unit)', en: 'Grade-wise Stock ($unit)'),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                      ),
-                      InkWell(
-                        onTap: _addNewGrade,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF217346).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF217346).withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.add_circle_outline_rounded, size: 14, color: Color(0xFF217346)),
-                              const SizedBox(width: 4),
-                              Text(
-                                lang.tr(mr: '+ ग्रेड जोडा', en: '+ Add Grade'),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF217346),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _buildModeButton(add: true, label: lang.tr(mr: 'साठा जोडा (+)', en: 'Add Stock (+)'), icon: Icons.add_circle_outline_rounded),
+                      const SizedBox(width: 8),
+                      _buildModeButton(add: false, label: lang.tr(mr: 'साठा वजा करा (−)', en: 'Deduct Stock (−)'), icon: Icons.remove_circle_outline_rounded),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  // Dynamic list of grades
-                  ..._grades.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final grade = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: grade.color.withValues(alpha: 0.25)),
-                      ),
-                      child: Row(
-                        children: [
-                          // Grade Name input / badge
-                          Container(
-                            width: 82,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: grade.color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: TextField(
-                              controller: grade.nameController,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: grade.color,
-                              ),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Qty Input
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFCBD5E1)),
-                              ),
-                              child: TextField(
-                                controller: grade.qtyController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  labelText: lang.tr(mr: 'साठा', en: 'Qty'),
-                                  labelStyle: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                                  suffixText: unit,
-                                  suffixStyle: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                                ),
-                                onChanged: (_) => _recalcTotalFromGrades(),
-                              ),
-                            ),
-                          ),
-
-                          // Delete button if more than 1 grade
-                          if (_grades.length > 1) ...[
-                            const SizedBox(width: 4),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFDC2626)),
-                              tooltip: lang.tr(mr: 'काढून टाका', en: 'Remove'),
-                              onPressed: () => _removeGrade(index),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }),
-
-                  // Extra Add Grade Row Button
-                  InkWell(
-                    onTap: _addNewGrade,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      margin: const EdgeInsets.only(top: 2, bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF217346).withValues(alpha: 0.4),
-                          style: BorderStyle.solid,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add, size: 16, color: Color(0xFF217346)),
-                          const SizedBox(width: 4),
-                          Text(
-                            lang.tr(mr: 'आणखी ग्रेड जोडा (+ Add Another Grade)', en: '+ Add Another Grade'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF217346),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Total Stock Input
                   Text(
-                    lang.tr(mr: 'एकूण साठा ($unit)', en: 'Total Available Stock ($unit)'),
+                    lang.tr(mr: 'ग्रेडनुसार प्रमाण ($unit)', en: 'Grade-wise quantity ($unit)'),
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
+                  ..._grades.map((g) => _buildGradeRow(g, unit, lang)),
+
                   Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildTotalRow(lang.tr(mr: 'सध्याचा एकूण साठा', en: 'Current total'), '${_fmtQty(_currentTotal)} $unit'),
+                        _buildTotalRow(
+                          _isAdd ? lang.tr(mr: 'जोडत आहे', en: 'Adding') : lang.tr(mr: 'वजा करत आहे', en: 'Deducting'),
+                          '${_isAdd ? '+' : '−'} ${_fmtQty(_changeTotal)} $unit',
+                          color: changeColor,
+                        ),
+                        const Divider(height: 10),
+                        _buildTotalRow(
+                          lang.tr(mr: 'नवीन एकूण साठा', en: 'New total'),
+                          anyExceeds ? '—' : '${_fmtQty(_newTotal)} $unit',
+                          color: anyExceeds ? const Color(0xFFDC2626) : const Color(0xFF0F172A),
+                          bold: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: const Color(0xFFCBD5E1)),
                     ),
                     child: TextField(
-                      controller: _totalStockController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      controller: _reasonController,
+                      maxLength: 200,
+                      style: const TextStyle(fontSize: 12),
                       decoration: InputDecoration(
-                        suffixText: unit,
-                        suffixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                        isDense: true,
+                        counterText: '',
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        hintText: lang.tr(mr: 'कारण (ऐच्छिक) — उदा. नवीन काढणी, खराब माल', en: 'Reason (optional) — e.g. new harvest, damaged'),
+                        hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Submit Button
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF217346),
+                        backgroundColor: _isAdd ? const Color(0xFF217346) : const Color(0xFFDC2626),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      onPressed: _saving ? null : _saveStock,
+                      onPressed: _saving || anyExceeds || _changeTotal <= 0 ? null : _saveStock,
                       child: _saving
                           ? const SizedBox(
                               width: 20,
@@ -1263,7 +1184,9 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
-                              lang.tr(mr: 'साठा जतन करा (Save)', en: 'Save Stock'),
+                              _isAdd
+                                  ? lang.tr(mr: 'साठा जोडा', en: 'Add Stock')
+                                  : lang.tr(mr: 'साठा वजा करा', en: 'Deduct Stock'),
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                     ),
@@ -1278,3 +1201,4 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
     );
   }
 }
+

@@ -21,6 +21,7 @@ class ApiService {
   ApiService._internal();
 
   static const List<String> candidateHosts = [
+    'http://192.168.1.35:5001',
     'http://192.168.0.102:5001',
     'http://10.0.2.2:5001',
     'http://localhost:5001',
@@ -28,7 +29,7 @@ class ApiService {
     'https://api.greengrocc.com',
   ];
 
-  String _baseUrl = 'http://192.168.0.102:5001';
+  String _baseUrl = 'http://192.168.1.35:5001';
   String? _token;
   final http.Client _client = http.Client();
 
@@ -325,6 +326,16 @@ class ApiService {
       return [];
     }
   }
+  /// `{vendorId, crops: [{cropId, cropName, variety, category}]}` — crops approved for the farmer's vendor.
+  /// Returns null if the server doesn't support it yet.
+  Future<Map<String, dynamic>?> fetchVendorAvailableCrops() async {
+    try {
+      final res = await get('/api/farmer/crops/vendor-available');
+      return res is Map<String, dynamic> ? res : null;
+    } catch (_) {
+      return null;
+    }
+  }
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
   Future<dynamic> fetchProducts(String farmerId) async {
     try {
@@ -414,7 +425,8 @@ class ApiService {
   Future<dynamic> updateProductStock(String productId, Map<String, dynamic> body) async {
     try {
       return await patch('/api/farmer/products/$productId/stock', body);
-    } catch (_) {
+    } on ApiHttpException catch (e) {
+      if (e.statusCode != 404) rethrow;
       return await patch('/api/farmers/products/$productId/stock', body);
     }
   }

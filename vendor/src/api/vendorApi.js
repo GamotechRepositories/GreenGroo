@@ -46,6 +46,7 @@ export const vendorApi = {
   getInventoryAlerts: () => api.get("/api/vendor/inventory-alerts"),
   saveInventoryAlert: (data) => api.put("/api/vendor/inventory-alerts", data),
   deleteInventoryAlert: (alertId) => api.delete(`/api/vendor/inventory-alerts/${encodeURIComponent(alertId)}`),
+  getAllFarmerInventory: () => api.get("/api/vendor/farmer-inventory"),
   liveAnnouncements: () =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })

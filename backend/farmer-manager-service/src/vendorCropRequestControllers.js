@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Crop as ErpCrop } from "../../erp-service/src/models/produce.js";
-import { VendorCrop, VendorCropRequest } from "./models.js";
+import { Farmer, VendorCrop, VendorCropRequest } from "./models.js";
 
 const ACTIVE_CROP_FILTER = { isDeleted: { $ne: true } };
 
@@ -58,6 +58,41 @@ export async function vendorCropsWithCatalog(vendorId) {
     const live = byId.get(row.cropId);
     return { ...row, ...(live || {}), catalogMissing: !live };
   });
+}
+
+/** Exactly the crops in the vendor's "My Crops" (admin-approved for this vendor). */
+export async function vendorAvailableCrops(vendorId) {
+  if (!vendorId) return [];
+  const rows = await vendorCropsWithCatalog(vendorId);
+  return rows
+    .map((row) => ({
+      cropId: row.cropId,
+      cropName: String(row.cropName || "").trim(),
+      variety: String(row.variety || "").trim(),
+      category: row.category || "",
+      cropCode: row.cropCode || "",
+      season: row.season || "",
+    }))
+    .filter((row) => row.cropName);
+}
+
+/** Empty vendor variety means any variety of that crop is allowed. */
+export function isCropAvailableForVendor(available, cropName, variety) {
+  const name = String(cropName || "").trim().toLowerCase();
+  const v = String(variety || "").trim().toLowerCase();
+  return available.some(
+    (c) => c.cropName.toLowerCase() === name && (!c.variety || c.variety.toLowerCase() === v)
+  );
+}
+
+export async function listFarmerVendorCrops(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: req.user?.farmerId || req.user?.id }).select("id vendorId").lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    res.json({ vendorId: farmer.vendorId || "", crops: await vendorAvailableCrops(farmer.vendorId) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crops" });
+  }
 }
 
 export async function listVendorCatalogCrops(req, res) {

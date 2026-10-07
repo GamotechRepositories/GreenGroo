@@ -21,6 +21,7 @@ import {
   CollectionCentre,
   QualityInspection,
 } from "./models.js";
+import { isCropAvailableForVendor, vendorAvailableCrops } from "./vendorCropRequestControllers.js";
 import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, createManagerBusinessId, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
@@ -1737,6 +1738,16 @@ export async function createFarmerCrop(req, res) {
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
 
+    if (!farmer.vendorId) {
+      return res.status(400).json({ message: "Your account is not linked to a collection centre yet." });
+    }
+    const available = await vendorAvailableCrops(farmer.vendorId);
+    if (!isCropAvailableForVendor(available, parsed.cropName, parsed.variety)) {
+      return res.status(400).json({
+        message: "This crop is not available at your collection centre. Please choose a crop from the list.",
+      });
+    }
+
     const { crop, plan } = await persistNewCrop(farmer, parsed);
     res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
   } catch (err) {
@@ -2528,6 +2539,10 @@ export async function patchMyProductStock(req, res) {
       return res.status(400).json({ message: "Stock cannot be updated while pending approval" });
     }
 
+    if (Array.isArray(req.body?.adjustments)) {
+      return applyProductStockAdjustments(req, res, product, status);
+    }
+
     let grades = normalizeProductGrades(product.grades);
     if (Array.isArray(req.body?.grades) && req.body.grades.length) {
       grades = normalizeProductGrades(req.body.grades);
@@ -2591,6 +2606,134 @@ export async function patchMyProductStock(req, res) {
     res.json(publicMyProduct(product, farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update stock" });
+  }
+}
+
+/** The product's grades, falling back to A/B/C built from the legacy per-grade quantity fields. */
+function stockGradesOf(product) {
+  const grades = normalizeProductGrades(product.grades);
+  if (grades.length) return grades;
+  const price = Number(product.pricePerKg || product.sellingPrice || 0);
+  return [
+    { id: "g-a-0", grade: "A", label: "Grade A", quantity: Number(product.gradeAQty) || 0, price },
+    { id: "g-b-1", grade: "B", label: "Grade B", quantity: Number(product.gradeBQty) || 0, price: 0 },
+    { id: "g-c-2", grade: "C", label: "Grade C", quantity: 0, price: 0 },
+  ];
+}
+
+const gradeKeyOf = (value) =>
+  String(value || "").replace(/grade\s*/i, "").replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase();
+
+/**
+ * Body: { adjustments: [{ grade: "A", change: 10 }, { grade: "B", change: -5 }], reason? }.
+ * Each change is added to (positive) or deducted from (negative) that grade's current quantity;
+ * the total is always the sum of the grades.
+ */
+async function applyProductStockAdjustments(req, res, product, status) {
+  const grades = stockGradesOf(product);
+  const unit = product.unit || "Kg";
+  const changes = [];
+  for (const adj of req.body.adjustments) {
+    const key = gradeKeyOf(adj?.grade || adj?.label);
+    const change = Math.round(Number(adj?.change) * 1000) / 1000;
+    if (!key) return res.status(400).json({ message: "Each stock change needs a grade" });
+    if (!Number.isFinite(change)) return res.status(400).json({ message: `Enter a valid quantity for Grade ${key}` });
+    if (change === 0) continue;
+    let idx = grades.findIndex((g) => g.grade === key);
+    if (idx < 0) {
+      if (change < 0) return res.status(400).json({ message: `Grade ${key} has no stock to deduct` });
+      grades.push({ id: `g-${key.toLowerCase()}-${grades.length}`, grade: key, label: `Grade ${key}`, quantity: 0, price: 0 });
+      idx = grades.length - 1;
+    }
+    const previous = Number(grades[idx].quantity) || 0;
+    const next = Math.round((previous + change) * 1000) / 1000;
+    if (next < 0) {
+      return res.status(400).json({
+        message: `Grade ${key} has only ${previous} ${unit} — cannot deduct ${Math.abs(change)} ${unit}`,
+      });
+    }
+    grades[idx].quantity = next;
+    changes.push({ label: grades[idx].label, previous, change, next });
+  }
+  if (!changes.length) return res.status(400).json({ message: "Enter a quantity to add or deduct" });
+
+  const total = totalGradeQty(grades);
+  product.grades = grades;
+  product.availableQuantity = total;
+  product.stock = total;
+  product.gradeAQty = Number(grades.find((g) => g.grade === "A")?.quantity) || 0;
+  product.gradeBQty = Number(grades.find((g) => g.grade === "B")?.quantity) || 0;
+  product.status = applyStockDrivenStatus(status, total, product.lowStockLimit);
+  product.markModified("grades");
+  await product.save();
+
+  const reason = String(req.body?.reason || "").trim().slice(0, 200);
+  const stamp = Date.now();
+  await FarmerStockHistory.insertMany(
+    changes.map((c, i) => ({
+      id: `sh-${stamp}-${i}-${crypto.randomBytes(2).toString("hex")}`,
+      vendorId: product.vendorId,
+      managerId: product.managerId,
+      farmerId: product.farmerId,
+      productId: product.id,
+      productName: product.name,
+      grade: c.label,
+      action: c.change > 0 ? "Stock Added" : "Stock Reduced",
+      previousStock: c.previous,
+      changedQuantity: c.change,
+      newStock: c.next,
+      reason: reason || (c.change > 0 ? "Stock added by farmer" : "Stock deducted by farmer"),
+      updatedBy: "Farmer",
+      reference: "STOCK",
+      at: new Date(),
+    }))
+  );
+
+  const farmer = await Farmer.findOne({ id: product.farmerId });
+  return res.json(publicMyProduct(product, farmer));
+}
+
+/** Every product stock of the vendor's farmers, grade-wise, for the vendor "All Farmer Inventory" page. */
+export async function listVendorFarmerInventory(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const farmers = await Farmer.find({ vendorId }).select("id farmerId farmerCode name mobile address.village").lean();
+    const { ids, farmerMap } = indexFarmersByIdentity(farmers);
+    if (!ids.length) return res.json({ items: [] });
+    const products = await FarmerProduct.find({ farmerId: { $in: ids } })
+      .select("id productId sku name productName variety category unit grades gradeAQty gradeBQty stock availableQuantity reservedQuantity lowStockLimit status farmerId updatedAt")
+      .sort({ updatedAt: -1 })
+      .lean();
+    const items = products.map((p) => {
+      const f = farmerMap.get(p.farmerId) || {};
+      const grades = stockGradesOf(p).map(({ grade, label, quantity }) => ({ grade, label, quantity }));
+      const total = totalGradeQty(grades);
+      const reserved = Number(p.reservedQuantity || 0);
+      return {
+        id: p.id,
+        productId: p.productId || p.id,
+        sku: p.sku || "",
+        name: p.name || p.productName || "",
+        variety: p.variety || "",
+        category: p.category || "",
+        unit: p.unit || "Kg",
+        grades,
+        totalQuantity: total,
+        reservedQuantity: reserved,
+        availableQuantity: Math.max(0, total - reserved),
+        lowStockLimit: Number(p.lowStockLimit || 10),
+        status: stockStatusOf({ ...p, availableQuantity: total }),
+        farmerId: f.id || p.farmerId,
+        farmerCode: f.farmerCode || f.farmerId || "",
+        farmerName: f.name || "",
+        farmerMobile: f.mobile || "",
+        farmerVillage: f.address?.village || "",
+        updatedAt: p.updatedAt,
+      };
+    });
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch farmer inventory" });
   }
 }
 
@@ -4750,6 +4893,20 @@ export async function updateFarmerDocumentStatus(req, res) {
     emitFarmerDocumentUpdate(farmerRecord, doc);
 
     res.json(doc);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update document status" });
+  }
+}
+
+/** Vendor approve/reject: only for farmers registered under the logged-in vendor. */
+export async function updateVendorFarmerDocumentStatus(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const farmer = await resolveFarmerRecord(req.params.farmerId);
+    if (!farmer || !vendorId || farmer.vendorId !== vendorId) {
+      return res.status(404).json({ message: "Farmer not found for this collection centre" });
+    }
+    return updateFarmerDocumentStatus(req, res);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update document status" });
   }

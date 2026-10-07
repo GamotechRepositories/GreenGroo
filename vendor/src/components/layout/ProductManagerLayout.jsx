@@ -53,7 +53,6 @@ const navItems = [
     children: [
       { to: '/vendor/crops', label: 'All Crops', end: true },
       { to: '/vendor/my-crops', label: 'My Crops' },
-      { to: '/vendor/farmer-crops', label: 'Farmer Crops' },
     ],
   },
   {
@@ -104,6 +103,7 @@ const navItems = [
     icon: ClipboardList,
     children: [
       { to: '/vendor/inventory', label: 'All Inventory', end: true },
+      { to: '/vendor/inventory/farmers', label: 'All Farmer Inventory' },
       { to: '/vendor/inventory/history', label: 'History' },
     ],
   },

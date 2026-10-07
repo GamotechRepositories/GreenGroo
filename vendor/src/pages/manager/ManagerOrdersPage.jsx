@@ -13,6 +13,7 @@ import {
   formatMoney,
   formatOrderDate,
   managerOrderBucket,
+  managerOrderStage,
   matchesManagerOrderFilter,
   matchesOrderDateRange,
   todayISODate,
@@ -489,11 +490,13 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts, onByProduct 
   const activeAll = tab === TAB_STATEMENTS && statusFilter === "all";
   const activePending = tab === TAB_STATEMENTS && statusFilter === "pending";
   const activeAccepted = tab === TAB_STATEMENTS && statusFilter === "accepted";
+  const activePreparing = tab === TAB_STATEMENTS && statusFilter === "preparing";
+  const activeAtCentre = tab === TAB_STATEMENTS && statusFilter === "at-centre";
   const activeRejected = tab === TAB_STATEMENTS && statusFilter === "rejected";
   const activeByProduct = tab === TAB_BY_PRODUCT;
 
   return (
-    <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
+    <div className="grid grid-cols-4 gap-1 sm:grid-cols-7 sm:gap-1.5">
       <button
         type="button"
         onClick={() => {
@@ -542,6 +545,39 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts, onByProduct 
       >
         <span className={labelCls}>Accepted</span>
         <span className={`${countCls} bg-emerald-700 text-white`}>{counts.accepted || 0}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          onTab(TAB_STATEMENTS);
+          onStatus("preparing");
+        }}
+        className={`${base} ${
+          activePreparing
+            ? "border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-500"
+            : "border-amber-200 bg-white text-amber-700 hover:bg-amber-50"
+        }`}
+      >
+        <span className={labelCls}>Preparing</span>
+        <span className={`${countCls} bg-amber-500 text-white`}>{counts.preparing || 0}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          onTab(TAB_STATEMENTS);
+          onStatus("at-centre");
+        }}
+        className={`${base} ${
+          activeAtCentre
+            ? "border-violet-500 bg-violet-50 text-violet-800 ring-1 ring-violet-500"
+            : "border-violet-200 bg-white text-violet-700 hover:bg-violet-50"
+        }`}
+      >
+        <span className={`${labelCls} sm:hidden`}>At Centre</span>
+        <span className={`${labelCls} hidden sm:inline`}>At Collection Center</span>
+        <span className={`${countCls} bg-violet-600 text-white`}>{counts["at-centre"] || 0}</span>
       </button>
 
       <button
@@ -832,7 +868,9 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
   // Farmer orders state
   const tab = searchParams.get("tab") === TAB_BY_PRODUCT ? TAB_BY_PRODUCT : TAB_STATEMENTS;
   const rawStatus = searchParams.get("status");
-  const statusFilter = ["pending", "accepted", "rejected"].includes(rawStatus) ? rawStatus : "all";
+  const statusFilter = ["pending", "accepted", "preparing", "at-centre", "rejected"].includes(rawStatus)
+    ? rawStatus
+    : "all";
   const dateFrom = searchParams.get("from") || "";
   const dateTo = searchParams.get("to") || "";
   const [farmers, setFarmers] = useState([]);
@@ -986,10 +1024,11 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
   );
 
   const statusCounts = useMemo(() => {
-    const counts = { all: dateFilteredOrders.length, pending: 0, accepted: 0, rejected: 0 };
+    const counts = { all: dateFilteredOrders.length, pending: 0, accepted: 0, rejected: 0, preparing: 0, "at-centre": 0 };
     dateFilteredOrders.forEach((o) => {
-      const bucket = managerOrderBucket(o.status);
-      counts[bucket] += 1;
+      counts[managerOrderBucket(o.status)] += 1;
+      const stage = managerOrderStage(o.status);
+      if (stage) counts[stage] += 1;
     });
     return counts;
   }, [dateFilteredOrders]);
