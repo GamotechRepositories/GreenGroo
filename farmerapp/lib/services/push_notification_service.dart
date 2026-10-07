@@ -14,6 +14,7 @@ import '../screens/earnings/earnings_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/orders/order_detail_screen.dart';
 import '../screens/orders/orders_screen.dart';
+import '../screens/products/products_screen.dart';
 import '../screens/schemes/schemes_screen.dart';
 import 'api_service.dart';
 import 'app_language.dart';
@@ -220,6 +221,8 @@ class PushNotificationService {
         page = const DocumentsScreen();
       case 'schemes':
         page = const SchemesScreen();
+      case 'products':
+        page = const ProductsScreen();
       default:
         page = const NotificationsScreen();
     }

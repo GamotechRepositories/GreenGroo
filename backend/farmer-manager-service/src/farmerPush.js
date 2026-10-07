@@ -158,6 +158,10 @@ export async function sendFarmerTestPush(req, res) {
 // ── Event texts ───────────────────────────────────────────────────────────────
 
 const ORDER_STATUS_TEXT = {
+  ACCEPTED: { en: "Order accepted", mr: "ऑर्डर स्वीकारली" },
+  PREPARING: { en: "Order is being prepared", mr: "ऑर्डरची तयारी सुरू आहे" },
+  PACKING: { en: "Order is being packed", mr: "ऑर्डर पॅक होत आहे" },
+  READY_FOR_PICKUP: { en: "Order ready for pickup", mr: "ऑर्डर पिकअपसाठी तयार आहे" },
   DRIVER_ASSIGNED: { en: "Pickup scheduled", mr: "पिकअप नियोजित झाले" },
   PICKUP_SCHEDULED: { en: "Pickup scheduled", mr: "पिकअप नियोजित झाले" },
   DISPATCHED: { en: "Driver is on the way", mr: "ड्रायव्हर पिकअपसाठी निघाला आहे" },
@@ -257,6 +261,52 @@ export function pushFarmerDocumentReview(doc) {
   const plain = plainOf(doc);
   if (!plain?.farmerId || !["Approved", "Rejected"].includes(plain.status)) return;
   notifyFarmerDocumentReview(plain).catch((err) => console.warn("[FarmerPush] document push failed:", err.message));
+}
+
+export function pushFarmerProductReview(product) {
+  const plain = plainOf(product);
+  if (!plain?.farmerId || !plain.reviewedAt) return;
+  notifyFarmerProductReview(plain).catch((err) => console.warn("[FarmerPush] product push failed:", err.message));
+}
+
+export function pushFarmerAccountStatus(farmer) {
+  const plain = plainOf(farmer);
+  if (!plain?.id) return;
+  notifyFarmerAccountStatus(plain).catch((err) => console.warn("[FarmerPush] account push failed:", err.message));
+}
+
+export async function notifyFarmerProductReview(product) {
+  const rejected = product.status === "Rejected";
+  const productId = product.id || product.productId || "";
+  const name = [product.name, product.variety].filter(Boolean).join(" · ") || "Product";
+  const reason = rejected && product.rejectionReason ? product.rejectionReason : "";
+  return notifyFarmer(product.farmerId, {
+    title: rejected
+      ? { en: "Product rejected", mr: "उत्पादन नाकारले" }
+      : { en: "Product approved", mr: "उत्पादन मंजूर झाले" },
+    body: rejected
+      ? { en: `${name}${reason ? ` · Reason: ${reason}` : ""}`, mr: `${name}${reason ? ` · कारण: ${reason}` : ""}` }
+      : { en: `${name} is now live for your collection centre.`, mr: `${name} आता तुमच्या संकलन केंद्रासाठी उपलब्ध आहे.` },
+    data: { type: "PRODUCT", screen: "products", productId, status: product.status },
+    tag: `product_${productId}`,
+  });
+}
+
+export async function notifyFarmerAccountStatus(farmer) {
+  const active = String(farmer.status || "").toLowerCase() === "active";
+  return notifyFarmer(farmer.id, {
+    title: active
+      ? { en: "Account activated", mr: "खाते सक्रिय झाले" }
+      : { en: "Account deactivated", mr: "खाते निष्क्रिय केले" },
+    body: active
+      ? { en: "Your collection centre has activated your account.", mr: "तुमच्या संकलन केंद्राने तुमचे खाते सक्रिय केले आहे." }
+      : {
+          en: "Your collection centre has deactivated your account. Please contact them.",
+          mr: "तुमच्या संकलन केंद्राने तुमचे खाते निष्क्रिय केले आहे. कृपया त्यांच्याशी संपर्क साधा.",
+        },
+    data: { type: "ACCOUNT", screen: "notifications", status: String(farmer.status || "") },
+    tag: "account_status",
+  });
 }
 
 export async function notifyFarmerDocumentReview(doc) {

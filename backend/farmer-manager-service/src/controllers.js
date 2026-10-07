@@ -22,7 +22,12 @@ import {
   QualityInspection,
 } from "./models.js";
 import { isCropAvailableForVendor, vendorAvailableCrops } from "./vendorCropRequestControllers.js";
-import { pushFarmerDocumentReview, pushFarmerOrderChange } from "./farmerPush.js";
+import {
+  pushFarmerAccountStatus,
+  pushFarmerDocumentReview,
+  pushFarmerOrderChange,
+  pushFarmerProductReview,
+} from "./farmerPush.js";
 import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, createManagerBusinessId, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
@@ -776,8 +781,10 @@ export async function setFarmerStatus(req, res) {
     const { status } = req.body;
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const previousStatus = farmer.status;
     farmer.status = status;
     await farmer.save();
+    if (status && status !== previousStatus) pushFarmerAccountStatus(farmer);
     const enriched = await enrichFarmerDoc(farmer);
     res.json(enriched);
   } catch (err) {
@@ -3699,6 +3706,7 @@ export async function reviewFarmerProduct(req, res) {
     }
 
     await product.save();
+    pushFarmerProductReview(product);
     res.json(publicMyProduct(product, farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to review product" });
@@ -4314,6 +4322,7 @@ export async function updateFarmerOrder(req, res) {
       return res.status(404).json({ message: "Harvest order not found" });
     }
 
+    const previousStatus = normalizeOrderStatus(order.status);
     if (harvestDate !== undefined) order.harvestDate = harvestDate;
     if (day !== undefined) order.day = day;
     if (unit !== undefined) order.unit = unit;
@@ -4340,6 +4349,10 @@ export async function updateFarmerOrder(req, res) {
     await order.save();
     if (status !== undefined) {
       await persistOrderStatusSideEffects(order, { event: "MANAGER_UPDATE" });
+      const nextStatus = normalizeOrderStatus(order.status);
+      if (nextStatus !== previousStatus) {
+        pushFarmerOrderChange({ ...toPlain(order), status: nextStatus }, { statusChanged: true });
+      }
     }
     return res.json(withCanonicalOrderStatus(toPlain(order)));
   } catch (err) {
