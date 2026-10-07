@@ -185,6 +185,7 @@ import {
   saveInventoryAlert,
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
+import { saveFarmerPushToken, deleteFarmerPushToken, sendFarmerTestPush } from "./farmerPush.js";
 import {
   listVendorCoupons,
   createVendorCoupon,
@@ -229,6 +230,9 @@ farmerRouter.put("/me/profile", requireFarmer, updateFarmerSelfProfile);
 farmerRouter.put("/me/farm", requireFarmer, updateFarmerFarmProfile);
 farmerRouter.put("/me/farm-location", requireFarmer, updateFarmerFarmLocation);
 farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmLocation);
+farmerRouter.post("/push-token", requireFarmer, saveFarmerPushToken);
+farmerRouter.delete("/push-token", requireFarmer, deleteFarmerPushToken);
+farmerRouter.post("/push-test", requireFarmer, sendFarmerTestPush);
 farmerRouter.get("/crops", requireFarmer, listFarmerCrops);
 farmerRouter.get("/crops/catalog", getPublicCropsCatalog);
 farmerRouter.get("/crops/vendor-available", requireFarmer, listFarmerVendorCrops);

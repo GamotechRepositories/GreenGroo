@@ -9,6 +9,7 @@ import 'models/farmer_models.dart';
 import 'services/farmer_state.dart';
 import 'services/api_service.dart';
 import 'services/app_language.dart';
+import 'services/push_notification_service.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -35,6 +36,8 @@ Future<void> _initializeApp() async {
   await FarmerState().initPreferences();
   // Listen for real-time document verification notifications from vendor
   FarmerState().onDocumentStatusChanged = _showDocumentStatusSnackBar;
+  // Not awaited: the permission prompt must not hold the splash screen.
+  PushNotificationService.instance.init(navigatorKey: rootNavigatorKey);
 }
 
 void _showDocumentStatusSnackBar(DocumentItem doc) {
@@ -196,6 +199,10 @@ class _SessionGateState extends State<_SessionGate> {
 
   @override
   Widget build(BuildContext context) {
-    return _loggedIn ? const MainShell() : const LoginScreen();
+    final loggedIn = _loggedIn;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) PushNotificationService.instance.setShellReady(loggedIn);
+    });
+    return loggedIn ? const MainShell() : const LoginScreen();
   }
 }

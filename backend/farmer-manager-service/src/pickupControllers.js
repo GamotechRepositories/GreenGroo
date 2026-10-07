@@ -10,6 +10,7 @@ import {
   Pickup,
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { pushFarmerOrderChange } from "./farmerPush.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { resolveLocation, cityCode } from "../../erp-service/src/services/locationResolver.js";
 import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, DRIVER_LIST_EXCLUDE } from "./listProjections.js";
@@ -702,6 +703,7 @@ async function applyOrderStatus(order, status, note) {
   order.preparationStatus = status;
   order.timeline = [...(order.timeline || []), { status, at: new Date(), note }];
   await order.save();
+  pushFarmerOrderChange(order, { statusChanged: true });
 }
 
 // First doc (in query order) per key, matching findOne({ $or: [{ field: key }, ...] }) semantics.
@@ -2125,6 +2127,7 @@ export async function confirmDriverPickup(req, res) {
         { status: "PICKED_UP", at: now, note: "Driver confirmed pickup from farmer." },
       ];
       await order.save();
+      pushFarmerOrderChange(order, { statusChanged: true });
     }
     const driver = await PickupDriver.findOne({ id: driverId });
     if (driver) await refreshDriverAvailability(driver);

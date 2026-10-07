@@ -11,6 +11,7 @@ import {
   QualityInspection,
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { pushFarmerOrderChange } from "./farmerPush.js";
 import { syncQualityToErp } from "../../erp-service/src/services/harvestSync.js";
 import { parsePickupQr } from "./pickupControllers.js";
 import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, INSPECTION_LIST_EXCLUDE } from "./listProjections.js";
@@ -332,6 +333,7 @@ async function applyOrderStatus(order, status, note) {
   order.preparationStatus = status;
   order.timeline = [...(order.timeline || []), { status, at: new Date(), note }];
   await order.save();
+  pushFarmerOrderChange(order, { statusChanged: true });
 }
 
 function emitQualityUpdate(payload) {
@@ -1689,6 +1691,7 @@ export async function updateOrderPaymentStatus(req, res) {
     if (!order && !harvestOrder) {
       return res.status(404).json({ message: "Order not found" });
     }
+    const previousPaymentStatus = String((order || harvestOrder).paymentStatus || "");
 
     const payDetails = {
       paymentStatus,
@@ -1732,6 +1735,10 @@ export async function updateOrderPaymentStatus(req, res) {
       { $or: [{ orderId: orderId }, { id: orderId }] },
       { $set: { status: isPaid ? "Paid" : "Pending" } }
     ).catch(() => {});
+
+    if (previousPaymentStatus.toUpperCase() !== String(paymentStatus).toUpperCase().trim()) {
+      pushFarmerOrderChange(order || harvestOrder, { paymentChanged: true });
+    }
 
     return res.json({ success: true, order: order || harvestOrder, paymentStatus });
   } catch (err) {

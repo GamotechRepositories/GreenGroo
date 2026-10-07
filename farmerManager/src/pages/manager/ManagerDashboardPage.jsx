@@ -605,7 +605,7 @@ export default function ManagerDashboardPage() {
             </h1>
             <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-[#217346]">
               Manager Action Hub
-            </span>
+        </span>
           </div>
 
           {/* Time Range Filter: Today / Yesterday / Last 7 Days / Last 30 Days / Last 90 Days / All Time + Sync */}
@@ -754,8 +754,8 @@ export default function ManagerDashboardPage() {
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-[#217346] border border-emerald-200/60">
               <ShieldCheck className="h-4 w-4" />
-            </div>
-            <div>
+        </div>
+        <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 sm:text-sm">
                   Manager Action Center
@@ -769,11 +769,11 @@ export default function ManagerDashboardPage() {
                     All Operations Normal
                   </span>
                 )}
-              </div>
+        </div>
               <p className="text-[11px] text-slate-500">
                 Pending approvals, document verifications & immediate operational actions
-              </p>
-            </div>
+          </p>
+        </div>
           </div>
           <div className="text-[11px] text-slate-500 hidden sm:flex items-center gap-1 font-medium">
             <Clock className="h-3 w-3 text-slate-400" />
@@ -832,7 +832,7 @@ export default function ManagerDashboardPage() {
 
                 {/* Right: Action Button */}
                 <div className="shrink-0 self-end sm:self-center">
-                  <Link
+        <Link
                     to={item.to}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-2xs transition ${
                       isAllClear
@@ -842,10 +842,10 @@ export default function ManagerDashboardPage() {
                   >
                     <span>{item.actionLabel}</span>
                     <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </div>
-            );
+        </Link>
+      </div>
+    </div>
+  );
           })}
         </div>
       </div>
@@ -1051,7 +1051,7 @@ export default function ManagerDashboardPage() {
 
             <Link to="/manager/crops/add" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[#217346] hover:underline">
               <Plus className="h-3 w-3" /> Add Crop
-            </Link>
+                </Link>
           </div>
         </div>
 

@@ -352,6 +352,9 @@ export async function updateGovtSchemeApplicationStatus(req, res, next) {
       io.to(`farmer_${appDoc.farmerId}`).emit("scheme_application_updated", appDoc);
       io.emit("govt_scheme_application_updated", appDoc);
     });
+    import("../../farmer-manager-service/src/farmerPush.js")
+      .then((mod) => mod.notifyFarmerSchemeUpdate(appDoc.toObject()))
+      .catch((err) => console.warn("[FarmerPush] scheme push failed:", err.message));
 
     res.json({
       success: true,

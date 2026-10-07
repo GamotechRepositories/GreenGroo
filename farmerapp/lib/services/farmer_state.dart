@@ -7,6 +7,7 @@ import '../models/farmer_models.dart';
 import '../core/constants/farmer_constants.dart';
 import 'api_service.dart';
 import 'farmer_socket_service.dart';
+import 'push_notification_service.dart';
 
 import './app_language.dart';
 class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
@@ -84,6 +85,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void logout() {
+    PushNotificationService.instance.unregister(authToken: ApiService().token);
     isLoggedIn = false;
     _syncDebounce?.cancel();
     _syncQueued = false;
@@ -99,6 +101,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     _persistProfile();
     fetchFromBackend();
     FarmerSocketService.instance.connect(profile.id);
+    PushNotificationService.instance.syncToken();
     notifyListeners();
   }
 

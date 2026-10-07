@@ -22,6 +22,7 @@ import {
   QualityInspection,
 } from "./models.js";
 import { isCropAvailableForVendor, vendorAvailableCrops } from "./vendorCropRequestControllers.js";
+import { pushFarmerDocumentReview, pushFarmerOrderChange } from "./farmerPush.js";
 import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, createManagerBusinessId, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
@@ -4476,6 +4477,7 @@ export async function createFarmerOrder(req, res) {
     });
 
     await order.save();
+    pushFarmerOrderChange(order, { isNew: true });
 
     const createdAsNew = ["NEW", "New"].includes(String(orderStatus));
     if (!createdAsNew) {
@@ -4891,6 +4893,7 @@ export async function updateFarmerDocumentStatus(req, res) {
 
     await syncFarmerKycFromDocuments(farmerRecord, ownerKeys);
     emitFarmerDocumentUpdate(farmerRecord, doc);
+    pushFarmerDocumentReview(doc);
 
     res.json(doc);
   } catch (err) {

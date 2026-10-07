@@ -102,6 +102,16 @@ const farmerSchema = new mongoose.Schema(
       default: "PENDING",
     },
     preferredLanguage: { type: String, default: "" },
+    // FCM tokens of the farmer app installs (see farmerPush.js); newest first, max 5.
+    fcmTokens: [
+      {
+        _id: false,
+        token: { type: String, required: true },
+        platform: { type: String, default: "android" },
+        language: { type: String, default: "mr" },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
     bankVerificationStatus: {
       type: String,
       enum: ["PENDING", "VERIFIED", "REJECTED"],

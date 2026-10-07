@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../config/app_env.dart';
 
 /// The server answered with a non-2xx status. The host is reachable, so trying
 /// the other candidate hosts would only repeat the same failing request.
@@ -37,39 +38,25 @@ class ApiService {
   String? get token => _token;
 
   Future<void> init() async {
-    String? envUrl;
-    // 1. Try reading .env asset
-    try {
-      final envString = await rootBundle.loadString('.env');
-      for (final line in envString.split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.startsWith('#') || !trimmed.contains('=')) continue;
-        final parts = trimmed.split('=');
-        final key = parts[0].trim();
-        final value = parts.sublist(1).join('=').trim();
-
-        if (key == 'VITE_API_URL' || key == 'API_BASE_URL' || key == 'API_URL') {
-          if (value.isNotEmpty) {
-            envUrl = value.replaceAll(RegExp(r'/+$'), '');
-            _baseUrl = envUrl;
-          }
-        }
-      }
-    } catch (_) {}
+    // 1. .env: release builds (or USE_LIVE_API=true) use API_LIVE_URL, otherwise API_BASE_URL.
+    await AppEnv.load();
+    final useLive = AppEnv.useLiveApi;
+    final String envUrl = useLive ? AppEnv.liveApiUrl : AppEnv.localApiUrl;
+    if (envUrl.isNotEmpty) _baseUrl = envUrl;
 
     // 2. Load stored token & custom URL
     try {
       final prefs = await SharedPreferences.getInstance();
       _token = prefs.getString('farmer_jwt_token');
       final customUrl = prefs.getString('custom_api_url');
-      if (customUrl != null && customUrl.isNotEmpty) {
+      if (!useLive && customUrl != null && customUrl.isNotEmpty) {
         _baseUrl = customUrl.replaceAll(RegExp(r'/+$'), '');
       }
     } catch (_) {}
 
     // 3. Fast auto-probe for the active reachable host
     final probeList = [
-      if (envUrl != null && envUrl.isNotEmpty) envUrl,
+      if (envUrl.isNotEmpty) envUrl,
       _baseUrl,
       ...candidateHosts,
     ];
@@ -430,6 +417,23 @@ class ApiService {
       return await patch('/api/farmers/products/$productId/stock', body);
     }
   }
+
+  Future<dynamic> registerPushToken(String token, {String platform = 'android', String language = 'mr'}) {
+    return post('/api/farmer/push-token', {'token': token, 'platform': platform, 'language': language});
+  }
+
+  /// [authToken] lets logout remove the device even if the session token is cleared meanwhile.
+  Future<void> unregisterPushToken(String token, {String? authToken}) async {
+    final headers = Map<String, String>.from(_headers);
+    final auth = authToken ?? _token;
+    if (auth != null && auth.isNotEmpty) headers['Authorization'] = 'Bearer $auth';
+    final response = await _client
+        .delete(Uri.parse('$_baseUrl/api/farmer/push-token'), headers: headers, body: jsonEncode({'token': token}))
+        .timeout(const Duration(seconds: 8));
+    _handleResponse(response);
+  }
+
+  Future<dynamic> sendTestPush() => post('/api/farmer/push-test', {});
 
   Future<dynamic> createCrop(Map<String, dynamic> body) async {
     return post('/api/farmer/crops', body);

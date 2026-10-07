@@ -1,7 +1,7 @@
 // Mongoose projections for list/poll endpoints. They only exclude inline base64
 // media that list screens never render; detail endpoints keep loading full documents.
 
-export const FARMER_LIST_EXCLUDE = "-password -profileImage -farm.farmPhotos -farm.farmVideos";
+export const FARMER_LIST_EXCLUDE = "-password -profileImage -farm.farmPhotos -farm.farmVideos -fcmTokens";
 
 export const PICKUP_LIST_EXCLUDE = "-confirmationPhotos -receiving.photos";
 

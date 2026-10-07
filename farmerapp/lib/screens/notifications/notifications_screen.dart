@@ -5,6 +5,7 @@ import '../../core/widgets/app_loader.dart';
 import '../../core/widgets/pull_to_refresh.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
+import '../../services/push_notification_service.dart';
 import '../orders/order_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
 import '../documents/documents_screen.dart';
@@ -49,6 +50,37 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   String _selectedFilter = 'all';
+
+  Future<void> _sendTestPush() async {
+    final messenger = ScaffoldMessenger.of(context);
+    String text;
+    if (!PushNotificationService.instance.isAvailable) {
+      text = AppLanguage().tr(
+        mr: 'या फोनवर पुश सूचना सुरू झाल्या नाहीत. परवानगी तपासा व ॲप पुन्हा सुरू करा.',
+        en: 'Push is not set up on this phone. Check the permission and restart the app.',
+      );
+    } else {
+      try {
+        final res = await PushNotificationService.instance.sendTestNotification();
+        final reason = res?['reason']?.toString() ?? '';
+        if (res?['success'] == true) {
+          text = AppLanguage().tr(mr: 'चाचणी सूचना पाठवली.', en: 'Test notification sent.');
+        } else if (reason == 'firebase-not-configured') {
+          text = AppLanguage().tr(
+            mr: 'सर्व्हरवर Firebase Admin key सेट नाही.',
+            en: 'Firebase Admin key is not configured on the server.',
+          );
+        } else if (reason == 'no-tokens') {
+          text = AppLanguage().tr(mr: 'हा फोन अजून नोंदवला गेला नाही.', en: 'This phone is not registered yet.');
+        } else {
+          text = AppLanguage().tr(mr: 'सूचना पाठवता आली नाही.', en: 'Could not send the notification.');
+        }
+      } catch (e) {
+        text = e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+    messenger.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 4)));
+  }
 
   List<NotificationItemModel> _buildLiveNotifications(BuildContext context, FarmerState state) {
     final List<NotificationItemModel> list = [];
@@ -226,6 +258,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ],
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.primary),
+                tooltip: AppLanguage().tr(mr: 'चाचणी सूचना पाठवा', en: 'Send test notification'),
+                onPressed: _sendTestPush,
+              ),
               if (unreadCount > 0)
                 IconButton(
                   icon: const Icon(Icons.done_all, size: 20, color: AppColors.primary),
