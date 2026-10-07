@@ -21,7 +21,7 @@ export default function OrdersPage() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("incoming");
+  const [activeTab, setActiveTab] = useState("all");
   const [pickupQrOrderId, setPickupQrOrderId] = useState(null);
   const [pickupQrLoading, setPickupQrLoading] = useState(false);
   const [pickupQrError, setPickupQrError] = useState("");
@@ -491,6 +491,15 @@ export default function OrdersPage() {
 
   const summaryCards = [
     {
+      id: "all",
+      label: "All Orders",
+      hint: "Every order for this store, incl. pre-orders",
+      count: orders.length,
+      accent: "border-slate-200 bg-white",
+      countClass: "text-slate-900",
+      ring: "ring-slate-500",
+    },
+    {
       id: "incoming",
       label: "Incoming Orders",
       hint: "New & packed — awaiting dispatch",
@@ -530,7 +539,7 @@ export default function OrdersPage() {
 
   return (
     <PageShell
-      title="Incoming Orders"
+      title="Orders"
       subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area || "Area"}, ${manager?.city || "City"} · orders within ${manager?.deliveryRadiusKm || 5} km`}
     >
       {toast && (
@@ -545,7 +554,7 @@ export default function OrdersPage() {
       )}
 
       {/* Summary boxes */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {summaryCards.map((card) => {
           const selected = activeTab === card.id;
           return (
