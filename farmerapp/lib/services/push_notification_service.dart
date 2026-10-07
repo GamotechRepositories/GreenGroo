@@ -9,8 +9,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../config/app_env.dart';
 import '../firebase_options.dart';
+import '../screens/crops/crops_screen.dart';
 import '../screens/documents/documents_screen.dart';
 import '../screens/earnings/earnings_screen.dart';
+import '../screens/inventory/inventory_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/orders/order_detail_screen.dart';
 import '../screens/orders/orders_screen.dart';
@@ -223,6 +225,10 @@ class PushNotificationService {
         page = const SchemesScreen();
       case 'products':
         page = const ProductsScreen();
+      case 'crops':
+        page = const CropsScreen();
+      case 'inventory':
+        page = const InventoryScreen();
       default:
         page = const NotificationsScreen();
     }

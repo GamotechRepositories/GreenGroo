@@ -235,6 +235,17 @@ export async function adjustInventoryFarmer(req, res, next) {
       updatedBy: req.user?.name || req.user?.email || "Admin",
       reason: reason || "Admin inventory update",
     });
+    import("../../farmer-manager-service/src/farmerPush.js")
+      .then((mod) =>
+        mod.pushFarmerStockChange({
+          farmerId,
+          productId: result.product.id,
+          productName: result.product.name,
+          unit: result.product.unit,
+          changes: [{ grade: result.history.grade, change: result.newStock - result.previousStock, next: result.newStock }],
+        })
+      )
+      .catch((err) => console.warn("[FarmerPush] stock push failed:", err.message));
 
     return ok(res, {
       productId: result.product.id,

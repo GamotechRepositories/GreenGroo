@@ -263,6 +263,65 @@ export function pushFarmerDocumentReview(doc) {
   notifyFarmerDocumentReview(plain).catch((err) => console.warn("[FarmerPush] document push failed:", err.message));
 }
 
+/**
+ * True when a vendor, farmer manager, admin or pickup driver made the change.
+ * Farmers are not notified about their own edits; the open /api/farmer(s) routes are the farmer side.
+ */
+export function isStaffChange(req) {
+  const role = String(req?.user?.role || "").toUpperCase();
+  if (role) return role !== "FARMER";
+  return !/^\/api\/farmers?(\/|$)/.test(req?.baseUrl || "");
+}
+
+const fmtQty = (n) => {
+  const v = Number(n || 0);
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+};
+
+/** changes: [{ grade, change, next }] — one notification per product. */
+export function pushFarmerStockChange({ farmerId, productId, productName, unit = "Kg", changes = [] }) {
+  const rows = changes.filter((c) => Number(c?.change || 0) !== 0);
+  if (!farmerId || !rows.length) return;
+  const name = productName || "Product";
+  const parts = rows.map((c) => {
+    const delta = Number(c.change);
+    const grade = String(c.grade || "").replace(/^grade\s*/i, "");
+    return `${grade ? `${grade}: ` : ""}${delta > 0 ? "+" : "−"}${fmtQty(Math.abs(delta))} ${unit} (${fmtQty(c.next)} ${unit})`;
+  });
+  notifyFarmer(farmerId, {
+    title: { en: `Stock updated: ${name}`, mr: `स्टॉक अपडेट: ${name}` },
+    body: { en: parts.join(" · "), mr: parts.join(" · ") },
+    data: { type: "INVENTORY", screen: "inventory", productId: String(productId || "") },
+    tag: `stock_${productId || name}`,
+  }).catch((err) => console.warn("[FarmerPush] stock push failed:", err.message));
+}
+
+export function pushFarmerCropChange(crop, { isNew = false } = {}) {
+  const plain = plainOf(crop);
+  if (!plain?.farmerId) return;
+  const cropId = String(plain.id || plain.cropId || "");
+  const name = [plain.cropName || plain.name, plain.variety].filter(Boolean).join(" · ") || "Crop";
+  notifyFarmer(plain.farmerId, {
+    title: isNew ? { en: "New crop added", mr: "नवीन पीक जोडले" } : { en: "Crop updated", mr: "पीक अपडेट झाले" },
+    body: { en: name, mr: name },
+    data: { type: "CROP", screen: "crops", cropId },
+    tag: `crop_${cropId}`,
+  }).catch((err) => console.warn("[FarmerPush] crop push failed:", err.message));
+}
+
+export function pushFarmerProductChange(product, { isNew = false } = {}) {
+  const plain = plainOf(product);
+  if (!plain?.farmerId) return;
+  const productId = String(plain.id || plain.productId || "");
+  const name = [plain.name || plain.productName, plain.variety].filter(Boolean).join(" · ") || "Product";
+  notifyFarmer(plain.farmerId, {
+    title: isNew ? { en: "New product added", mr: "नवीन उत्पादन जोडले" } : { en: "Product updated", mr: "उत्पादन अपडेट झाले" },
+    body: { en: name, mr: name },
+    data: { type: "PRODUCT", screen: "products", productId },
+    tag: `product_${productId}`,
+  }).catch((err) => console.warn("[FarmerPush] product push failed:", err.message));
+}
+
 export function pushFarmerProductReview(product) {
   const plain = plainOf(product);
   if (!plain?.farmerId || !plain.reviewedAt) return;

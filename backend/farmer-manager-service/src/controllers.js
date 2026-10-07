@@ -23,10 +23,14 @@ import {
 } from "./models.js";
 import { isCropAvailableForVendor, vendorAvailableCrops } from "./vendorCropRequestControllers.js";
 import {
+  isStaffChange,
   pushFarmerAccountStatus,
+  pushFarmerCropChange,
   pushFarmerDocumentReview,
   pushFarmerOrderChange,
+  pushFarmerProductChange,
   pushFarmerProductReview,
+  pushFarmerStockChange,
 } from "./farmerPush.js";
 import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, createManagerBusinessId, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
@@ -1837,6 +1841,8 @@ export async function createManagedFarmerCrop(req, res) {
         });
       }
     }
+    // Catalog crops (no farmer in the URL) land on a placeholder farmer and must not notify anyone.
+    const forChosenFarmer = Boolean(farmer);
     if (!farmer) {
       if (req.user?.vendorId) {
         farmer = await Farmer.findOne({ vendorId: req.user.vendorId });
@@ -1862,6 +1868,7 @@ export async function createManagedFarmerCrop(req, res) {
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
     const { crop, plan } = await persistNewCrop(farmer, parsed);
+    if (forChosenFarmer && isStaffChange(req)) pushFarmerCropChange(crop, { isNew: true });
     res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create crop" });
@@ -1879,6 +1886,7 @@ export async function updateManagedFarmerCrop(req, res) {
     if (!crop) return res.status(404).json({ message: "Crop not found" });
     const updated = await applyCropUpdate(crop, req.body || {});
     if (updated.error) return res.status(400).json({ message: updated.error });
+    if (isStaffChange(req)) pushFarmerCropChange(updated.crop);
     res.json({ ...publicCrop(updated.crop, farmer), plan: publicPlan(updated.plan, updated.crop) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update crop" });
@@ -2422,6 +2430,7 @@ export async function createManagedFarmerProduct(req, res) {
     await product.save();
     await upgradeFarmerProductId(product);
     await syncFarmerProductToErp(product, farmer, crop);
+    if (isStaffChange(req)) pushFarmerProductChange(product, { isNew: true });
     res.status(201).json(publicMyProduct(product, farmer, crop));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create product" });
@@ -3354,6 +3363,16 @@ export async function deductFarmerOrderInventory(order, linkedProduct = null) {
   order.inventoryDeducted = true;
 }
 
+/** Farmer managers can act on a farmer's order; tell the farmer when they do. */
+function pushIfManagerActed(req, order) {
+  if (String(req.user?.role || "").toUpperCase() !== "FARMER_MANAGER") return;
+  const plain = toPlain(order);
+  pushFarmerOrderChange(
+    { ...plain, status: normalizeOrderStatus(plain.status), rejectedBy: plain.rejectedBy === "FARMER" ? "FARMER_MANAGER" : plain.rejectedBy },
+    { statusChanged: true }
+  );
+}
+
 export async function acceptMyOrder(req, res) {
   try {
     const order = await loadOwnOrder(req, res);
@@ -3393,6 +3412,7 @@ export async function acceptMyOrder(req, res) {
     await order.save();
 
     await persistOrderStatusSideEffects(order, { event: "ACCEPTED" });
+    pushIfManagerActed(req, order);
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -3427,6 +3447,7 @@ export async function rejectMyOrder(req, res) {
     await order.save();
 
     await persistOrderStatusSideEffects(order, { event: "REJECTED" });
+    pushIfManagerActed(req, order);
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -3458,6 +3479,7 @@ export async function prepareMyOrder(req, res) {
     }
     pushOrderTimeline(order, "PREPARING", req.body?.note || "Preparation updated.");
     await order.save();
+    if (current !== "PREPARING") pushIfManagerActed(req, order);
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -3495,6 +3517,7 @@ export async function packMyOrder(req, res) {
     order.markModified("packingDetails");
     pushOrderTimeline(order, "PACKING", "Packing details saved.");
     await order.save();
+    if (current !== "PACKING") pushIfManagerActed(req, order);
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -3523,6 +3546,7 @@ export async function readyMyOrder(req, res) {
     order.readyForPickupAt = new Date();
     pushOrderTimeline(order, "READY_FOR_PICKUP", "Order marked ready for pickup.");
     await order.save();
+    pushIfManagerActed(req, order);
     const farmer = await Farmer.findOne({ id: order.farmerId });
     await ensurePickupForOrder(order, farmer);
     res.json(await enrichOwnOrder(order, farmer));
@@ -3827,6 +3851,7 @@ export async function updateFarmerProduct(req, res) {
     if (payload.lowStockLimit !== undefined) product.lowStockLimit = Number(payload.lowStockLimit);
     if (payload.status) product.status = payload.status;
 
+    const stockChanges = [];
     if (payload.grades) {
       const prevGrades = product.grades || [];
       const nextGrades = payload.grades.map((g, idx) => ({
@@ -3841,6 +3866,7 @@ export async function updateFarmerProduct(req, res) {
         const nextQty = Number(nextGrades[i]?.quantity) || 0;
         if (prevQty !== nextQty) {
           const diff = nextQty - prevQty;
+          stockChanges.push({ grade: nextGrades[i].label, change: diff, next: nextQty });
           await FarmerStockHistory.create({
             id: `sh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             vendorId: product.vendorId,
@@ -3869,6 +3895,19 @@ export async function updateFarmerProduct(req, res) {
     }
 
     await product.save();
+    if (isStaffChange(req)) {
+      if (stockChanges.length) {
+        pushFarmerStockChange({
+          farmerId,
+          productId: product.id,
+          productName: product.name,
+          unit: product.unit,
+          changes: stockChanges,
+        });
+      } else {
+        pushFarmerProductChange(product);
+      }
+    }
     res.json(product);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update product" });
@@ -3989,6 +4028,15 @@ export async function adjustFarmerStock(req, res) {
     });
 
     await historyEntry.save();
+    if (isStaffChange(req)) {
+      pushFarmerStockChange({
+        farmerId,
+        productId,
+        productName: product.name,
+        unit: product.unit,
+        changes: [{ grade: grades[gIdx].label, change: appliedChange, next: nextStock }],
+      });
+    }
 
     res.json({ product, history: historyEntry });
   } catch (err) {
@@ -4030,11 +4078,21 @@ export async function updateFarmerInventoryItem(req, res) {
       if (product && currentStock !== undefined) {
         const gIdx = product.grades.findIndex((g) => g.id === gradeId);
         if (gIdx >= 0) {
+          const prevQty = Number(product.grades[gIdx].quantity || 0);
           product.grades[gIdx].quantity = Number(currentStock);
           const total = product.grades.reduce((s, g) => s + Number(g.quantity || 0), 0);
           product.stock = total;
           product.availableQuantity = total;
           await product.save();
+          if (isStaffChange(req)) {
+            pushFarmerStockChange({
+              farmerId,
+              productId,
+              productName: product.name,
+              unit: product.unit,
+              changes: [{ grade: product.grades[gIdx].label, change: Number(currentStock) - prevQty, next: Number(currentStock) }],
+            });
+          }
         }
       }
     }
@@ -4268,6 +4326,7 @@ export async function updateFarmerOrderStatus(req, res) {
     const order = await FarmerOrder.findOne({ id: orderId, farmerId });
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    const previousStatus = normalizeOrderStatus(order.status);
     order.status = status;
     order.timeline.push({
       status,
@@ -4280,6 +4339,10 @@ export async function updateFarmerOrderStatus(req, res) {
     }
 
     await order.save();
+    const nextStatus = normalizeOrderStatus(order.status);
+    if (nextStatus !== previousStatus && isStaffChange(req)) {
+      pushFarmerOrderChange({ ...toPlain(order), status: nextStatus }, { statusChanged: true });
+    }
     res.json(order);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update order status" });
@@ -4350,7 +4413,7 @@ export async function updateFarmerOrder(req, res) {
     if (status !== undefined) {
       await persistOrderStatusSideEffects(order, { event: "MANAGER_UPDATE" });
       const nextStatus = normalizeOrderStatus(order.status);
-      if (nextStatus !== previousStatus) {
+      if (nextStatus !== previousStatus && isStaffChange(req)) {
         pushFarmerOrderChange({ ...toPlain(order), status: nextStatus }, { statusChanged: true });
       }
     }
