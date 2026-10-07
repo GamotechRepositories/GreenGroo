@@ -17,6 +17,7 @@ import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
+import PreOrderProgress from "./PreOrderProgress";
 
 const ACTION_PINK = "#E23744";
 
@@ -274,6 +275,8 @@ function BlinkitOrderDetail({
               ))
             : null}
         </div>
+
+        <PreOrderProgress order={order} className="mt-4" />
 
         {order.status === "confirm" ? (
           <div className="mt-6">

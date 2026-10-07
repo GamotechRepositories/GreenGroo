@@ -4,6 +4,7 @@ import { staffApi } from "../../api/staffApi";
 import { usePreOrders } from "../../hooks/usePreOrders";
 
 const TABS = [
+  { id: "awaiting_vendor", label: "Awaiting vendor" },
   { id: "pending", label: "To prepare" },
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready to forward" },
@@ -12,6 +13,7 @@ const TABS = [
 ];
 
 const stageStyles = {
+  awaiting_vendor: "bg-orange-50 text-orange-700 ring-orange-200",
   pending: "bg-slate-50 text-slate-700 ring-slate-200",
   preparing: "bg-amber-50 text-amber-700 ring-amber-200",
   ready: "bg-sky-50 text-sky-700 ring-sky-200",
@@ -20,6 +22,7 @@ const stageStyles = {
 };
 
 const stageLabels = {
+  awaiting_vendor: "Awaiting vendor",
   pending: "To prepare",
   preparing: "Preparing",
   ready: "Ready",
@@ -34,21 +37,25 @@ const btnSecondary =
 const btnDanger =
   "rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50";
 
+const awaitingVendor = (order) => order.status === "preorder_hold" && order.vendorStatus !== "confirmed";
+
 function stageOf(order) {
   if (order.status === "cancelled" && order.preOrderStage !== "forwarded") return "cancelled";
+  if (awaitingVendor(order)) return "awaiting_vendor";
   return order.preOrderStage || "pending";
 }
 
 function matchesTab(order, tab) {
   if (tab === "all") return true;
   if (tab === "forwarded") return order.preOrderStage === "forwarded";
-  return order.status === "preorder_hold" && (order.preOrderStage || "pending") === tab;
+  if (tab === "awaiting_vendor") return awaitingVendor(order);
+  return order.status === "preorder_hold" && !awaitingVendor(order) && (order.preOrderStage || "pending") === tab;
 }
 
 function deliveryStatusText(order) {
   switch (order.status) {
     case "packed":
-      return "Awaiting rider assignment";
+      return order.storeReceivedAt ? "Received at dark store · awaiting rider" : "On the way to dark store";
     case "offered":
       return `Offer sent to ${order.offeredRider?.name || "rider"}`;
     case "assigned":
@@ -135,7 +142,7 @@ export default function PreOrdersPage() {
   const prepList = useMemo(() => {
     const map = new Map();
     for (const order of orders) {
-      if (order.status !== "preorder_hold") continue;
+      if (order.status !== "preorder_hold" || awaitingVendor(order)) continue;
       for (const item of order.items || []) {
         const key = `${item.sku || item.name}__${item.unit || "pcs"}`;
         const row = map.get(key) || {
@@ -201,21 +208,28 @@ export default function PreOrdersPage() {
   };
 
   const statCards = [
-    { id: "pending", label: "To prepare", value: summary.pending, hint: "New pre-orders", highlight: summary.pending > 0 },
+    {
+      id: "awaiting_vendor",
+      label: "Awaiting vendor",
+      value: summary.awaitingVendor,
+      hint: "Vendor must confirm first",
+    },
+    { id: "pending", label: "To prepare", value: summary.pending, hint: "Confirmed by vendor", highlight: summary.pending > 0 },
     { id: "preparing", label: "Preparing", value: summary.preparing, hint: "Work in progress" },
     { id: "ready", label: "Ready to forward", value: summary.ready, hint: "Send to Delivery Manager", highlight: summary.ready > 0 },
     {
       id: "forwarded",
       label: "Forwarded",
-      value: summary.readyToAssign + summary.offered + summary.onTheWay + summary.delivered,
-      hint: `${summary.delivered} delivered · ${summary.readyToAssign + summary.offered} awaiting rider`,
+      value:
+        summary.awaitingReceipt + summary.readyToAssign + summary.offered + summary.onTheWay + summary.delivered,
+      hint: `${summary.awaitingReceipt} on the way to store · ${summary.readyToAssign + summary.offered} awaiting rider · ${summary.delivered} delivered`,
     },
   ];
 
   return (
     <PageShell
       title="Pre-Orders"
-      subtitle="Prepare next-day slot orders and forward them to the dark store's Delivery Manager when ready."
+      subtitle="Prepare vendor-confirmed next-day slot orders and forward them to the dark store's Delivery Manager when ready."
     >
       {toast.text ? (
         <div
@@ -232,7 +246,7 @@ export default function PreOrdersPage() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {statCards.map((card) => (
           <button
             key={card.id}
@@ -489,12 +503,30 @@ export default function PreOrdersPage() {
                             </p>
                           </>
                         ) : null}
+                        {order.vendorConfirmedAt ? (
+                          <p className="mt-1 text-xs text-gray-400">
+                            Vendor confirmed {formatWhen(order.vendorConfirmedAt)}
+                            {order.vendorActionByName ? ` · ${order.vendorActionByName}` : ""}
+                          </p>
+                        ) : null}
                         {order.preOrderNote ? (
                           <p className="mt-1 max-w-[200px] text-xs italic text-gray-500">“{order.preOrderNote}”</p>
                         ) : null}
                       </td>
                       <td className="px-5 py-4">
-                        {onHold ? (
+                        {onHold && awaitingVendor(order) ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs text-orange-700">Waiting for the vendor to confirm</p>
+                            <button
+                              type="button"
+                              disabled={busyId === `${order.id}-cancel`}
+                              onClick={() => cancel(order)}
+                              className={btnDanger}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : onHold ? (
                           <div className="flex flex-wrap gap-2">
                             {order.preOrderStage === "pending" ? (
                               <button

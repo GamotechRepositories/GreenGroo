@@ -130,6 +130,12 @@ export const vendorApi = {
   createDarkStoreRequest: (data) => api.post("/api/vendor/dark-store-requests", data),
   cancelDarkStoreRequest: (id) => api.post(`/api/vendor/dark-store-requests/${id}/cancel`),
 
+  // Customer pre-orders for the vendor's dark stores
+  getPreOrders: (params) => api.get("/api/vendor/preorders", { params }),
+  confirmPreOrders: (orderIds) => api.post("/api/vendor/preorders/confirm", { orderIds }),
+  rejectPreOrder: (orderId, reason) =>
+    api.post(`/api/vendor/preorders/${encodeURIComponent(orderId)}/reject`, { reason }),
+
   // Products from the admin catalog (added only after admin approval)
   getMyProducts: () => api.get("/api/vendor/my-products"),
   updateMyProduct: (productId, data) => api.patch(`/api/vendor/my-products/${productId}`, data),

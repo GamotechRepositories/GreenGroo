@@ -8,6 +8,7 @@ import {
   formatOrderPrice,
   formatPlacedAtLabel,
   formatPreOrderSlot,
+  getPreOrderProgressLabel,
   getBlinkitStatusLabel,
   getPrimaryProductId,
 } from "../../utils/orderUtils";
@@ -164,6 +165,11 @@ function BlinkitOrderCard({ order }) {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Delivery: {formatPreOrderSlot(order)}
+                </p>
+              ) : null}
+              {getPreOrderProgressLabel(order) ? (
+                <p className="mt-1 text-xs font-bold text-text-primary">
+                  Pre-order: {getPreOrderProgressLabel(order)}
                 </p>
               ) : null}
             </div>

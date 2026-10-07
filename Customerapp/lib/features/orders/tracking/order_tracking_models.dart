@@ -118,14 +118,27 @@ class TrackingEta {
 }
 
 class PreOrderSlot {
-  const PreOrderSlot({required this.date, required this.slot});
+  const PreOrderSlot({
+    required this.date,
+    required this.slot,
+    this.progress = '',
+    this.progressLabel = '',
+  });
 
   final String date;
   final String slot;
+  /// `awaiting_vendor`, `confirmed`, `preparing`, `dispatched`, `at_store`, `rider_assigned`, …
+  final String progress;
+  final String progressLabel;
 
   static PreOrderSlot? fromJson(dynamic raw) {
     if (raw is! Map) return null;
-    return PreOrderSlot(date: raw['date']?.toString() ?? '', slot: raw['slot']?.toString() ?? '');
+    return PreOrderSlot(
+      date: raw['date']?.toString() ?? '',
+      slot: raw['slot']?.toString() ?? '',
+      progress: raw['progress']?.toString() ?? '',
+      progressLabel: raw['progressLabel']?.toString() ?? '',
+    );
   }
 }
 

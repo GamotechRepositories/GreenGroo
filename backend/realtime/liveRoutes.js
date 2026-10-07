@@ -97,6 +97,11 @@ export const LIVE_ROUTES = [
   { path: "/api/farmer", deps: FARM_COLLECTIONS },
   { path: "/api/farmers", deps: FARM_COLLECTIONS },
   { path: "/api/farmer-manager", deps: FARM_COLLECTIONS },
+  {
+    path: "/api/vendor/preorders",
+    deps: ["storeorders", "deliveryboys", "deliverymanagers"],
+    ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS, storeorders: ORDER_TRACKING_FIELDS },
+  },
   { path: "/api/vendor", deps: [...FARM_COLLECTIONS, "inventoryrequests"] },
   { path: "/api/driver", deps: FARM_COLLECTIONS },
   { path: "/api/quality", deps: FARM_COLLECTIONS },

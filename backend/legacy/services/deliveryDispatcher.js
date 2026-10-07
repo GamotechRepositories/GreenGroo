@@ -245,6 +245,7 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         preOrderSlot: part.isPreOrder ? preOrderSlot : "",
         preOrderDate: part.isPreOrder ? preOrderDate : "",
         preOrderStage: part.isPreOrder ? "pending" : "",
+        vendorStatus: part.isPreOrder ? "pending" : "",
         departments: partDepartments,
         routingReason: reason || "",
         darkStoreQrCode: `DARKSTORE_${manager._id}`,
@@ -265,20 +266,25 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       );
 
       try {
-        getIO().to(`store_${manager._id}`).emit(
+        const payload = {
+          orderId: storeOrder._id.toString(),
+          orderNumber: storeOrder.orderNumber,
+          customerName: storeOrder.customerName,
+          customerPhone: storeOrder.customerPhone,
+          itemsCount: storeOrder.items.length,
+          storeName: manager.storeName || `${manager.area} Store`,
+          departments: partDepartments,
+          fulfillmentType,
+          ...(part.isPreOrder ? { preOrderSlot, preOrderDate } : {}),
+        };
+        const io = getIO();
+        io.to(`store_${manager._id}`).emit(
           part.isPreOrder ? "new_preorder_received" : "new_order_received",
-          {
-            orderId: storeOrder._id.toString(),
-            orderNumber: storeOrder.orderNumber,
-            customerName: storeOrder.customerName,
-            customerPhone: storeOrder.customerPhone,
-            itemsCount: storeOrder.items.length,
-            storeName: manager.storeName || `${manager.area} Store`,
-            departments: partDepartments,
-            fulfillmentType,
-            ...(part.isPreOrder ? { preOrderSlot, preOrderDate } : {}),
-          }
+          payload
         );
+        if (part.isPreOrder && manager.vendorId) {
+          io.to(`vendor_${manager.vendorId}`).emit("new_preorder_received", payload);
+        }
       } catch (err) {
         console.warn("[deliveryDispatcher] socket emit failed:", err.message);
       }
@@ -291,6 +297,7 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         await Order.findByIdAndUpdate(ecommerceOrder._id, {
           deliveryOtp: otpCode,
           ...(hasPreOrderPart && !ecommerceOrder.preOrderDate ? { preOrderDate } : {}),
+          ...(hasPreOrderPart ? { preOrderProgress: "awaiting_vendor" } : {}),
         });
       } catch (err) {
         console.warn("[deliveryDispatcher] failed to save deliveryOtp on Order:", err.message);

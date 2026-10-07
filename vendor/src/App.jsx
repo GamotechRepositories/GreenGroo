@@ -54,6 +54,7 @@ import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
 import ManagerEarningReportPage from './pages/manager/ManagerEarningReportPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
 import VendorDarkStoresPage from './pages/dark-stores/VendorDarkStoresPage'
+import VendorPreOrdersPage from './pages/preorders/VendorPreOrdersPage'
 import DarkStoreRequestPage from './pages/dark-stores/DarkStoreRequestPage'
 import VendorMyProductsPage from './pages/products/VendorMyProductsPage'
 import VendorProductRequestPage from './pages/products/VendorProductRequestPage'
@@ -167,6 +168,7 @@ function App() {
                 <Route path="/vendor/orders/by-product" element={<ManagerOrdersPage mode="products" />} />
                 <Route path="/vendor/orders/products/:productKey/inventory" element={<OrderProductInventoryPage />} />
                 <Route path="/vendor/orders/darkstore" element={<ManagerOrdersPage mode="darkstore" />} />
+                <Route path="/vendor/preorders" element={<VendorPreOrdersPage />} />
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
                 <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
                 <Route path="/vendor/earnings" element={<ManagerEarningsPage />} />

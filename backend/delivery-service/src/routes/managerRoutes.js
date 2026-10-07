@@ -33,7 +33,7 @@ import {
   createInventoryRequest,
   listMyInventoryRequests,
 } from "../controllers/inventoryRequestController.js";
-import { listManagerPreOrders } from "../controllers/preOrderController.js";
+import { listManagerPreOrders, markPreOrdersReceived } from "../controllers/preOrderController.js";
 import { getManagerOrderTracking } from "../controllers/managerTrackingController.js";
 import {
   listManagerProducts,
@@ -121,6 +121,7 @@ router.get("/me", me);
 router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
 router.get("/preorders", listManagerPreOrders);
+router.post("/preorders/receive", markPreOrdersReceived);
 router.post("/preorders/assign", assignPreOrdersToDriver);
 router.get("/inventory", listInventory);
 router.get("/products", listManagerProducts);

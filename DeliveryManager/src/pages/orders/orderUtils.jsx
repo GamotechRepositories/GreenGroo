@@ -82,8 +82,20 @@ const PICKUP_STATUS_LABELS = {
   delivered: { text: "PICKED UP", className: "text-emerald-800" },
 };
 
+const PRE_ORDER_PROGRESS_LABELS = {
+  awaiting_vendor: { text: "AWAITING VENDOR", className: "text-orange-700" },
+  confirmed: { text: "VENDOR CONFIRMED", className: "text-indigo-700" },
+  preparing: { text: "WITH PRODUCT MANAGER", className: "text-indigo-700" },
+  dispatched: { text: "INCOMING TO STORE", className: "text-violet-700" },
+  at_store: { text: "RECEIVED AT STORE", className: "text-purple-700" },
+};
+
 export function OrderStatusText({ status, order }) {
-  const label = (isPickupOrder(order) && PICKUP_STATUS_LABELS[status]) || STATUS_LABELS[status] || {
+  const preOrderLabel =
+    order?.isPreOrder && ["preorder_hold", "packed"].includes(status)
+      ? PRE_ORDER_PROGRESS_LABELS[order.preOrderProgress]
+      : null;
+  const label = preOrderLabel || (isPickupOrder(order) && PICKUP_STATUS_LABELS[status]) || STATUS_LABELS[status] || {
     text: (status || "").toUpperCase().replace(/_/g, " "),
     className: "text-slate-600",
   };

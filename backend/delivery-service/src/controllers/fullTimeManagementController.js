@@ -5,6 +5,7 @@ import FullTimeShift from "../models/FullTimeShift.js";
 import FullTimeAttendance from "../models/FullTimeAttendance.js";
 import { getIO } from "../../../socket.js";
 import { getManager, riderQuery } from "./managerDashboardController.js";
+import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 import { timeToMinutes } from "../utils/shiftTimeHelper.js";
 import { listIstDatesInMonth } from "../utils/onlineHoursHelper.js";
 import {
@@ -796,6 +797,14 @@ async function assignOrdersDirectly({
       });
       continue;
     }
+    if (order.isPreOrder && !order.storeReceivedAt) {
+      skipped.push({
+        orderId: id,
+        orderNumber: order.orderNumber,
+        reason: "Mark the pre-order goods as received at the dark store first",
+      });
+      continue;
+    }
 
     const updated = await StoreOrder.findOneAndUpdate(
       { _id: order._id, managerId: manager._id, status: "packed" },
@@ -864,6 +873,12 @@ async function assignOrdersDirectly({
       });
     } catch (err) {
       console.warn("[socket] full-time assign emit failed:", err.message);
+    }
+
+    for (const o of assigned) {
+      syncCustomerOrderFromStore(o, "assigned").catch((err) =>
+        console.warn("[assign] customer sync failed:", err.message)
+      );
     }
 
     notifyOrdersAssigned(rider._id, {

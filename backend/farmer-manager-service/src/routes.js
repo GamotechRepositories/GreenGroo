@@ -187,6 +187,11 @@ import {
 } from "./inventoryAlertControllers.js";
 import { saveFarmerPushToken, deleteFarmerPushToken, sendFarmerTestPush } from "./farmerPush.js";
 import {
+  listVendorPreOrders,
+  confirmVendorPreOrders,
+  rejectVendorPreOrder,
+} from "../../delivery-service/src/controllers/preOrderController.js";
+import {
   listVendorCoupons,
   createVendorCoupon,
   updateVendorCoupon,
@@ -455,6 +460,9 @@ vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
 vendorRouter.get("/dark-store-requests", requireVendor, listVendorDarkStoreRequests);
 vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRequest);
 vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
+vendorRouter.get("/preorders", requireVendor, listVendorPreOrders);
+vendorRouter.post("/preorders/confirm", requireVendor, confirmVendorPreOrders);
+vendorRouter.post("/preorders/:orderId/reject", requireVendor, rejectVendorPreOrder);
 vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
 vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
 vendorRouter.patch("/my-products/:productId", requireVendor, updateVendorMyProduct);

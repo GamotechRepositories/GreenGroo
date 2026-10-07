@@ -190,6 +190,17 @@ class _OrderHeader extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+              if (order.preOrderSlot.isNotEmpty && order.preOrderProgressLabel.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  'Pre-order: ${order.preOrderProgressLabel}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF047857),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

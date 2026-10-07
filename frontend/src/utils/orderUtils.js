@@ -249,6 +249,23 @@ export function formatPreOrderSlot(order) {
   return `${dayLabel}, ${slot}`;
 }
 
+export const PRE_ORDER_PROGRESS_STEPS = [
+  { key: "awaiting_vendor", label: "Awaiting confirmation" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "preparing", label: "Being prepared" },
+  { key: "dispatched", label: "On the way to dark store" },
+  { key: "at_store", label: "Reached dark store" },
+  { key: "rider_assigned", label: "Delivery partner assigned" },
+  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "delivered", label: "Delivered" },
+];
+
+/** Live pre-order stage label ("Awaiting confirmation", "Reached dark store", …) or "". */
+export function getPreOrderProgressLabel(order) {
+  if (!order?.preOrderSlot || !order?.preOrderProgress) return "";
+  return order.preOrderProgressLabel || "";
+}
+
 export function getBlinkitStatusLabel(status) {
   switch (status) {
     case "delivered":

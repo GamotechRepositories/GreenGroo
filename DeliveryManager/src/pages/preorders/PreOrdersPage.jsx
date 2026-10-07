@@ -19,8 +19,10 @@ import {
 } from "../orders/orderUtils";
 
 const TABS = [
-  { id: "to_assign", label: "Ready to Assign" },
+  { id: "awaiting_vendor", label: "Awaiting Vendor" },
   { id: "with_pm", label: "With Product Manager" },
+  { id: "incoming", label: "Incoming to Store" },
+  { id: "to_assign", label: "Received · Assign Rider" },
   { id: "on_the_way", label: "Assigned / On the way" },
   { id: "delivered", label: "Delivered" },
   { id: "closed", label: "Cancelled / Failed" },
@@ -31,14 +33,18 @@ const STAGE_LABELS = {
   pending: { text: "Pending prep", className: "bg-slate-100 text-slate-700 ring-slate-200" },
   preparing: { text: "Preparing", className: "bg-amber-50 text-amber-800 ring-amber-200" },
   ready: { text: "Ready at PM", className: "bg-sky-50 text-sky-800 ring-sky-200" },
-  forwarded: { text: "Forwarded", className: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
 };
+
+const vendorConfirmed = (order) => order.vendorStatus === "confirmed";
+const isReceived = (order) => Boolean(order.storeReceivedAt);
 
 function matchesTab(order, tab) {
   const s = order.status;
   if (tab === "all") return true;
-  if (tab === "to_assign") return s === "packed" || s === "offered";
-  if (tab === "with_pm") return s === "preorder_hold";
+  if (tab === "awaiting_vendor") return s === "preorder_hold" && !vendorConfirmed(order);
+  if (tab === "with_pm") return s === "preorder_hold" && vendorConfirmed(order);
+  if (tab === "incoming") return s === "packed" && !isReceived(order);
+  if (tab === "to_assign") return (s === "packed" || s === "offered") && isReceived(order);
   if (tab === "on_the_way") return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
   if (tab === "delivered") return s === "delivered";
   if (tab === "closed") return s === "cancelled" || s === "delivery_failed";
@@ -69,12 +75,22 @@ function isAssignableRider(rider) {
 }
 
 function canBulkAssign(order) {
-  return order.status === "packed" && !isPickupOrder(order);
+  return order.status === "packed" && !isPickupOrder(order) && isReceived(order);
+}
+
+function canReceive(order) {
+  return order.status === "packed" && !isReceived(order);
 }
 
 function bulkRiderLabel(rider) {
-  const state = rider.activeOrderId ? "on delivery" : rider.status || "offline";
-  return `${rider.name || rider.phone} · ${state}`;
+  const load = rider.activeOrderCount ? ` · ${rider.activeOrderCount} active` : "";
+  return `${rider.name || rider.phone} · ${rider.vehicleType || "rider"}${load}`;
+}
+
+function riderAvailability(rider) {
+  if (rider.status === "online" && !rider.activeOrderId) return "available";
+  if (rider.status === "online") return "busy";
+  return "offline";
 }
 
 export default function PreOrdersPage() {
@@ -87,7 +103,8 @@ export default function PreOrdersPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [busyKey, setBusyKey] = useState("");
-  const [activeTab, setActiveTab] = useState("to_assign");
+  const [activeTab, setActiveTab] = useState("incoming");
+  const [receiveIds, setReceiveIds] = useState([]);
   const [dateFilter, setDateFilter] = useState("");
   const [slotFilter, setSlotFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,15 +157,31 @@ export default function PreOrdersPage() {
     [riders]
   );
 
-  const bulkRiders = useMemo(() => {
+  /** Active riders grouped by availability; one rider can take several pre-orders. */
+  const bulkRiderGroups = useMemo(() => {
     const active = riders.filter((r) => r.isActive !== false);
-    const rank = (r) => (r.status === "online" ? (r.activeOrderId ? 1 : 0) : 2);
-    return [...active].sort((a, b) => rank(a) - rank(b));
-  }, [riders]);
+    const activeCount = new Map();
+    for (const o of orders) {
+      if (o.assignedRider?.id && ["assigned", "pickup_verified", "out_for_delivery"].includes(o.status)) {
+        activeCount.set(o.assignedRider.id, (activeCount.get(o.assignedRider.id) || 0) + 1);
+      }
+    }
+    const withLoad = active.map((r) => ({ ...r, activeOrderCount: activeCount.get(r.id) || 0 }));
+    return [
+      ["Available now", withLoad.filter((r) => riderAvailability(r) === "available")],
+      ["Online · already delivering", withLoad.filter((r) => riderAvailability(r) === "busy")],
+      ["Offline (will see it when they come online)", withLoad.filter((r) => riderAvailability(r) === "offline")],
+    ].filter(([, list]) => list.length);
+  }, [riders, orders]);
+  const bulkRiderCount = bulkRiderGroups.reduce((n, [, list]) => n + list.length, 0);
 
   useEffect(() => {
     setBulkIds((prev) => {
       const still = prev.filter((id) => orders.some((o) => o.id === id && canBulkAssign(o)));
+      return still.length === prev.length ? prev : still;
+    });
+    setReceiveIds((prev) => {
+      const still = prev.filter((id) => orders.some((o) => o.id === id && canReceive(o)));
       return still.length === prev.length ? prev : still;
     });
   }, [orders]);
@@ -221,6 +254,37 @@ export default function PreOrdersPage() {
     setBulkIds((prev) =>
       allOn ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
     );
+  };
+
+  const toggleReceive = (oid) =>
+    setReceiveIds((prev) => (prev.includes(oid) ? prev.filter((id) => id !== oid) : [...prev, oid]));
+
+  const toggleGroupReceive = (groupOrders) => {
+    const ids = groupOrders.filter(canReceive).map((o) => o.id);
+    const allOn = ids.length > 0 && ids.every((id) => receiveIds.includes(id));
+    setReceiveIds((prev) =>
+      allOn ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
+    );
+  };
+
+  const onReceive = async (ids) => {
+    if (!ids.length) return;
+    setBusyKey(ids.length === 1 ? `receive-${ids[0]}` : "bulk-receive");
+    try {
+      const res = await managerApi.receivePreOrders(ids);
+      const failed = res.data.failed || [];
+      showToast(
+        failed.length
+          ? `${res.data.message} (${failed[0].message})`
+          : res.data.message || "Marked received at the dark store"
+      );
+      setReceiveIds((prev) => prev.filter((id) => !ids.includes(id)));
+      await load({ silent: true });
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not mark received");
+    } finally {
+      setBusyKey("");
+    }
   };
 
   const onBulkAssign = async () => {
@@ -310,20 +374,36 @@ export default function PreOrdersPage() {
 
   const summaryCards = [
     {
-      id: "to_assign",
-      label: "Ready to assign",
-      hint: "Forwarded by Product Manager",
-      accent: "border-emerald-200 bg-emerald-50",
-      countClass: "text-emerald-800",
-      ring: "ring-emerald-500",
+      id: "awaiting_vendor",
+      label: "Awaiting vendor",
+      hint: "Vendor has not confirmed yet",
+      accent: "border-orange-200 bg-orange-50",
+      countClass: "text-orange-800",
+      ring: "ring-orange-500",
     },
     {
       id: "with_pm",
       label: "With Product Manager",
-      hint: "Being prepared — not yet forwarded",
+      hint: "Vendor confirmed — being prepared",
       accent: "border-indigo-200 bg-indigo-50",
       countClass: "text-indigo-800",
       ring: "ring-indigo-500",
+    },
+    {
+      id: "incoming",
+      label: "Incoming to store",
+      hint: "Forwarded — mark received on arrival",
+      accent: "border-violet-200 bg-violet-50",
+      countClass: "text-violet-800",
+      ring: "ring-violet-500",
+    },
+    {
+      id: "to_assign",
+      label: "Ready to assign",
+      hint: "Received at store",
+      accent: "border-emerald-200 bg-emerald-50",
+      countClass: "text-emerald-800",
+      ring: "ring-emerald-500",
     },
     {
       id: "on_the_way",
@@ -333,20 +413,12 @@ export default function PreOrdersPage() {
       countClass: "text-amber-800",
       ring: "ring-amber-500",
     },
-    {
-      id: "delivered",
-      label: "Delivered",
-      hint: "Completed pre-orders",
-      accent: "border-slate-200 bg-white",
-      countClass: "text-slate-800",
-      ring: "ring-slate-500",
-    },
   ];
 
   return (
     <PageShell
       title="Pre-Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · Next-day slot orders. The Product Manager prepares and forwards them — you assign riders manually.`}
+      subtitle={`${manager?.storeName || "Dark Store"} · Next-day slot orders. The vendor confirms, the Product Manager prepares and forwards — you mark the goods received and assign riders manually.`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -357,7 +429,7 @@ export default function PreOrdersPage() {
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">{error}</div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {summaryCards.map((card) => (
           <button
             key={card.id}
@@ -453,11 +525,15 @@ export default function PreOrdersPage() {
             onChange={(e) => setBulkRiderId(e.target.value)}
             className="min-w-[200px] rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-[11px] text-slate-800 focus:outline-none"
           >
-            <option value="">{bulkRiders.length ? "Choose rider…" : "No active riders"}</option>
-            {bulkRiders.map((r) => (
-              <option key={r.id} value={r.id}>
-                {bulkRiderLabel(r)}
-              </option>
+            <option value="">{bulkRiderCount ? "Choose rider…" : "No active riders"}</option>
+            {bulkRiderGroups.map(([label, list]) => (
+              <optgroup key={label} label={label}>
+                {list.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {bulkRiderLabel(r)}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <button
@@ -472,8 +548,28 @@ export default function PreOrdersPage() {
             Clear
           </button>
           <p className="w-full text-[10px] text-emerald-800">
-            Assigned directly (no Accept / Decline). The rider sees every order in Active Delivery.
+            Assigned directly (no Accept / Decline). One rider can take many pre-orders — they all show together in the
+            rider app.
           </p>
+        </div>
+      )}
+
+      {receiveIds.length > 0 && (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-violet-300 bg-violet-50 p-3 shadow-sm">
+          <p className="text-xs font-bold text-violet-900">
+            {receiveIds.length} pre-order{receiveIds.length === 1 ? "" : "s"} selected — goods arrived at the store?
+          </p>
+          <button
+            type="button"
+            disabled={busyKey === "bulk-receive"}
+            onClick={() => onReceive(receiveIds)}
+            className={actionBtnPrimary}
+          >
+            {busyKey === "bulk-receive" ? "Saving…" : `✓ Mark ${receiveIds.length} received`}
+          </button>
+          <button type="button" onClick={() => setReceiveIds([])} className={actionBtnOutline}>
+            Clear
+          </button>
         </div>
       )}
 
@@ -483,9 +579,11 @@ export default function PreOrdersPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
           <h3 className="text-sm font-bold text-slate-800">No pre-orders here</h3>
           <p className="mt-1 text-xs text-slate-400">
-            {activeTab === "to_assign"
+            {activeTab === "incoming"
               ? "Pre-orders appear here once the Product Manager forwards them."
-              : "Nothing matches the selected filters."}
+              : activeTab === "to_assign"
+                ? "Mark incoming pre-orders as received to assign riders."
+                : "Nothing matches the selected filters."}
           </p>
         </div>
       ) : (
@@ -499,6 +597,17 @@ export default function PreOrdersPage() {
                   <span className="text-emerald-300">{group.slot || "No slot"}</span>
                 </div>
                 <div className="flex items-center gap-3">
+                  {group.orders.some(canReceive) && (
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-white/80">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 accent-violet-500"
+                        checked={group.orders.filter(canReceive).every((o) => receiveIds.includes(o.id))}
+                        onChange={() => toggleGroupReceive(group.orders)}
+                      />
+                      Select all incoming
+                    </label>
+                  )}
                   {group.orders.some(canBulkAssign) && (
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-white/80">
                       <input
@@ -521,11 +630,15 @@ export default function PreOrdersPage() {
               <div className="divide-y divide-slate-100">
                 {group.orders.map((order) => {
                   const oid = order.id;
-                  const stage = STAGE_LABELS[order.preOrderStage] || null;
+                  const stage =
+                    order.status === "preorder_hold" && vendorConfirmed(order)
+                      ? STAGE_LABELS[order.preOrderStage] || null
+                      : null;
                   const isClosed = ["delivered", "cancelled", "delivery_failed"].includes(order.status);
                   const isPickup = isPickupOrder(order);
-                  const canAssign = !isPickup && (order.status === "packed" || order.status === "offered");
-                  const canHandOver = isPickup && order.status === "packed";
+                  const canAssign =
+                    !isPickup && isReceived(order) && (order.status === "packed" || order.status === "offered");
+                  const canHandOver = isPickup && order.status === "packed" && isReceived(order);
                   const offerMsLeft =
                     order.status === "offered" && order.offerExpiresAt
                       ? Math.max(0, new Date(order.offerExpiresAt).getTime() - nowTick)
@@ -544,6 +657,15 @@ export default function PreOrdersPage() {
                               className="h-4 w-4 cursor-pointer accent-emerald-600"
                               checked={bulkIds.includes(oid)}
                               onChange={() => toggleBulk(oid)}
+                            />
+                          )}
+                          {canReceive(order) && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select pre-order ${order.orderNumber} to mark received`}
+                              className="h-4 w-4 cursor-pointer accent-violet-600"
+                              checked={receiveIds.includes(oid)}
+                              onChange={() => toggleReceive(oid)}
                             />
                           )}
                           <button
@@ -586,10 +708,21 @@ export default function PreOrdersPage() {
                         <p className="line-clamp-3 text-slate-600">
                           {(order.items || []).map((i) => `${i.quantity}× ${i.name}`).join(", ")}
                         </p>
+                        {order.vendorConfirmedAt && (
+                          <p className="text-[11px] text-slate-500">
+                            Vendor confirmed {formatTime(order.vendorConfirmedAt)}
+                            {order.vendorActionByName ? ` by ${order.vendorActionByName}` : ""}
+                          </p>
+                        )}
                         {order.forwardedAt && (
                           <p className="text-[11px] text-slate-500">
                             Forwarded {formatTime(order.forwardedAt)}
                             {order.forwardedByName ? ` by ${order.forwardedByName}` : ""}
+                          </p>
+                        )}
+                        {order.storeReceivedAt && (
+                          <p className="text-[11px] font-semibold text-violet-700">
+                            Received at store {formatTime(order.storeReceivedAt)}
                           </p>
                         )}
                         {order.preOrderNote && (
@@ -600,10 +733,26 @@ export default function PreOrdersPage() {
                       </div>
 
                       <div className="flex flex-col items-stretch gap-2 lg:items-end">
-                        {order.status === "preorder_hold" && (
-                          <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] font-semibold text-indigo-800">
-                            Waiting for the Product Manager to prepare & forward this order.
-                          </p>
+                        {order.status === "preorder_hold" &&
+                          (vendorConfirmed(order) ? (
+                            <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] font-semibold text-indigo-800">
+                              Confirmed by vendor — waiting for the Product Manager to prepare & forward.
+                            </p>
+                          ) : (
+                            <p className="rounded-lg bg-orange-50 px-3 py-2 text-[11px] font-semibold text-orange-800">
+                              Waiting for the vendor to confirm this pre-order.
+                            </p>
+                          ))}
+
+                        {canReceive(order) && (
+                          <button
+                            type="button"
+                            disabled={busyKey === `receive-${oid}`}
+                            onClick={() => onReceive([oid])}
+                            className={actionBtnPrimary}
+                          >
+                            {busyKey === `receive-${oid}` ? "Saving…" : "✓ Mark received at store"}
+                          </button>
                         )}
 
                         {canHandOver && (

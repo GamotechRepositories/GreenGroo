@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 import { ORDER_TYPES, deriveOrderType } from "../../../legacy/utils/departmentHelpers.js";
+import {
+  isVendorConfirmed,
+  preOrderProgressKey,
+  preOrderProgressLabel,
+} from "../services/preOrderProgress.js";
 
 /** Last known rider position for live tracking (GeoJSON Point, [lng, lat]). */
 const driverLocationSchema = new mongoose.Schema(
@@ -247,8 +252,9 @@ const storeOrderSchema = new mongoose.Schema(
     routingReason: { type: String, trim: true, default: "" },
 
     // ── Pre-order (next-day slot) workflow ──────────────────────────────────
-    // Product Manager prepares (pending → preparing → ready) and forwards to the
-    // Delivery Manager, who assigns a rider manually. Never auto-dispatched.
+    // Vendor confirms, Product Manager prepares (pending → preparing → ready) and forwards,
+    // Delivery Manager marks the goods received at the dark store and assigns riders
+    // manually. Never auto-dispatched.
     isPreOrder: { type: Boolean, default: false, index: true },
     preOrderSlot: { type: String, default: "", trim: true },
     /** YYYY-MM-DD (IST) */
@@ -266,6 +272,19 @@ const storeOrderSchema = new mongoose.Schema(
     forwardedByName: { type: String, default: "", trim: true },
     /** Note from Product Manager to Delivery Manager (packing / handling info) */
     preOrderNote: { type: String, default: "", trim: true, maxlength: 500 },
+    /** The dark store's vendor confirms (or rejects) the pre-order before the Product Manager prepares it. */
+    vendorStatus: {
+      type: String,
+      enum: ["", "pending", "confirmed", "rejected"],
+      default: "",
+      index: true,
+    },
+    vendorConfirmedAt: { type: Date },
+    vendorActionByName: { type: String, default: "", trim: true },
+    vendorRejectReason: { type: String, default: "", trim: true, maxlength: 300 },
+    /** Delivery Manager confirms the forwarded goods physically reached the dark store. */
+    storeReceivedAt: { type: Date },
+    storeReceivedByName: { type: String, default: "", trim: true },
 
     // ── Full-Time driver delivery (salary-based; never earns per-KM) ─────────
     fullTimeDelivery: { type: Boolean, default: false, index: true },
@@ -497,6 +516,18 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     forwardedAt: this.forwardedAt,
     forwardedByName: this.forwardedByName || "",
     preOrderNote: this.preOrderNote || "",
+    vendorStatus: this.isPreOrder
+      ? isVendorConfirmed(this)
+        ? "confirmed"
+        : this.vendorStatus || "pending"
+      : "",
+    vendorConfirmedAt: this.vendorConfirmedAt || null,
+    vendorActionByName: this.vendorActionByName || "",
+    vendorRejectReason: this.vendorRejectReason || "",
+    storeReceivedAt: this.storeReceivedAt || null,
+    storeReceivedByName: this.storeReceivedByName || "",
+    preOrderProgress: preOrderProgressKey(this),
+    preOrderProgressLabel: preOrderProgressLabel(preOrderProgressKey(this)),
     fullTimeDelivery: Boolean(this.fullTimeDelivery),
     fullTimeAssignedAt: this.fullTimeAssignedAt || null,
     // Payment

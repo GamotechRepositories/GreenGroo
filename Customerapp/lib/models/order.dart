@@ -204,6 +204,8 @@ class Order {
     this.fulfillmentType = 'delivery',
     this.preOrderSlot = '',
     this.preOrderDate = '',
+    this.preOrderProgress = '',
+    this.preOrderProgressLabel = '',
     this.darkStore,
     this.storeParts = const [],
   });
@@ -236,6 +238,9 @@ class Order {
   final String fulfillmentType;
   final String preOrderSlot;
   final String preOrderDate;
+  /// Pre-order journey key (`awaiting_vendor`, `confirmed`, `at_store`, …) and its label.
+  final String preOrderProgress;
+  final String preOrderProgressLabel;
   /// Dark store fulfilling this order (name, address, manager phone)
   final DarkStore? darkStore;
   /// Store-side parts; a mixed cart has a quick part and a pre-order part.
@@ -303,6 +308,8 @@ class Order {
       fulfillmentType: json['fulfillmentType']?.toString() == 'pickup' ? 'pickup' : 'delivery',
       preOrderSlot: json['preOrderSlot']?.toString() ?? '',
       preOrderDate: json['preOrderDate']?.toString() ?? '',
+      preOrderProgress: json['preOrderProgress']?.toString() ?? '',
+      preOrderProgressLabel: json['preOrderProgressLabel']?.toString() ?? '',
       darkStore: json['darkStore'] is Map<String, dynamic>
           ? DarkStore.fromJson(json['darkStore'] as Map<String, dynamic>)
           : null,
@@ -321,6 +328,8 @@ class OrderStorePart {
     this.isPreOrder = false,
     this.preOrderSlot = '',
     this.preOrderDate = '',
+    this.preOrderProgress = '',
+    this.preOrderProgressLabel = '',
   });
 
   final String orderNumber;
@@ -328,6 +337,8 @@ class OrderStorePart {
   final bool isPreOrder;
   final String preOrderSlot;
   final String preOrderDate;
+  final String preOrderProgress;
+  final String preOrderProgressLabel;
 
   factory OrderStorePart.fromJson(Map<String, dynamic> json) {
     return OrderStorePart(
@@ -336,6 +347,8 @@ class OrderStorePart {
       isPreOrder: json['isPreOrder'] == true,
       preOrderSlot: json['preOrderSlot']?.toString() ?? '',
       preOrderDate: json['preOrderDate']?.toString() ?? '',
+      preOrderProgress: json['preOrderProgress']?.toString() ?? '',
+      preOrderProgressLabel: json['preOrderProgressLabel']?.toString() ?? '',
     );
   }
 }

@@ -223,7 +223,9 @@ class _FulfillmentInfo extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _storePartStatusLabel(part.status, pickup: order.isPickup),
+                      part.isPreOrder && part.preOrderProgressLabel.isNotEmpty
+                          ? part.preOrderProgressLabel
+                          : _storePartStatusLabel(part.status, pickup: order.isPickup),
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],

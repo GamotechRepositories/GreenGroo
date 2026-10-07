@@ -213,6 +213,12 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    /** Pre-order part progress mirrored from the store order (awaiting_vendor, confirmed, at_store, …) */
+    preOrderProgress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     /** Departments present in this order (preorder / ready2cook / instant) */
     departments: {
       type: [{ type: String, enum: DEPARTMENT_KEYS }],

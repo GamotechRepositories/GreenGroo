@@ -7,6 +7,10 @@ import Product from "../models/Product.js";
 import User from "../models/user.js";
 import { isLocalProductId } from "./localProductId.js";
 import {
+  PRE_ORDER_PROGRESS_STEPS,
+  preOrderProgressInfo,
+} from "../../delivery-service/src/services/preOrderProgress.js";
+import {
   getAvailableColors,
   getUnitPriceForQuantity,
   getVariant,
@@ -211,7 +215,7 @@ export async function attachCustomerDeliveryOtps(enriched) {
       sourceOrderId: { $in: withIds.map((o) => o._id) },
     })
       .select(
-        "sourceOrderId sourcePart managerId orderNumber status otpCode isPreOrder preOrderSlot preOrderDate fulfillmentType departments"
+        "sourceOrderId sourcePart managerId orderNumber status otpCode isPreOrder preOrderSlot preOrderDate preOrderStage vendorStatus vendorConfirmedAt storeReceivedAt fulfillmentType departments"
       )
       .sort({ createdAt: 1 })
       .lean();
@@ -254,16 +258,31 @@ export async function attachCustomerDeliveryOtps(enriched) {
           longitude: manager.longitude ?? null,
         };
       }
-      order.storeParts = parts.map((part) => ({
-        orderNumber: part.orderNumber,
-        part: part.sourcePart || "",
-        status: part.status,
-        isPreOrder: Boolean(part.isPreOrder),
-        preOrderSlot: part.preOrderSlot || "",
-        preOrderDate: part.preOrderDate || "",
-        fulfillmentType: part.fulfillmentType || "delivery",
-        departments: part.departments || [],
-      }));
+      order.storeParts = parts.map((part) => {
+        const progress = part.isPreOrder ? preOrderProgressInfo(part) : null;
+        return {
+          orderNumber: part.orderNumber,
+          part: part.sourcePart || "",
+          status: part.status,
+          isPreOrder: Boolean(part.isPreOrder),
+          preOrderSlot: part.preOrderSlot || "",
+          preOrderDate: part.preOrderDate || "",
+          preOrderProgress: progress?.key || "",
+          preOrderProgressLabel: progress?.label || "",
+          preOrderProgressStep: progress?.step ?? -1,
+          vendorConfirmedAt: part.vendorConfirmedAt || null,
+          storeReceivedAt: part.storeReceivedAt || null,
+          fulfillmentType: part.fulfillmentType || "delivery",
+          departments: part.departments || [],
+        };
+      });
+      const preOrderPart = order.storeParts.find((part) => part.isPreOrder);
+      if (preOrderPart) {
+        order.preOrderProgress = preOrderPart.preOrderProgress;
+        order.preOrderProgressLabel = preOrderPart.preOrderProgressLabel;
+        order.preOrderProgressStep = preOrderPart.preOrderProgressStep;
+        order.preOrderProgressSteps = PRE_ORDER_PROGRESS_STEPS;
+      }
     }
   } catch (err) {
     console.warn("[attachCustomerDeliveryOtps]", err.message);

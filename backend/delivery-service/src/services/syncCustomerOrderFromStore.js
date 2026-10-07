@@ -6,11 +6,16 @@ import {
 } from "../../../legacy/services/orderNotificationDispatcher.js";
 import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
 import { emitOrderStatus } from "./orderTrackingService.js";
+import { preOrderProgressKey } from "./preOrderProgress.js";
 
 const CUSTOMER_STATUS_BY_STORE = {
   preorder_hold: "confirm",
+  /** Pseudo-status: the dark store's vendor confirmed a held pre-order */
+  preorder_vendor_confirmed: "confirm",
   /** Pseudo-status: Product Manager started preparing a held pre-order */
   preorder_preparing: "processing",
+  /** Pseudo-status: forwarded pre-order goods reached the dark store */
+  preorder_at_store: "processing",
   incoming: "confirm",
   order_received: "confirm",
   stock_issue: "processing",
@@ -67,8 +72,17 @@ export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   const nextStatus = storeOrder.sourcePart
     ? await combinedStatusForSplitOrder(storeOrder, storeStatus)
     : customerStatusForStoreStatus(storeStatus);
-  if (previousStatus === nextStatus) return customerOrder;
+  const progress = storeOrder.isPreOrder ? preOrderProgressKey(storeOrder) : "";
+  const progressChanged = Boolean(progress) && customerOrder.preOrderProgress !== progress;
+  if (previousStatus === nextStatus) {
+    if (progressChanged) {
+      customerOrder.preOrderProgress = progress;
+      await customerOrder.save();
+    }
+    return customerOrder;
+  }
 
+  if (progressChanged) customerOrder.preOrderProgress = progress;
   customerOrder.status = nextStatus;
   if (nextStatus === "delivered") {
     customerOrder.paymentStatus = "paid";

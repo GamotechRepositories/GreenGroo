@@ -88,6 +88,7 @@ export const managerApi = {
     api.post(`${BASE}/orders/${orderId}/assign`, { riderId }),
   assignPreOrders: (riderId, orderIds) =>
     api.post(`${BASE}/preorders/assign`, { riderId, orderIds }),
+  receivePreOrders: (orderIds) => api.post(`${BASE}/preorders/receive`, { orderIds }),
   routeSuggestions: () => api.get(`${BASE}/orders/route-suggestions`),
   dispatchOrderNow: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/dispatch-now`),

@@ -298,6 +298,29 @@ export async function sendOrderPlaced(order) {
   });
 }
 
+export async function sendPreOrderConfirmed(order, { date = "", slot = "" } = {}) {
+  const ref = orderRef(order);
+  const when = [date, slot].filter(Boolean).join(", ");
+  return deliverToUser(order.user, {
+    title: "Pre-order Confirmed",
+    body: `${ref} is confirmed by the store${when ? ` for ${when}` : ""}.`,
+    type: "preorder_confirmed",
+    order,
+    data: buildOrderData(order, { type: "preorder_confirmed" }),
+  });
+}
+
+export async function sendPreOrderAtStore(order, { storeName = "" } = {}) {
+  const ref = orderRef(order);
+  return deliverToUser(order.user, {
+    title: "Pre-order Reached Store",
+    body: `${ref} has reached ${storeName || "your dark store"}. A delivery partner will be assigned soon.`,
+    type: "preorder_at_store",
+    order,
+    data: buildOrderData(order, { type: "preorder_at_store" }),
+  });
+}
+
 export async function sendOrderConfirmed(order) {
   const ref = orderRef(order);
   return deliverToUser(order.user, {

@@ -12,11 +12,14 @@ import {
   sendPaymentFailed,
   sendRiderAssigned,
   sendDeliveryFailed,
+  sendPreOrderConfirmed,
+  sendPreOrderAtStore,
 } from "./notificationService.js";
 import OrderNotificationLog from "../models/OrderNotificationLog.js";
 import EcommerceOrder from "../models/order/Order.js";
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
+import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 
 function logDispatchFailure(context, error) {
   console.error(`OrderNotificationDispatcher [${context}]:`, error?.message || error);
@@ -107,7 +110,18 @@ async function isPackedForCustomer(order, storeStatus) {
  * — rider assignment once per rider — no matter how many code paths report it.
  */
 const STORE_STAGES = {
-  preorder_hold: { stage: () => "confirm", send: (order) => sendOrderConfirmed(order) },
+  preorder_vendor_confirmed: {
+    stage: (storeOrder) => `preorder_confirmed:${storeOrder._id}`,
+    send: (order, storeOrder) =>
+      sendPreOrderConfirmed(order, { date: storeOrder.preOrderDate, slot: storeOrder.preOrderSlot }),
+  },
+  preorder_at_store: {
+    stage: (storeOrder) => `preorder_at_store:${storeOrder._id}`,
+    send: async (order, storeOrder) => {
+      const store = await DeliveryManager.findById(storeOrder.managerId).select("storeName area").lean();
+      return sendPreOrderAtStore(order, { storeName: store?.storeName || (store?.area ? `${store.area} store` : "") });
+    },
+  },
   order_received: { stage: () => "confirm", send: (order) => sendOrderConfirmed(order) },
   packed: { stage: () => "processing", send: (order) => sendOrderPacked(order) },
   assigned: {
@@ -152,7 +166,11 @@ export async function notifyOrderCreated(order, { previousStatus = null } = {}) 
   }
 
   try {
-    const confirmedAfterPayment = previousStatus === "attempted";
+    // A pure pre-order is only "confirmed" once the dark store's vendor accepts it.
+    const departments = order.departments || [];
+    const awaitsVendor =
+      Boolean(order.preOrderSlot) && departments.length > 0 && departments.every((d) => d === "preorder");
+    const confirmedAfterPayment = previousStatus === "attempted" && !awaitsVendor;
     if (!(await claimStage(order, confirmedAfterPayment ? "confirm" : "placed"))) return null;
     const result = confirmedAfterPayment ? await sendOrderConfirmed(order) : await sendOrderPlaced(order);
     logDispatchResult("notifyOrderCreated", result);

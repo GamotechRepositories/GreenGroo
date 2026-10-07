@@ -23,6 +23,7 @@ import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
+import PreOrderProgress from "./PreOrderProgress";
 
 function StatusBadge({ status }) {
   const color = getOrderStatusColor(status);
@@ -420,6 +421,8 @@ function DesktopOrderDetail({
                 <ShipmentExtraDetails shipment={shipment} />
               </div>
             </section>
+
+            <PreOrderProgress order={order} className="shadow-sm" />
 
             {order.status === "confirm" ? (
               <section className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">

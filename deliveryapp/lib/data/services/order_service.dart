@@ -95,6 +95,8 @@ class ActiveDeliveryData {
     this.delayMinutes = 0,
     this.delayReportedAt,
     this.delayCustomerNotifiedAt,
+    this.preOrderSlot = '',
+    this.preOrderDate = '',
   });
 
   final String id;
@@ -146,8 +148,16 @@ class ActiveDeliveryData {
   final int delayMinutes;
   final DateTime? delayReportedAt;
   final DateTime? delayCustomerNotifiedAt;
+  /// Customer's chosen pre-order slot, e.g. "09:00 - 11:00", and date (YYYY-MM-DD).
+  final String preOrderSlot;
+  final String preOrderDate;
 
   bool get isPreOrder => orderType == 'preorder';
+
+  /// "Pre-order · 2026-10-08 · 09:00 - 11:00" (empty for other order types).
+  String get preOrderTag => isPreOrder
+      ? ['Pre-order', preOrderDate, preOrderSlot].where((s) => s.isNotEmpty).join(' · ')
+      : '';
 
   bool get canReportDelay =>
       status == 'assigned' || status == 'pickup_verified' || status == 'out_for_delivery';
@@ -220,6 +230,8 @@ class ActiveDeliveryData {
             DateTime.tryParse('${(json['deliveryDelay'] as Map?)?['reportedAt'] ?? ''}'),
         delayCustomerNotifiedAt:
             DateTime.tryParse('${(json['deliveryDelay'] as Map?)?['customerNotifiedAt'] ?? ''}'),
+        preOrderSlot: json['preOrderSlot']?.toString() ?? '',
+        preOrderDate: json['preOrderDate']?.toString() ?? '',
       );
 }
 
@@ -410,6 +422,8 @@ class OrderService extends ChangeNotifier {
             orderType: _activeDelivery!.orderType,
             trackingEnabled: _activeDelivery!.trackingEnabled,
             sourceOrderId: _activeDelivery!.sourceOrderId,
+            preOrderSlot: _activeDelivery!.preOrderSlot,
+            preOrderDate: _activeDelivery!.preOrderDate,
           );
         }
         await fetchActiveDelivery();

@@ -1787,12 +1787,26 @@ class _MultiStopBanner extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          '#${s.orderNumber} · ${s.customerName}',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '#${s.orderNumber} · ${s.customerName}',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (s.preOrderTag.isNotEmpty)
+                              Text(
+                                s.preOrderTag,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF047857),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       Text(
@@ -1929,7 +1943,9 @@ class _LiveTrackingBanner extends StatelessWidget {
         final Color color;
         if (delivery.isPreOrder) {
           icon = Icons.event_note_outlined;
-          text = 'Pre-order delivery — customer gets status updates only (no live map).';
+          text = delivery.preOrderSlot.isNotEmpty
+              ? 'Pre-order · deliver in slot ${delivery.preOrderSlot}. Customer gets status updates only (no live map).'
+              : 'Pre-order delivery — customer gets status updates only (no live map).';
           color = Colors.blueGrey;
         } else if (!delivery.trackingEnabled) {
           return const SizedBox.shrink();

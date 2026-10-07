@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BadgeCheck,
   Briefcase,
+  CalendarClock,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -116,6 +117,7 @@ const navItems = [
       { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
     ],
   },
+  { to: '/vendor/preorders', label: 'Pre-orders', icon: CalendarClock },
   {
     id: 'orders',
     label: 'Order Manager',

@@ -10,6 +10,7 @@ import {
 } from "../../../legacy/utils/departmentHelpers.js";
 import { getIO } from "../../../socket.js";
 import { clearRouteCache, getRouteAndEta, toPoint } from "./directionsService.js";
+import { isVendorConfirmed, preOrderProgressInfo } from "./preOrderProgress.js";
 
 /** Rider has the parcel: GPS is streamed to the customer only in these statuses. */
 export const LIVE_TRACKING_STATUSES = ["pickup_verified", "out_for_delivery"];
@@ -34,7 +35,9 @@ const TIMELINE_INDEX = Object.fromEntries(TIMELINE_STEPS.map((step, i) => [step.
 
 const TIMELINE_KEY_BY_STORE_STATUS = {
   preorder_hold: "confirmed",
+  preorder_vendor_confirmed: "confirmed",
   preorder_preparing: "confirmed",
+  preorder_at_store: "packed",
   incoming: "confirmed",
   order_received: "confirmed",
   stock_issue: "confirmed",
@@ -93,6 +96,14 @@ export function isStoreOrderTrackable(storeOrder) {
 
 export function timelineKeyForStoreStatus(status) {
   return TIMELINE_KEY_BY_STORE_STATUS[status] || "confirmed";
+}
+
+/** A held pre-order stays "placed" for the customer until the vendor confirms it. */
+export function timelineKeyForStoreOrder(storeOrder, status = storeOrder?.status) {
+  if (storeOrder?.isPreOrder && status === "preorder_hold" && !isVendorConfirmed(storeOrder)) {
+    return "placed";
+  }
+  return timelineKeyForStoreStatus(status);
 }
 
 export function timelineKeyForCustomerStatus(status) {
@@ -280,8 +291,9 @@ export function buildStatusPayload(storeOrder, storeStatus = storeOrder?.status)
     storeOrderId: idOf(storeOrder),
     part: storeOrder.sourcePart || "",
     orderType: resolveStoreOrderType(storeOrder),
-    status: timelineKeyForStoreStatus(storeStatus),
+    status: timelineKeyForStoreOrder(storeOrder, storeStatus),
     storeStatus,
+    ...(storeOrder.isPreOrder ? { preOrderProgress: preOrderProgressInfo(storeOrder) } : {}),
     trackingEnabled,
     liveTracking: trackingEnabled && LIVE_TRACKING_STATUSES.includes(storeStatus),
     at: new Date().toISOString(),
@@ -411,7 +423,7 @@ function stepTime(key, customerOrder, storeOrder) {
     case "placed":
       return customerOrder?.createdAt || storeOrder?.createdAt || null;
     case "confirmed":
-      return storeOrder?.createdAt || null;
+      return (storeOrder?.isPreOrder && storeOrder.vendorConfirmedAt) || storeOrder?.createdAt || null;
     case "packed":
       return storeOrder?.packedAt || storeOrder?.readyAt || null;
     case "out_for_delivery":
@@ -440,9 +452,14 @@ export function buildTimeline({ customerOrder, storeOrder, statusKey }) {
 }
 
 function preOrderInfo(storeOrder, customerOrder) {
+  const progress = storeOrder ? preOrderProgressInfo(storeOrder) : null;
   return {
     date: storeOrder?.preOrderDate || customerOrder?.preOrderDate || "",
     slot: storeOrder?.preOrderSlot || customerOrder?.preOrderSlot || "",
+    progress: progress?.key || customerOrder?.preOrderProgress || "",
+    progressLabel: progress?.label || "",
+    progressStep: progress?.step ?? -1,
+    progressSteps: progress?.steps || [],
   };
 }
 
@@ -463,7 +480,7 @@ export async function buildTrackingSnapshot({ customerOrder, storeOrders = [], p
   const isPickup = (primary?.fulfillmentType || customerOrder?.fulfillmentType) === "pickup";
   const trackingEnabled = isTrackableOrderType(orderType) && !isPickup;
   const statusKey = primary
-    ? timelineKeyForStoreStatus(primary.status)
+    ? timelineKeyForStoreOrder(primary)
     : timelineKeyForCustomerStatus(customerOrder?.status);
   const closed = statusKey === "delivered" || statusKey === "cancelled";
   const liveTracking = Boolean(
@@ -520,7 +537,7 @@ export async function buildTrackingSnapshot({ customerOrder, storeOrders = [], p
         storeOrderId: idOf(row),
         part: row.sourcePart || "",
         orderType: type,
-        status: timelineKeyForStoreStatus(row.status),
+        status: timelineKeyForStoreOrder(row),
         storeStatus: row.status,
         trackingEnabled: isStoreOrderTrackable(row),
         preOrder: type === "preorder" ? preOrderInfo(row, customerOrder) : null,

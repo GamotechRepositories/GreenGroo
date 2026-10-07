@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../config/env.dart';
 import '../../../config/theme.dart';
 import '../../../services/socket_service.dart';
+import '../widgets/preorder_progress_steps.dart';
 import 'live_tracking_map.dart';
 import 'order_tracking_models.dart';
 import 'osm_tracking_map.dart';
@@ -445,6 +446,11 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
           ],
         ),
       ),
+      if (slot != null && slot.progress.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: PreOrderProgressSteps(progress: slot.progress, label: slot.progressLabel),
+        ),
       if (tracking.driver != null && !tracking.isClosed) _driverCard(tracking),
     ];
   }
@@ -596,7 +602,8 @@ class _OtherPartNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPreorder = part.orderType == OrderTypes.preorder;
-    final statusText = part.status.replaceAll('_', ' ');
+    final progressLabel = part.preOrder?.progressLabel ?? '';
+    final statusText = isPreorder && progressLabel.isNotEmpty ? progressLabel : part.status.replaceAll('_', ' ');
     final text = isPreorder
         ? 'Pre-order items arrive separately: ${_slotLabel(part.preOrder)} ($statusText)'
         : '${OrderTypes.label(part.orderType)} items in this order: $statusText';

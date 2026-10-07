@@ -1050,7 +1050,13 @@ export const assignOrder = async (req, res, next) => {
     if (order.status === "preorder_hold") {
       return res.status(400).json({
         success: false,
-        message: "This pre-order is still being prepared by the Product Manager",
+        message: "This pre-order is still with the vendor / Product Manager",
+      });
+    }
+    if (order.isPreOrder && !order.storeReceivedAt) {
+      return res.status(400).json({
+        success: false,
+        message: "Mark the pre-order goods as received at the dark store first",
       });
     }
 

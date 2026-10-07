@@ -16,6 +16,7 @@ import {
   MINI_TRACKER_LABELS,
   showOrderPaymentBadge,
   formatPreOrderSlot,
+  getPreOrderProgressLabel,
 } from "../../utils/orderUtils";
 
 function StatusBadge({ status }) {
@@ -195,6 +196,11 @@ function DesktopOrderCard({ order }) {
           <p className="text-base font-bold leading-snug text-text-primary">
             {getOrderStatusHeadline(order.status)}
           </p>
+          {getPreOrderProgressLabel(order) ? (
+            <p className="mt-1 text-xs font-bold text-emerald-700">
+              Pre-order: {getPreOrderProgressLabel(order)}
+            </p>
+          ) : null}
           {primaryItem ? (
             <>
               <p className="mt-2 line-clamp-2 text-sm font-semibold text-text-primary">

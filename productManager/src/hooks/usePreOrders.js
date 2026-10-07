@@ -4,9 +4,11 @@ import { useLive } from "../realtime/useLive";
 
 const EMPTY_SUMMARY = {
   total: 0,
+  awaitingVendor: 0,
   pending: 0,
   preparing: 0,
   ready: 0,
+  awaitingReceipt: 0,
   readyToAssign: 0,
   offered: 0,
   onTheWay: 0,
