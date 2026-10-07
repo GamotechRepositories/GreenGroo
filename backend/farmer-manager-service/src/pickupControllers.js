@@ -937,6 +937,21 @@ export async function listVendorDrivers(req, res) {
     ]);
     const countMap = Object.fromEntries(activeCounts.map((c) => [c._id, c.count]));
     const pickupDocs = await Pickup.find({ vendorId, driverId: { $in: ids } }).sort({ updatedAt: -1 }).lean();
+    const farmerIds = [...new Set(pickupDocs.map((p) => p.farmerId).filter(Boolean))];
+    const orderIds = [...new Set(pickupDocs.map((p) => p.orderId).filter(Boolean))];
+    const [farmerDocs, orderDocs] = await Promise.all([
+      farmerIds.length ? Farmer.find({ id: { $in: farmerIds } }).select("id name").lean() : [],
+      orderIds.length
+        ? FarmerOrder.find({ $or: [{ id: { $in: orderIds } }, { orderId: { $in: orderIds } }] }).select("id orderId").lean()
+        : [],
+    ]);
+    const farmerNames = Object.fromEntries(farmerDocs.map((f) => [f.id, f.name || ""]));
+    const orderNumbers = {};
+    orderDocs.forEach((o) => {
+      const display = o.orderId || o.id;
+      if (o.id) orderNumbers[o.id] = display;
+      if (o.orderId) orderNumbers[o.orderId] = display;
+    });
     const tasksMap = {};
     for (const p of pickupDocs) {
       if (!tasksMap[p.driverId]) tasksMap[p.driverId] = [];
@@ -944,8 +959,10 @@ export async function listVendorDrivers(req, res) {
         id: p.id,
         pickupId: p.pickupId || p.id,
         orderId: p.orderId,
+        orderDisplayId: orderNumbers[p.orderId] || p.orderId,
         productName: p.productName || "",
         farmerId: p.farmerId,
+        farmerName: farmerNames[p.farmerId] || "",
         status: p.status,
         driverStatus: p.driverStatus || "",
         collectionBatchId: p.collectionBatchId || "",

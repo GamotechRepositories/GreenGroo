@@ -128,6 +128,72 @@ function receivePath(order) {
   return `/vendor/pickups/${order.id}/receive`;
 }
 
+const RECEIVABLE_STATUSES = new Set(["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT", "ARRIVED_AT_CENTRE"]);
+const RECEIVED_STATUSES = new Set(["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "COMPLETED"]);
+
+function receiveState(order) {
+  const status = String(order?.status || "").toUpperCase();
+  if (RECEIVED_STATUSES.has(status) || String(order?.receiving?.status || "").toUpperCase() === "RECEIVED") return "received";
+  if (RECEIVABLE_STATUSES.has(status)) return "ready";
+  return "waiting";
+}
+
+function ReceiveActions({ order, onReceive, onScan, compact = false }) {
+  const state = receiveState(order);
+  const label = pickupStatusLabel(order.status) || pickupLiveLabel(order) || "Not picked up";
+  if (state === "waiting") {
+    return (
+      <span
+        className={`inline-flex items-center rounded-full bg-amber-50 font-semibold text-amber-700 ${compact ? "px-2 py-0.5 text-[10px]" : "col-span-2 justify-center px-3 py-2 text-[11px]"}`}
+        title="Receive is available after the driver confirms pickup"
+      >
+        {label} · not picked up yet
+      </span>
+    );
+  }
+  if (state === "received") {
+    return (
+      <button
+        type="button"
+        onClick={onReceive}
+        className={`inline-flex items-center justify-center rounded-md bg-emerald-50 font-semibold text-emerald-700 ${compact ? "h-7 px-2 text-[10px]" : "col-span-2 !min-h-10 px-3 text-xs"}`}
+      >
+        Received ✓
+      </button>
+    );
+  }
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        <button
+          type="button"
+          className="inline-flex h-7 items-center rounded-md border border-[#D4D4D4] bg-white px-2 text-[10px] font-semibold text-[#1F2937]"
+          onClick={onScan}
+        >
+          Scan QR
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center rounded-md border border-[#217346] bg-[#217346] px-2 text-[10px] font-semibold text-white"
+          onClick={onReceive}
+        >
+          Receive
+        </button>
+      </div>
+    );
+  }
+  return (
+    <>
+      <button type="button" className={`${EXCEL_BTN} !min-h-10`} onClick={onScan}>
+        Scan QR
+      </button>
+      <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onReceive}>
+        Receive
+      </button>
+    </>
+  );
+}
+
 function BatchOrderCard({ order, index, gradeColumns, onReceive, onScan }) {
   const id = order.orderDisplayId || order.orderId || order.id;
   const map = gradeDetailMap(order);
@@ -168,12 +234,7 @@ function BatchOrderCard({ order, index, gradeColumns, onReceive, onScan }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-[#F8FAF8] p-3">
-        <button type="button" className={`${EXCEL_BTN} !min-h-10`} onClick={onScan}>
-          Scan QR
-        </button>
-        <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onReceive}>
-          Receive
-        </button>
+        <ReceiveActions order={order} onScan={onScan} onReceive={onReceive} />
       </div>
     </article>
   );
@@ -391,22 +452,7 @@ export default function ManagerBatchPage() {
                         );
                       })}
                       <td className={`${TD} bg-white px-1 py-1 text-center`}>
-                        <div className="flex flex-wrap items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            className="inline-flex h-7 items-center rounded-md border border-[#D4D4D4] bg-white px-2 text-[10px] font-semibold text-[#1F2937]"
-                            onClick={() => openScan(order)}
-                          >
-                            Scan QR
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex h-7 items-center rounded-md border border-[#217346] bg-[#217346] px-2 text-[10px] font-semibold text-white"
-                            onClick={() => navigate(receivePath(order))}
-                          >
-                            Receive
-                          </button>
-                        </div>
+                        <ReceiveActions compact order={order} onScan={() => openScan(order)} onReceive={() => navigate(receivePath(order))} />
                       </td>
                     </tr>
                   );

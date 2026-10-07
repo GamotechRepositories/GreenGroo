@@ -19,6 +19,7 @@ import {
 } from "../../utils/excelStyles";
 
 const UNITS = ["Kg", "Quintal", "Ton"];
+const RECEIVABLE_STATUSES = ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT", "ARRIVED_AT_CENTRE", "COMPLETED", "RECEIVED_AT_COLLECTION_CENTRE"];
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 const STEPS = [
   { id: "scan", label: "Scan QR" },
@@ -196,6 +197,8 @@ export default function ManagerReceivePage() {
 
   const qrOk = qrMatches(pickup, form.qr);
   const done = pickup?.status === "COLLECTION_CENTRE_RECEIVED" || pickup?.receiving?.status === "RECEIVED";
+  const notPickedUp = Boolean(pickup) && !done && !RECEIVABLE_STATUSES.includes(String(pickup.status || "").toUpperCase());
+  const view = notPickedUp ? "" : step;
 
   useEffect(() => {
     if (!pickup || done) return;
@@ -252,8 +255,9 @@ export default function ManagerReceivePage() {
         toast.success(`Marked ${String(status || "").replace(/_/g, " ")}`);
       }
     } catch (err) {
-      setError(err.message || "Failed to save receiving");
-      toast.error(err.message || "Failed to save receiving");
+      const message = err?.response?.data?.message || err.message || "Failed to save receiving";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -274,10 +278,33 @@ export default function ManagerReceivePage() {
           Scan QR, check order details, verify weight, take live photos, then confirm received.
         </p>
       </div>
-      <StepPills step={step} done={done} />
+      {notPickedUp ? (
+        <section className={EXCEL_PANEL}>
+          <div className="space-y-2 p-4">
+            <p className="text-sm font-bold text-amber-700">This order has not been picked up yet</p>
+            <p className="text-xs text-[#4B5563]">
+              Current status: <span className="font-semibold text-[#1F2937]">{pickupLiveLabel(pickup) || pickup.status}</span>
+              {pickup.driverName ? ` · Driver ${pickup.driverName}` : ""}
+            </p>
+            <p className="text-xs text-[#6B7280]">
+              Receiving at the collection centre opens after the driver verifies the QR and confirms pickup at the farm.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {pickup.collectionBatchId ? (
+                <Link to={`/vendor/pickups/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className={EXCEL_BTN}>
+                  Back to batch
+                </Link>
+              ) : null}
+              <Link to={`/vendor/pickups/${pickup.id || pickupId}`} className={EXCEL_BTN}>View pickup</Link>
+              <Link to="/vendor/pickups/incoming" className={EXCEL_BTN}>Incoming Pickups</Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
+      {notPickedUp ? null : <StepPills step={step} done={done} />}
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
-      {step === "scan" ? (
+      {view === "scan" ? (
         <section className={EXCEL_PANEL}>
           <h2 className={EXCEL_PANEL_HEAD}>1. Scan QR & verify</h2>
           <div className="space-y-2 p-3">
@@ -309,7 +336,7 @@ export default function ManagerReceivePage() {
         </section>
       ) : null}
 
-      {step === "details" ? (
+      {view === "details" ? (
         <section className={EXCEL_PANEL}>
           <h2 className={EXCEL_PANEL_HEAD}>2. Order details</h2>
           <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold text-emerald-700">QR verified. Check all order details, then verify weight.</p>
@@ -325,7 +352,7 @@ export default function ManagerReceivePage() {
         </section>
       ) : null}
 
-      {step === "weight" ? (
+      {view === "weight" ? (
         <section className={EXCEL_PANEL}>
           <h2 className={EXCEL_PANEL_HEAD}>3. Weight verification</h2>
           <div className="space-y-3 p-3">
@@ -416,7 +443,7 @@ export default function ManagerReceivePage() {
         </section>
       ) : null}
 
-      {step === "photos" ? (
+      {view === "photos" ? (
         <>
           <section className={EXCEL_PANEL}>
             <h2 className={EXCEL_PANEL_HEAD}>4. Live photo</h2>
