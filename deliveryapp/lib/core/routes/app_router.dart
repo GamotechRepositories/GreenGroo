@@ -38,6 +38,8 @@ import '../../presentation/screens/vehicle/vehicle_details_screen.dart';
 import '../../presentation/screens/profile/bank_details_screen.dart';
 import '../../presentation/screens/wallet/wallet_screen.dart';
 import '../../presentation/shell/main_shell.dart';
+import '../../pickup_driver/pickup_driver_shell.dart';
+import '../../pickup_driver/widgets/pickup_ui.dart';
 import '../services/secure_screen.dart';
 import '../../core/theme/theme_rebuild.dart';
 import '../../data/services/auth_service.dart';
@@ -99,6 +101,8 @@ class AppRouter {
           AppRoutes.fullTimeRules => const FullTimeRulesScreen(),
           AppRoutes.fullTimeAttendance => const FullTimeAttendanceScreen(),
           AppRoutes.assignedOrders => const SecureScreen(child: AssignedOrdersScreen()),
+          AppRoutes.pickupDriverHome =>
+            const PickupTheme(child: PickupDriverShell()),
           _ => const SplashScreen(),
         },
       ),

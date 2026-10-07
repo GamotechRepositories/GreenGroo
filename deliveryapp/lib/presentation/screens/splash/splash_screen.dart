@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../pickup_driver/pickup_driver_service.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/splash_footer.dart';
 import 'widgets/splash_header.dart';
@@ -116,6 +117,16 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted || _navigated) return;
     _navigated = true;
     _controller.removeListener(_onRideTick);
+
+    final pickup = PickupDriverService.instance;
+    try {
+      await pickup.loadSession();
+    } catch (_) {}
+    if (!mounted) return;
+    if (pickup.isLoggedIn) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.pickupDriverHome);
+      return;
+    }
 
     final auth = AuthService.instance;
     if (auth.isLoggedIn) {

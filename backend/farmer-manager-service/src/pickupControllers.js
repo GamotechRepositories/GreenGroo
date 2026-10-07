@@ -11,6 +11,7 @@ import {
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
 import { pushFarmerOrderChange } from "./farmerPush.js";
+import { pushDriverAccountStatus, pushDriverPickupAssigned, pushDriverPickupReceived } from "./driverPush.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { resolveLocation, cityCode } from "../../erp-service/src/services/locationResolver.js";
 import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, DRIVER_LIST_EXCLUDE } from "./listProjections.js";
@@ -1001,6 +1002,7 @@ export async function createVendorDriver(req, res) {
     });
     const plain = toPlain(driver);
     delete plain.password;
+    delete plain.fcmTokens;
     res.status(201).json({ ...plain, driverId: driver.id, vehicleId: driver.vehicleId || "" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to add driver" });
@@ -1012,7 +1014,7 @@ export async function getVendorDriver(req, res) {
     const vendorId = vendorIdOf(req);
     const driver = await findVendorDriver(vendorId, req.params.driverId);
     if (!driver) return res.status(404).json({ message: "Driver not found" });
-    const { password: _pw, ...safe } = toPlain(driver);
+    const { password: _pw, fcmTokens: _tokens, ...safe } = toPlain(driver);
     const pickups = await Pickup.find({ vendorId, driverId: driver.id }).sort({ updatedAt: -1 }).lean();
     const enriched = await enrichPickups(pickups);
     res.json({
@@ -1034,6 +1036,7 @@ export async function updateVendorDriver(req, res) {
     const vendorId = vendorIdOf(req);
     const driver = await findVendorDriver(vendorId, req.params.driverId);
     if (!driver) return res.status(404).json({ message: "Driver not found" });
+    const prevStatus = normalizeDriverStatus(driver.status);
     const allowed = ["name", "mobile", "vehicleNumber", "vehicleType", "licenseNumber", "assignedArea", "address", "documents", "status", "password"];
     for (const key of allowed) {
       if (key === "password" || key === "status") continue;
@@ -1045,8 +1048,10 @@ export async function updateVendorDriver(req, res) {
       driver.vehicleId = await uniqueVehicleId(vendorId, driver.vehicleNumber, driver.id);
     }
     await driver.save();
+    if (normalizeDriverStatus(driver.status) !== prevStatus) pushDriverAccountStatus(driver);
     const plain = toPlain(driver);
     delete plain.password;
+    delete plain.fcmTokens;
     res.json({ ...plain, driverId: driver.id, vehicleId: driver.vehicleId || "" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update driver" });
@@ -1064,6 +1069,7 @@ export async function setVendorDriverStatus(req, res) {
       return res.status(400).json({ message: "Invalid driver status" });
     }
     const normalized = normalizeDriverStatus(next);
+    const prevStatus = normalizeDriverStatus(driver.status);
     if (normalized === "Inactive" || normalized === "Off Duty") {
       driver.status = normalized;
       await driver.save();
@@ -1071,8 +1077,10 @@ export async function setVendorDriverStatus(req, res) {
       driver.status = "Active";
       await refreshDriverAvailability(driver);
     }
+    if (normalizeDriverStatus(driver.status) !== prevStatus) pushDriverAccountStatus(driver);
     const plain = toPlain(driver);
     delete plain.password;
+    delete plain.fcmTokens;
     res.json({ ...plain, driverId: driver.id });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update driver status" });
@@ -1221,6 +1229,7 @@ async function assignDriverToPickup(pickup, driver, { reassign = false, managerI
   const order = await loadOrderForPickup(pickup);
   await applyOrderStatus(order, "DRIVER_ASSIGNED", reassign ? "Driver reassigned." : "Driver assigned for pickup.");
   emitPickupUpdate(pickup, { event: "DRIVER_ASSIGNED" });
+  pushDriverPickupAssigned(pickup, { reassign, previousDriverId: prevDriverId });
   return pickup;
 }
 
@@ -1563,6 +1572,7 @@ async function applyPickupReceiving(req, pickup) {
   }
   await pickup.save();
   if (nextReceiving === "RECEIVED") {
+    pushDriverPickupReceived(pickup);
     await markBatchReceivedForDriver(pickup);
     try {
       const { beginQualityAfterReceive } = await import("./qualityControllers.js");
@@ -1836,6 +1846,7 @@ export async function reassignManagerPickupDriver(req, res) {
 function publicDriver(driver) {
   const plain = toPlain(driver) || {};
   delete plain.password;
+  delete plain.fcmTokens;
   return {
     ...plain,
     driverId: plain.id,
@@ -2019,6 +2030,56 @@ export async function getManagerBatch(req, res) {
     res.json(batchPayload(batchId, orders));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load batch" });
+  }
+}
+
+export async function acceptDriverPickup(req, res) {
+  try {
+    const pickup = await driverPickupOr404(req, res);
+    if (!pickup) return;
+    if (!ASSIGNED_STATUSES.includes(pickup.status)) {
+      return res.status(400).json({ message: "This pickup can no longer be accepted." });
+    }
+    if (pickup.driverStatus !== "DRIVER_ACCEPTED") {
+      pickup.driverStatus = "DRIVER_ACCEPTED";
+      pushPickupTimeline(pickup, "DRIVER_ACCEPTED", `Driver ${pickup.driverName || ""} accepted the pickup.`.replace(/\s+/g, " "));
+      await pickup.save();
+      emitPickupUpdate(pickup, { event: "DRIVER_ACCEPTED" });
+    }
+    res.json({ message: "Pickup accepted", ...(await enrichDriverView(pickup)) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to accept pickup" });
+  }
+}
+
+export async function rejectDriverPickup(req, res) {
+  try {
+    const pickup = await driverPickupOr404(req, res);
+    if (!pickup) return;
+    if (!ASSIGNED_STATUSES.includes(pickup.status)) {
+      return res.status(400).json({ message: "Only a newly assigned pickup can be rejected." });
+    }
+    const reason = String(req.body?.reason || "").trim().slice(0, 300);
+    const driverId = pickup.driverId;
+    const driverName = pickup.driverName || driverId;
+    const note = `Rejected by driver ${driverName}${reason ? `: ${reason}` : ""}.`;
+    pickup.driverId = "";
+    pickup.driverName = "";
+    pickup.driverMobile = "";
+    pickup.vehicleNumber = "";
+    pickup.assignedAt = null;
+    pickup.status = "READY_FOR_PICKUP";
+    pickup.driverStatus = "DRIVER_REJECTED";
+    pushPickupTimeline(pickup, "DRIVER_REJECTED", note);
+    await pickup.save();
+    const driver = await PickupDriver.findOne({ id: driverId });
+    if (driver) await refreshDriverAvailability(driver);
+    const order = await loadOrderForPickup(pickup);
+    await applyOrderStatus(order, "READY_FOR_PICKUP", `${note} Waiting for a new driver.`);
+    emitPickupUpdate(pickup, { event: "DRIVER_REJECTED", rejectedBy: driverId, reason });
+    res.json({ message: "Pickup rejected", id: pickup.id, status: pickup.status });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to reject pickup" });
   }
 }
 

@@ -38,4 +38,5 @@ abstract final class AppRoutes {
   static const fullTimeRules = '/fulltime-rules';
   static const assignedOrders = '/assigned-orders';
   static const fullTimeAttendance = '/fulltime-attendance';
+  static const pickupDriverHome = '/pickup-driver';
 }

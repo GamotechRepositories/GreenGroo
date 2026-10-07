@@ -143,6 +143,8 @@ import {
   getDriverBatch,
   getVendorBatch,
   getManagerBatch,
+  acceptDriverPickup,
+  rejectDriverPickup,
   startDriverPickup,
   arriveDriverPickup,
   checkDriverPickupOrder,
@@ -190,6 +192,13 @@ import {
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
 import { saveFarmerPushToken, deleteFarmerPushToken, sendFarmerTestPush } from "./farmerPush.js";
+import {
+  saveDriverPushToken,
+  deleteDriverPushToken,
+  sendDriverTestPush,
+  listDriverNotifications,
+  readAllDriverNotifications,
+} from "./driverPush.js";
 import {
   listVendorPreOrders,
   confirmVendorPreOrders,
@@ -396,6 +405,11 @@ vendorAuthRouter.post("/login", vendorLogin);
 vendorAuthRouter.get("/me", requireVendor, getVendorMe);
 vendorAuthRouter.post("/driver/login", driverLogin);
 vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);
+vendorAuthRouter.post("/driver/push-token", requireDriver, saveDriverPushToken);
+vendorAuthRouter.delete("/driver/push-token", requireDriver, deleteDriverPushToken);
+vendorAuthRouter.post("/driver/push-test", requireDriver, sendDriverTestPush);
+vendorRouter.get("/driver-desk/notifications", requireDriver, listDriverNotifications);
+vendorRouter.post("/driver-desk/notifications/read-all", requireDriver, readAllDriverNotifications);
 
 // ------------------------------------
 // VENDOR PANEL ROUTES (protected)
@@ -484,6 +498,8 @@ vendorRouter.post("/crop-requests/:requestId/cancel", requireVendor, cancelVendo
 vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
 vendorRouter.get("/driver-desk/batches/:batchId", requireDriver, getDriverBatch);
 vendorRouter.get("/driver-desk/pickups/:pickupId", requireDriver, getDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/accept", requireDriver, acceptDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/reject", requireDriver, rejectDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/start", requireDriver, startDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/arrive", requireDriver, arriveDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/check-order", requireDriver, checkDriverPickupOrder);
@@ -572,6 +588,8 @@ driverAuthRouter.post("/login", driverLogin);
 driverAuthRouter.get("/me", requireDriver, getDriverMe);
 driverRouter.get("/pickups", requireDriver, listDriverPickups);
 driverRouter.get("/pickups/:pickupId", requireDriver, getDriverPickup);
+driverRouter.post("/pickups/:pickupId/accept", requireDriver, acceptDriverPickup);
+driverRouter.post("/pickups/:pickupId/reject", requireDriver, rejectDriverPickup);
 driverRouter.post("/pickups/:pickupId/start", requireDriver, startDriverPickup);
 driverRouter.post("/pickups/:pickupId/arrive", requireDriver, arriveDriverPickup);
 driverRouter.post("/pickups/:pickupId/check-order", requireDriver, checkDriverPickupOrder);

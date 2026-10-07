@@ -5,7 +5,7 @@ export const FARMER_LIST_EXCLUDE = "-password -profileImage -farm.farmPhotos -fa
 
 export const PICKUP_LIST_EXCLUDE = "-confirmationPhotos -receiving.photos";
 
-export const DRIVER_LIST_EXCLUDE = "-password -documents";
+export const DRIVER_LIST_EXCLUDE = "-password -documents -fcmTokens";
 
 export const CROP_LIST_EXCLUDE = "-photos -certificates.fileUrl";
 

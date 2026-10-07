@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../pickup_driver/pickup_driver_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 import 'widgets/auth_brand_header.dart';
 import 'widgets/auth_screen_background.dart';
@@ -76,7 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError(l10n.mobileNumberHint);
       return;
     }
-    if (password.length < 6) {
+    // Vendor-created pickup drivers may have passwords shorter than 6.
+    if (password.isEmpty || (_isRegister && password.length < 6)) {
       _showError(l10n.passwordHint);
       return;
     }
@@ -103,6 +105,10 @@ class _LoginScreenState extends State<LoginScreen> {
             );
 
       if (!mounted) return;
+      if (PickupDriverService.instance.isLoggedIn) {
+        await PickupDriverService.instance.logout();
+        if (!mounted) return;
+      }
 
       final boy = result.deliveryBoy;
       var route = AuthService.routeForStep(
@@ -122,12 +128,40 @@ class _LoginScreenState extends State<LoginScreen> {
         arguments: AuthService.argumentsForStep(boy),
       );
     } on AuthApiException catch (e) {
+      if (!_isRegister && await _tryPickupDriverLogin(phone, password)) return;
       if (mounted) _showError(e.message);
     } catch (_) {
+      if (!_isRegister && await _tryPickupDriverLogin(phone, password)) return;
       if (mounted) _showError(l10n.authError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Same credentials may belong to a vendor-created pickup driver
+  /// (farm → collection centre). Returns true when handled.
+  Future<bool> _tryPickupDriverLogin(String phone, String password) async {
+    try {
+      await PickupDriverService.instance.login(
+        mobile: phone,
+        password: password,
+      );
+    } on PickupDriverException catch (e) {
+      if (e.statusCode == 403 && mounted) {
+        _showError(e.message);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+    if (!mounted) return true;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.pickupDriverHome,
+      (_) => false,
+    );
+    return true;
   }
 
   void _showError(String message) {

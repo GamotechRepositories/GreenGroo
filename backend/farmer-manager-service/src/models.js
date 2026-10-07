@@ -619,6 +619,14 @@ const pickupDriverSchema = new mongoose.Schema(
     password: { type: String, default: "" },
     role: { type: String, default: "DRIVER" },
     status: { type: String, default: "Active" },
+    fcmTokens: [
+      {
+        _id: false,
+        token: { type: String, required: true },
+        platform: { type: String, default: "android" },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
