@@ -28,6 +28,7 @@ import '../../presentation/screens/onboarding/employment_type_screen.dart';
 import '../../presentation/screens/fulltime/fulltime_rules_screen.dart';
 import '../../presentation/screens/fulltime/fulltime_attendance_screen.dart';
 import '../../presentation/screens/fulltime/assigned_orders_screen.dart';
+import '../../presentation/screens/preorders/preorder_deliveries_screen.dart';
 import '../../presentation/screens/shifts/my_shifts_screen.dart';
 import '../../presentation/screens/performance/performance_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
@@ -79,7 +80,9 @@ class AppRouter {
           AppRoutes.home => const MainShell(),
           AppRoutes.myShifts => const MyShiftsScreen(),
           AppRoutes.newOrders => const NewOrdersScreen(),
-          AppRoutes.activeDelivery => const SecureScreen(child: ActiveDeliveryScreen()),
+          AppRoutes.activeDelivery => SecureScreen(
+              child: ActiveDeliveryScreen(initialOrderId: settings.arguments as String?),
+            ),
           AppRoutes.liveNavigation => const LiveNavigationScreen(),
           AppRoutes.deliveryHistory => const DeliveryHistoryScreen(),
           AppRoutes.earnings => const EarningsScreen(),
@@ -101,6 +104,7 @@ class AppRouter {
           AppRoutes.fullTimeRules => const FullTimeRulesScreen(),
           AppRoutes.fullTimeAttendance => const FullTimeAttendanceScreen(),
           AppRoutes.assignedOrders => const SecureScreen(child: AssignedOrdersScreen()),
+          AppRoutes.preOrderDeliveries => const SecureScreen(child: PreOrderDeliveriesScreen()),
           AppRoutes.pickupDriverHome =>
             const PickupTheme(child: PickupDriverShell()),
           _ => const SplashScreen(),

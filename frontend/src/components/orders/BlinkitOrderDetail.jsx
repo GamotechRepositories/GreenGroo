@@ -18,6 +18,7 @@ import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
 import PreOrderProgress from "./PreOrderProgress";
+import PreOrderSlotCard from "./PreOrderSlotCard";
 
 const ACTION_PINK = "#E23744";
 
@@ -29,6 +30,7 @@ function BlinkitOrderDetail({
   onReturn,
   returning,
   returnError,
+  onPreOrderChanged,
 }) {
   const navigate = useNavigate();
   const shipments = useMemo(() => splitOrderShipments(order.items || []), [order.items]);
@@ -275,6 +277,8 @@ function BlinkitOrderDetail({
               ))
             : null}
         </div>
+
+        <PreOrderSlotCard order={order} onChanged={onPreOrderChanged} className="mt-4" />
 
         <PreOrderProgress order={order} className="mt-4" />
 

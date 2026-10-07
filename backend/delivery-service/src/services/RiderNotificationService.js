@@ -323,23 +323,30 @@ export async function notifyOrderReceived(riderId, { orderId, orderNumber, estim
   });
 }
 
-/** Full-Time driver: manager manually assigned one or more orders. */
-export async function notifyOrdersAssigned(riderId, { orders = [] } = {}) {
+/** Manager manually assigned one or more orders (Full-Time orders or pre-orders). */
+export async function notifyOrdersAssigned(riderId, { orders = [], preOrder = false, storeName = "" } = {}) {
   if (!orders.length) return { created: 0, notifications: [], skipped: 0 };
   const numbers = orders.map((o) => o.orderNumber).filter(Boolean);
   const single = orders.length === 1;
+  const store = storeName ? ` at ${storeName}` : " at the dark store";
   return notifyRiders({
     riderIds: [riderId],
     type: "ORDER_ASSIGNED",
-    title: single ? "New Order Assigned" : `${orders.length} New Orders Assigned`,
-    message: single
-      ? `Order #${numbers[0] || ""} has been assigned to you.`
-      : `Orders ${numbers.map((n) => `#${n}`).join(", ")} have been assigned to you.`,
+    title: preOrder
+      ? `Delivery Manager assigned you ${orders.length} pre-order${single ? "" : "s"}`
+      : single
+        ? "New Order Assigned"
+        : `${orders.length} New Orders Assigned`,
+    message: preOrder
+      ? `Collect ${single ? "it" : "them"}${store}. Scan each order's QR to see that customer's address.`
+      : single
+        ? `Order #${numbers[0] || ""} has been assigned to you.`
+        : `Orders ${numbers.map((n) => `#${n}`).join(", ")} have been assigned to you.`,
     orderId: single ? orders[0].orderId : null,
     priority: "high",
     dedupeKey: `${orders.map((o) => String(o.orderId)).sort().join(",")}:assigned`,
     data: {
-      screen: "assigned_orders",
+      screen: preOrder ? "preorder_deliveries" : "assigned_orders",
       badge: "new",
       orderId: single ? String(orders[0].orderId) : "",
       orderIds: orders.map((o) => String(o.orderId)).join(","),

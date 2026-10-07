@@ -8,6 +8,7 @@ export default function PickupQrModal({
   orderNumber,
   driverName,
   pickupQrPayload,
+  isPreOrder = false,
 }) {
   if (!isOpen) return null;
 
@@ -47,8 +48,17 @@ export default function PickupQrModal({
                 <QRCodeSVG value={pickupQrPayload} size={180} level="M" includeMargin />
               </div>
               <p className="mt-4 text-center text-xs leading-relaxed text-slate-600">
-                Ask the delivery partner to tap <strong>Scan Pickup QR</strong>, then capture an{" "}
-                <strong>item proof photo</strong>. You must approve the photo to unlock the customer address.
+                {isPreOrder ? (
+                  <>
+                    Ask the delivery partner to scan this QR in <strong>Pre-order deliveries</strong>. The customer's
+                    address unlocks for this order straight away.
+                  </>
+                ) : (
+                  <>
+                    Ask the delivery partner to tap <strong>Scan Pickup QR</strong>, then capture an{" "}
+                    <strong>item proof photo</strong>. You must approve the photo to unlock the customer address.
+                  </>
+                )}
               </p>
             </>
           ) : null}

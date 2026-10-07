@@ -24,6 +24,7 @@ import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
 import PreOrderProgress from "./PreOrderProgress";
+import PreOrderSlotCard from "./PreOrderSlotCard";
 
 function StatusBadge({ status }) {
   const color = getOrderStatusColor(status);
@@ -118,6 +119,7 @@ function DesktopOrderDetail({
   onReturn,
   returning,
   returnError,
+  onPreOrderChanged,
 }) {
   const navigate = useNavigate();
   const items = order.items || [];
@@ -421,6 +423,8 @@ function DesktopOrderDetail({
                 <ShipmentExtraDetails shipment={shipment} />
               </div>
             </section>
+
+            <PreOrderSlotCard order={order} onChanged={onPreOrderChanged} />
 
             <PreOrderProgress order={order} className="shadow-sm" />
 

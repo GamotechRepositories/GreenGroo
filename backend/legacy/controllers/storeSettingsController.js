@@ -8,6 +8,7 @@ import {
   serializeStoreSettings,
 } from "../utils/storeSettingsHelpers.js";
 import { normalizeGiftHamperTiers } from "../../../shared/store/giftHamper.js";
+import { getPreOrderSlotAvailability } from "../utils/preOrderHelpers.js";
 
 const sanitizeNoticeLines = (lines) =>
   Array.isArray(lines)
@@ -131,6 +132,29 @@ export const getPublicStoreSettings = async (_req, res) => {
   try {
     const settings = await getStoreSettings();
     res.status(200).json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** Active pre-order slots with bookings and seats left for a delivery date (default tomorrow). */
+export const getPublicPreOrderSlotAvailability = async (req, res) => {
+  try {
+    const { date, slots } = await getPreOrderSlotAvailability(req.query.date);
+    res.status(200).json({
+      success: true,
+      data: { date, slots: slots.filter((slot) => slot.isActive) },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** Admin view: every slot for the date, including inactive slots and removed slots that still hold orders. */
+export const getAdminPreOrderSlotAvailability = async (req, res) => {
+  try {
+    const data = await getPreOrderSlotAvailability(req.query.date);
+    res.status(200).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

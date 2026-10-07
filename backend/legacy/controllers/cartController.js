@@ -265,6 +265,7 @@ export const addToCart = async (req, res) => {
           quantity: qty,
           variantName: normalizedVariantName,
           colorName: resolvedColorName,
+          preOrderSlot: preOrderSlot || "",
         });
       }
 

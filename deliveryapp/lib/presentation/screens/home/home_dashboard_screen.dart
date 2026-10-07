@@ -111,6 +111,32 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
   /// Prefer trip lock over stale on_delivery / activeOrderId flags.
   bool get _hasActiveOrder => _hasActiveTrip;
 
+  List<ActiveDeliveryData> get _activePreOrders =>
+      OrderService.instance.activeDeliveries.where((d) => d.isPreOrder).toList();
+
+  /// Every active stop is a pre-order — those are worked from the Pre-order deliveries list.
+  bool get _onlyPreOrders {
+    final all = OrderService.instance.activeDeliveries;
+    return all.isNotEmpty && all.every((d) => d.isPreOrder);
+  }
+
+  void _announcePreOrdersAssigned(Map<String, dynamic> event) {
+    if (event['event'] != 'active_delivery_updated' || event['reason'] != 'preorders_assigned') return;
+    final ids = event['orderIds'];
+    final count = ids is List ? ids.length : 0;
+    if (count == 0 || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 8),
+        content: Text('Delivery Manager assigned you $count pre-order${count == 1 ? '' : 's'}'),
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.preOrderDeliveries),
+        ),
+      ),
+    );
+  }
+
   bool get _verificationPending {
     final boy = AuthService.instance.deliveryBoy;
     if (boy == null) return false;
@@ -151,7 +177,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       if (connected) _catchUpWithServer();
     });
     _deliveryUpdateSub?.cancel();
-    _deliveryUpdateSub = SocketService.instance.onActiveDeliveryUpdated.listen((_) async {
+    _deliveryUpdateSub = SocketService.instance.onActiveDeliveryUpdated.listen((event) async {
+      _announcePreOrdersAssigned(event);
       await OrderService.instance.fetchActiveDelivery();
       if (mounted) setState(() {});
     });
@@ -752,8 +779,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                   ),
                 ],
 
+                if (_activePreOrders.isNotEmpty) ...[
+                  _PreOrderHomeCard(
+                    count: _activePreOrders.length,
+                    toScan: _activePreOrders.where((d) => !d.customerAddressUnlocked).length,
+                    onOpen: () => Navigator.pushNamed(context, AppRoutes.preOrderDeliveries),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
                 // ACTIVE ORDER CARD IF ON DELIVERY
-                if (_hasActiveOrder) ...[
+                if (_hasActiveOrder && !_onlyPreOrders) ...[
                   _ActiveDeliveryCard(
                     onOpen: () => Navigator.pushNamed(context, AppRoutes.activeDelivery),
                     continueLabel: l10n.continueDelivery,
@@ -1942,6 +1978,71 @@ class _PromotionalActionCards extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PreOrderHomeCard extends StatelessWidget {
+  const _PreOrderHomeCard({required this.count, required this.toScan, required this.onOpen});
+
+  final int count;
+  final int toScan;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(color: Color(0xFF059669), shape: BoxShape.circle),
+            child: const Icon(Icons.event_available_rounded, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count pre-order${count == 1 ? '' : 's'} assigned to you',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF065F46),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  toScan > 0
+                      ? '$toScan to collect — scan each order\'s QR at the store'
+                      : 'All collected — deliver one by one',
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF047857)),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: onOpen,
+            child: Text(
+              'Open',
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

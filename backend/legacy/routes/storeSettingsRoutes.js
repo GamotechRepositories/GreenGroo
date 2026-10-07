@@ -1,6 +1,8 @@
 import express from "express";
 import {
+  getAdminPreOrderSlotAvailability,
   getAdminStoreSettings,
+  getPublicPreOrderSlotAvailability,
   getPublicStoreSettings,
   updateStoreSettings,
 } from "../controllers/storeSettingsController.js";
@@ -13,6 +15,8 @@ import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.get("/", getPublicStoreSettings);
+router.get("/preorder-slots", getPublicPreOrderSlotAvailability);
+router.get("/preorder-slots/admin", protect, requireAdmin, getAdminPreOrderSlotAvailability);
 router.get("/admin", protect, requireAdmin, getAdminStoreSettings);
 router.get("/envia/webhook", protect, requireAdmin, getEnviaWebhookSetup);
 router.post("/envia/webhook/register", protect, requireAdmin, registerEnviaWebhook);

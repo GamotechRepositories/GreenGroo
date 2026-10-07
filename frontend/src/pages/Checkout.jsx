@@ -16,7 +16,9 @@ import {
   getMyRewardPoints,
   getRewardSettings,
   getNearestStore,
+  getPreOrderSlotAvailability,
 } from "../api/api";
+import { formatPreOrderDay, formatSlotLabel, slotAvailabilityText } from "../utils/preOrderSlots";
 import {
   DEPARTMENT,
   FULFILLMENT,
@@ -408,14 +410,33 @@ function Checkout() {
     [checkoutItems]
   );
   const [pickedPreOrderSlot, setSelectedPreOrderSlot] = useState("");
+  const [slotAvailability, setSlotAvailability] = useState(null);
+  const loadSlotAvailability = useCallback(async () => {
+    try {
+      const { data } = await getPreOrderSlotAvailability();
+      setSlotAvailability(data?.data || null);
+    } catch {
+      setSlotAvailability(null);
+    }
+  }, []);
+  useEffect(() => {
+    if (hasPreOrderItems) loadSlotAvailability();
+  }, [hasPreOrderItems, loadSlotAvailability]);
   const preOrderSlots = useMemo(() => {
-    return storeSettings?.preOrderSlots?.filter(s => s.isActive) || [];
-  }, [storeSettings]);
+    if (slotAvailability?.slots) return slotAvailability.slots;
+    return (storeSettings?.preOrderSlots || [])
+      .filter((s) => s.isActive)
+      .map((s) => ({ label: `${s.startTime} - ${s.endTime}`, remaining: null, isFull: false }));
+  }, [slotAvailability, storeSettings]);
+  const isBookableSlot = useCallback(
+    (label) => preOrderSlots.some((s) => s.label === label && !s.isFull),
+    [preOrderSlots]
+  );
   const cartPreOrderSlot = useMemo(() => {
     const fromCart = checkoutItems.map((item) => item.preOrderSlot).find(Boolean) || "";
-    return preOrderSlots.some((s) => `${s.startTime} - ${s.endTime}` === fromCart) ? fromCart : "";
-  }, [checkoutItems, preOrderSlots]);
-  const selectedPreOrderSlot = pickedPreOrderSlot || cartPreOrderSlot;
+    return isBookableSlot(fromCart) ? fromCart : "";
+  }, [checkoutItems, isBookableSlot]);
+  const selectedPreOrderSlot = isBookableSlot(pickedPreOrderSlot) ? pickedPreOrderSlot : cartPreOrderSlot;
   const [fulfillment, setFulfillment] = useState(FULFILLMENT.DELIVERY);
   const isPickup = fulfillment === FULFILLMENT.PICKUP;
   const [storeLookup, setStoreLookup] = useState({ key: "", store: null });
@@ -960,6 +981,9 @@ function Checkout() {
       }
     } catch (err) {
       setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
+      if (String(err.response?.data?.code || "").startsWith("PREORDER_SLOT")) {
+        loadSlotAvailability();
+      }
       setPlacingOrder(false);
     }
   };
@@ -1295,28 +1319,38 @@ function Checkout() {
                     icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
                   >
                     <p className="mb-3 text-xs text-slate-500">
-                      Pre-order items are {isPickup ? "ready for pickup" : "delivered"} tomorrow. Pick a time slot:
+                      Pre-order items are {isPickup ? "ready for pickup" : "delivered"}
+                      {slotAvailability?.date ? ` on ${formatPreOrderDay(slotAvailability.date)}` : " tomorrow"}.
+                      Pick a time slot:
                     </p>
                     {preOrderSlots.length === 0 ? (
                       <p className="text-xs font-semibold text-red-600">No slots available right now.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {preOrderSlots.map((slot, i) => {
-                          const slotStr = `${slot.startTime} - ${slot.endTime}`;
-                          const isSelected = selectedPreOrderSlot === slotStr;
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {preOrderSlots.map((slot) => {
+                          const isSelected = selectedPreOrderSlot === slot.label;
                           return (
                             <button
-                              key={i}
+                              key={slot.label}
                               type="button"
-                              onClick={() => setSelectedPreOrderSlot(slotStr)}
-                              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+                              disabled={slot.isFull}
+                              onClick={() => setSelectedPreOrderSlot(slot.label)}
+                              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                                 isSelected
-                                  ? "border-emerald-500 bg-emerald-100/60 text-emerald-900 shadow-sm"
-                                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/80"
+                                  ? "border-[#0C831F] bg-emerald-50/60"
+                                  : "border-slate-200 bg-white hover:border-slate-300"
                               }`}
                             >
-                              {isSelected ? "✓ " : ""}
-                              {slotStr}
+                              <span className={`text-sm ${isSelected ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                                {formatSlotLabel(slot.label)}
+                              </span>
+                              <span
+                                className={`shrink-0 text-[11px] ${
+                                  slot.isFull ? "font-medium text-red-600" : isSelected ? "font-medium text-[#0C831F]" : "text-slate-500"
+                                }`}
+                              >
+                                {isSelected ? "Selected" : slotAvailabilityText(slot)}
+                              </span>
                             </button>
                           );
                         })}

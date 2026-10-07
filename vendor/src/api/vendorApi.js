@@ -141,6 +141,8 @@ export const vendorApi = {
   confirmPreOrders: (orderIds) => api.post("/api/vendor/preorders/confirm", { orderIds }),
   rejectPreOrder: (orderId, reason) =>
     api.post(`/api/vendor/preorders/${encodeURIComponent(orderId)}/reject`, { reason }),
+  getPreOrderSlotAvailability: (date) =>
+    api.get("/api/settings/preorder-slots", { params: date ? { date } : {} }),
 
   // Products from the admin catalog (added only after admin approval)
   getMyProducts: () => api.get("/api/vendor/my-products"),

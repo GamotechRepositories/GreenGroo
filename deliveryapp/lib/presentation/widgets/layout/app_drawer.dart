@@ -67,6 +67,11 @@ class AppDrawer extends StatelessWidget {
                     label: l10n.dashboard,
                     onTap: () => _nav(context, AppRoutes.home),
                   ),
+                  _DrawerItem(
+                    icon: Icons.event_available_outlined,
+                    label: 'Pre-order deliveries',
+                    onTap: () => _nav(context, AppRoutes.preOrderDeliveries),
+                  ),
                   if (isFullTime) ...[
                     _DrawerItem(
                       icon: Icons.assignment_outlined,

@@ -65,6 +65,7 @@ abstract final class ApiConfig {
   // Rider Order Workflow Endpoints
   static const offer = '/api/delivery-boys/offer';
   static const activeDelivery = '/api/delivery-boys/active-delivery';
+  static const riderPreOrders = '/api/delivery-boys/preorders';
   static String acceptOffer(String id) => '/api/delivery-boys/orders/$id/accept';
   static String declineOffer(String id) => '/api/delivery-boys/orders/$id/decline';
   static String scanStoreQr(String id) => '/api/delivery-boys/orders/$id/scan-store-qr';

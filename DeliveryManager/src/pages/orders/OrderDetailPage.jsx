@@ -153,7 +153,9 @@ export default function OrderDetailPage() {
     trackedRiderId ? [trackedRiderId] : [],
     Boolean(isLiveTracking)
   );
-  const liveLoc = trackedRiderId ? liveLocations[trackedRiderId] : null;
+  const liveLoc = trackedRiderId
+    ? liveLocations[trackedRiderId] || order?.assignedRider?.location || null
+    : null;
 
   const onInform = async (itemId) => {
     const currentOid = order?.id || order?._id;

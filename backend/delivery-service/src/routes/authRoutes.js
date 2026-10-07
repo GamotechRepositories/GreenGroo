@@ -35,6 +35,7 @@ import {
   getDriverPickupQr,
   getOrderPaymentStatus,
   getPendingOffer,
+  getRiderPreOrders,
   reportDeliveryDelay,
   scanPickupQr,
   scanStoreQr,
@@ -124,6 +125,7 @@ router.get("/offer", protect, getPendingOffer);
 router.post("/orders/:orderId/accept", protect, acceptOrderOffer);
 router.post("/orders/:orderId/decline", protect, declineOrderOffer);
 router.get("/active-delivery", protect, getActiveDelivery);
+router.get("/preorders", protect, getRiderPreOrders);
 router.get("/orders/:orderId/pickup-qr", protect, getDriverPickupQr);
 router.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
 router.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);

@@ -116,11 +116,11 @@ export const NAV_GROUPS = [
         description: 'Configure delivery time slots for next-day pre-orders.',
       },
       {
-        name: 'PreOrder Slots',
-        href: '/preorder-slots',
-        icon: Clock3,
+        name: 'Pre-orders',
+        href: '/pre-orders',
+        icon: CalendarDays,
         implemented: true,
-        description: 'Configure delivery time slots for next-day preorders.',
+        description: 'Every pre-order by delivery slot: bookings vs capacity, vendor confirmation and progress.',
       },
       {
         name: 'Inventory',

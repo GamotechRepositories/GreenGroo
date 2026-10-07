@@ -49,6 +49,88 @@ const fmtTime = (v) =>
   v ? new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
 const fmtDay = (d) =>
   d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'
+const fmtClock = (t) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim())
+  if (!m) return String(t || '').trim()
+  const h = Number(m[1])
+  return `${h % 12 || 12}:${m[2]} ${h >= 12 ? 'PM' : 'AM'}`
+}
+/** "13:02 - 17:01" → "1:02 PM – 5:01 PM" */
+const fmtSlot = (label) => {
+  const parts = String(label || '').split(/\s+-\s+/)
+  return parts.length === 2 ? `${fmtClock(parts[0])} – ${fmtClock(parts[1])}` : String(label || '')
+}
+const CLOSED_PROGRESS = new Set(['cancelled', 'rejected', 'failed'])
+
+/** Slots for one delivery day: this vendor's orders per slot plus overall bookings against capacity. */
+function SlotBoard({ date, slots, orders, activeSlot, onPick }) {
+  const rows = useMemo(() => {
+    const byLabel = new Map(slots.map((s) => [s.label, { ...s, mine: 0, awaiting: 0, confirmed: 0 }]))
+    for (const o of orders) {
+      if (o.preOrderDate !== date || CLOSED_PROGRESS.has(o.preOrderProgress)) continue
+      if (!byLabel.has(o.preOrderSlot)) {
+        byLabel.set(o.preOrderSlot, { label: o.preOrderSlot, capacity: 0, booked: null, mine: 0, awaiting: 0, confirmed: 0 })
+      }
+      const row = byLabel.get(o.preOrderSlot)
+      row.mine += 1
+      if (o.preOrderProgress === 'awaiting_vendor') row.awaiting += 1
+      else row.confirmed += 1
+    }
+    return [...byLabel.values()]
+  }, [slots, orders, date])
+
+  if (!rows.length) return null
+
+  return (
+    <div className={`${PANEL} p-4`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900">Delivery slots · {fmtDay(date)}</h2>
+        <span className="text-xs text-slate-500">Click a slot to filter the orders below</span>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {rows.map((row) => {
+          const active = activeSlot === row.label
+          const fill = row.capacity > 0 && row.booked != null ? Math.min(100, (row.booked / row.capacity) * 100) : 0
+          return (
+            <button
+              key={row.label}
+              type="button"
+              onClick={() => onPick(active ? '' : row.label)}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                active ? 'border-emerald-600 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-900">{fmtSlot(row.label)}</span>
+                {row.isFull ? (
+                  <span className="rounded border border-red-200 px-1.5 text-[10px] font-semibold text-red-600">FULL</span>
+                ) : null}
+              </div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{row.mine}</div>
+              <div className="text-[11px] text-slate-500">
+                your orders · {row.awaiting} awaiting · {row.confirmed} confirmed
+              </div>
+              {row.booked != null ? (
+                <>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded bg-slate-100">
+                    <div className="h-full bg-emerald-600" style={{ width: `${fill}%` }} />
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {row.capacity > 0
+                      ? `${row.booked} / ${row.capacity} booked overall · ${row.remaining} left`
+                      : `${row.booked} booked overall · no limit`}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-2 text-[11px] text-slate-400">Slot no longer offered to customers</div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function ProgressPill({ order }) {
   return (
@@ -250,15 +332,16 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
   const { store, orders } = group
   const awaiting = orders.filter((o) => o.preOrderProgress === 'awaiting_vendor')
   const allChecked = awaiting.length > 0 && awaiting.every((o) => selected.has(o.id))
+  const storeBusy = awaiting.some((o) => busyIds.has(o.id))
 
   return (
     <div className={`${PANEL} overflow-hidden`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3 text-left"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex w-full items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
           {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           <Store size={16} className="text-emerald-700" />
           <div>
@@ -269,18 +352,23 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
               {store.managerPhone ? ` (${store.managerPhone})` : ''}
             </div>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-2 text-xs">
           <span className="rounded-full bg-white px-2 py-0.5 font-semibold text-slate-700 ring-1 ring-slate-200">
             {orders.length} order{orders.length === 1 ? '' : 's'}
           </span>
           {awaiting.length ? (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
-              {awaiting.length} to confirm
-            </span>
+            <button
+              type="button"
+              disabled={storeBusy}
+              onClick={() => onConfirm(awaiting.map((o) => o.id))}
+              className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+            >
+              <Check size={13} /> {storeBusy ? 'Confirming…' : `Confirm all ${awaiting.length}`}
+            </button>
           ) : null}
         </div>
-      </button>
+      </div>
 
       {open ? (
         <div className="overflow-x-auto">
@@ -352,7 +440,7 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
                       <div className="flex items-center gap-1 font-medium text-slate-800">
                         <CalendarClock size={13} className="text-emerald-700" /> {fmtDay(order.preOrderDate)}
                       </div>
-                      <div className="text-xs text-slate-500">{order.preOrderSlot || '—'}</div>
+                      <div className="text-xs text-slate-500">{fmtSlot(order.preOrderSlot) || '—'}</div>
                     </td>
                     <td className={TD}>
                       <div className="font-semibold text-slate-900">{money(order.orderTotal)}</div>
@@ -457,6 +545,20 @@ export default function VendorPreOrdersPage() {
     [apiDate, reloadKey],
   )
 
+  const boardDate = apiDate || data.tomorrow || istDate(1)
+  const [slotAvailability, setSlotAvailability] = useState([])
+  useLive(
+    async () => {
+      try {
+        const res = await vendorApi.getPreOrderSlotAvailability(boardDate)
+        setSlotAvailability(res.data?.data?.slots || [])
+      } catch {
+        setSlotAvailability([])
+      }
+    },
+    [boardDate, reloadKey],
+  )
+
   const stores = data.stores || []
   const zones = useMemo(() => [...new Set(stores.map((s) => s.zone))].sort(), [stores])
   const cities = useMemo(
@@ -465,24 +567,37 @@ export default function VendorPreOrdersPage() {
   )
   const storeOptions = stores.filter((s) => (!zone || s.zone === zone) && (!city || s.city === city))
   const slots = useMemo(
-    () => [...new Set((data.orders || []).map((o) => o.preOrderSlot).filter(Boolean))].sort(),
-    [data.orders],
+    () =>
+      [
+        ...new Set(
+          [...(data.orders || []).map((o) => o.preOrderSlot), ...slotAvailability.map((s) => s.label)].filter(Boolean),
+        ),
+      ].sort(),
+    [data.orders, slotAvailability],
+  )
+
+  const locationScoped = useMemo(
+    () =>
+      (data.orders || []).filter((o) => {
+        const s = o.store || {}
+        if (zone && s.zone !== zone) return false
+        if (city && s.city !== city) return false
+        if (storeId && s.id !== storeId) return false
+        return true
+      }),
+    [data.orders, zone, city, storeId],
   )
 
   const scoped = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return (data.orders || []).filter((o) => {
-      const s = o.store || {}
-      if (zone && s.zone !== zone) return false
-      if (city && s.city !== city) return false
-      if (storeId && s.id !== storeId) return false
+    return locationScoped.filter((o) => {
       if (slot && o.preOrderSlot !== slot) return false
       if (!q) return true
       return [o.orderNumber, o.customerName, o.customerPhone, o.customerAddress, ...(o.items || []).map((i) => i.name)]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q))
     })
-  }, [data.orders, zone, city, storeId, slot, query])
+  }, [locationScoped, slot, query])
 
   const counts = useMemo(() => {
     const c = {}
@@ -511,12 +626,21 @@ export default function VendorPreOrdersPage() {
       return next
     })
 
+  const awaitingAll = scoped.filter((o) => o.preOrderProgress === 'awaiting_vendor').map((o) => o.id)
+  const confirmingAll = awaitingAll.some((id) => busyIds.has(id))
+
   const confirm = async (ids) => {
     if (!ids.length) return
     setBusyIds((prev) => new Set([...prev, ...ids]))
     try {
-      const res = await vendorApi.confirmPreOrders(ids)
-      toast.success(res.data?.message || 'Confirmed')
+      let done = 0
+      let lastMessage = ''
+      for (let i = 0; i < ids.length; i += 200) {
+        const res = await vendorApi.confirmPreOrders(ids.slice(i, i + 200))
+        done += res.data?.confirmed?.length || 0
+        lastMessage = res.data?.message || ''
+      }
+      toast.success(ids.length > 200 ? `${done} pre-orders confirmed` : lastMessage || 'Confirmed')
       setSelected((prev) => {
         const next = new Set(prev)
         ids.forEach((id) => next.delete(id))
@@ -631,12 +755,20 @@ export default function VendorPreOrdersPage() {
             <option value="">All slots</option>
             {slots.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {fmtSlot(s)}
               </option>
             ))}
           </select>
         </div>
       </div>
+
+      <SlotBoard
+        date={boardDate}
+        slots={slotAvailability}
+        orders={locationScoped}
+        activeSlot={slot}
+        onPick={(value) => setParam('slot', value)}
+      />
 
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {TABS.map((t) => (
@@ -659,6 +791,23 @@ export default function VendorPreOrdersPage() {
       </div>
 
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+
+      {awaitingAll.length ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <span className="text-sm font-medium text-amber-900">
+            {awaitingAll.length} pre-order{awaitingAll.length === 1 ? '' : 's'} waiting for your confirmation
+            {zone || city || storeId || slot || query ? ' in this view' : ''}
+          </span>
+          <button
+            type="button"
+            disabled={confirmingAll}
+            onClick={() => confirm(awaitingAll)}
+            className={`${BTN_PRIMARY} gap-1`}
+          >
+            <Check size={14} /> {confirmingAll ? 'Confirming…' : `Confirm all ${awaitingAll.length}`}
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-slate-400">Loading pre-orders…</p>

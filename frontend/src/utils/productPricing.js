@@ -374,8 +374,18 @@ export function getOriginalPriceForQuantity(product, quantity, variantName = "")
   return Number(source.price) || 0;
 }
 
+/** Variant a list card represents: the one matching the product's unit, else the cheapest. */
+function getListingVariantName(product) {
+  if (!isMultiVariant(product)) return "";
+  const unit = String(product.unit || "").trim().toLowerCase();
+  const byUnit = unit && product.variants.find((v) => v.name?.trim().toLowerCase() === unit);
+  if (byUnit) return byUnit.name;
+  const priceOf = (v) => Number(v.discountedPrice ?? v.price) || Infinity;
+  return [...product.variants].sort((a, b) => priceOf(a) - priceOf(b))[0]?.name || "";
+}
+
 export function getProductListPriceInfo(product, variantName = "") {
-  const source = getPricingSource(product, variantName);
+  const source = getPricingSource(product, variantName || getListingVariantName(product));
   if (!source) {
     return { originalPrice: 0, salePrice: 0, hasDiscount: false, isBulk: false };
   }

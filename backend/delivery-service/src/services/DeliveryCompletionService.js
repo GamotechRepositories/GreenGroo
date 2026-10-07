@@ -180,11 +180,13 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
       customerLat,
       customerLng,
     });
-    // Full-Time drivers are salary-based: keep distance for tracking, never credit per-KM.
+    // Full-Time drivers and pre-orders are salary-based: keep distance for tracking, never credit per-KM.
     const isFullTimeRider = rider?.employmentType === "FULL_TIME";
-    const earningResult = isFullTimeRider
+    const salaryBased = isFullTimeRider || Boolean(order.isPreOrder);
+    const earningResult = salaryBased
       ? { ...rawEarningResult, riderEarning: 0, earningSlab: null, shift: null }
       : rawEarningResult;
+    const stayOffline = Boolean(order.isPreOrder) && rider?.status === "offline";
     if (isFullTimeRider) order.fullTimeDelivery = true;
 
     const riderEarning = earningResult.riderEarning;
@@ -203,7 +205,7 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
 
     // Update rider statistics atomically
     if (rider) {
-      rider.status = "online";
+      if (!stayOffline) rider.status = "online";
       rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
       rider.todayOrderCount = (rider.todayOrderCount || 0) + 1;

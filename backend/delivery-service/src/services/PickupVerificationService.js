@@ -6,6 +6,9 @@ import { getIO } from "../../../socket.js";
 import { PICKUP_TOKEN_TTL_MS } from "../config/orderAssignmentConfig.js";
 import { isS3Configured, uploadDataUrlToS3 } from "./s3Service.js";
 
+const PRE_ORDER_UNLOCK_MESSAGE = "Pre-order picked up. Customer address unlocked.";
+const PRE_ORDER_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
 function buildQrPayload(orderId, token) {
   return `PICKUP:${orderId}:${token}`;
 }
@@ -28,7 +31,9 @@ export async function generateDriverPickupToken(order) {
   }
 
   const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + PICKUP_TOKEN_TTL_MS);
+  // Pre-order QR labels are printed in advance, so they need to outlive a normal pickup window.
+  const ttl = order.isPreOrder ? Math.max(PICKUP_TOKEN_TTL_MS, PRE_ORDER_TOKEN_TTL_MS) : PICKUP_TOKEN_TTL_MS;
+  const expiresAt = new Date(Date.now() + ttl);
 
   await PickupVerificationToken.create({
     orderId: order._id,
@@ -72,6 +77,9 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
   }
 
   if (order.pickupQrScanned || order.qrScannedAt) {
+    if (order.isPreOrder && !order.customerAddressUnlocked && order.status === "assigned") {
+      await unlockForDelivery(order, { message: PRE_ORDER_UNLOCK_MESSAGE });
+    }
     return { success: true, order, alreadyScanned: true };
   }
 
@@ -139,6 +147,17 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
   // Close same-route wait once rider starts pickup
   order.routeBatchWindowEndsAt = undefined;
   await order.save();
+
+  // Pre-orders: each order's QR scan reveals that customer's address — no photo / approval step.
+  if (order.isPreOrder) {
+    await unlockForDelivery(order, { verifiedBy, message: PRE_ORDER_UNLOCK_MESSAGE });
+    return {
+      success: true,
+      order,
+      unlocked: true,
+      driver: { id: driver._id.toString(), name: driver.name || driver.phone },
+    };
+  }
 
   try {
     getIO()
@@ -272,9 +291,21 @@ export async function approvePickupProof({ orderId, managerId }) {
   order.pickupProofStatus = "approved";
   order.pickupProofApprovedAt = now;
   order.pickupProofApprovedBy = managerId;
+  await unlockForDelivery(order, {
+    verifiedBy: managerId,
+    message: "Item proof approved. Customer address unlocked.",
+  });
+
+  return { success: true, order };
+}
+
+/** Marks the order picked up and reveals the customer address to the assigned rider. */
+async function unlockForDelivery(order, { verifiedBy = null, message }) {
+  const now = new Date();
+  const managerId = order.managerId;
   order.pickupVerified = true;
   order.pickupVerifiedAt = now;
-  order.pickupVerifiedBy = managerId;
+  order.pickupVerifiedBy = verifiedBy;
   order.customerAddressUnlocked = true;
   order.status = "out_for_delivery";
   order.assignmentStatus = "OUT_FOR_DELIVERY";
@@ -291,7 +322,7 @@ export async function approvePickupProof({ orderId, managerId }) {
     const { syncCustomerOrderFromStore } = await import("./syncCustomerOrderFromStore.js");
     await syncCustomerOrderFromStore(order, "out_for_delivery");
   } catch (err) {
-    console.warn("[pickup-proof] customer order sync failed:", err.message);
+    console.warn("[pickup] customer order sync failed:", err.message);
   }
 
   try {
@@ -309,7 +340,7 @@ export async function approvePickupProof({ orderId, managerId }) {
       .emit("pickup_verified", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
-        message: "Item proof approved. Customer address unlocked.",
+        message,
       });
     getIO()
       .to(`store_${managerId}`)
@@ -326,10 +357,8 @@ export async function approvePickupProof({ orderId, managerId }) {
         orderNumber: order.orderNumber,
       });
   } catch (err) {
-    console.warn("[pickup-proof] socket emit failed:", err.message);
+    console.warn("[pickup] socket emit failed:", err.message);
   }
-
-  return { success: true, order };
 }
 
 /** Driver scans the pickup QR shown on the manager incoming-order screen. */

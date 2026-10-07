@@ -58,6 +58,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final screen = item.screen.toLowerCase();
     final type = item.type.toUpperCase();
 
+    if (screen == 'preorder_deliveries') {
+      Navigator.pushNamed(context, AppRoutes.preOrderDeliveries);
+      return;
+    }
     if (screen == 'assigned_orders' || type == 'ORDER_ASSIGNED') {
       Navigator.pushNamed(context, AppRoutes.assignedOrders);
       return;

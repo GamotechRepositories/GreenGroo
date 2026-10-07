@@ -137,6 +137,7 @@ function OrderDetail() {
     onReturn: handleReturnOrder,
     returning,
     returnError,
+    onPreOrderChanged: () => loadOrder({ silent: true }),
   };
 
   return (

@@ -162,6 +162,9 @@ export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-up
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
+export const reschedulePreOrder = (id, slot) => api.patch(`/api/orders/${id}/preorder-slot`, { slot });
+export const getPreOrderSlotAvailability = (date) =>
+  api.get("/api/settings/preorder-slots", { params: date ? { date } : {} });
 export const createReturnClaim = (id, data) => api.post(`/api/orders/${id}/return-claim`, data);
 
 export const validateCoupon = (data) => api.post("/api/coupons/validate", data);

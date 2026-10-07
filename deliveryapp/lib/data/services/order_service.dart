@@ -436,6 +436,46 @@ class OrderService extends ChangeNotifier {
     }
   }
 
+  /// Pre-orders assigned to this rider: still to deliver plus finished today.
+  Future<Map<String, dynamic>?> fetchPreOrders() async {
+    if (!AuthService.instance.isLoggedIn) return null;
+    try {
+      final res = await apiGet(
+        ApiConfig.riderPreOrders,
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode != 200) return null;
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Scans any pre-order's pickup QR (`PICKUP:<orderId>:<token>`); unlocks that customer's address.
+  Future<({bool success, String message})> scanPreOrderQr(String qrPayload) async {
+    final parts = qrPayload.split(':');
+    final orderId = parts.length > 1 ? parts[1] : '';
+    if (orderId.isEmpty) {
+      return (success: false, message: 'This is not a pickup QR');
+    }
+    try {
+      final res = await apiPost(
+        ApiConfig.scanPickupQr(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'qrPayload': qrPayload}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final message = body['message'] as String? ?? '';
+      if (res.statusCode == 200) {
+        unawaited(fetchActiveDelivery());
+        return (success: true, message: message.isEmpty ? 'Order unlocked' : message);
+      }
+      return (success: false, message: message.isEmpty ? 'Could not verify this QR' : message);
+    } catch (_) {
+      return (success: false, message: 'Network error — try again');
+    }
+  }
+
   Future<bool> submitPickupProof(String orderId, String imageBase64) async {
     try {
       final res = await apiPost(

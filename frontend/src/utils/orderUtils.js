@@ -1,4 +1,5 @@
 import { getOrderNumber } from "./orderNumber";
+import { formatPreOrderDay, formatSlotLabel } from "./preOrderSlots";
 
 export const ORDER_STATUS_LABELS = {
   attempted: "Attempted",
@@ -235,18 +236,10 @@ export function formatOrderDateTime(dateStr) {
 }
 
 export function formatPreOrderSlot(order) {
-  const slot = String(order?.preOrderSlot || "").trim();
+  const slot = formatSlotLabel(order?.preOrderSlot);
   if (!slot) return "";
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(order?.preOrderDate || ""));
-  if (!match) return slot;
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
-  const dayLabel = date.toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-  return `${dayLabel}, ${slot}`;
+  const dayLabel = formatPreOrderDay(order?.preOrderDate);
+  return dayLabel ? `${dayLabel}, ${slot}` : slot;
 }
 
 export const PRE_ORDER_PROGRESS_STEPS = [

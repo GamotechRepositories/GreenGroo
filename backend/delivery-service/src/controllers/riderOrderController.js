@@ -253,6 +253,104 @@ export const getDriverPickupQr = async (req, res, next) => {
   }
 };
 
+const RIDER_ACTIVE_STATUSES = ["assigned", "pickup_verified", "out_for_delivery"];
+
+/**
+ * Pre-order as the rider sees it: customer name, phone and address appear only after
+ * that order's QR is scanned, and disappear again once it is delivered or failed.
+ */
+function preOrderRiderJSON(order) {
+  const active = RIDER_ACTIVE_STATUSES.includes(order.status);
+  const scanned = Boolean(order.pickupQrScanned || order.qrScannedAt);
+  const unlocked = Boolean(order.customerAddressUnlocked);
+  const showCustomer = active && unlocked;
+  const items = order.items || [];
+  return {
+    id: order._id.toString(),
+    orderNumber: order.orderNumber,
+    status: order.status,
+    preOrderDate: order.preOrderDate || "",
+    preOrderSlot: order.preOrderSlot || "",
+    itemCount: items.reduce((n, i) => n + Number(i.quantity || 0), 0),
+    itemsSummary: items.map((i) => `${i.quantity}× ${i.name}`).join(", "),
+    paymentMethod: order.paymentMethod || "",
+    paymentStatus: order.paymentStatus || "pending",
+    amountToCollect: Number(order.amountToCollect || 0),
+    distanceKm: order.distanceKm ?? null,
+    scanned,
+    unlocked,
+    delivered: order.status === "delivered",
+    failed: order.status === "delivery_failed",
+    deliveredAt: order.deliveredAt || null,
+    customerName: showCustomer ? order.customerName || "Customer" : "",
+    customerPhone: showCustomer ? order.customerPhone || "" : "",
+    customerAddress: showCustomer ? order.customerAddress || "" : "",
+    customerLat: showCustomer ? order.customerLat ?? null : null,
+    customerLng: showCustomer ? order.customerLng ?? null : null,
+  };
+}
+
+function istDayStart(date = new Date()) {
+  const IST_MS = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(date.getTime() + IST_MS);
+  ist.setUTCHours(0, 0, 0, 0);
+  return new Date(ist.getTime() - IST_MS);
+}
+
+/** GET /preorders — every pre-order assigned to this rider: still to deliver + finished today. */
+export const getRiderPreOrders = async (req, res, next) => {
+  try {
+    const riderId = req.user.id;
+    const orders = await StoreOrder.find({
+      assignedRiderId: riderId,
+      isPreOrder: true,
+      $or: [
+        { status: { $in: RIDER_ACTIVE_STATUSES } },
+        {
+          status: { $in: ["delivered", "delivery_failed"] },
+          updatedAt: { $gte: istDayStart() },
+        },
+      ],
+    }).sort({ assignedAt: 1, createdAt: 1 });
+
+    const rank = (o) => (o.status === "out_for_delivery" ? 0 : o.status === "assigned" ? 1 : 2);
+    const rows = orders
+      .map(preOrderRiderJSON)
+      .sort((a, b) => {
+        const r = rank(a) - rank(b);
+        if (r) return r;
+        return (Number(a.distanceKm) || 0) - (Number(b.distanceKm) || 0);
+      });
+
+    const managerIds = [...new Set(orders.map((o) => String(o.managerId)))];
+    const managers = managerIds.length
+      ? await DeliveryManager.find({ _id: { $in: managerIds } }).select("storeName storeAddress phone")
+      : [];
+    const store = managers[0] || null;
+
+    return res.json({
+      success: true,
+      store: store
+        ? {
+            name: store.storeName || "Dark store",
+            address: store.storeAddress || "",
+            phone: store.phone || "",
+          }
+        : null,
+      summary: {
+        total: rows.length,
+        toScan: rows.filter((r) => r.status === "assigned").length,
+        outForDelivery: rows.filter((r) => r.status === "out_for_delivery" || r.status === "pickup_verified").length,
+        delivered: rows.filter((r) => r.delivered).length,
+        failed: rows.filter((r) => r.failed).length,
+      },
+      orders: rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getActiveDelivery = async (req, res, next) => {
   try {
     const riderId = req.user.id;
@@ -286,7 +384,10 @@ export const getActiveDelivery = async (req, res, next) => {
       });
     }
 
-    if (rider && (!rider.activeOrderId || rider.status !== "on_delivery")) {
+    // Pre-orders don't need the rider to be online: an offline rider carrying only
+    // pre-orders stays offline instead of being flipped to on_delivery.
+    const offlinePreOrderRun = rider?.status === "offline" && orders.every((o) => o.isPreOrder);
+    if (rider && !offlinePreOrderRun && (!rider.activeOrderId || rider.status !== "on_delivery")) {
       await DeliveryBoy.findByIdAndUpdate(riderId, {
         $set: { activeOrderId: orders[0]._id, status: "on_delivery" },
       });
@@ -351,10 +452,13 @@ export const getActiveDelivery = async (req, res, next) => {
         isCustomerLocationLocked: !unlocked,
         customerAddressUnlocked: unlocked,
         // Contact is shared from assignment until delivery; the address still unlocks after pickup.
+        // Pre-orders reveal phone and address only once that order's QR is scanned.
         customerName: order.customerName || "Customer",
-        customerPhone: order.customerPhone || "",
+        customerPhone: order.isPreOrder && !unlocked ? "" : order.customerPhone || "",
         customerAddress: unlocked
           ? order.customerAddress
+          : order.isPreOrder
+            ? "Scan this order's QR at the store to unlock the customer's address"
           : qrScanned && proofStatus === "pending"
             ? "Waiting for manager to approve your item photo"
             : qrScanned
@@ -428,6 +532,29 @@ export const scanPickupQr = async (req, res, next) => {
     }
 
     const manager = await DeliveryManager.findById(result.order.managerId);
+
+    if (result.order.isPreOrder) {
+      const o = result.order;
+      const unlocked = Boolean(o.customerAddressUnlocked);
+      return res.json({
+        success: true,
+        message: unlocked
+          ? `#${o.orderNumber} picked up — customer address unlocked`
+          : "Pickup QR already scanned",
+        preOrder: preOrderRiderJSON(o),
+        activeDelivery: {
+          id: o._id.toString(),
+          orderNumber: o.orderNumber,
+          status: o.status,
+          darkStoreName: manager?.storeName || `${o.area} Dark Store`,
+          darkStoreAddress: manager?.storeAddress || "",
+          pickupQrScanned: true,
+          pickupProofStatus: o.pickupProofStatus || "none",
+          isCustomerLocationLocked: !unlocked,
+          customerAddressUnlocked: unlocked,
+        },
+      });
+    }
 
     return res.json({
       success: true,
@@ -895,12 +1022,14 @@ export const completeDelivery = async (req, res, next) => {
       customerLat: order.customerLat ?? null,
       customerLng: order.customerLng ?? null,
     });
-    // Full-Time drivers are salary-based: keep distance for tracking, never credit per-KM.
+    // Full-Time drivers and pre-orders are salary-based: keep distance for tracking, never credit per-KM.
     const isFullTimeRider = rider?.employmentType === "FULL_TIME";
-    const earningResult = isFullTimeRider
+    const salaryBased = isFullTimeRider || Boolean(order.isPreOrder);
+    const earningResult = salaryBased
       ? { ...rawEarningResult, riderEarning: 0, earningSlab: null, shift: null }
       : rawEarningResult;
     if (isFullTimeRider) order.fullTimeDelivery = true;
+    const stayOffline = Boolean(order.isPreOrder) && rider?.status === "offline";
 
     const distanceKm = earningResult.distanceKm;
     const riderDeliveryEarning = earningResult.riderEarning;
@@ -917,7 +1046,7 @@ export const completeDelivery = async (req, res, next) => {
 
     // ── Update rider statistics ────────────────────────────────────────────
     if (rider) {
-      rider.status = "online";
+      if (!stayOffline) rider.status = "online";
       rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
       // Add only the configured delivery earning — NOT the customer's cash
@@ -926,12 +1055,12 @@ export const completeDelivery = async (req, res, next) => {
       rider.walletBalance = (rider.walletBalance || 0) + riderDeliveryEarning;
       rider.lastOrderCompletedAt = now;
       rider.lastStatusAt = now;
-      rider.onlineSince = rider.onlineSince || now;
+      if (!stayOffline) rider.onlineSince = rider.onlineSince || now;
       await rider.save();
     }
 
     // ── Gig / Incentive bonus (separate from delivery earning) ─────────────
-    if (!isFullTimeRider) {
+    if (!salaryBased) {
       await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
     }
 
@@ -966,7 +1095,7 @@ export const completeDelivery = async (req, res, next) => {
     } catch (err) {}
 
     // If rider still has other active stops in a batch, keep them on_delivery
-    if (rider) {
+    if (rider && !stayOffline) {
       const otherActive = await StoreOrder.findOne({
         assignedRiderId: riderId,
         _id: { $ne: order._id },

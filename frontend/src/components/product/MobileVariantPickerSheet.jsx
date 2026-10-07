@@ -198,13 +198,13 @@ function MobileVariantPickerSheet({ product, open, onClose, preOrderSlot = "" })
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[220] bg-black/50 backdrop-blur-[1px] lg:hidden"
+      className="fixed inset-0 z-[220] bg-black/50 backdrop-blur-[1px]"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[72vh] w-full max-w-md"
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[72vh] w-full max-w-md lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex justify-center pb-1.5">
@@ -220,7 +220,7 @@ function MobileVariantPickerSheet({ product, open, onClose, preOrderSlot = "" })
           </button>
         </div>
 
-        <div className="overflow-hidden rounded-t-xl bg-white shadow-2xl">
+        <div className="overflow-hidden rounded-t-xl bg-white shadow-2xl lg:rounded-xl">
           <div className="border-b border-gray-100 px-3 py-2.5">
             <h2 className="line-clamp-2 text-sm font-bold leading-snug text-gray-900">
               {product.name}

@@ -35,6 +35,7 @@ export function CartProvider({ children }) {
   const [cartToast, setCartToast] = useState(null);
   const [flyAnimation, setFlyAnimation] = useState(null);
   const [toastLeaving, setToastLeaving] = useState(false);
+  const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const itemsRef = useRef([]);
   const queueRef = useRef(Promise.resolve());
   const guestMergedRef = useRef(false);
@@ -152,6 +153,7 @@ export function CartProvider({ children }) {
           quantity: item.quantity,
           variantName: item.variantName || "",
           colorName: item.colorName || "",
+          preOrderSlot: item.preOrderSlot || "",
         });
       } catch {
         // Skip products that no longer exist / are out of stock
@@ -481,6 +483,9 @@ export function CartProvider({ children }) {
 
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
+  const openCartSidebar = useCallback(() => setCartSidebarOpen(true), []);
+  const closeCartSidebar = useCallback(() => setCartSidebarOpen(false), []);
+
   return (
     <CartContext.Provider
       value={{
@@ -495,6 +500,9 @@ export function CartProvider({ children }) {
         loadCart,
         resetCart,
         loading,
+        cartSidebarOpen,
+        openCartSidebar,
+        closeCartSidebar,
       }}
     >
       {children}

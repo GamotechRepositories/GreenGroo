@@ -1,4 +1,10 @@
-import { getUnitPriceForQuantity, getVariantStock } from "./productPricing";
+import { getPricingSource, getUnitPriceForQuantity, getVariantStock } from "./productPricing";
+
+/** MRP of the chosen variant (multi-size products), else the product's own MRP. */
+function lineMrp(product, variantName) {
+  const variantMrp = Number(getPricingSource(product, variantName)?.price);
+  return Number.isFinite(variantMrp) && variantMrp > 0 ? variantMrp : product?.price;
+}
 
 export function matchesCartLine(item, productId, variantName = "", colorName = "", preOrderSlot = "") {
   return (
@@ -28,7 +34,7 @@ export function mapCartItems(cart) {
         colorName: item.colorName || "",
         name: item.product.name,
         brandName: item.product.brandName,
-        price: item.product.price,
+        price: lineMrp(item.product, variantName),
         discountedPrice: unitPrice,
         pricingType: item.product.pricingType,
         bulkPricing: item.product.bulkPricing,
@@ -75,7 +81,7 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
     preOrderSlot: preOrderSlot || "",
     name: product.name,
     brandName: product.brandName,
-    price: product.price,
+    price: lineMrp(product, variantName),
     discountedPrice:
       getUnitPriceForQuantity(product, qty, variantName) ||
       product.salePrice ||

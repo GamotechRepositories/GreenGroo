@@ -4,6 +4,7 @@ import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
+import PreOrderQrLabels from "../../components/PreOrderQrLabels";
 import OrderTrackingDrawer from "../../components/tracking/OrderTrackingDrawer";
 import { useLive } from "../../realtime/useLive";
 import {
@@ -70,10 +71,6 @@ function formatTime(value) {
   });
 }
 
-function isAssignableRider(rider) {
-  return rider.isActive !== false && rider.status === "online" && !rider.activeOrderId;
-}
-
 function canBulkAssign(order) {
   return order.status === "packed" && !isPickupOrder(order) && isReceived(order);
 }
@@ -114,6 +111,7 @@ export default function PreOrdersPage() {
   const [bulkRiderId, setBulkRiderId] = useState("");
   const [nowTick, setNowTick] = useState(Date.now());
   const [pickupQr, setPickupQr] = useState({ orderId: null, loading: false, error: "", data: null });
+  const [qrLabels, setQrLabels] = useState({ open: false, loading: false, riderName: "", labels: [] });
 
   const showToast = (msg) => {
     setToast(msg);
@@ -151,12 +149,6 @@ export default function PreOrdersPage() {
     return () => clearInterval(id);
   }, []);
 
-  const assignableRiders = useMemo(() => riders.filter(isAssignableRider), [riders]);
-  const unavailableRiders = useMemo(
-    () => riders.filter((r) => r.isActive !== false && !isAssignableRider(r)),
-    [riders]
-  );
-
   /** Active riders grouped by availability; one rider can take several pre-orders. */
   const bulkRiderGroups = useMemo(() => {
     const active = riders.filter((r) => r.isActive !== false);
@@ -170,10 +162,41 @@ export default function PreOrdersPage() {
     return [
       ["Available now", withLoad.filter((r) => riderAvailability(r) === "available")],
       ["Online · already delivering", withLoad.filter((r) => riderAvailability(r) === "busy")],
-      ["Offline (will see it when they come online)", withLoad.filter((r) => riderAvailability(r) === "offline")],
+      ["Offline (can still take pre-orders)", withLoad.filter((r) => riderAvailability(r) === "offline")],
     ].filter(([, list]) => list.length);
   }, [riders, orders]);
   const bulkRiderCount = bulkRiderGroups.reduce((n, [, list]) => n + list.length, 0);
+
+  /** Assigned pre-orders the rider has not scanned yet, grouped by rider. */
+  const riderPickups = useMemo(() => {
+    const map = new Map();
+    for (const o of orders) {
+      if (o.status !== "assigned" || o.pickupQrScanned || !o.assignedRider?.id) continue;
+      const key = o.assignedRider.id;
+      if (!map.has(key)) map.set(key, { rider: o.assignedRider, orders: [] });
+      map.get(key).orders.push(o);
+    }
+    return [...map.values()];
+  }, [orders]);
+
+  const openQrLabels = async ({ rider, orders: list }) => {
+    const riderName = rider?.name || rider?.phone || "";
+    setQrLabels({ open: true, loading: true, riderName, labels: [] });
+    const results = await Promise.allSettled(list.map((o) => managerApi.getPickupQr(o.id)));
+    const labels = list.map((o, i) => {
+      const r = results[i];
+      const itemCount = (o.items || []).reduce((n, it) => n + Number(it.quantity || 0), 0);
+      return {
+        orderId: o.id,
+        orderNumber: o.orderNumber,
+        slot: o.preOrderSlot || "",
+        itemCount,
+        payload: r.status === "fulfilled" ? r.value.data?.pickupQrPayload || null : null,
+        error: r.status === "rejected" ? r.reason?.response?.data?.message || "Could not load QR" : "",
+      };
+    });
+    setQrLabels({ open: true, loading: false, riderName, labels });
+  };
 
   useEffect(() => {
     setBulkIds((prev) => {
@@ -230,8 +253,8 @@ export default function PreOrdersPage() {
     if (!riderId) return;
     setBusyKey(`assign-${oid}`);
     try {
-      const res = await managerApi.assignOrder(oid, riderId);
-      showToast(res.data.message || "Offer sent — rider must Accept / Decline");
+      const res = await managerApi.assignPreOrders(riderId, [oid]);
+      showToast(res.data.message || "Pre-order assigned");
       setSelectedRider((prev) => {
         const next = { ...prev };
         delete next[oid];
@@ -239,7 +262,8 @@ export default function PreOrdersPage() {
       });
       await load({ silent: true });
     } catch (err) {
-      showToast(err.response?.data?.message || "Could not assign rider");
+      const skipped = err.response?.data?.skipped || [];
+      showToast(skipped[0]?.reason || err.response?.data?.message || "Could not assign rider");
     } finally {
       setBusyKey("");
     }
@@ -484,7 +508,7 @@ export default function PreOrdersPage() {
           </select>
           <div className="ml-auto flex items-center gap-2 text-[11px] font-semibold text-slate-500">
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 ring-1 ring-emerald-200">
-              {assignableRiders.length} rider{assignableRiders.length === 1 ? "" : "s"} free
+              {bulkRiderCount} rider{bulkRiderCount === 1 ? "" : "s"} can take pre-orders
             </span>
             <button type="button" onClick={() => load()} className={actionBtnOutline}>
               🔄 Refresh
@@ -548,8 +572,9 @@ export default function PreOrdersPage() {
             Clear
           </button>
           <p className="w-full text-[10px] text-emerald-800">
-            Assigned directly (no Accept / Decline). One rider can take many pre-orders — they all show together in the
-            rider app.
+            Assigned directly (no Accept / Decline) — the rider does not need to be online, on a booked slot or near the
+            store. One rider can take many pre-orders; they get one notification and a Pre-order deliveries list, and
+            scan each order's QR at the store to see that customer's address.
           </p>
         </div>
       )}
@@ -570,6 +595,29 @@ export default function PreOrdersPage() {
           <button type="button" onClick={() => setReceiveIds([])} className={actionBtnOutline}>
             Clear
           </button>
+        </div>
+      )}
+
+      {riderPickups.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-xs font-bold text-slate-900">Waiting for pickup at the store</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">
+            Print one QR label per bag. The rider scans each label to see that customer's address.
+          </p>
+          <div className="mt-2 divide-y divide-slate-100">
+            {riderPickups.map((group) => (
+              <div key={group.rider.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <p className="text-xs text-slate-700">
+                  <span className="font-bold text-slate-900">{group.rider.name || group.rider.phone}</span>{" "}
+                  {group.rider.phone ? <span className="text-slate-500">{group.rider.phone}</span> : null} ·{" "}
+                  {group.orders.length} pre-order{group.orders.length === 1 ? "" : "s"} to collect
+                </p>
+                <button type="button" onClick={() => openQrLabels(group)} className={actionBtnOutline}>
+                  Print QR labels ({group.orders.length})
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -780,23 +828,16 @@ export default function PreOrdersPage() {
                               onChange={(e) => setSelectedRider((prev) => ({ ...prev, [oid]: e.target.value }))}
                               className="min-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-800 focus:outline-none"
                             >
-                              <option value="">
-                                {assignableRiders.length ? "Choose rider…" : "No free riders online"}
-                              </option>
-                              {assignableRiders.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                  {r.name || r.phone} · {r.vehicleType || "rider"}
-                                </option>
-                              ))}
-                              {unavailableRiders.length > 0 && (
-                                <optgroup label="Unavailable">
-                                  {unavailableRiders.map((r) => (
-                                    <option key={r.id} value={r.id} disabled>
-                                      {r.name || r.phone} · {r.activeOrderId ? "on delivery" : r.status || "offline"}
+                              <option value="">{bulkRiderCount ? "Choose rider…" : "No active riders"}</option>
+                              {bulkRiderGroups.map(([label, list]) => (
+                                <optgroup key={label} label={label}>
+                                  {list.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                      {bulkRiderLabel(r)}
                                     </option>
                                   ))}
                                 </optgroup>
-                              )}
+                              ))}
                             </select>
                             <button
                               type="button"
@@ -805,7 +846,7 @@ export default function PreOrdersPage() {
                               className={actionBtnPrimary}
                             >
                               {busyKey === `assign-${oid}`
-                                ? "Sending…"
+                                ? "Assigning…"
                                 : order.status === "offered"
                                   ? "Re-assign"
                                   : "Assign"}
@@ -889,6 +930,16 @@ export default function PreOrdersPage() {
         orderNumber={pickupQr.data?.orderNumber}
         driverName={pickupQr.data?.driverName}
         pickupQrPayload={pickupQr.data?.pickupQrPayload}
+        isPreOrder
+      />
+
+      <PreOrderQrLabels
+        open={qrLabels.open}
+        loading={qrLabels.loading}
+        riderName={qrLabels.riderName}
+        storeName={manager?.storeName}
+        labels={qrLabels.labels}
+        onClose={() => setQrLabels({ open: false, loading: false, riderName: "", labels: [] })}
       />
 
       {trackingOrderId ? (

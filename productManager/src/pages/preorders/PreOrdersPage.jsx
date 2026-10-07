@@ -161,8 +161,9 @@ export default function PreOrdersPage() {
     return [...map.values()].sort((a, b) => b.quantity - a.quantity);
   }, [orders]);
 
-  const readyVisibleIds = visibleOrders.filter((o) => o.status === "preorder_hold" && o.preOrderStage === "ready").map((o) => o.id);
-  const selectedReady = selected.filter((id) => orders.some((o) => o.id === id && o.status === "preorder_hold"));
+  const forwardable = (o) => o.status === "preorder_hold" && !awaitingVendor(o);
+  const forwardableVisibleIds = visibleOrders.filter(forwardable).map((o) => o.id);
+  const selectedReady = selected.filter((id) => orders.some((o) => o.id === id && forwardable(o)));
 
   const toggleSelected = (id) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -187,7 +188,19 @@ export default function PreOrdersPage() {
 
   const forward = async (ids) => {
     if (!ids.length) return;
-    const res = await runAction(`forward-${ids.join(",")}`, () => staffApi.forwardPreOrders(ids, note));
+    const res = await runAction(`forward-${ids.join(",")}`, async () => {
+      if (ids.length <= 200) return staffApi.forwardPreOrders(ids, note);
+      const merged = { forwarded: [], failed: [] };
+      for (let i = 0; i < ids.length; i += 200) {
+        const part = await staffApi.forwardPreOrders(ids.slice(i, i + 200), note);
+        merged.forwarded.push(...(part.data?.forwarded || []));
+        merged.failed.push(...(part.data?.failed || []));
+      }
+      merged.message = `${merged.forwarded.length} pre-orders forwarded to Delivery Manager${
+        merged.failed.length ? ` · ${merged.failed.length} skipped` : ""
+      }`;
+      return { data: merged };
+    });
     if (res) {
       setSelected((prev) => prev.filter((id) => !ids.includes(id)));
       setNote("");
@@ -381,14 +394,26 @@ export default function PreOrdersPage() {
               </button>
             ))}
           </div>
-          {readyVisibleIds.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setSelected((prev) => [...new Set([...prev, ...readyVisibleIds])])}
-              className={`${btnSecondary} mb-2`}
-            >
-              Select all ready ({readyVisibleIds.length})
-            </button>
+          {forwardableVisibleIds.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelected((prev) => [...new Set([...prev, ...forwardableVisibleIds])])}
+                className={btnSecondary}
+              >
+                Select all ({forwardableVisibleIds.length})
+              </button>
+              <button
+                type="button"
+                disabled={busyId.startsWith("forward-")}
+                onClick={() => forward(forwardableVisibleIds)}
+                className={btnPrimary}
+              >
+                {busyId.startsWith("forward-")
+                  ? "Forwarding…"
+                  : `Confirm & forward all ${forwardableVisibleIds.length}`}
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -449,6 +474,7 @@ export default function PreOrdersPage() {
                   const stage = stageOf(order);
                   const onHold = order.status === "preorder_hold";
                   const isReady = onHold && order.preOrderStage === "ready";
+                  const canForward = forwardable(order);
                   return (
                     <tr key={order.id} className="align-top hover:bg-gray-50/80">
                       <td className="px-5 py-4">
@@ -456,8 +482,8 @@ export default function PreOrdersPage() {
                           <input
                             type="checkbox"
                             checked={selected.includes(order.id)}
-                            disabled={!isReady}
-                            title={isReady ? "Select to forward" : "Mark ready before forwarding"}
+                            disabled={!canForward}
+                            title={canForward ? "Select to forward" : "Waiting for vendor confirmation"}
                             onChange={() => toggleSelected(order.id)}
                             className="h-4 w-4 accent-green-600"
                           />
@@ -528,45 +554,44 @@ export default function PreOrdersPage() {
                           </div>
                         ) : onHold ? (
                           <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={busyId.startsWith("forward-")}
+                              onClick={() => forward([order.id])}
+                              title="Prepare and send to the dark store's Delivery Manager in one step"
+                              className={btnPrimary}
+                            >
+                              Confirm & forward
+                            </button>
                             {order.preOrderStage === "pending" ? (
                               <button
                                 type="button"
                                 disabled={busyId === `${order.id}-preparing`}
                                 onClick={() => setStage(order, "preparing")}
-                                className={btnPrimary}
+                                className={btnSecondary}
                               >
                                 Start preparing
                               </button>
                             ) : null}
-                            {order.preOrderStage === "pending" || order.preOrderStage === "preparing" ? (
+                            {order.preOrderStage === "preparing" ? (
                               <button
                                 type="button"
                                 disabled={busyId === `${order.id}-ready`}
                                 onClick={() => setStage(order, "ready")}
-                                className={order.preOrderStage === "preparing" ? btnPrimary : btnSecondary}
+                                className={btnSecondary}
                               >
                                 Mark ready
                               </button>
                             ) : null}
                             {isReady ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={busyId.startsWith("forward-")}
-                                  onClick={() => forward([order.id])}
-                                  className={btnPrimary}
-                                >
-                                  Forward to DM
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busyId === `${order.id}-preparing`}
-                                  onClick={() => setStage(order, "preparing")}
-                                  className={btnSecondary}
-                                >
-                                  Reopen
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                disabled={busyId === `${order.id}-preparing`}
+                                onClick={() => setStage(order, "preparing")}
+                                className={btnSecondary}
+                              >
+                                Reopen
+                              </button>
                             ) : null}
                             <button
                               type="button"

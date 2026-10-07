@@ -119,7 +119,9 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       return null;
     }
 
-    const address = ecommerceOrder.deliveryAddress;
+    // A Mongoose subdocument loses its fields when spread, so work with a plain copy.
+    const rawAddress = ecommerceOrder.deliveryAddress;
+    const address = typeof rawAddress?.toObject === "function" ? rawAddress.toObject() : rawAddress;
     if (!address) {
       console.error("[deliveryDispatcher] No delivery address found for order", ecommerceOrder._id);
       return null;

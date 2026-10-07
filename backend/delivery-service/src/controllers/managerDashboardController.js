@@ -16,7 +16,7 @@ import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeSer
 import { calculateRiderEarning } from "../services/ShiftEarningService.js";
 import { applyStoreOrderStatus } from "../services/storeOrderLifecycle.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
-import { orderRoom } from "../services/orderTrackingService.js";
+import { getLatestLocation, orderRoom } from "../services/orderTrackingService.js";
 import EcommerceOrder from "../../../legacy/models/order/Order.js";
 import { sendDeliveryDelayed } from "../../../legacy/services/notificationService.js";
 import {
@@ -65,7 +65,7 @@ const stockMapForManager = async (managerId) => {
 async function backfillRiderEarningIfMissing(order, darkStore) {
   if (!order || order.status !== "delivered") return order;
   if (Number(order.riderDeliveryEarning || 0) > 0) return order;
-  if (order.fullTimeDelivery) return order;
+  if (order.fullTimeDelivery || order.isPreOrder) return order;
 
   try {
     if (order.assignedRiderId) {
@@ -302,7 +302,7 @@ export const listIncomingOrders = async (req, res, next) => {
       ),
     ];
     const riders = riderIds.length
-      ? await DeliveryBoy.find({ _id: { $in: riderIds } }).select("name phone status")
+      ? await DeliveryBoy.find({ _id: { $in: riderIds } }).select("name phone status currentLocation")
       : [];
     const riderMap = new Map(riders.map((r) => [r._id.toString(), r]));
 
@@ -357,7 +357,12 @@ export const listIncomingOrders = async (req, res, next) => {
         return {
           ...json,
           assignedRider: assigned
-            ? { id: assigned._id.toString(), name: assigned.name, phone: assigned.phone }
+            ? {
+                id: assigned._id.toString(),
+                name: assigned.name,
+                phone: assigned.phone,
+                location: getLatestLocation(o, assigned),
+              }
             : null,
           offeredRider: offered
             ? { id: offered._id.toString(), name: offered.name, phone: offered.phone }
@@ -1081,6 +1086,19 @@ export const assignOrder = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: "Rider not found for this store area",
+      });
+    }
+
+    // Pre-orders go straight to the chosen rider (online or offline) — no Accept/Decline offer.
+    if (order.isPreOrder) {
+      const { assignOrdersDirectly } = await import("./fullTimeManagementController.js");
+      return assignOrdersDirectly({
+        res,
+        manager,
+        rider,
+        orderIds: [String(order._id)],
+        fullTime: rider.employmentType === "FULL_TIME",
+        preOrdersOnly: true,
       });
     }
 

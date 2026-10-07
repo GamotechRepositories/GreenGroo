@@ -17,7 +17,10 @@ import 'pickup_qr_scan_screen.dart';
 import 'order_items_screen.dart';
 
 class ActiveDeliveryScreen extends StatefulWidget {
-  const ActiveDeliveryScreen({super.key});
+  const ActiveDeliveryScreen({super.key, this.initialOrderId});
+
+  /// Opens on this order when the rider has several stops (e.g. picked from the pre-order list).
+  final String? initialOrderId;
 
   @override
   State<ActiveDeliveryScreen> createState() => _ActiveDeliveryScreenState();
@@ -83,9 +86,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
     if (mounted) {
       final list = OrderService.instance.activeDeliveries;
       ActiveDeliveryData? selected = data;
-      if (_delivery != null && list.isNotEmpty) {
+      final wantedId = _delivery?.id ?? widget.initialOrderId;
+      if (wantedId != null && list.isNotEmpty) {
         selected = list.cast<ActiveDeliveryData?>().firstWhere(
-              (d) => d?.id == _delivery!.id,
+              (d) => d?.id == wantedId,
               orElse: () => list.first,
             );
       }
@@ -109,14 +113,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
       ),
     );
     if (verified == true && mounted) {
-      final updated = OrderService.instance.activeDelivery;
-      if (updated != null) {
-        setState(() => _delivery = updated);
-      }
+      final isPreOrder = _delivery!.isPreOrder;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('QR scanned! Now capture item photo for manager approval.'),
-          backgroundColor: Color(0xFF059669),
+        SnackBar(
+          content: Text(
+            isPreOrder
+                ? 'QR scanned! Customer address unlocked.'
+                : 'QR scanned! Now capture item photo for manager approval.',
+          ),
+          backgroundColor: const Color(0xFF059669),
         ),
       );
       await _loadDelivery();
@@ -680,6 +685,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
                     onCall: () => _callStore(d.darkStorePhone),
                     infoText: isUnlocked
                         ? 'Pickup verified. Customer address is unlocked.'
+                        : d.isPreOrder
+                            ? 'Pre-order: scan the QR on this order\'s bag to unlock the customer\'s address.'
                         : proofPending
                             ? 'Item photo sent. Manager is reviewing — address unlocks after approval.'
                             : qrScanned
@@ -717,7 +724,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
                         : (d.customerAddress.isNotEmpty &&
                                 !d.customerAddress.toLowerCase().contains('unlock')
                             ? d.customerAddress
-                            : 'Address unlocks after pickup QR + manager approval'),
+                            : d.isPreOrder
+                                ? 'Address unlocks when you scan this order\'s QR'
+                                : 'Address unlocks after pickup QR + manager approval'),
                     canOpenMap: isUnlocked,
                     onViewMap: () => _navigateToCustomer(d),
                   ),

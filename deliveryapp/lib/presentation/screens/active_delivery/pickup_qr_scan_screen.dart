@@ -10,10 +10,15 @@ class PickupQrScanScreen extends StatefulWidget {
     super.key,
     required this.orderId,
     required this.orderNumber,
+    this.preOrderBatch = false,
   });
 
   final String orderId;
   final String orderNumber;
+
+  /// Pre-order mode: scan the QR on each bag one after another; each scan unlocks that
+  /// customer's address. Pops `true` if at least one order was unlocked.
+  final bool preOrderBatch;
 
   @override
   State<PickupQrScanScreen> createState() => _PickupQrScanScreenState();
@@ -26,6 +31,12 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
   bool _permissionDenied = false;
   bool _starting = true;
   String? _errorMessage;
+  int _unlockedCount = 0;
+  String? _lastResult;
+  bool _lastResultOk = true;
+  final Set<String> _unlockedPayloads = {};
+  String? _lastFailedPayload;
+  DateTime _lastFailedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -56,7 +67,7 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
     }
 
     final controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.noDuplicates,
+      detectionSpeed: widget.preOrderBatch ? DetectionSpeed.normal : DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       torchEnabled: false,
     );
@@ -77,8 +88,43 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
     super.dispose();
   }
 
+  Future<void> _onPreOrderDetect(String value) async {
+    // The camera reports the same bag many times a second: skip bags already unlocked,
+    // and give a failed code a short pause before retrying it.
+    if (_unlockedPayloads.contains(value)) return;
+    if (value == _lastFailedPayload &&
+        DateTime.now().difference(_lastFailedAt) < const Duration(seconds: 3)) {
+      return;
+    }
+    setState(() => _processing = true);
+    final result = await OrderService.instance.scanPreOrderQr(value);
+    if (!mounted) return;
+    setState(() {
+      _processing = false;
+      _lastResultOk = result.success;
+      _lastResult = result.message;
+      if (result.success) {
+        _unlockedPayloads.add(value);
+        _unlockedCount++;
+      } else {
+        _lastFailedPayload = value;
+        _lastFailedAt = DateTime.now();
+      }
+    });
+  }
+
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_processing || _handled || _controller == null) return;
+
+    if (widget.preOrderBatch) {
+      for (final barcode in capture.barcodes) {
+        final value = barcode.rawValue?.trim();
+        if (value == null || !value.startsWith('PICKUP:')) continue;
+        await _onPreOrderDetect(value);
+        return;
+      }
+      return;
+    }
 
     for (final barcode in capture.barcodes) {
       final value = barcode.rawValue?.trim();
@@ -170,8 +216,14 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
   @override
   Widget build(BuildContext context) {
     final scanSize = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 300.0);
+    final batch = widget.preOrderBatch;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !batch,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _unlockedCount > 0);
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
@@ -181,11 +233,11 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
         title: Column(
           children: [
             Text(
-              'Scan Pickup QR',
+              batch ? 'Scan pre-order QRs' : 'Scan Pickup QR',
               style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             Text(
-              'Order #${widget.orderNumber}',
+              batch ? '$_unlockedCount unlocked' : 'Order #${widget.orderNumber}',
               style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
             ),
           ],
@@ -314,15 +366,29 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
                     child: Text(
                       _processing
                           ? 'Verifying pickup…'
-                          : 'Align the QR inside the frame. The manager shows it under Show Pickup QR.',
+                          : batch && _lastResult != null
+                              ? _lastResult!
+                              : batch
+                                  ? 'Scan the QR on each bag, one by one. Each scan shows that customer\'s address.'
+                                  : 'Align the QR inside the frame. The manager shows it under Show Pickup QR.',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF334155),
+                        color: batch && _lastResult != null && !_processing
+                            ? (_lastResultOk ? const Color(0xFF047857) : const Color(0xFFB91C1C))
+                            : const Color(0xFF334155),
                         height: 1.35,
                       ),
                     ),
                   ),
+                  if (batch) ...[
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, _unlockedCount > 0),
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                      child: const Text('Done'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -352,6 +418,7 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

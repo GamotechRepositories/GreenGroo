@@ -751,7 +751,7 @@ export const assignPreOrdersToDriver = async (req, res, next) => {
   }
 };
 
-async function assignOrdersDirectly({
+export async function assignOrdersDirectly({
   res,
   manager,
   rider,
@@ -759,6 +759,7 @@ async function assignOrdersDirectly({
   fullTime,
   preOrdersOnly = false,
 }) {
+  const assignableStatuses = preOrdersOnly ? ["packed", "offered"] : ["packed"];
   const orders = await StoreOrder.find({
     _id: { $in: orderIds },
     managerId: manager._id,
@@ -789,7 +790,7 @@ async function assignOrdersDirectly({
       });
       continue;
     }
-    if (order.status !== "packed") {
+    if (!assignableStatuses.includes(order.status)) {
       skipped.push({
         orderId: id,
         orderNumber: order.orderNumber,
@@ -807,7 +808,7 @@ async function assignOrdersDirectly({
     }
 
     const updated = await StoreOrder.findOneAndUpdate(
-      { _id: order._id, managerId: manager._id, status: "packed" },
+      { _id: order._id, managerId: manager._id, status: { $in: assignableStatuses } },
       {
         $set: {
           status: "assigned",
@@ -868,7 +869,7 @@ async function assignOrdersDirectly({
         });
       }
       io.to(`rider_${rider._id}`).emit("active_delivery_updated", {
-        reason: fullTime ? "fulltime_orders_assigned" : "preorders_assigned",
+        reason: preOrdersOnly ? "preorders_assigned" : "fulltime_orders_assigned",
         orderIds: assigned.map((o) => o._id.toString()),
       });
     } catch (err) {
@@ -886,6 +887,8 @@ async function assignOrdersDirectly({
         orderId: o._id,
         orderNumber: o.orderNumber,
       })),
+      preOrder: preOrdersOnly,
+      storeName: manager.storeName || "",
     }).catch((err) => console.warn("[fulltime] assign notify failed:", err.message));
   }
 
