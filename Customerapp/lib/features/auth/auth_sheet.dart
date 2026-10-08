@@ -186,15 +186,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
   }
 
   void _handleAuthSuccess(User user, {required bool isSignup}) {
-    if (mounted) {
-      try {
-        Navigator.of(context, rootNavigator: true).pop();
-      } catch (_) {
-        try {
-          Navigator.of(context).pop();
-        } catch (_) {}
-      }
-    }
     completeAuthAndGoHome(
       ref: ref,
       sheetContext: context,

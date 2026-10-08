@@ -63,22 +63,18 @@ flutter_launcher_icons:
 
 flutter_native_splash:
   color: "#FFFFFF"
+  image: assets/images/app_icon_launcher.png
   android_gravity: center
   ios_content_mode: center
   android_12:
     color: "#FFFFFF"
+    image: assets/images/app_icon_launcher.png
 
 flutter:
   uses-material-design: true
   assets:
     - .env
     - assets/images/
-    - assets/images/favicon.png
-    - assets/images/greengrocc_logo.png
-    - assets/images/app_logo.png
-    - assets/images/splash_logo.png
-    - assets/images/whatsapp.svg
     - assets/images/payment/
     - assets/sounds/
     - assets/video/
-    - assets/video/10847026-hd_1920_1080_25fps.mp4

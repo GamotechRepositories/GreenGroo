@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
@@ -19,6 +21,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../shell/shell_navigation.dart';
 import '../shifts/select_shift_screen.dart';
 import '../fulltime/fulltime_widgets.dart';
+import '../../widgets/charts/weekly_bar_chart.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
 
 const _kRupee = '\u20B9';
@@ -840,12 +843,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                   const SizedBox(height: 14),
                 ],
 
-                // 6. PROMOTIONAL ACTION CARDS
-                _PromotionalActionCards(
-                  onExploreBonuses: () => Navigator.pushNamed(context, AppRoutes.earnings),
-                  onReferNow: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Referral link copied to clipboard!')),
-                  ),
+                // 6. PERFORMANCE SUMMARY
+                _HomePerformanceCard(
+                  onOpen: () => Navigator.pushNamed(context, AppRoutes.performance),
                 ),
               ],
             ),
@@ -1800,184 +1800,138 @@ class _SlabCard extends StatelessWidget {
   }
 }
 
-/// 6. Promotional Action Cards
-class _PromotionalActionCards extends StatelessWidget {
-  const _PromotionalActionCards({
-    required this.onExploreBonuses,
-    required this.onReferNow,
-  });
+/// 6. Performance — graph only (taps through to full Performance).
+class _HomePerformanceCard extends StatefulWidget {
+  const _HomePerformanceCard({required this.onOpen});
 
-  final VoidCallback onExploreBonuses;
-  final VoidCallback onReferNow;
+  final VoidCallback onOpen;
+
+  @override
+  State<_HomePerformanceCard> createState() => _HomePerformanceCardState();
+}
+
+class _HomePerformanceCardState extends State<_HomePerformanceCard> {
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await apiGet(
+        ApiConfig.performance,
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode != 200) throw Exception('Failed');
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      setState(() {
+        _data = body is Map<String, dynamic> ? body : null;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  double _pct(String key) => (_data?[key] as num?)?.toDouble() ?? 0;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardBackground,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('🎁', style: TextStyle(fontSize: 30)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.earnBonusTitle,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF047857),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          l10n.earnBonusSubtitle,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    side: const BorderSide(color: Color(0xFF059669), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  onPressed: onExploreBonuses,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l10n.exploreBonuses,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF059669),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF059669)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+    final rating = _data?['customerRating'] as Map<String, dynamic>?;
+    final avg = (rating?['average'] as num?)?.toDouble() ?? 0;
+    final acceptance = _pct('acceptanceRate');
+    final onTime = _pct('onTimeDeliveryRate');
+    final decline = _pct('declineRate');
+    final ratingPct = (avg / 5 * 100).clamp(0.0, 100.0);
 
-        Container(
+    return Material(
+      color: AppColors.cardBackground,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: widget.onOpen,
+        child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📣', style: TextStyle(fontSize: 30)),
-                  const SizedBox(width: 12),
+                  Icon(Icons.insights_rounded,
+                      color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.referAndEarnTitle,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1D4ED8),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          l10n.referAndEarnSubtitle,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      l10n.performance,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
+                  Text(
+                    l10n.viewAll,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 18, color: AppColors.primary),
                 ],
               ),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    side: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+              if (_loading)
+                const SizedBox(
+                  height: 200,
+                  child: Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
                     ),
                   ),
-                  onPressed: onReferNow,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l10n.referNow,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF2563EB),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF2563EB)),
+                )
+              else
+                ClipRect(
+                  child: WeeklyBarChart(
+                    height: 220,
+                    color: AppColors.primary,
+                    emptyMessage: 'Complete deliveries to see your graph',
+                    tooltipLabel: (i) {
+                      const labels = ['Rating', 'Accept', 'On time', 'Decline'];
+                      final vals = [ratingPct, acceptance, onTime, decline];
+                      final idx = i.clamp(0, 3);
+                      return '${labels[idx]}  ${vals[idx].toStringAsFixed(0)}%';
+                    },
+                    axisLabel: (v) => '${v.toInt()}',
+                    bars: [
+                      ChartBar(label: 'Rating', value: ratingPct, highlight: true),
+                      ChartBar(label: 'Accept', value: acceptance),
+                      ChartBar(label: 'On time', value: onTime),
+                      ChartBar(label: 'Decline', value: decline, muted: true),
                     ],
                   ),
                 ),
-              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

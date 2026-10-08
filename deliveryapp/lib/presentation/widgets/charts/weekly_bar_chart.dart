@@ -84,7 +84,7 @@ class WeeklyBarChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: axisLabel != null,
-                reservedSize: 40,
+                reservedSize: axisLabel != null ? 34 : 0,
                 interval: interval,
                 getTitlesWidget: (value, meta) {
                   if (value == meta.max) return const SizedBox.shrink();
@@ -92,7 +92,7 @@ class WeeklyBarChart extends StatelessWidget {
                     meta: meta,
                     child: Text(
                       axisLabel!(value),
-                      style: GoogleFonts.inter(fontSize: 10, color: AppColors.textMuted),
+                      style: GoogleFonts.inter(fontSize: 9, color: AppColors.textMuted),
                     ),
                   );
                 },
@@ -112,12 +112,16 @@ class WeeklyBarChart extends StatelessWidget {
                   }
                   return SideTitleWidget(
                     meta: meta,
-                    child: Text(
-                      bar.label,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: bar.highlight ? FontWeight.w800 : FontWeight.w500,
-                        color: bar.highlight ? accent : AppColors.textSecondary,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        bar.label,
+                        maxLines: 1,
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: bar.highlight ? FontWeight.w800 : FontWeight.w500,
+                          color: bar.highlight ? accent : AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   );

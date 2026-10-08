@@ -17,19 +17,10 @@ void completeAuthAndGoHome({
   ref.read(authControllerProvider.notifier).closeAuthModal();
 
   if (sheetContext.mounted) {
-    try {
-      Navigator.of(sheetContext, rootNavigator: true).pop();
-    } catch (_) {
-      try {
-        Navigator.of(sheetContext).pop();
-      } catch (_) {}
-    }
-  } else {
-    final rootContext = rootNavigatorKey.currentContext;
-    if (rootContext != null && rootContext.mounted) {
-      try {
-        Navigator.of(rootContext, rootNavigator: true).pop();
-      } catch (_) {}
+    final nav = Navigator.maybeOf(sheetContext, rootNavigator: true) ??
+        Navigator.maybeOf(sheetContext);
+    if (nav != null && nav.canPop()) {
+      nav.pop();
     }
   }
 

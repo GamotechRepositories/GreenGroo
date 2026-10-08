@@ -24,7 +24,7 @@ val mapsApiKey: String =
     localProperties.getProperty("MAPS_API_KEY") ?: System.getenv("MAPS_API_KEY") ?: ""
 
 android {
-    namespace = "com.greengrocc.app"
+    namespace = "com.greengrocc.userapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -39,7 +39,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.greengrocc.app"
+        applicationId = "com.greengrocc.userapp"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

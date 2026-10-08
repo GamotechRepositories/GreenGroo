@@ -103,7 +103,7 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
                   child: Opacity(
                     opacity: overlayOpacity,
                     child: ColoredBox(
-                      color: const Color(0xFFFFFAF6),
+                      color: Colors.white,
                       child: Center(
                         child: Opacity(
                           opacity: _contentOpacity!.value,
@@ -129,45 +129,16 @@ class _OpeningSplashContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const AppLogo(height: 84),
-          const SizedBox(height: 18),
-          const Text(
-            'GreenGrocc',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Smart Choice, Best Price',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            width: 132,
-            height: 3,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, Color(0xFFFFB347)],
-              ),
-            ),
-          ),
-        ],
+    return Center(
+      child: Image.asset(
+        'assets/images/app_icon_launcher.png',
+        width: 140,
+        height: 140,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => const SizedBox(
+          width: 140,
+          height: 140,
+        ),
       ),
     );
   }
