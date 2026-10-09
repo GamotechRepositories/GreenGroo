@@ -1,5 +1,6 @@
 import OfferBanner from "../models/OfferBanner.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { transformBannerResponse } from "../utils/urlResolver.js";
 
 const normalizeDevice = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
@@ -25,7 +26,7 @@ export const getOfferBanners = async (req, res) => {
       createdAt: -1,
     });
 
-    res.status(200).json({ success: true, data: banners });
+    res.status(200).json({ success: true, data: banners.map(transformBannerResponse) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -48,7 +49,7 @@ export const getAllOfferBanners = async (req, res) => {
       OfferBanner.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit),
     ]);
 
-    res.status(200).json(buildPaginatedResponse(banners, total, page, limit));
+    res.status(200).json(buildPaginatedResponse(banners.map(transformBannerResponse), total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -79,7 +80,7 @@ export const addOfferBanner = async (req, res) => {
       device: bannerDevice,
     });
 
-    res.status(201).json({ success: true, data: banner });
+    res.status(201).json({ success: true, data: transformBannerResponse(banner) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -113,7 +114,7 @@ export const updateOfferBanner = async (req, res) => {
       return res.status(404).json({ success: false, message: "Offer banner not found" });
     }
 
-    res.status(200).json({ success: true, data: banner });
+    res.status(200).json({ success: true, data: transformBannerResponse(banner) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

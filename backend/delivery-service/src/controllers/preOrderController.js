@@ -573,10 +573,13 @@ export const markPreOrdersReceived = async (req, res, next) => {
 const vendorIdOf = (req) => String(req.user?.vendorId || req.user?.id || "");
 const vendorNameOf = (req) => req.user?.vendorName || req.user?.name || "Vendor";
 
+/** Dark stores linked to this vendor, plus stores no vendor has been linked to yet (shared by every vendor). */
 async function vendorStores(req) {
   const vendorId = vendorIdOf(req);
   if (!vendorId) return [];
-  return DeliveryManager.find({ vendorId }).select(STORE_FIELDS);
+  return DeliveryManager.find({
+    $or: [{ vendorId }, { vendorId: "" }, { vendorId: null }, { vendorId: { $exists: false } }],
+  }).select(STORE_FIELDS);
 }
 
 function emitPreOrderChange(order, event, payload, vendorId) {

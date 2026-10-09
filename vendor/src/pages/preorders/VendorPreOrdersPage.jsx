@@ -6,6 +6,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Layers,
   MapPin,
   Phone,
   Search,
@@ -144,29 +145,41 @@ function ProgressPill({ order }) {
   )
 }
 
-function groupOrders(orders) {
-  const zones = new Map()
-  for (const order of orders) {
-    const store = order.store || {}
-    const zone = store.zone || 'Other'
-    const city = store.city || 'Unknown city'
-    const storeKey = store.id || order.managerId
-    if (!zones.has(zone)) zones.set(zone, new Map())
-    const cities = zones.get(zone)
-    if (!cities.has(city)) cities.set(city, new Map())
-    const stores = cities.get(city)
-    if (!stores.has(storeKey)) stores.set(storeKey, { store, orders: [] })
-    stores.get(storeKey).orders.push(order)
-  }
-  return [...zones.entries()].map(([zone, cities]) => ({
-    zone,
-    count: [...cities.values()].reduce((n, s) => n + [...s.values()].reduce((m, g) => m + g.orders.length, 0), 0),
-    cities: [...cities.entries()].map(([city, stores]) => ({
-      city,
-      count: [...stores.values()].reduce((n, g) => n + g.orders.length, 0),
-      stores: [...stores.values()],
-    })),
-  }))
+const zoneOf = (order) => order.store?.zone || 'Other'
+const storeIdOf = (order) => order.store?.id || String(order.managerId || '')
+const isAwaiting = (order) => order.preOrderProgress === 'awaiting_vendor'
+
+/** One clickable tile in the Zone → Dark store drill-down. */
+function LevelCard({ icon: Icon, title, subtitle, count, awaiting, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${PANEL} group flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:border-emerald-600`}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 rounded-lg bg-emerald-50 p-2 text-emerald-700">
+          <Icon size={18} />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-slate-900">{title}</div>
+          {subtitle ? <div className="mt-0.5 text-xs text-slate-500">{subtitle}</div> : null}
+          {awaiting ? (
+            <div className="mt-1.5 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+              {awaiting} awaiting confirmation
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="text-right">
+          <div className="text-2xl font-bold text-slate-900">{count}</div>
+          <div className="text-[11px] text-slate-500">order{count === 1 ? '' : 's'}</div>
+        </div>
+        <ChevronRight size={18} className="text-slate-300 group-hover:text-emerald-700" />
+      </div>
+    </button>
+  )
 }
 
 function RejectDialog({ order, onClose, onDone }) {
@@ -501,7 +514,6 @@ export default function VendorPreOrdersPage() {
   const dateMode = params.get('when') || 'upcoming'
   const customDate = params.get('date') || ''
   const zone = params.get('zone') || ''
-  const city = params.get('city') || ''
   const storeId = params.get('store') || ''
   const slot = params.get('slot') || ''
   const [query, setQuery] = useState('')
@@ -514,17 +526,18 @@ export default function VendorPreOrdersPage() {
   const [rejecting, setRejecting] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
 
-  const setParam = (key, value) => {
+  const updateParams = (patch, { push = false } = {}) => {
     const next = new URLSearchParams(params)
-    if (value) next.set(key, value)
-    else next.delete(key)
-    if (key === 'zone') {
-      next.delete('city')
-      next.delete('store')
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value)
+      else next.delete(key)
     }
-    if (key === 'city') next.delete('store')
-    setParams(next, { replace: true })
+    setParams(next, { replace: !push })
   }
+  const setParam = (key, value) => updateParams({ [key]: value })
+  const openAllZones = () => updateParams({ zone: '', store: '' }, { push: true })
+  const openZone = (z) => updateParams({ zone: z, store: '' }, { push: true })
+  const openStore = (store) => updateParams({ zone: store.zone || zone, store: store.id }, { push: true })
 
   const apiDate =
     dateMode === 'today' ? istDate(0) : dateMode === 'tomorrow' ? istDate(1) : dateMode === 'date' ? customDate : ''
@@ -559,13 +572,7 @@ export default function VendorPreOrdersPage() {
     [boardDate, reloadKey],
   )
 
-  const stores = data.stores || []
-  const zones = useMemo(() => [...new Set(stores.map((s) => s.zone))].sort(), [stores])
-  const cities = useMemo(
-    () => [...new Set(stores.filter((s) => !zone || s.zone === zone).map((s) => s.city))].sort(),
-    [stores, zone],
-  )
-  const storeOptions = stores.filter((s) => (!zone || s.zone === zone) && (!city || s.city === city))
+  const stores = useMemo(() => data.stores || [], [data.stores])
   const slots = useMemo(
     () =>
       [
@@ -579,13 +586,11 @@ export default function VendorPreOrdersPage() {
   const locationScoped = useMemo(
     () =>
       (data.orders || []).filter((o) => {
-        const s = o.store || {}
-        if (zone && s.zone !== zone) return false
-        if (city && s.city !== city) return false
-        if (storeId && s.id !== storeId) return false
+        if (storeId) return storeIdOf(o) === storeId
+        if (zone && zoneOf(o) !== zone) return false
         return true
       }),
-    [data.orders, zone, city, storeId],
+    [data.orders, zone, storeId],
   )
 
   const scoped = useMemo(() => {
@@ -607,7 +612,53 @@ export default function VendorPreOrdersPage() {
 
   const activeTab = TABS.find((t) => t.key === tab) || TABS[0]
   const visible = activeTab.match ? scoped.filter((o) => activeTab.match.includes(o.preOrderProgress)) : scoped
-  const groups = useMemo(() => groupOrders(visible), [visible])
+  const zoneCards = useMemo(() => {
+    const map = new Map()
+    const entry = (z) => {
+      if (!map.has(z)) map.set(z, { zone: z, stores: new Set(), cities: new Set(), count: 0, awaiting: 0 })
+      return map.get(z)
+    }
+    for (const s of stores) {
+      const e = entry(s.zone || 'Other')
+      e.stores.add(s.id)
+      if (s.city) e.cities.add(s.city)
+    }
+    for (const o of visible) entry(zoneOf(o)).count += 1
+    for (const o of scoped) if (isAwaiting(o)) entry(zoneOf(o)).awaiting += 1
+    return [...map.values()].sort((a, b) => b.count - a.count || a.zone.localeCompare(b.zone))
+  }, [stores, visible, scoped])
+
+  const zoneCities = useMemo(() => {
+    if (!zone || storeId) return []
+    const byId = new Map()
+    const entry = (store) => {
+      if (!byId.has(store.id)) byId.set(store.id, { store, count: 0, awaiting: 0 })
+      return byId.get(store.id)
+    }
+    const storeOf = (o) => o.store || { id: storeIdOf(o), storeName: 'Dark store', zone }
+    for (const s of stores) if ((s.zone || 'Other') === zone) entry(s)
+    for (const o of visible) entry(storeOf(o)).count += 1
+    for (const o of scoped) if (isAwaiting(o)) entry(storeOf(o)).awaiting += 1
+    const cities = new Map()
+    for (const e of byId.values()) {
+      const c = e.store.city || 'Unknown city'
+      if (!cities.has(c)) cities.set(c, [])
+      cities.get(c).push(e)
+    }
+    return [...cities.entries()]
+      .map(([cityName, list]) => ({
+        city: cityName,
+        count: list.reduce((n, e) => n + e.count, 0),
+        stores: list.sort((a, b) => b.count - a.count || (a.store.storeName || '').localeCompare(b.store.storeName || '')),
+      }))
+      .sort((a, b) => b.count - a.count || a.city.localeCompare(b.city))
+  }, [zone, storeId, stores, visible, scoped])
+
+  const currentStore = storeId
+    ? stores.find((s) => s.id === storeId) || locationScoped[0]?.store || { id: storeId, storeName: 'Dark store' }
+    : null
+  const crumbZone = zone || currentStore?.zone || ''
+
   const selectedVisible = [...selected].filter((id) =>
     visible.some((o) => o.id === id && o.preOrderProgress === 'awaiting_vendor'),
   )
@@ -673,8 +724,8 @@ export default function VendorPreOrdersPage() {
         <div className={PAGE_KICKER}>Orders</div>
         <h1 className={PAGE_TITLE}>Pre-orders</h1>
         <p className={PAGE_SUB}>
-          Next-day slot orders from customers for your dark stores, by zone, city and dark store. Confirm them so the
-          Product Manager can prepare and send the goods to the store.
+          Next-day slot orders from customers for your dark stores. Open a zone, then a dark store, to see its orders.
+          Confirm them so the Product Manager can prepare and send the goods to the store.
         </p>
       </div>
 
@@ -716,49 +767,25 @@ export default function VendorPreOrdersPage() {
               onChange={(e) => setParam('date', e.target.value)}
             />
           ) : null}
-          <div className="relative ml-auto w-full sm:w-72">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              className={`${INPUT} py-2 pl-8`}
-              placeholder="Search order, customer, phone, item"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+          <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
+            <select className={`${INPUT} w-full py-2 sm:w-44`} value={slot} onChange={(e) => setParam('slot', e.target.value)}>
+              <option value="">All slots</option>
+              {slots.map((s) => (
+                <option key={s} value={s}>
+                  {fmtSlot(s)}
+                </option>
+              ))}
+            </select>
+            <div className="relative w-full sm:w-72">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className={`${INPUT} py-2 pl-8`}
+                placeholder="Search order, customer, phone, item"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <select className={INPUT} value={zone} onChange={(e) => setParam('zone', e.target.value)}>
-            <option value="">All zones</option>
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-          <select className={INPUT} value={city} onChange={(e) => setParam('city', e.target.value)}>
-            <option value="">All cities</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <select className={INPUT} value={storeId} onChange={(e) => setParam('store', e.target.value)}>
-            <option value="">All dark stores</option>
-            {storeOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.storeName} ({s.area})
-              </option>
-            ))}
-          </select>
-          <select className={INPUT} value={slot} onChange={(e) => setParam('slot', e.target.value)}>
-            <option value="">All slots</option>
-            {slots.map((s) => (
-              <option key={s} value={s}>
-                {fmtSlot(s)}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -790,13 +817,47 @@ export default function VendorPreOrdersPage() {
         ))}
       </div>
 
+      <nav className="flex flex-wrap items-center gap-1.5 text-sm">
+        <button
+          type="button"
+          onClick={openAllZones}
+          className={crumbZone || storeId ? 'text-emerald-700 hover:underline' : 'font-semibold text-slate-900'}
+        >
+          All zones
+        </button>
+        {crumbZone ? (
+          <>
+            <ChevronRight size={14} className="text-slate-300" />
+            <button
+              type="button"
+              onClick={() => openZone(crumbZone)}
+              className={storeId ? 'text-emerald-700 hover:underline' : 'font-semibold text-slate-900'}
+            >
+              {crumbZone}
+            </button>
+          </>
+        ) : null}
+        {storeId ? (
+          <>
+            <ChevronRight size={14} className="text-slate-300" />
+            <span className="font-semibold text-slate-900">
+              {currentStore.storeName || 'Dark store'}
+              {currentStore.area ? <span className="font-normal text-slate-500"> · {currentStore.area}</span> : null}
+            </span>
+          </>
+        ) : null}
+        <span className="ml-auto text-xs text-slate-500">
+          {storeId ? 'Orders' : 'Counts'} shown for: <span className="font-medium text-slate-700">{activeTab.label}</span>
+        </span>
+      </nav>
+
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
 
       {awaitingAll.length ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <span className="text-sm font-medium text-amber-900">
             {awaitingAll.length} pre-order{awaitingAll.length === 1 ? '' : 's'} waiting for your confirmation
-            {zone || city || storeId || slot || query ? ' in this view' : ''}
+            {zone || storeId || slot || query ? ' in this view' : ''}
           </span>
           <button
             type="button"
@@ -816,44 +877,64 @@ export default function VendorPreOrdersPage() {
           title="No dark stores yet"
           description="Pre-orders appear here once the admin approves a dark store for you."
         />
-      ) : !groups.length ? (
-        <EmptyState title="No pre-orders here" description="Try another tab, date or location filter." />
-      ) : (
-        <div className="space-y-6">
-          {groups.map((zoneGroup) => (
-            <section key={zoneGroup.zone} className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg bg-emerald-700 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
-                  Zone
+      ) : storeId ? (
+        visible.length ? (
+          <StoreCard
+            key={storeId}
+            group={{ store: currentStore, orders: visible }}
+            selected={selected}
+            onToggle={toggle}
+            onToggleAll={toggleAll}
+            onConfirm={confirm}
+            onReject={setRejecting}
+            busyIds={busyIds}
+          />
+        ) : (
+          <EmptyState
+            title={`No ${activeTab.key === 'all' ? '' : `"${activeTab.label}" `}pre-orders at ${currentStore.storeName || 'this dark store'}`}
+            description="Try another status tab, date or slot."
+          />
+        )
+      ) : zone ? (
+        <div className="space-y-5">
+          {zoneCities.map((cityGroup) => (
+            <div key={cityGroup.city} className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin size={14} className="text-emerald-700" />
+                <span className="font-semibold text-slate-800">{cityGroup.city}</span>
+                <span className="text-xs text-slate-500">
+                  {cityGroup.stores.length} dark store{cityGroup.stores.length === 1 ? '' : 's'} · {cityGroup.count} order
+                  {cityGroup.count === 1 ? '' : 's'}
                 </span>
-                <h2 className="text-base font-semibold text-slate-900">{zoneGroup.zone}</h2>
-                <span className="text-xs text-slate-500">{zoneGroup.count} orders</span>
               </div>
-              {zoneGroup.cities.map((cityGroup) => (
-                <div key={cityGroup.city} className="space-y-3 border-l-2 border-emerald-100 pl-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin size={14} className="text-emerald-700" />
-                    <span className="font-semibold text-slate-800">{cityGroup.city}</span>
-                    <span className="text-xs text-slate-500">
-                      {cityGroup.stores.length} dark store{cityGroup.stores.length === 1 ? '' : 's'} · {cityGroup.count}{' '}
-                      orders
-                    </span>
-                  </div>
-                  {cityGroup.stores.map((group) => (
-                    <StoreCard
-                      key={group.store.id || group.orders[0].id}
-                      group={group}
-                      selected={selected}
-                      onToggle={toggle}
-                      onToggleAll={toggleAll}
-                      onConfirm={confirm}
-                      onReject={setRejecting}
-                      busyIds={busyIds}
-                    />
-                  ))}
-                </div>
-              ))}
-            </section>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {cityGroup.stores.map((e) => (
+                  <LevelCard
+                    key={e.store.id}
+                    icon={Store}
+                    title={e.store.storeName || 'Dark store'}
+                    subtitle={[e.store.area, e.store.pincode].filter(Boolean).join(' · ')}
+                    count={e.count}
+                    awaiting={e.awaiting}
+                    onClick={() => openStore(e.store)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {zoneCards.map((z) => (
+            <LevelCard
+              key={z.zone}
+              icon={Layers}
+              title={z.zone}
+              subtitle={`${z.stores.size} dark store${z.stores.size === 1 ? '' : 's'} · ${z.cities.size} cit${z.cities.size === 1 ? 'y' : 'ies'}`}
+              count={z.count}
+              awaiting={z.awaiting}
+              onClick={() => openZone(z.zone)}
+            />
           ))}
         </div>
       )}

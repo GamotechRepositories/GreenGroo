@@ -1,5 +1,6 @@
 import Brand from "../models/Brand.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { transformBrandResponse } from "../utils/urlResolver.js";
 
 export const getBrands = async (req, res) => {
   try {
@@ -7,7 +8,7 @@ export const getBrands = async (req, res) => {
       order: 1,
       createdAt: -1,
     });
-    res.status(200).json({ success: true, data: brands });
+    res.status(200).json({ success: true, data: brands.map(transformBrandResponse) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -22,7 +23,7 @@ export const getAllBrands = async (req, res) => {
       Brand.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit),
     ]);
 
-    res.status(200).json(buildPaginatedResponse(brands, total, page, limit));
+    res.status(200).json(buildPaginatedResponse(brands.map(transformBrandResponse), total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -34,7 +35,7 @@ export const getBrandById = async (req, res) => {
     if (!brand) {
       return res.status(404).json({ success: false, message: "Brand not found" });
     }
-    res.status(200).json({ success: true, data: brand });
+    res.status(200).json({ success: true, data: transformBrandResponse(brand) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -96,7 +97,7 @@ export const updateBrand = async (req, res) => {
       return res.status(404).json({ success: false, message: "Brand not found" });
     }
 
-    res.status(200).json({ success: true, data: brand });
+    res.status(200).json({ success: true, data: transformBrandResponse(brand) });
   } catch (error) {
     if (error.code === 11000) {
       return res

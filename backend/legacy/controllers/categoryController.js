@@ -1,4 +1,5 @@
 import Category from "../models/Category.js";
+import { transformCategoryResponse } from "../utils/urlResolver.js";
 import Product from "../models/Product.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { buildCategorySearchFilter } from "../utils/adminSearch.js";
@@ -35,7 +36,7 @@ export const getCategories = async (req, res) => {
     );
 
     const data = categories.map((category) => {
-      const categoryObj = category.toObject();
+      const categoryObj = transformCategoryResponse(category);
       const key = String(categoryObj.categoryName || "").trim().toLowerCase();
       return {
         ...categoryObj,
@@ -62,7 +63,7 @@ export const getAllCategories = async (req, res) => {
       Category.find(filter).sort({ categoryName: 1, createdAt: -1 }).skip(skip).limit(limit),
     ]);
 
-    res.status(200).json(buildPaginatedResponse(categories, total, page, limit));
+    res.status(200).json(buildPaginatedResponse(categories.map(transformCategoryResponse), total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -78,7 +79,7 @@ export const getCategoryById = async (req, res) => {
         .json({ success: false, message: "Category not found" });
     }
 
-    res.status(200).json({ success: true, data: category });
+    res.status(200).json({ success: true, data: transformCategoryResponse(category) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -171,7 +172,7 @@ export const updateCategory = async (req, res) => {
         .json({ success: false, message: "Category not found" });
     }
 
-    res.status(200).json({ success: true, data: category });
+    res.status(200).json({ success: true, data: transformCategoryResponse(category) });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({

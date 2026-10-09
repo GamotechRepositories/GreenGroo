@@ -284,8 +284,8 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
           part.isPreOrder ? "new_preorder_received" : "new_order_received",
           payload
         );
-        if (part.isPreOrder && manager.vendorId) {
-          io.to(`vendor_${manager.vendorId}`).emit("new_preorder_received", payload);
+        if (part.isPreOrder) {
+          io.to(manager.vendorId ? `vendor_${manager.vendorId}` : "role:vendor").emit("new_preorder_received", payload);
         }
       } catch (err) {
         console.warn("[deliveryDispatcher] socket emit failed:", err.message);

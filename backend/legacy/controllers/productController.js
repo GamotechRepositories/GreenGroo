@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import { transformProductResponse } from "../utils/urlResolver.js";
 import Category from "../models/Category.js";
 import Order from "../models/order/Order.js";
 import mongoose from "mongoose";
@@ -709,7 +710,7 @@ export const getProducts = async (req, res) => {
       const data = await attachQuantityDiscounts(
         attachStoreAvailability(
           products.map((item) => ({
-            ...item.toObject(),
+            ...transformProductResponse(item),
             purchaseCount: purchaseCounts.get(String(item._id)) || 0,
           })),
           catalog
@@ -734,7 +735,7 @@ export const getProducts = async (req, res) => {
     const data = await attachQuantityDiscounts(
       attachStoreAvailability(
         products.map((item) => ({
-          ...item.toObject(),
+          ...transformProductResponse(item),
           purchaseCount: purchaseCounts.get(String(item._id)) || 0,
         })),
         catalog
@@ -893,7 +894,7 @@ export const getProductById = async (req, res) => {
       attachStoreAvailability(
         [
           {
-            ...product.toObject(),
+            ...transformProductResponse(product),
             purchaseCount: purchaseCounts.get(String(product._id)) || 0,
           },
         ],
@@ -904,7 +905,7 @@ export const getProductById = async (req, res) => {
     res.status(200).json({
       success: true,
       data: decorated || {
-        ...product.toObject(),
+        ...transformProductResponse(product),
         purchaseCount: purchaseCounts.get(String(product._id)) || 0,
         inStock: false,
         stock: 0,
