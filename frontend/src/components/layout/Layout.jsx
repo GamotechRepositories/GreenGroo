@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
@@ -7,6 +8,8 @@ function Layout({ children }) {
   const [headerHeight, setHeaderHeight] = useState(0);
   const headerRef = useRef(null);
   const lastScrollY = useRef(0);
+  const { pathname } = useLocation();
+  const hideNavs = pathname === "/cart" || pathname === "/checkout";
 
   useEffect(() => {
     const header = headerRef.current;
@@ -49,9 +52,9 @@ function Layout({ children }) {
       >
         <Navbar />
       </header>
-      <div style={{ height: headerHeight }} aria-hidden="true" />
+      {!hideNavs && <div style={{ height: headerHeight }} aria-hidden="true" />}
       <main className="flex-1 bg-black">{children}</main>
-      <Footer />
+      {!hideNavs && <Footer />}
     </div>
   );
 }

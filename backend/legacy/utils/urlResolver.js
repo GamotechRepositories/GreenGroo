@@ -7,14 +7,14 @@ export const resolveImageUrl = (imageKey) => {
     const match = cleanKey.match(s3Regex);
     if (match) {
       cleanKey = match[1];
-    } else if (cleanKey.includes(process.env.CLOUDFRONT_DOMAIN || "d1347kdapa3s7q.cloudfront.net")) {
-        return cleanKey;
+    } else if (cleanKey.includes(process.env.CLOUDFRONT_DOMAIN || "cdn.greengrocc.com")) {
+      return cleanKey;
     } else {
       return cleanKey;
     }
   }
 
-  const domain = process.env.CLOUDFRONT_DOMAIN || "d1347kdapa3s7q.cloudfront.net";
+  const domain = process.env.CLOUDFRONT_DOMAIN || "cdn.greengrocc.com";
   const cleanDomain = domain.replace(/\/+$/, "").replace(/^https?:\/\//, "");
   cleanKey = cleanKey.replace(/^\/+/, "");
 

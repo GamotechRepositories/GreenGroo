@@ -1,15 +1,19 @@
 import { resolveImageUrl, resolveImageArray } from "./urlResolver.js";
 
 // Mock process.env
-process.env.CLOUDFRONT_DOMAIN = "d1347kdapa3s7q.cloudfront.net";
+process.env.CLOUDFRONT_DOMAIN = "cdn.greengrocc.com";
 
 function testResolveImageUrl() {
   const tests = [
-    { input: "images/product/123.jpg", expected: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg" },
-    { input: "/images/product/123.jpg", expected: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg" },
-    { input: "https://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/product/123.jpg", expected: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg" },
-    { input: "http://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/product/123.jpg", expected: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg" },
-    { input: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg", expected: "https://d1347kdapa3s7q.cloudfront.net/images/product/123.jpg" },
+    {
+      input: "images/product/123.jpg", expected: "https://cdn.greengrocc.com / images / product / 123.jpg"
+    },
+    {
+      input: "/images/product/123.jpg", expected: "https://cdn.greengrocc.com/ images / product / 123.jpg"
+    },
+    { input: "https://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/product/123.jpg", expected: "https://cdn.greengrocc.com/images/product/123.jpg" },
+    { input: "http://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/product/123.jpg", expected: "https://cdn.greengrocc.com/images/product/123.jpg" },
+    { input: "https://cdn.greengrocc.com/images/product/123.jpg", expected: "https://cdn.greengrocc.com/images/product/123.jpg" },
     { input: null, expected: null },
     { input: "", expected: null }
   ];
@@ -29,19 +33,19 @@ function testResolveImageUrl() {
 }
 
 function testResolveImageArray() {
-    const input = ["images/1.jpg", "https://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/2.jpg", null, ""];
-    const expected = [
-        "https://d1347kdapa3s7q.cloudfront.net/images/1.jpg",
-        "https://d1347kdapa3s7q.cloudfront.net/images/2.jpg"
-    ];
-    
-    const actual = resolveImageArray(input);
-    let passed = JSON.stringify(actual) === JSON.stringify(expected);
-    if (!passed) {
-        console.error(`testResolveImageArray failed: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    } else {
-        console.log("All resolveImageArray tests passed.");
-    }
+  const input = ["images/1.jpg", "https://greengrocc-s3.s3.ap-south-1.amazonaws.com/images/2.jpg", null, ""];
+  const expected = [
+    "https://cdn.greengrocc.com/images/1.jpg",
+    "https://cdn.greengrocc.comimages/2.jpg"
+  ];
+
+  const actual = resolveImageArray(input);
+  let passed = JSON.stringify(actual) === JSON.stringify(expected);
+  if (!passed) {
+    console.error(`testResolveImageArray failed: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  } else {
+    console.log("All resolveImageArray tests passed.");
+  }
 }
 
 testResolveImageUrl();

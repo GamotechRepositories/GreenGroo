@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { sectionToStoreKey, storeToSection } from "../utils/storeSection";
 
 export function useProductListParams(searchParams) {
   return useMemo(() => {
@@ -11,6 +12,7 @@ export function useProductListParams(searchParams) {
     const minPrice = searchParams.get("minPrice")?.trim() || "";
     const maxPrice = searchParams.get("maxPrice")?.trim() || "";
     const sort = searchParams.get("sort")?.trim() || "newest";
+    const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
 
     if (categoryName) params.categoryName = categoryName;
     if (searchQuery) params.q = searchQuery;
@@ -22,6 +24,12 @@ export function useProductListParams(searchParams) {
     if (sort && sort !== "default") params.sort = sort;
     if (searchParams.get("justArrived") === "true") params.justArrived = true;
     if (searchParams.get("hotSelling") === "true") params.hotSelling = true;
+
+    // Pass section so the API only returns products from the active store section
+    if (storeParam) {
+      const storeKey = sectionToStoreKey(storeParam);
+      params.section = storeToSection(storeKey);
+    }
 
     return params;
   }, [searchParams]);

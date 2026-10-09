@@ -590,8 +590,19 @@ export const getProducts = async (req, res) => {
 
     if (req.query.section?.trim()) {
       const targetSection = req.query.section.trim().toLowerCase();
-      if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc" || targetSection === "all") {
-        // Preorder shows EVERYTHING - all products across all departments!
+      if (targetSection === "all") {
+        // "all" shows EVERYTHING - all products across all departments!
+      } else if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc") {
+        filter.$or = [
+          { section: "preorder" },
+          { section: "main" },
+          { section: "greengrocc" },
+          { storeType: "preorder" },
+          { storeType: "main" },
+          { storeType: "greengrocc" },
+          { section: { $exists: false } },
+          { storeType: { $exists: false } }
+        ];
       } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
         filter.$or = [
           { section: "ready2cook" },
@@ -763,8 +774,19 @@ export const getAllProducts = async (req, res) => {
 
       if (req.query.section && req.query.section !== "all") {
         const targetSec = req.query.section.trim().toLowerCase();
-        if (targetSec === "preorder" || targetSec === "main" || targetSec === "greengrocc") {
-          // Preorder shows ALL products
+        if (targetSec === "all") {
+          // "all" shows ALL products
+        } else if (targetSec === "preorder" || targetSec === "main" || targetSec === "greengrocc") {
+          filter.$or = [
+            { section: "preorder" },
+            { section: "main" },
+            { section: "greengrocc" },
+            { storeType: "preorder" },
+            { storeType: "main" },
+            { storeType: "greengrocc" },
+            { section: { $exists: false } },
+            { storeType: { $exists: false } }
+          ];
         } else if (targetSec === "ready2cook" || targetSec === "ready-2-cook" || targetSec === "festive") {
           filter.$or = [
             { section: "ready2cook" },

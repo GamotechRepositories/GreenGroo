@@ -11,7 +11,7 @@ import { getMostVisitedCategories } from "../../utils/categoryVisits";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { storeToSection } from "../../utils/storeSection";
 
-function CategoryProductSection({ categoryName, limit = 20 }) {
+function CategoryProductSection({ categoryName, limit = 20, section = null }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
   const locationKey = useDeliveryLocationKey();
@@ -19,7 +19,9 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
 
   useEffect(() => {
     let isMounted = true;
-    getProducts({ categoryName, limit })
+    const params = { categoryName, limit };
+    if (section) params.section = section;
+    getProducts(params)
       .then((res) => {
         if (!isMounted) return;
         const list = res.data?.data || res.data?.products || res.data || [];
@@ -33,7 +35,7 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryName, limit, locationKey]);
+  }, [categoryName, limit, locationKey, section]);
 
   const cardProps = (product) => ({
     product,
@@ -81,7 +83,7 @@ function rankHomeCategories(availableNames) {
   return [...preferred, ...rest];
 }
 
-function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
+function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
   const { hasLocation } = useLocation();
   const { data: nearest } = useNearestStore();
   const storeName = nearest?.store?.storeName;
@@ -89,8 +91,9 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
   const noStore =
     hasLocation && !nearest?.store && nearest?.reason && nearest.reason !== "no_store";
 
+  const targetSection = section || storeToSection("main");
   const { data: apiCategories = [] } = useCategoriesQuery({
-    section: storeToSection("main"),
+    section: targetSection,
   });
 
   const categories = useMemo(() => {
@@ -141,6 +144,7 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
           key={category}
           categoryName={category}
           limit={limitPerCategory}
+          section={targetSection}
         />
       ))}
     </div>

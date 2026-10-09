@@ -10,6 +10,7 @@ export default function SuggestedForYouSection({
   title = "Suggested for You",
   subtitle = "Handpicked fresh items just for you",
   customProducts = null,
+  section = null,
 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
@@ -20,7 +21,9 @@ export default function SuggestedForYouSection({
   useEffect(() => {
     if (customProducts && customProducts.length > 0) return;
     let isMounted = true;
-    getProducts({ limit: 12 })
+    const params = { limit: 12 };
+    if (section) params.section = section;
+    getProducts(params)
       .then((res) => {
         if (!isMounted) return;
         const list = res.data?.data || res.data?.products || res.data || [];
@@ -32,7 +35,7 @@ export default function SuggestedForYouSection({
     return () => {
       isMounted = false;
     };
-  }, [customProducts, locationKey]);
+  }, [customProducts, locationKey, section]);
 
   const products =
     customProducts && customProducts.length > 0 ? customProducts : apiProducts;

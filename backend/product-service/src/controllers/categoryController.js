@@ -23,6 +23,16 @@ function productSectionClause(section, storeType) {
       $or: [{ section: { $in: ["instantorder", "instant", "supermall"] } }, { storeType: "mall" }],
     };
   }
+  if (["preorder", "main", "greengrocc"].includes(target)) {
+    return {
+      $or: [
+        { section: { $in: ["preorder", "main", "greengrocc"] } },
+        { storeType: { $in: ["preorder", "main", "greengrocc"] } },
+        { section: { $exists: false } },
+        { storeType: { $exists: false } }
+      ],
+    };
+  }
   return {};
 }
 

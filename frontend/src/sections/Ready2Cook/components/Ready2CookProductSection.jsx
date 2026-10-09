@@ -7,6 +7,7 @@ export function Ready2CookProductSection({ title = "Trending Prepped Veggies", p
       title={title}
       subtitle="100% Pre-Washed & Zero Preservatives"
       customProducts={products}
+      section="ready2cook"
     />
   );
 }

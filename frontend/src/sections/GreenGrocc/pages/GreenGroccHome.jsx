@@ -14,7 +14,7 @@ export function GreenGroccHome() {
       <GreenGroccOffers />
       <GreenGroccProductSection title="Fresh Farm Picks" />
       <GreenGroccFeaturedVendors />
-      <HomeAllCategoryProducts limitPerCategory={20} />
+      <HomeAllCategoryProducts limitPerCategory={20} section="greengrocc" />
     </div>
   );
 }

@@ -11,6 +11,7 @@ function MobileLayout({ children }) {
   const isHome = pathname === "/";
   const isProductDetail = /^\/product\/[^/]+/.test(pathname);
   const isShop = pathname === "/product";
+  const hideNavs = pathname === "/cart" || pathname === "/checkout";
 
   return (
     <div
@@ -18,13 +19,13 @@ function MobileLayout({ children }) {
         isHome ? "bg-white lg:bg-mobile-bg" : "bg-mobile-bg"
       }`}
     >
-      <TopNav />
+      {!hideNavs && <TopNav />}
 
       {isHome ? (
         <div className="lg:hidden">
           <HomeStickyCategories />
         </div>
-      ) : isProductDetail ? null : (
+      ) : isProductDetail || hideNavs ? null : (
         <MobileHeader />
       )}
 
@@ -42,7 +43,7 @@ function MobileLayout({ children }) {
         <Footer />
       </div>
 
-      <BottomNav />
+      {!hideNavs && <BottomNav />}
     </div>
   );
 }
