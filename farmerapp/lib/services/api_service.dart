@@ -323,6 +323,45 @@ class ApiService {
       return null;
     }
   }
+
+  /// `{vendorId, products: [{productId, productName, category, unit, variety, image, price, mrp, discountedPrice, sellingPrice, isAdded, isPending, status}]}` — products approved for the farmer's vendor.
+  Future<Map<String, dynamic>?> fetchVendorAvailableProducts({String? farmerId}) async {
+    try {
+      final res = await get('/api/farmer/products/vendor-available');
+      if (res is Map<String, dynamic>) return res;
+    } catch (_) {}
+    if (farmerId != null && farmerId.isNotEmpty) {
+      try {
+        final res = await get('/api/farmer/$farmerId/products/vendor-available');
+        if (res is Map<String, dynamic>) return res;
+      } catch (_) {}
+      try {
+        final res = await get('/api/farmers/$farmerId/products/vendor-available');
+        if (res is Map<String, dynamic>) return res;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<dynamic> requestProduct(Map<String, dynamic> body, {String? farmerId}) async {
+    try {
+      final res = await post('/api/farmer/products/request', body);
+      if (res != null) return res;
+    } catch (_) {}
+    final targetId = farmerId ?? body['farmerId']?.toString();
+    if (targetId != null && targetId.isNotEmpty) {
+      try {
+        final res = await post('/api/farmer/$targetId/products/request', body);
+        if (res != null) return res;
+      } catch (_) {}
+      try {
+        final res = await post('/api/farmers/$targetId/products/request', body);
+        if (res != null) return res;
+      } catch (_) {}
+    }
+    return null;
+  }
+
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
   Future<dynamic> fetchProducts(String farmerId) async {
     try {

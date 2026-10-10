@@ -76,7 +76,7 @@ const farmerSchema = new mongoose.Schema(
     },
     verificationRequired: { type: Boolean, default: false },
     loginEnabled: { type: Boolean, default: true },
-    vendorId: { type: String, required: true, default: "vendor-1" },
+    vendorId: { type: String, default: "" },
     managerId: { type: String, default: "" },
     role: { type: String, default: "FARMER" },
     dateOfBirth: { type: String, default: "" },

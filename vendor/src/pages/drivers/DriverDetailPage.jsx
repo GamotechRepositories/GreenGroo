@@ -183,6 +183,7 @@ function buildBatch(batchId, list) {
     now,
     date: dates.length ? new Date(Math.min(...dates)) : null,
     updated: Math.max(0, ...orders.map((p) => toTime(p.updatedAt))),
+    created: Math.min(Infinity, ...orders.map((p) => toTime(p.collectionBatchAssignedAt || p.assignedAt || p.createdAt)).filter(Boolean)),
     farmers: [...new Set(orders.map((p) => p.farmerName).filter(Boolean))],
   };
 }
@@ -194,9 +195,9 @@ function groupByBatch(pickups) {
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(p);
   });
-  const order = { progress: 0, centre: 1, waiting: 2, done: 3 };
+  const createdAt = (b) => (Number.isFinite(b.created) ? b.created : 0);
   return Array.from(map, ([id, list]) => buildBatch(id, list)).sort(
-    (a, b) => order[a.state] - order[b.state] || b.updated - a.updated
+    (a, b) => createdAt(b) - createdAt(a) || String(b.batchId).localeCompare(String(a.batchId)) || b.updated - a.updated
   );
 }
 
@@ -612,7 +613,7 @@ export default function DriverDetailPage() {
       </div>
 
       {shown.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {shown.map((b) => (
             <BatchSummaryCard key={b.batchId} batch={b} onOpen={() => setSelectedBatchId(b.batchId)} />
           ))}

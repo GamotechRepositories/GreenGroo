@@ -72,7 +72,6 @@ function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
 }
 
-const DEFAULT_VENDOR_ID = "vendor-1";
 
 function initials(name = "") {
   return name
@@ -204,7 +203,13 @@ async function aggFarmerStats(farmerIds) {
 }
 
 function assignedFarmerQuery(req) {
-  return { managerId: req.user.managerId, vendorId: req.user.vendorId };
+  const managerId = req.user?.managerId || req.user?.id || "__NONE__";
+  const vendorId = req.user?.vendorId || "__NONE__";
+  return {
+    isDeleted: { $ne: true },
+    managerId,
+    vendorId,
+  };
 }
 
 function indexFarmersByIdentity(farmers) {
@@ -221,13 +226,24 @@ function indexFarmersByIdentity(farmers) {
 
 function accessibleFarmerQuery(req, farmerId) {
   const query = {
-    $or: [{ id: farmerId }, { farmerId: farmerId }],
+    isDeleted: { $ne: true },
+    $or: [{ id: farmerId }, { farmerId: farmerId }, { farmerCode: farmerId }],
   };
   if (req.user?.role === "FARMER_MANAGER") {
-    query.managerId = req.user.managerId;
-    query.vendorId = req.user.vendorId;
-  } else if (req.user?.role === "VENDOR" && req.user.vendorId) {
-    query.vendorId = req.user.vendorId;
+    query.managerId = req.user.managerId || req.user.id || "__NONE__";
+    query.vendorId = req.user.vendorId || "__NONE__";
+  } else if (req.user?.role === "VENDOR") {
+    query.vendorId = req.user.vendorId || req.user.id || "__NONE__";
+  } else if (req.user?.role === "FARMER") {
+    const authId = req.user.farmerId || req.user.id || "__NONE__";
+    if (farmerId && farmerId !== authId && farmerId !== req.user.farmerId && farmerId !== req.user.id) {
+      query.id = "__NONE__";
+    } else {
+      query.$or = [{ id: authId }, { farmerId: authId }, { farmerCode: authId }];
+    }
+    if (req.user.vendorId) {
+      query.vendorId = req.user.vendorId;
+    }
   }
   return query;
 }
@@ -574,9 +590,36 @@ async function enrichFarmerDocsBatch(farmerDocs) {
 // ----------------------------------------------------
 export async function getFarmers(req, res) {
   try {
-    const { q = "", status = "", managerId = "", location = "", vendorId = DEFAULT_VENDOR_ID } = req.query;
+    const { q = "", status = "", location = "" } = req.query;
+    let managerId = req.query.managerId || "";
 
-    const query = { vendorId };
+    let vendorId = "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+      if (!vendorId) return res.json(isPaginationRequested(req.query) ? paginatedResponse([], 0, 1, 10) : []);
+    } else if (req.user?.role === "FARMER_MANAGER") {
+      vendorId = req.user.vendorId || "";
+      managerId = req.user.managerId || req.user.id || "";
+      if (!vendorId || !managerId) return res.json(isPaginationRequested(req.query) ? paginatedResponse([], 0, 1, 10) : []);
+    } else if (req.user?.role === "FARMER") {
+      const myId = req.user.farmerId || req.user.id || "__NONE__";
+      const farmerDoc = await Farmer.findOne({
+        isDeleted: { $ne: true },
+        $or: [{ id: myId }, { farmerId: myId }, { farmerCode: myId }],
+      }).select(FARMER_LIST_EXCLUDE).lean();
+      if (!farmerDoc) return res.json(isPaginationRequested(req.query) ? paginatedResponse([], 0, 1, 10) : []);
+      const enriched = await enrichFarmerDocsBatch([farmerDoc]);
+      return res.json(isPaginationRequested(req.query) ? paginatedResponse(enriched, 1, 1, 10) : enriched);
+    } else {
+      vendorId = req.query.vendorId || "";
+    }
+
+    const query = { isDeleted: { $ne: true } };
+    if (vendorId) {
+      query.vendorId = vendorId;
+    } else if (req.user?.role !== "ADMIN") {
+      return res.json(isPaginationRequested(req.query) ? paginatedResponse([], 0, 1, 10) : []);
+    }
     if (status) query.status = status;
     if (managerId) query.managerId = managerId;
     if (location) query.farmLocation = { $regex: location, $options: "i" };
@@ -586,7 +629,9 @@ export async function getFarmers(req, res) {
       const needle = q.trim();
       if (needle) {
         const rx = containsRegex(needle);
-        const matchingManagers = await FarmerManager.find({ name: rx }).select("id").lean();
+        const managerQuery = { name: rx };
+        if (vendorId) managerQuery.vendorId = vendorId;
+        const matchingManagers = await FarmerManager.find(managerQuery).select("id").lean();
         query.$or = [{ name: rx }, { mobile: rx }, { farmName: rx }, { farmerCode: rx }];
         if (matchingManagers.length) query.$or.push({ managerId: { $in: matchingManagers.map((m) => m.id) } });
       }
@@ -622,7 +667,8 @@ export async function getFarmers(req, res) {
 export async function getFarmerById(req, res) {
   try {
     const { farmerId } = req.params;
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const query = accessibleFarmerQuery(req, farmerId);
+    const farmer = await Farmer.findOne(query);
     if (!farmer) {
       return res.status(404).json({ message: "Farmer not found" });
     }
@@ -636,7 +682,12 @@ export async function getFarmerById(req, res) {
 export async function createFarmer(req, res) {
   try {
     const payload = req.body;
-    const vendorId = req.user?.vendorId || payload.vendorId || DEFAULT_VENDOR_ID;
+    let vendorId = payload.vendorId || "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+    } else if (req.user?.role === "FARMER_MANAGER") {
+      vendorId = req.user.vendorId || "";
+    }
     const managerId =
       req.user?.role === "FARMER_MANAGER"
         ? req.user.managerId
@@ -725,7 +776,8 @@ export async function updateFarmer(req, res) {
     const { farmerId } = req.params;
     const payload = req.body;
 
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const query = accessibleFarmerQuery(req, farmerId);
+    const farmer = await Farmer.findOne(query);
     if (!farmer) {
       return res.status(404).json({ message: "Farmer not found" });
     }
@@ -753,8 +805,8 @@ export async function updateFarmer(req, res) {
     await farmer.save();
 
     if (payload.managerId !== undefined) {
-      await FarmerProduct.updateMany({ farmerId }, { managerId: payload.managerId });
-      await FarmerDocument.updateMany({ farmerId }, { managerId: payload.managerId });
+      await FarmerProduct.updateMany({ farmerId: farmer.id }, { managerId: payload.managerId });
+      await FarmerDocument.updateMany({ farmerId: farmer.id }, { managerId: payload.managerId });
     }
 
     const enriched = await enrichFarmerDoc(farmer);
@@ -767,12 +819,17 @@ export async function updateFarmer(req, res) {
 export async function deleteFarmer(req, res) {
   try {
     const { farmerId } = req.params;
-    await Farmer.deleteOne({ id: farmerId });
-    await FarmerProduct.deleteMany({ farmerId });
-    await FarmerOrder.deleteMany({ farmerId });
-    await FarmerEarning.deleteMany({ farmerId });
-    await FarmerDocument.deleteMany({ farmerId });
-    await FarmerStockHistory.deleteMany({ farmerId });
+    const query = accessibleFarmerQuery(req, farmerId);
+    const farmer = await Farmer.findOne(query);
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const targetFarmerId = farmer.id;
+    await Farmer.deleteOne({ id: targetFarmerId });
+    await FarmerProduct.deleteMany({ farmerId: targetFarmerId });
+    await FarmerOrder.deleteMany({ farmerId: targetFarmerId });
+    await FarmerEarning.deleteMany({ farmerId: targetFarmerId });
+    await FarmerDocument.deleteMany({ farmerId: targetFarmerId });
+    await FarmerStockHistory.deleteMany({ farmerId: targetFarmerId });
     res.json({ success: true, message: "Farmer deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete farmer" });
@@ -783,7 +840,8 @@ export async function setFarmerStatus(req, res) {
   try {
     const { farmerId } = req.params;
     const { status } = req.body;
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const query = accessibleFarmerQuery(req, farmerId);
+    const farmer = await Farmer.findOne(query);
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const previousStatus = farmer.status;
     farmer.status = status;
@@ -911,7 +969,9 @@ export async function registerFarmer(req, res) {
     }
 
     const referral = await resolveReferralCode(payload.referralCode || payload.agentCode);
-    const vendorId = referral.vendorId || DEFAULT_VENDOR_ID;
+    // Do not auto-assign collection centre / vendor on signup; Admin assigns collection centre & manager manually
+    const vendorId = "";
+    const managerId = "";
     const { farmerId, loc } = await assignFarmerBusinessId({
       state,
       district,
@@ -931,8 +991,8 @@ export async function registerFarmer(req, res) {
       districtId: loc.districtId,
       talukaId: loc.talukaId,
       villageId: loc.villageId,
-      vendorId,
-      managerId: referral.managerId,
+      vendorId: "",
+      managerId: "",
       name,
       mobile: cleanMobile,
       email: payload.email || "",
@@ -3562,7 +3622,7 @@ export async function updateFarmerPassword(req, res) {
     if (!newPassword || String(newPassword).length < 4) {
       return res.status(400).json({ success: false, message: "Password must be at least 4 characters long" });
     }
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
 
     farmer.password = await bcrypt.hash(newPassword, 10);
@@ -3579,7 +3639,7 @@ export async function updateFarmerLoginStatus(req, res) {
     const { farmerId } = req.params;
     const { loginEnabled } = req.body;
 
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
 
     farmer.loginEnabled = Boolean(loginEnabled);
@@ -3595,6 +3655,10 @@ export async function updateFarmerLoginStatus(req, res) {
 export async function getFarmerDashboard(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const [[productFacet], orderAgg, earningAgg, recentOrders, recentEarnings] = await Promise.all([
       FarmerProduct.aggregate([
         { $match: { farmerId } },
@@ -3662,6 +3726,10 @@ export async function getFarmerDashboard(req, res) {
 export async function getFarmerProducts(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 });
     const upgraded = await normalizeProductList(products);
     res.json(upgraded.map((p) => enrichProductRow(toPlain(p))));
@@ -3673,6 +3741,10 @@ export async function getFarmerProducts(req, res) {
 export async function getFarmerProductById(req, res) {
   try {
     const { farmerId, productId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const product = await FarmerProduct.findOne({
       farmerId,
       $or: [{ id: productId }, { productId }, { previousProductId: productId }],
@@ -3931,6 +4003,10 @@ export async function deleteFarmerProduct(req, res) {
 export async function getFarmerInventory(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const products = await FarmerProduct.find({ farmerId }).select("-images -description").lean();
     const inventoryList = [];
 
@@ -3969,6 +4045,10 @@ export async function getFarmerInventory(req, res) {
 export async function adjustFarmerStock(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const { productId, gradeId, change, grade, updatedBy = "Vendor", reason = "Manual Update", reference = "—" } = req.body;
 
     const product = await FarmerProduct.findOne({ id: productId, farmerId });
@@ -4047,6 +4127,10 @@ export async function adjustFarmerStock(req, res) {
 export async function getStockHistory(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const { productId } = req.query;
 
     const query = { farmerId };
@@ -4109,6 +4193,10 @@ export async function updateFarmerInventoryItem(req, res) {
 export async function getFarmerOrders(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const { status, q } = req.query;
     const { ids } = await resolveFarmerIdentity(farmerId);
     const query = {
@@ -4502,7 +4590,7 @@ export async function createFarmerOrder(req, res) {
     const order = new FarmerOrder({
       id,
       orderId: id,
-      vendorId: farmer.vendorId || req.user?.vendorId || DEFAULT_VENDOR_ID,
+      vendorId: farmer.vendorId || req.user?.vendorId || "",
       farmerId: farmer.id,
       productId,
       productName,
@@ -4576,7 +4664,7 @@ export async function createFarmerOrder(req, res) {
           // Log stock history
           await FarmerStockHistory.create({
             id: `sh-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-            vendorId: farmer.vendorId || DEFAULT_VENDOR_ID,
+            vendorId: farmer.vendorId || req.user?.vendorId || "",
             managerId: farmer.managerId || "",
             farmerId,
             productId: prod.id,
@@ -4640,6 +4728,10 @@ export async function deleteFarmerOrder(req, res) {
 export async function getFarmerEarnings(req, res) {
   try {
     const { farmerId } = req.params;
+    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
+      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    }
     const earningsList = await FarmerEarning.find({ farmerId }).sort({ date: -1 }).lean();
 
     const totalEarnings = earningsList.reduce((s, r) => s + Number(r.netEarnings || 0), 0);
@@ -4762,6 +4854,24 @@ export async function getFarmerDocuments(req, res) {
   try {
     const { farmerId } = req.params;
     const farmer = await resolveFarmerRecord(farmerId);
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId || farmer.vendorId !== vId) {
+        return res.status(403).json({ message: "Forbidden — not your farmer" });
+      }
+    } else if (req.user?.role === "FARMER_MANAGER") {
+      const mgrId = req.user.managerId || req.user.id || "";
+      const vId = req.user.vendorId || "";
+      if (!mgrId || !vId || farmer.managerId !== mgrId || farmer.vendorId !== vId) {
+        return res.status(403).json({ message: "Forbidden — not your farmer" });
+      }
+    } else if (req.user?.role === "FARMER") {
+      const myId = req.user.farmerId || req.user.id || "";
+      if (!myId || (farmer.id !== myId && farmer.farmerId !== myId)) {
+        return res.status(403).json({ message: "Forbidden — not your account" });
+      }
+    }
     const keys = documentOwnerKeys(farmer, farmerId);
     const docs = await FarmerDocument.find({ farmerId: { $in: keys } }).sort({ uploadedAt: -1, createdAt: -1 }).lean();
     res.json(docs.filter(isRealFarmerDocument));
@@ -4785,9 +4895,28 @@ export async function uploadFarmerDocument(req, res) {
     }
 
     const farmer = await resolveFarmerRecord(farmerId);
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId || farmer.vendorId !== vId) {
+        return res.status(403).json({ message: "Forbidden — not your farmer" });
+      }
+    } else if (req.user?.role === "FARMER_MANAGER") {
+      const mgrId = req.user.managerId || req.user.id || "";
+      const vId = req.user.vendorId || "";
+      if (!mgrId || !vId || farmer.managerId !== mgrId || farmer.vendorId !== vId) {
+        return res.status(403).json({ message: "Forbidden — not your farmer" });
+      }
+    } else if (req.user?.role === "FARMER") {
+      const myId = req.user.farmerId || req.user.id || "";
+      if (!myId || (farmer.id !== myId && farmer.farmerId !== myId)) {
+        return res.status(403).json({ message: "Forbidden — not your account" });
+      }
+    }
+
     const canonicalId = farmer?.id || farmerId;
     const ownerKeys = documentOwnerKeys(farmer, farmerId);
-    const vendorId = farmer?.vendorId || req.user?.vendorId || "vendor-1";
+    const vendorId = farmer?.vendorId || req.user?.vendorId || "";
     const managerId = farmer?.managerId || req.user?.managerId || "";
 
     const names = {
@@ -5103,8 +5232,24 @@ async function enrichManagerDocsBatch(mgrDocs) {
 
 export async function getManagers(req, res) {
   try {
-    const { q = "", status = "", vendorId = DEFAULT_VENDOR_ID } = req.query;
-    const query = { vendorId };
+    const { q = "", status = "" } = req.query;
+    let vendorId = "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+      if (!vendorId) return res.json([]);
+    } else if (req.user?.role === "FARMER_MANAGER") {
+      vendorId = req.user.vendorId || "";
+      if (!vendorId) return res.json([]);
+    } else {
+      vendorId = req.query.vendorId || "";
+    }
+
+    const query = {};
+    if (vendorId) {
+      query.vendorId = vendorId;
+    } else if (req.user?.role !== "ADMIN") {
+      return res.json([]);
+    }
     if (status) query.status = status;
 
     const mgrDocs = await FarmerManager.find(query).select("-password").sort({ createdAt: -1 }).lean();
@@ -5132,7 +5277,13 @@ export async function getManagers(req, res) {
 export async function getManagerById(req, res) {
   try {
     const { managerId } = req.params;
-    const manager = await FarmerManager.findOne({ id: managerId });
+    const query = { id: managerId };
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId) return res.status(404).json({ message: "Manager not found" });
+      query.vendorId = vId;
+    }
+    const manager = await FarmerManager.findOne(query);
     if (!manager) return res.status(404).json({ message: "Manager not found" });
     const enriched = await enrichManagerDoc(manager);
     res.json(enriched);
@@ -5144,7 +5295,10 @@ export async function getManagerById(req, res) {
 export async function createManager(req, res) {
   try {
     const payload = req.body;
-    const vendorId = req.user?.vendorId || payload.vendorId || DEFAULT_VENDOR_ID;
+    let vendorId = payload.vendorId || "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+    }
     const location = [payload.city, payload.state].filter(Boolean).join(", ") || payload.location || "";
 
     if (!payload.name || !payload.mobile) {
@@ -5202,7 +5356,13 @@ export async function updateManager(req, res) {
     const { managerId } = req.params;
     const payload = req.body;
 
-    const manager = await FarmerManager.findOne({ id: managerId });
+    const query = { id: managerId };
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId) return res.status(404).json({ message: "Manager not found" });
+      query.vendorId = vId;
+    }
+    const manager = await FarmerManager.findOne(query);
     if (!manager) return res.status(404).json({ message: "Manager not found" });
 
     if (payload.name) manager.name = payload.name;
@@ -5228,7 +5388,13 @@ export async function setManagerStatus(req, res) {
   try {
     const { managerId } = req.params;
     const { status } = req.body;
-    const manager = await FarmerManager.findOne({ id: managerId });
+    const query = { id: managerId };
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId) return res.status(404).json({ message: "Manager not found" });
+      query.vendorId = vId;
+    }
+    const manager = await FarmerManager.findOne(query);
     if (!manager) return res.status(404).json({ message: "Manager not found" });
     manager.status = status;
     await manager.save();
@@ -5242,6 +5408,15 @@ export async function setManagerStatus(req, res) {
 export async function deleteManager(req, res) {
   try {
     const { managerId } = req.params;
+    const query = { id: managerId };
+    if (req.user?.role === "VENDOR") {
+      const vId = req.user.vendorId || req.user.id || "";
+      if (!vId) return res.status(404).json({ message: "Manager not found" });
+      query.vendorId = vId;
+    }
+    const manager = await FarmerManager.findOne(query);
+    if (!manager) return res.status(404).json({ message: "Manager not found" });
+
     const linkedFarmers = await Farmer.countDocuments({ managerId });
     if (linkedFarmers > 0) {
       return res.status(400).json({ message: "Remove or reassign farmers before deleting this manager" });
@@ -5363,24 +5538,37 @@ export async function getVendorDashboard(req, res) {
 
 export async function getVendorAllCrops(req, res) {
   try {
-    const vendorId = req.user.vendorId;
-    const [vendorFarmers, allFarmers, crops] = await Promise.all([
-      Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean(),
-      Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean(),
-      FarmerCrop.find({})
-        .select(CROP_LIST_EXCLUDE)
-        .sort({ createdAt: -1 })
-        .lean(),
-    ]);
-    let farmers = vendorFarmers;
+    const vendorId = req.user?.vendorId || req.user?.id || "";
+    if (!vendorId) return res.json({ farmers: [], crops: [] });
+
+    const farmers = await Farmer.find({ vendorId, isDeleted: { $ne: true } })
+      .select("id farmerId name mobile farmName farmLocation location farmerCode managerName")
+      .sort({ createdAt: -1 })
+      .lean();
+
     if (!farmers.length) {
-      farmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean();
+      return res.json({ farmers: [], crops: [] });
     }
+
     const farmerMap = new Map();
-    allFarmers.forEach((f) => {
-      if (f.id) farmerMap.set(f.id, f);
-      if (f.farmerId) farmerMap.set(f.farmerId, f);
+    const vendorFarmerIds = [];
+    farmers.forEach((f) => {
+      if (f.id) {
+        farmerMap.set(f.id, f);
+        vendorFarmerIds.push(f.id);
+      }
+      if (f.farmerId) {
+        farmerMap.set(f.farmerId, f);
+        vendorFarmerIds.push(f.farmerId);
+      }
     });
+
+    const crops = await FarmerCrop.find({
+      $or: [{ vendorId }, { farmerId: { $in: vendorFarmerIds } }],
+    })
+      .select(CROP_LIST_EXCLUDE)
+      .sort({ createdAt: -1 })
+      .lean();
 
     await persistDerivedCropStatuses(crops);
     res.json({
@@ -5424,22 +5612,38 @@ async function findProductPage(filter, query) {
 
 export async function getVendorAllProducts(req, res) {
   try {
-    const vendorId = req.user.vendorId;
+    const vendorId = req.user?.vendorId || req.user?.id || "";
+    if (!vendorId) {
+      return res.json(isPaginationRequested(req.query) ? { page: 1, limit: 10, total: 0, products: [], farmers: [] } : { farmers: [], products: [] });
+    }
+
+    const farmers = await Farmer.find({ vendorId, isDeleted: { $ne: true } })
+      .select("id name mobile farmName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const farmerIds = farmers.map((f) => f.id);
+    const vendorProductScope = {
+      $or: [{ vendorId }, { farmerId: { $in: farmerIds } }],
+    };
+
     if (isPaginationRequested(req.query)) {
-      const filter = applyProductPageFilters({ vendorId }, req.query);
+      const filter = applyProductPageFilters({ ...vendorProductScope }, req.query);
       if (req.query.farmerId) filter.farmerId = String(req.query.farmerId);
-      const [farmers, { page, limit, total, products }] = await Promise.all([
-        Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
+      const [farmersList, { page, limit, total, products }] = await Promise.all([
+        Farmer.find({ vendorId, isDeleted: { $ne: true } }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
         findProductPage(filter, req.query),
       ]);
-      const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+      const farmerNameMap = new Map(farmersList.map((f) => [f.id, f.name]));
       const rows = products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—"));
-      return res.json({ ...paginatedResponse(rows, total, page, limit), farmers });
+      return res.json({ ...paginatedResponse(rows, total, page, limit), farmers: farmersList });
     }
-    const [farmers, products] = await Promise.all([
-      Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
-      FarmerProduct.find({ vendorId }).select(PRODUCT_LIST_EXCLUDE).sort({ createdAt: -1 }).lean(),
-    ]);
+
+    const products = await FarmerProduct.find(vendorProductScope)
+      .select(PRODUCT_LIST_EXCLUDE)
+      .sort({ createdAt: -1 })
+      .lean();
+
     const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
     res.json({
       farmers,
@@ -5699,24 +5903,16 @@ function attachFarmerMeta(farmers) {
 
 export async function getManagerAllCrops(req, res) {
   try {
-    const [assignedFarmers, allFarmers, crops] = await Promise.all([
-      getAssignedFarmers(req),
-      Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean(),
-      FarmerCrop.find({})
-        .select(CROP_LIST_EXCLUDE)
-        .sort({ createdAt: -1 })
-        .lean(),
-    ]);
-    let farmers = attachFarmerMeta(assignedFarmers);
-    if (!farmers.length) {
-      const allFarmersList = await Farmer.find({}).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1 }).lean();
-      farmers = attachFarmerMeta(allFarmersList);
+    const assignedFarmers = await getAssignedFarmers(req);
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(assignedFarmers);
+    const farmers = attachFarmerMeta(assignedFarmers);
+    if (!farmerIds.length) {
+      return res.json({ farmers: [], crops: [] });
     }
-    const farmerMap = new Map();
-    allFarmers.forEach((f) => {
-      if (f.id) farmerMap.set(f.id, f);
-      if (f.farmerId) farmerMap.set(f.farmerId, f);
-    });
+    const crops = await FarmerCrop.find({ farmerId: { $in: farmerIds } })
+      .select(CROP_LIST_EXCLUDE)
+      .sort({ createdAt: -1 })
+      .lean();
 
     await persistDerivedCropStatuses(crops);
     res.json({
@@ -5857,7 +6053,7 @@ export async function getManagerAllStockHistory(req, res) {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
     const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
     const { farmerId } = req.query;
-    const ids = farmerId ? [farmerId] : farmerIds;
+    const ids = farmerId ? farmerIds.filter((id) => id === farmerId) : farmerIds;
     const paged = isPaginationRequested(req.query) ? getPageParams(req.query, PAGE_LIMITS.stockHistory) : null;
     if (!ids.length) {
       if (paged) return res.json({ ...paginatedResponse([], 0, paged.page, paged.limit), farmers });
@@ -6081,11 +6277,18 @@ export async function assignFarmerManager(req, res) {
   try {
     const { farmerId } = req.params;
     const { managerId } = req.body;
-    const vendorId = req.user?.vendorId || DEFAULT_VENDOR_ID;
-    const farmer = await Farmer.findOne({ id: farmerId, vendorId });
+    let vendorId = req.query.vendorId || "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+    }
+    const query = { id: farmerId };
+    if (vendorId) query.vendorId = vendorId;
+    const farmer = await Farmer.findOne(query);
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     if (managerId) {
-      const manager = await FarmerManager.findOne({ id: managerId, vendorId });
+      const managerQuery = { id: managerId };
+      if (vendorId) managerQuery.vendorId = vendorId;
+      const manager = await FarmerManager.findOne(managerQuery);
       if (!manager) return res.status(404).json({ message: "Manager not found" });
     }
     farmer.managerId = managerId || "";
@@ -6106,6 +6309,20 @@ export async function getHarvestOrders(req, res) {
     if (req.user?.role === "FARMER_MANAGER") {
       assignedFarmers = await getAssignedFarmers(req);
       ids = assignedFarmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+    } else if (req.user?.role === "VENDOR") {
+      const vendorId = req.user.vendorId || req.user.id || "";
+      assignedFarmers = await Farmer.find({ vendorId, isDeleted: { $ne: true } })
+        .select("id farmerId name mobile farmName farmLocation")
+        .lean();
+      const vendorFarmerIds = assignedFarmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+      const farmerId = req.params.farmerId || req.query.farmerId;
+      if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
+        const { ids: resolvedIds } = await resolveFarmerIdentity(farmerId);
+        const candidateIds = resolvedIds.length ? resolvedIds : [farmerId];
+        ids = candidateIds.filter((id) => vendorFarmerIds.includes(id));
+      } else {
+        ids = vendorFarmerIds;
+      }
     } else {
       const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
       if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
@@ -6113,6 +6330,11 @@ export async function getHarvestOrders(req, res) {
         ids = resolvedIds.length ? resolvedIds : [farmerId];
       }
     }
+
+    if ((req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER") && !ids.length) {
+      return res.json([]);
+    }
+
     const filter = ids.length ? { farmerId: { $in: ids } } : {};
     const notDeletedQuery = {
       ...filter,
@@ -6185,10 +6407,14 @@ export async function getHarvestOrders(req, res) {
 export async function createHarvestOrder(req, res) {
   try {
     const payload = req.body;
+    let vendorId = payload.vendorId || "";
+    if (req.user?.role === "VENDOR") {
+      vendorId = req.user.vendorId || req.user.id || "";
+    }
     const id = `ho-${Date.now()}`;
     const order = new FarmerHarvestOrder({
       id,
-      vendorId: payload.vendorId || DEFAULT_VENDOR_ID,
+      vendorId,
       farmerId: payload.farmerId,
       productId: payload.productId,
       productName: payload.productName,
@@ -6214,7 +6440,12 @@ export async function updateHarvestOrder(req, res) {
   try {
     const { id } = req.params;
     const payload = req.body;
-    const order = await FarmerHarvestOrder.findOne({ id });
+    const query = { id };
+    if (req.user?.role === "VENDOR") {
+      const vendorId = req.user.vendorId || req.user.id || "";
+      if (vendorId) query.vendorId = vendorId;
+    }
+    const order = await FarmerHarvestOrder.findOne(query);
     if (!order) return res.status(404).json({ message: "Harvest order not found" });
 
     if (payload.productId) order.productId = payload.productId;
@@ -6244,8 +6475,13 @@ export async function deleteHarvestOrder(req, res) {
     if (mongoose.Types.ObjectId.isValid(targetId)) {
       orderOr.push({ _id: targetId });
     }
-    await FarmerHarvestOrder.deleteMany({ $or: orderOr });
-    await FarmerOrder.deleteMany({ $or: orderOr }).catch(() => {});
+    const baseQuery = { $or: orderOr };
+    if (req.user?.role === "VENDOR") {
+      const vendorId = req.user.vendorId || req.user.id || "";
+      if (vendorId) baseQuery.vendorId = vendorId;
+    }
+    await FarmerHarvestOrder.deleteMany(baseQuery);
+    await FarmerOrder.deleteMany(baseQuery).catch(() => {});
     await FarmerEarning.deleteMany({ $or: [{ orderId: targetId }, { id: targetId }] }).catch(() => {});
     await Pickup.deleteMany({ $or: [{ orderId: targetId }, { id: targetId }] }).catch(() => {});
     res.json({ success: true, message: "Harvest order deleted successfully" });

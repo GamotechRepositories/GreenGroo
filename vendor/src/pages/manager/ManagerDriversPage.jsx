@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getManagerDrivers } from "../../api/farmerApi";
 import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
 import EmptyState from "../../components/ui/EmptyState";
@@ -231,9 +231,31 @@ export default function ManagerDriversPage() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6 lg:p-8">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>All Drivers</h1>
-        <p className={EXCEL_PAGE_SUB}>Drivers you can assign to pickups · click a driver to see orders and batches</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-4">
+        <div>
+          <h1 className={EXCEL_PAGE_TITLE}>All Drivers</h1>
+          <p className={EXCEL_PAGE_SUB}>Drivers you can assign to pickups · click a driver to see orders and batches</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/vendor/drivers"
+            className="inline-flex h-9 items-center justify-center rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-xs"
+          >
+            All Drivers ({stats.total})
+          </Link>
+          <Link
+            to="/vendor/drivers/pickup-orders"
+            className="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition"
+          >
+            All Pickup Orders →
+          </Link>
+          <Link
+            to="/vendor/drivers/add"
+            className="inline-flex h-9 items-center justify-center rounded-xl bg-emerald-700 px-3.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-xs transition"
+          >
+            + Add Driver
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">

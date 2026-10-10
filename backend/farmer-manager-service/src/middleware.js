@@ -21,6 +21,22 @@ export function requireAuth(req, res, next) {
 }
 
 /**
+ * Optional token verifier — attaches req.user if present, proceeds either way
+ */
+export function attachAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    const token = header.slice(7);
+    try {
+      req.user = jwt.verify(token, JWT_SECRET);
+    } catch {
+      // ignore invalid token if optional
+    }
+  }
+  next();
+}
+
+/**
  * Allow only VENDOR role
  */
 export function requireVendor(req, res, next) {

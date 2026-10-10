@@ -29,7 +29,9 @@ import {
   getVendorAdmin,
   createDarkStoreAdmin,
   listCentreFarmersAdmin,
+  assignCentreFarmerAdmin,
   listCentreFarmerManagersAdmin,
+  assignCentreFarmerManagerAdmin,
   getCollectionDashboardAdmin,
   listVendorProductRequestsAdmin,
   approveVendorProductRequestAdmin,
@@ -258,7 +260,13 @@ router.post("/vendor-crop-requests/:requestId/reject", rejectVendorCropRequestAd
 router.get("/vendors/:id/crops", listVendorCropsAdmin);
 router.delete("/vendors/:id/crops/:cropId", removeVendorCropAdmin);
 router.get("/collection-farmers", listCentreFarmersAdmin);
+router.put("/collection-farmers/:farmerId", assignCentreFarmerAdmin);
+router.put("/collection-farmers/:farmerId/assign", assignCentreFarmerAdmin);
+router.patch("/collection-farmers/:farmerId/assign", assignCentreFarmerAdmin);
 router.get("/collection-farmer-managers", listCentreFarmerManagersAdmin);
+router.put("/collection-farmer-managers/:managerId", assignCentreFarmerManagerAdmin);
+router.put("/collection-farmer-managers/:managerId/assign", assignCentreFarmerManagerAdmin);
+router.patch("/collection-farmer-managers/:managerId/assign", assignCentreFarmerManagerAdmin);
 router.get("/dark-store-requests", listDarkStoreRequestsAdmin);
 router.post("/dark-store-requests/:requestId/approve", approveDarkStoreRequestAdmin);
 router.post("/dark-store-requests/:requestId/reject", rejectDarkStoreRequestAdmin);

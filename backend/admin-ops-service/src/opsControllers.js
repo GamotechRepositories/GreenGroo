@@ -270,6 +270,102 @@ export async function listCentreFarmersAdmin(req, res, next) {
   }
 }
 
+export async function assignCentreFarmerAdmin(req, res, next) {
+  try {
+    const { farmerId } = req.params;
+    const { vendorId, managerId } = req.body || {};
+
+    const farmer = await Farmer.findOne({
+      $or: [
+        { farmerId: farmerId },
+        { id: farmerId },
+        ...(mongoose.isValidObjectId(farmerId) ? [{ _id: farmerId }] : []),
+      ],
+      isDeleted: { $ne: true },
+    });
+
+    if (!farmer) {
+      return fail(res, 404, "Farmer not found");
+    }
+
+    // 1st Priority: Assign Vendor / Collection Centre
+    if (vendorId !== undefined) {
+      const vId = String(vendorId || "").trim();
+      if (vId) {
+        const vendor = await Vendor.findOne(vendorQuery(vId));
+        if (!vendor) {
+          return fail(res, 404, "Collection Centre / Vendor not found");
+        }
+        farmer.vendorId = vendor.id || vId;
+      } else {
+        farmer.vendorId = "";
+      }
+    }
+
+    // 2nd Priority: Assign Farmer Manager under the selected Vendor
+    if (managerId !== undefined) {
+      const mId = String(managerId || "").trim();
+      if (mId) {
+        if (!farmer.vendorId) {
+          return fail(res, 400, "Please assign a Collection Centre / Vendor first before assigning a Farmer Manager");
+        }
+        const manager = await FarmerManager.findOne({ id: mId });
+        if (!manager) {
+          return fail(res, 404, "Farmer Manager not found");
+        }
+        if (manager.vendorId && String(manager.vendorId) !== String(farmer.vendorId)) {
+          return fail(
+            res,
+            400,
+            `Manager "${manager.name}" belongs to vendor "${manager.vendorId}", but farmer is assigned to "${farmer.vendorId}". Farmer manager must belong to the assigned Collection Centre.`
+          );
+        }
+        farmer.managerId = mId;
+      } else {
+        farmer.managerId = "";
+      }
+    } else if (vendorId !== undefined && farmer.managerId) {
+      // If vendor was updated and no managerId was explicitly passed, verify existing manager
+      const existingManager = await FarmerManager.findOne({ id: farmer.managerId });
+      if (existingManager && existingManager.vendorId && String(existingManager.vendorId) !== String(farmer.vendorId)) {
+        farmer.managerId = "";
+      }
+    }
+
+    await farmer.save();
+
+    const [centreNames, manager] = await Promise.all([
+      farmer.vendorId ? centreNamesFor([farmer.vendorId]) : new Map(),
+      farmer.managerId ? FarmerManager.findOne({ id: farmer.managerId }).select("id name mobile").lean() : null,
+    ]);
+
+    const centre = centreNames.get(String(farmer.vendorId));
+
+    return ok(
+      res,
+      {
+        id: farmer.farmerId || farmer.id,
+        farmerId: farmer.farmerId || farmer.id,
+        name: farmer.name,
+        mobile: farmer.mobile,
+        village: farmer.address?.village || "",
+        taluka: farmer.address?.taluka || "",
+        district: farmer.address?.district || "",
+        status: farmer.status,
+        vendorId: farmer.vendorId || "",
+        vendorName: centre?.vendorName || "",
+        centreId: centre?.centreId || "",
+        managerId: farmer.managerId || "",
+        managerName: manager?.name || "",
+        managerMobile: manager?.mobile || "",
+      },
+      { message: "Farmer assignment updated successfully" }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listCentreFarmerManagersAdmin(req, res, next) {
   try {
     const filter = {};
@@ -312,6 +408,70 @@ export async function listCentreFarmerManagersAdmin(req, res, next) {
       total: data.length,
       perCentre: Object.fromEntries(perCentre.map((row) => [row._id || "", row.count])),
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function assignCentreFarmerManagerAdmin(req, res, next) {
+  try {
+    const { managerId } = req.params;
+    const { vendorId } = req.body || {};
+
+    const manager = await FarmerManager.findOne({
+      $or: [
+        { id: managerId },
+        { managerCode: managerId },
+        ...(mongoose.isValidObjectId(managerId) ? [{ _id: managerId }] : []),
+      ],
+    });
+
+    if (!manager) {
+      return fail(res, 404, "Farmer Manager not found");
+    }
+
+    const vId = String(vendorId || "").trim();
+    if (vId) {
+      const vendor = await Vendor.findOne(vendorQuery(vId));
+      if (!vendor) {
+        return fail(res, 404, "Collection Centre / Vendor not found");
+      }
+      manager.vendorId = vendor.id || vId;
+      const centre = await CollectionCentre.findOne({ vendorId: manager.vendorId }).select("id").lean();
+      if (centre) {
+        manager.collectionCentreId = centre.id;
+      }
+    } else {
+      manager.vendorId = "";
+      manager.collectionCentreId = "";
+    }
+
+    await manager.save();
+
+    const [farmerCount, centreNames] = await Promise.all([
+      Farmer.countDocuments({ managerId: manager.id, isDeleted: { $ne: true } }),
+      manager.vendorId ? centreNamesFor([manager.vendorId]) : new Map(),
+    ]);
+
+    const centre = centreNames.get(String(manager.vendorId));
+
+    const updatedData = {
+      id: manager.id,
+      managerCode: manager.managerCode || "",
+      name: manager.name,
+      mobile: manager.mobile,
+      email: manager.email || "",
+      location: manager.location || [manager.city, manager.state].filter(Boolean).join(", "),
+      status: manager.status,
+      joiningDate: manager.joiningDate || "",
+      vendorId: manager.vendorId || "",
+      vendorName: centre?.vendorName || "",
+      centreId: manager.collectionCentreId || centre?.centreId || "",
+      farmerCount,
+      createdAt: manager.createdAt,
+    };
+
+    return ok(res, updatedData, { message: "Collection centre assigned to manager successfully" });
   } catch (error) {
     next(error);
   }

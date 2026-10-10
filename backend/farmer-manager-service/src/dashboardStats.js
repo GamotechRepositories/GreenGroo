@@ -361,24 +361,30 @@ const orEmpty = (promise) => promise.catch(() => null);
 
 export async function buildVendorDashboard(vendorId, query) {
   const { range, window } = dashboardDateWindow(query);
-  const vendorScope = vendorId ? { vendorId } : {};
-  const managerScope = vendorId ? { $or: [{ vendorId }, { vendorId: { $exists: false } }, { vendorId: null }] } : {};
+  const vendorScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
+  const managerScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
+  const cropScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
+  const productScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
+  const orderScope = vendorId
+    ? { vendorId, isDeleted: { $ne: true } }
+    : { vendorId: "__NONE__", isDeleted: { $ne: true } };
+  const earningScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
 
   const [vendorFarmerStats, managerRows, cropRows, productRows, orderRows, earningRows, pickupRows, driverRows, qualityRows] =
     await Promise.all([
       farmerStats(vendorScope, window),
       orEmpty(aggregateInRange(FarmerManager, managerScope, { window }, [MANAGER_GROUP])),
-      orEmpty(aggregateInRange(FarmerCrop, {}, { window, dateFields: ["createdAt", "sowingDate"], stringDates: true }, [CROP_GROUP])),
-      orEmpty(aggregateInRange(FarmerProduct, {}, { window }, [PRODUCT_FACET])),
+      orEmpty(aggregateInRange(FarmerCrop, cropScope, { window, dateFields: ["createdAt", "sowingDate"], stringDates: true }, [CROP_GROUP])),
+      orEmpty(aggregateInRange(FarmerProduct, productScope, { window }, [PRODUCT_FACET])),
       orEmpty(
         aggregateInRange(
           FarmerHarvestOrder,
-          { isDeleted: { $ne: true } },
+          orderScope,
           { window, dateFields: ["orderDate", "createdAt"], stringDates: true },
           [ORDER_FACET]
         )
       ),
-      orEmpty(aggregateInRange(FarmerEarning, {}, { window }, [EARNING_GROUP])),
+      orEmpty(aggregateInRange(FarmerEarning, earningScope, { window }, [EARNING_GROUP])),
       orEmpty(
         aggregateInRange(
           Pickup,
@@ -388,17 +394,10 @@ export async function buildVendorDashboard(vendorId, query) {
         )
       ),
       orEmpty(aggregateInRange(PickupDriver, vendorScope, { window }, [DRIVER_GROUP])),
-      orEmpty(aggregateInRange(QualityInspection, {}, { window }, [QUALITY_GROUP])),
+      orEmpty(aggregateInRange(QualityInspection, vendorScope, { window }, [QUALITY_GROUP])),
     ]);
 
-  // Vendors without farmers fall back to all farmers (existing behaviour).
-  let farmerScope = vendorScope;
-  let farmers = vendorFarmerStats;
-  if (vendorId && !farmers.any) {
-    farmerScope = {};
-    farmers = await farmerStats({}, window);
-  }
-  const f = farmers.stats;
+  const f = vendorFarmerStats.stats;
   const m = firstRow(managerRows);
   const c = firstRow(cropRows);
   const productFacet = firstRow(productRows);
@@ -417,7 +416,7 @@ export async function buildVendorDashboard(vendorId, query) {
   const nameIds = [...new Set([...lowStockDocs, ...recentDocs].map((r) => r.farmerId).filter(Boolean))];
   const farmerMap = new Map();
   if (nameIds.length) {
-    const named = await Farmer.find({ ...farmerScope, $or: [{ id: { $in: nameIds } }, { farmerId: { $in: nameIds } }] })
+    const named = await Farmer.find({ ...vendorScope, $or: [{ id: { $in: nameIds } }, { farmerId: { $in: nameIds } }] })
       .select("id farmerId name")
       .lean();
     named.forEach((row) => {

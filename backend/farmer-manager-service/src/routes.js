@@ -153,7 +153,7 @@ import {
   transitDriverPickup,
   arriveAtCentreDriverPickup,
 } from "./pickupControllers.js";
-import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager } from "./middleware.js";
+import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager, attachAuth } from "./middleware.js";
 import {
   listVendorDarkStoreRequests,
   createVendorDarkStoreRequest,
@@ -165,6 +165,8 @@ import {
   updateVendorMyProduct,
   createVendorProductRequest,
   cancelVendorProductRequest,
+  listFarmerVendorProducts,
+  requestFarmerProduct,
 } from "./vendorProductRequestControllers.js";
 import {
   listVendorCatalogCrops,
@@ -241,6 +243,7 @@ const qualityRouter = express.Router();
 // ------------------------------------
 // FARMER AUTH & COMMON API
 // ------------------------------------
+farmerRouter.use(attachAuth);
 farmerRouter.post("/login", farmerLogin);
 farmerRouter.post("/register", registerFarmer);
 farmerRouter.get("/me", requireFarmer, getFarmerMe);
@@ -263,6 +266,10 @@ farmerRouter.post("/crop-plans", requireFarmer, createFarmerCropPlan);
 farmerRouter.get("/crop-plans/:planId", requireFarmer, getFarmerCropPlan);
 farmerRouter.put("/crop-plans/:planId", requireFarmer, updateFarmerCropPlan);
 farmerRouter.get("/products", requireFarmer, listMyProducts);
+farmerRouter.get("/products/vendor-available", requireFarmer, listFarmerVendorProducts);
+farmerRouter.get("/:farmerId/products/vendor-available", listFarmerVendorProducts);
+farmerRouter.post("/products/request", requireFarmer, requestFarmerProduct);
+farmerRouter.post("/:farmerId/products/request", requestFarmerProduct);
 farmerRouter.post("/products", requireFarmer, createMyProduct);
 farmerRouter.get("/products/:productId", requireFarmer, getMyProduct);
 farmerRouter.put("/products/:productId", requireFarmer, updateMyProduct);
@@ -348,6 +355,7 @@ farmerRouter.post("/manager/login", managerLogin);
 // ------------------------------------
 // VENDOR FARMER MANAGEMENT API
 // ------------------------------------
+vendorFarmerRouter.use(requireVendor);
 vendorFarmerRouter.get("/", getFarmers);
 vendorFarmerRouter.post("/", createFarmer);
 vendorFarmerRouter.get("/:farmerId", getFarmerById);
@@ -390,6 +398,7 @@ vendorFarmerRouter.delete("/:farmerId/harvest-orders/:id", deleteHarvestOrder);
 // ------------------------------------
 // VENDOR MANAGER MANAGEMENT API
 // ------------------------------------
+vendorManagerRouter.use(requireVendor);
 vendorManagerRouter.get("/", getManagers);
 vendorManagerRouter.post("/", createManager);
 vendorManagerRouter.get("/:managerId", getManagerById);
@@ -518,6 +527,7 @@ managerAuthRouter.get("/me", requireManager, getManagerMe);
 // ------------------------------------
 // MANAGER PANEL ROUTES (protected)
 // ------------------------------------
+managerRouter.use(requireManager);
 managerRouter.get("/dashboard", requireManager, getManagerDashboard);
 managerRouter.get("/farmers", requireManager, getManagerFarmers);
 managerRouter.get("/products", requireManager, getManagerAllProducts);

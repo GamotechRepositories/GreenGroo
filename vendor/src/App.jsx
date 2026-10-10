@@ -24,6 +24,7 @@ import FarmerCropViewPage from './pages/vendor-farmers/FarmerCropViewPage'
 import FarmerCropFormPage from './pages/vendor-farmers/FarmerCropFormPage'
 import DriverFormPage from './pages/drivers/DriverFormPage'
 import DriverDetailPage from './pages/drivers/DriverDetailPage'
+import DriverPickupOrdersPage from './pages/drivers/DriverPickupOrdersPage'
 import ManagerDriversPage from './pages/manager/ManagerDriversPage'
 import ManagerPickupsPage from './pages/manager/ManagerPickupsPage'
 import ManagerPickupDetailPage from './pages/manager/ManagerPickupDetailPage'
@@ -129,6 +130,9 @@ function App() {
                 <Route path="/vendor/all-farmers/:farmerId/products/add" element={<VendorProductAddPage />} />
                 <Route path="/vendor/all-farmers/:farmerId" element={<FarmerDetailPage />} />
                 <Route path="/vendor/drivers" element={<ManagerDriversPage />} />
+                <Route path="/vendor/drivers/pickup-orders" element={<DriverPickupOrdersPage />} />
+                <Route path="/vendor/drivers/pickups" element={<Navigate to="/vendor/drivers/pickup-orders" replace />} />
+                <Route path="/vendor/driver-pickups" element={<Navigate to="/vendor/drivers/pickup-orders" replace />} />
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />

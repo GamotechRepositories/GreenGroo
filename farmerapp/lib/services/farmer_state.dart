@@ -58,6 +58,9 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   bool documentsReady = false;
   bool schemesReady = false;
   String connectionMessage = 'Connecting...';
+  List<Map<String, dynamic>> vendorAvailableProducts = [];
+  bool vendorProductsLoaded = false;
+  bool vendorProductsLoading = false;
 
   bool get dashboardReady => profileReady && productsReady && ordersReady && cropsReady;
 
@@ -149,6 +152,53 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshProducts() => _refreshSection(_fetchProductsSafe, () => _productsChanged);
   Future<void> refreshOrders() => _refreshSection(_fetchOrdersSafe, () => _ordersChanged);
   Future<void> refreshProfile() => _refreshSection(_fetchProfileSafe, () => _profileChanged);
+
+  Future<void> fetchVendorAvailableProducts({bool force = false}) async {
+    if (vendorProductsLoading) return;
+    if (vendorProductsLoaded && !force) return;
+    vendorProductsLoading = true;
+    notifyListeners();
+    try {
+      final fId = profile.id.trim();
+      final res = await ApiService().fetchVendorAvailableProducts(farmerId: fId.isNotEmpty ? fId : null);
+      if (res != null && res['products'] is List) {
+        vendorAvailableProducts = (res['products'] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        vendorProductsLoaded = true;
+      }
+    } catch (_) {} finally {
+      vendorProductsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> requestProductToAdd(Map<String, dynamic> payload) async {
+    try {
+      final fId = profile.id.trim();
+      if (fId.isNotEmpty && payload['farmerId'] == null) {
+        payload['farmerId'] = fId;
+      }
+      final res = await ApiService().requestProduct(payload, farmerId: fId.isNotEmpty ? fId : null);
+      if (res != null && (res['success'] == true || res['product'] != null)) {
+        final prodId = payload['productId']?.toString() ?? '';
+        final prodName = (payload['productName'] ?? payload['name'])?.toString().toLowerCase() ?? '';
+        for (var p in vendorAvailableProducts) {
+          final pid = p['productId']?.toString() ?? p['id']?.toString() ?? '';
+          final pname = (p['productName'] ?? p['name'])?.toString().toLowerCase() ?? '';
+          if ((prodId.isNotEmpty && pid == prodId) || (prodName.isNotEmpty && pname == prodName)) {
+            p['isPending'] = true;
+            p['status'] = 'Pending Approval';
+          }
+        }
+        await refreshProducts();
+        notifyListeners();
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
 
   /// Dashboard pull-to-refresh: completes as soon as the sections the dashboard shows are
   /// fetched; documents (large inline files) keep refreshing in the background.

@@ -71,6 +71,7 @@ const navItems = [
     label: 'Driver',
     icon: IdCard,
     children: [
+      { to: '/vendor/drivers/pickup-orders', label: 'All Pickup Orders' },
       { to: '/vendor/pickups/ready', label: 'Ready for Pickup' },
       { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
       { to: '/vendor/pickups/today', label: "Today's Pickups" },
