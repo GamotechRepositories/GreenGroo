@@ -2,13 +2,20 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { queryClient } from "../lib/queryClient";
 import { DELIVERY_LOCATION_KEY, deliveryLocationKey } from "../utils/deliveryLocation";
 
-const LocationContext = createContext(null);
-
 const DEFAULT_LOCATION = {
   label: "Home",
   address: "Select your delivery location",
   pincode: "",
 };
+
+const DEFAULT_FALLBACK_VALUE = {
+  location: DEFAULT_LOCATION,
+  setLocation: () => {},
+  hasLocation: false,
+  locationKey: deliveryLocationKey(DEFAULT_LOCATION),
+};
+
+const LocationContext = createContext(DEFAULT_FALLBACK_VALUE);
 
 function readStoredLocation() {
   try {
@@ -58,10 +65,7 @@ export function LocationProvider({ children }) {
 
 export function useLocation() {
   const ctx = useContext(LocationContext);
-  if (!ctx) {
-    throw new Error("useLocation must be used within LocationProvider");
-  }
-  return ctx;
+  return ctx || DEFAULT_FALLBACK_VALUE;
 }
 
 export function useDeliveryLocationKey() {
