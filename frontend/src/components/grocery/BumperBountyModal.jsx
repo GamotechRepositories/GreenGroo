@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "../../context/LocationContext";
+import { useAuth } from "../../context/AuthContext";
 
 export default function BumperBountyModal() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { hasLocation } = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!hasLocation || !user) return;
+
     try {
       if (sessionStorage.getItem("bumperBountySeen") === "1") return undefined;
     } catch {
@@ -14,12 +20,12 @@ export default function BumperBountyModal() {
 
     const timer = setTimeout(() => {
       setIsOpen(true);
-    }, 400);
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [hasLocation, user]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !hasLocation || !user) return null;
 
   const handleClose = () => {
     try {

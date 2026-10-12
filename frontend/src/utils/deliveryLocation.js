@@ -32,6 +32,10 @@ export function storeLocationParams(location = readDeliveryLocation()) {
   if (location.city) params.city = location.city;
   if (location.area) params.area = location.area;
   if (location.pincode) params.pincode = location.pincode;
+  if (location.shopName) params.shopName = location.shopName;
+  if (location.landmark) params.landmark = location.landmark;
+  if (location.fullAddress) params.fullAddress = location.fullAddress;
+  
   const address = String(location.address || "").trim();
   if (address && !/^select your delivery location$/i.test(address)) {
     params.address = address;

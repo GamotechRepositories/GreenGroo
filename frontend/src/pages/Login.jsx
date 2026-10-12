@@ -63,7 +63,7 @@ export default function Login() {
 
     try {
       await login({ phone: phone.trim(), password });
-      navigate(redirectTo, { replace: true });
+      navigate("/location", { replace: true, state: { returnTo: redirectTo } });
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || "Sign in failed. Please try again."

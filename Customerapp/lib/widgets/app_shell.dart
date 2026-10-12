@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:customer_app/core/bootstrap/app_bootstrap.dart';
+import 'package:customer_app/core/providers/location_provider.dart';
 import 'package:customer_app/core/scroll/tab_scroll_registry.dart';
 import 'package:customer_app/core/theme/store_chrome.dart';
 import 'package:customer_app/features/auth/auth_controller.dart';
 import 'package:customer_app/features/cart/cart_controller.dart';
 import 'package:customer_app/features/home/home_providers.dart';
+import 'address/select_delivery_location_sheet.dart';
 import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
@@ -200,14 +202,71 @@ class _AppShellState extends ConsumerState<AppShell> {
 }
 
 /// Side-effect listeners isolated so cart/auth updates don't rebuild the shell tree.
-class _ShellSideEffects extends ConsumerWidget {
+class _ShellSideEffects extends ConsumerStatefulWidget {
   const _ShellSideEffects();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ShellSideEffects> createState() => _ShellSideEffectsState();
+}
+
+class _ShellSideEffectsState extends ConsumerState<_ShellSideEffects> {
+  bool _promptActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) _checkAndPromptFlow();
+      });
+    });
+  }
+
+  Future<void> _checkAndPromptFlow() async {
+    if (!mounted || _promptActive) return;
+
+    final auth = ref.read(authControllerProvider);
+    if (auth.loading) return;
+
+    // 1. If not logged in, prompt user to log in first
+    if (!auth.isLoggedIn) {
+      _promptActive = true;
+      ref.read(authControllerProvider.notifier).openAuthModal();
+      return;
+    }
+
+    // 2. Once logged in, if delivery location is not set, prompt location bottom sheet
+    final locationNotifier = ref.read(deliveryLocationProvider.notifier);
+    await locationNotifier.restored;
+    if (!mounted) return;
+
+    final currentLoc = ref.read(deliveryLocationProvider);
+    final hasLocation = currentLoc != null && currentLoc.hasLocation;
+
+    if (!hasLocation && mounted) {
+      _promptActive = true;
+      await showSelectDeliveryLocationBottomSheet(context, ref);
+      _promptActive = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (previous, next) {
       if (previous?.isLoggedIn != true && next.isLoggedIn) {
         unawaited(bootstrapUserSession(ref));
+        _promptActive = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _checkAndPromptFlow();
+        });
+      } else if (previous?.authModal != null && next.authModal == null) {
+        _promptActive = false;
+      }
+    });
+
+    ref.listen(deliveryLocationProvider, (previous, next) {
+      if (next != null && next.hasLocation) {
+        _promptActive = false;
       }
     });
 

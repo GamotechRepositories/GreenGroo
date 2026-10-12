@@ -336,6 +336,7 @@ export async function loadNearestStoreCatalog(query = {}) {
       categories: [...new Set(inventory.map((item) => item.category).filter(Boolean))],
     }),
     items: inventory,
+    inStockItems,
     productIds: [],
     productMatch: null,
     reason: resolved.reason,
@@ -346,11 +347,19 @@ export async function loadNearestStoreCatalog(query = {}) {
  * Products a customer may see: the whole admin catalog, plus the resolved dark
  * store's own products. Admin products the store doesn't stock still show —
  * attachStoreAvailability marks them out of stock.
+ * UPDATE: To hide out-of-stock products completely until approved, we only
+ * show admin products if they have > 0 stock.
  */
 export function storeProductScope(catalog) {
   const manager = catalog?.manager;
   if (!manager) return { ownerManagerId: null };
-  return { $or: [{ ownerManagerId: null }, { ownerManagerId: manager._id }] };
+  const inStockMatch = mongoMatchForInventory(catalog.inStockItems || []);
+  return { 
+    $or: [
+      { ownerManagerId: manager._id },
+      { $and: [{ ownerManagerId: null }, inStockMatch] }
+    ]
+  };
 }
 
 export function mergeStoreFilter(baseFilter, _catalog) {

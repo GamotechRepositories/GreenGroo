@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
 import { useInfiniteProductsQuery } from "../hooks/queries/useProductsQuery";
 import { useProductListParams } from "../hooks/useProductListParams";

@@ -7,6 +7,7 @@ import ScrollToTop from "./components/layout/ScrollToTop";
 import FloatingCornerActions from "./components/layout/FloatingCornerActions";
 import BumperBountyModal from "./components/grocery/BumperBountyModal";
 import CartSidebar from "./components/cart/CartSidebar";
+import MandatoryLocationModal from "./components/common/MandatoryLocationModal";
 import AppRoutes from "./routes/AppRoutes";
 import { CatalogSync } from "./realtime/useCatalogSync";
 
@@ -23,6 +24,7 @@ function App() {
               <FloatingCornerActions />
               <BumperBountyModal />
               <CartSidebar />
+              <MandatoryLocationModal />
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>

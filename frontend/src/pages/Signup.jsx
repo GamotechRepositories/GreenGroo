@@ -170,7 +170,7 @@ export default function Signup() {
       }
 
       await signup(payload);
-      navigate(redirectTo, { replace: true });
+      navigate("/location", { replace: true, state: { returnTo: redirectTo } });
     } catch (err) {
       setError(
         err.response?.data?.message || err.message || "Sign up failed. Please try again."
