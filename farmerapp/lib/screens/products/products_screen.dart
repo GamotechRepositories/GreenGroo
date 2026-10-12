@@ -745,13 +745,16 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
         final pStatus = (p.status.isNotEmpty ? p.status : 'Active').toLowerCase();
         final isOos = pStatus.contains('out of stock') || p.stockQuantity <= 0;
 
+        // Pending and rejected product requests must NEVER appear in My Products
+        if (pStatus.contains('pending') || pStatus.contains('rejected')) {
+          return false;
+        }
+
         bool matchesStatus = false;
         if (_selectedStatusFilter == 'All') {
           matchesStatus = true;
         } else if (_selectedStatusFilter == 'Out of Stock') {
           matchesStatus = isOos;
-        } else if (_selectedStatusFilter == 'Pending Approval') {
-          matchesStatus = pStatus.contains('pending');
         } else if (_selectedStatusFilter == 'Active') {
           matchesStatus = !isOos && (pStatus == 'active' || pStatus == 'published');
         } else {
@@ -941,7 +944,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: ['All', 'Active', 'Pending Approval', 'Out of Stock', 'Published', 'Draft', 'Paused'].map((status) {
+                children: ['All', 'Active', 'Out of Stock', 'Published', 'Draft', 'Paused'].map((status) {
                   final isSelected = _selectedStatusFilter == status;
                   return Padding(
                     padding: const EdgeInsets.only(right: 6),

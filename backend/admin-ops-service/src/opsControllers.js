@@ -136,7 +136,7 @@ function documentSummary(doc) {
 export async function listVendorsAdmin(req, res, next) {
   try {
     const filter = req.query.status ? { status: req.query.status } : {};
-    const [vendors, centres, documents, darkStores] = await Promise.all([
+    const [vendors, centres, documents, darkStores, vendorProductCounts, pendingRequestCounts] = await Promise.all([
       Vendor.find(filter).sort({ createdAt: -1 }).lean(),
       CollectionCentre.find().sort({ createdAt: 1 }).lean(),
       VendorDocument.find().select("-fileUrl").lean(),
@@ -144,6 +144,11 @@ export async function listVendorsAdmin(req, res, next) {
         .select("storeName name phone area city state isActive vendorId")
         .sort({ storeName: 1 })
         .lean(),
+      VendorProduct.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+      VendorProductRequest.aggregate([
+        { $match: { status: "Pending" } },
+        { $group: { _id: "$vendorId", count: { $sum: 1 } } },
+      ]),
     ]);
     const darkStoresByVendor = new Map();
     darkStores.forEach((store) => {
@@ -162,11 +167,16 @@ export async function listVendorsAdmin(req, res, next) {
       if (!documentsByVendor.has(key)) documentsByVendor.set(key, []);
       documentsByVendor.get(key).push(documentSummary(doc));
     });
+    const vpMap = new Map(vendorProductCounts.map((v) => [String(v._id), v.count]));
+    const prMap = new Map(pendingRequestCounts.map((v) => [String(v._id), v.count]));
+
     const data = vendors.map(({ password: _pw, ...vendor }) => ({
       ...vendor,
       collectionCentre: centreByVendor.get(String(vendor.id)) || null,
       documents: documentsByVendor.get(String(vendor.id)) || [],
       darkStores: darkStoresByVendor.get(String(vendor.id)) || [],
+      productCount: vpMap.get(String(vendor.id)) || 0,
+      pendingRequestsCount: prMap.get(String(vendor.id)) || 0,
     }));
     return ok(res, data, {
       stats: {
@@ -944,14 +954,21 @@ export async function rejectDarkStoreRequestAdmin(req, res, next) {
 
 export async function listVendorProductRequestsAdmin(req, res, next) {
   try {
-    const filter = req.query.status ? { status: req.query.status } : {};
+    const filter = req.query.status && req.query.status !== "all" ? { status: req.query.status } : {};
     if (req.query.vendorId) filter.vendorId = String(req.query.vendorId);
-    const [requests, vendors, pending] = await Promise.all([
+    const [requests, vendorProducts, vendors, centres, pendingCount, approvedCount, rejectedCount] = await Promise.all([
       VendorProductRequest.find(filter).sort({ createdAt: -1 }).lean(),
-      Vendor.find().select("id vendorName businessName ownerName mobile").lean(),
+      VendorProduct.find(req.query.vendorId ? { vendorId: req.query.vendorId } : {}).sort({ createdAt: -1 }).lean(),
+      Vendor.find().select("id vendorCode vendorName businessName ownerName mobile email city state status").lean(),
+      CollectionCentre.find().select("id vendorId name").sort({ createdAt: 1 }).lean(),
       VendorProductRequest.countDocuments({ status: "Pending" }),
+      VendorProductRequest.countDocuments({ status: "Approved" }),
+      VendorProductRequest.countDocuments({ status: "Rejected" }),
     ]);
-    const productIds = [...new Set(requests.map((r) => r.productId))].filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+    const requestProductIds = requests.map((r) => r.productId);
+    const vpProductIds = vendorProducts.map((vp) => vp.productId);
+    const productIds = [...new Set([...requestProductIds, ...vpProductIds])].filter((id) => mongoose.Types.ObjectId.isValid(id));
     const products = productIds.length
       ? await CatalogProduct.find({ _id: { $in: productIds } })
           .select("name sku categories subcategory productImages price discountedPrice unit stock inStock isActive brandName varietyName")
@@ -959,16 +976,80 @@ export async function listVendorProductRequestsAdmin(req, res, next) {
       : [];
     const productById = new Map(products.map((p) => [String(p._id), catalogProductSummary(p)]));
     const vendorById = new Map(vendors.map((v) => [v.id, v]));
+    const centreByVendor = new Map(centres.map((c) => [String(c.vendorId), c]));
+
+    const requestKeySet = new Set(requests.map((r) => `${r.vendorId}:::${r.productId}`));
+
     const data = requests.map((request) => {
       const vendor = vendorById.get(request.vendorId);
       return {
         ...serializeVendorProductRequest(request),
-        vendorName: vendor ? vendor.vendorName || vendor.businessName || vendor.ownerName : "",
+        vendorName: vendor ? (vendor.vendorName || vendor.businessName || vendor.ownerName) : request.vendorId,
+        vendorCode: vendor?.vendorCode || "",
+        vendorOwnerName: vendor?.ownerName || "",
         vendorMobile: vendor?.mobile || "",
+        vendorEmail: vendor?.email || "",
+        vendorCity: vendor?.city || "",
+        vendorState: vendor?.state || "",
         catalog: productById.get(request.productId) || null,
       };
     });
-    return ok(res, data, { stats: { pending } });
+
+    // If status filter is 'all' or 'Approved', also include active VendorProducts not in requests list
+    if (!req.query.status || req.query.status === "all" || req.query.status === "Approved") {
+      for (const vp of vendorProducts) {
+        const key = `${vp.vendorId}:::${vp.productId}`;
+        if (requestKeySet.has(key)) continue;
+        const vendor = vendorById.get(vp.vendorId);
+        const catalog = productById.get(vp.productId) || null;
+        data.push({
+          id: vp.id || `vp-${vp.vendorId}-${vp.productId}`,
+          vendorId: vp.vendorId,
+          productId: vp.productId,
+          productName: vp.productName || catalog?.name || "Product",
+          productImage: vp.productImage || catalog?.image || "",
+          category: vp.category || catalog?.category || "",
+          unit: vp.customUnit || vp.unit || catalog?.unit || "Kg",
+          status: "Approved",
+          notes: "Approved and active in vendor catalog",
+          adminRemarks: "",
+          createdAt: vp.createdAt || new Date(),
+          vendorName: vendor ? (vendor.vendorName || vendor.businessName || vendor.ownerName) : vp.vendorId,
+          vendorCode: vendor?.vendorCode || "",
+          vendorOwnerName: vendor?.ownerName || "",
+          vendorMobile: vendor?.mobile || "",
+          vendorEmail: vendor?.email || "",
+          vendorCity: vendor?.city || "",
+          vendorState: vendor?.state || "",
+          catalog,
+          isAssignedProduct: true,
+        });
+      }
+    }
+
+    const enrichedVendors = vendors.map((v) => {
+      const c = centreByVendor.get(String(v.id));
+      return {
+        ...v,
+        collectionCentreName: c?.name || "",
+        collectionCentreId: c?.id || "",
+      };
+    });
+
+    const pendingTotal = data.filter((d) => d.status === "Pending").length;
+    const approvedTotal = data.filter((d) => d.status === "Approved").length;
+    const rejectedTotal = data.filter((d) => d.status === "Rejected").length;
+
+    return ok(res, data, {
+      stats: {
+        pending: pendingTotal,
+        approved: approvedTotal,
+        rejected: rejectedTotal,
+        totalVendors: vendors.length,
+        totalProducts: data.length,
+      },
+      vendors: enrichedVendors,
+    });
   } catch (error) {
     next(error);
   }

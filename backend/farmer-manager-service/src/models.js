@@ -10,6 +10,7 @@ const vendorSchema = new mongoose.Schema(
     vendorName: { type: String, default: "", trim: true },
     ownerName: { type: String, required: true, trim: true },
     mobile: { type: String, required: true, trim: true, unique: true },
+    phone: { type: String, default: "", trim: true },
     email: { type: String, default: "", trim: true },
     businessName: { type: String, default: "" },
     businessAddress: { type: String, default: "" },
@@ -439,6 +440,7 @@ farmerManagerSchema.index({ createdAt: -1 });
 farmerProductSchema.index({ farmerId: 1, createdAt: -1 });
 farmerProductSchema.index({ id: 1, farmerId: 1 });
 farmerProductSchema.index({ farmerId: 1, productId: 1 });
+farmerProductSchema.index({ farmerId: 1, status: 1 });
 farmerProductSchema.index({ productId: 1 });
 farmerProductSchema.index({ managerId: 1, status: 1 });
 farmerProductSchema.index({ vendorId: 1, status: 1 });
@@ -1033,6 +1035,14 @@ export async function ensureFarmerIndexes() {
     } catch (err) {
       if (err?.code !== 27 && !/index not found/i.test(String(err?.message || ""))) {
         console.warn("[Indexes] cropId_1 drop:", err.message);
+      }
+    }
+    // Drop old non-sparse phone_1 index on vendors if present
+    try {
+      await Vendor.collection.dropIndex("phone_1");
+    } catch (err) {
+      if (err?.code !== 27 && !/index not found/i.test(String(err?.message || ""))) {
+        console.warn("[Indexes] phone_1 drop:", err.message);
       }
     }
 

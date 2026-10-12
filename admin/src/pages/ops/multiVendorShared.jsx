@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Package } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 
 export function PendingDarkStoreRequestsBanner() {
@@ -26,6 +26,35 @@ export function PendingDarkStoreRequestsBanner() {
       <ClipboardList className="h-4 w-4 shrink-0" />
       {pending} dark store request{pending === 1 ? '' : 's'} waiting for approval
       <span className="ml-auto text-xs font-semibold underline">Review</span>
+    </Link>
+  );
+}
+
+export function PendingProductRequestsBanner() {
+  const [pending, setPending] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    opsApi
+      .list('vendor-product-requests', { status: 'Pending' })
+      .then((res) => alive && setPending(res.stats?.pending || 0))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!pending) return null;
+  return (
+    <Link
+      to="/vendor-product-requests"
+      className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+    >
+      <Package className="h-4 w-4 shrink-0 text-emerald-700" />
+      <span>
+        <strong>{pending}</strong> collection centre product request{pending === 1 ? '' : 's'} waiting for approval
+      </span>
+      <span className="ml-auto text-xs font-semibold underline">Review Product Requests</span>
     </Link>
   );
 }

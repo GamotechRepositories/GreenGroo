@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, FileText, Loader2, MapPin, Plus, RefreshCw, Search, Store, Trash2, Upload, Warehouse, X } from 'lucide-react';
+import { CheckCircle2, FileText, Loader2, MapPin, Package, Plus, RefreshCw, Search, Store, Trash2, Upload, Warehouse, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 import {
   DOCUMENT_TYPES,
   DOC_SHORT,
   PendingDarkStoreRequestsBanner,
+  PendingProductRequestsBanner,
   StatusPill,
   openVendorDocument,
 } from './multiVendorShared';
@@ -246,6 +247,7 @@ export default function MultiVendor() {
         </div>
       </div>
 
+      <PendingProductRequestsBanner />
       <PendingDarkStoreRequestsBanner />
 
       {stats ? (
@@ -395,6 +397,24 @@ export default function MultiVendor() {
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/vendor-product-requests?vendorId=${encodeURIComponent(row.id)}`)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                            row.pendingRequestsCount > 0
+                              ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300 hover:bg-amber-200'
+                              : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
+                          }`}
+                          title="View this vendor's products and requests"
+                        >
+                          <Package className="h-3.5 w-3.5" />
+                          <span>{row.productCount || 0} Products</span>
+                          {row.pendingRequestsCount > 0 ? (
+                            <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[9px] font-bold text-white">
+                              {row.pendingRequestsCount} new
+                            </span>
+                          ) : null}
+                        </button>
                         <button
                           type="button"
                           onClick={() => openEdit(row)}

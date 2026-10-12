@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Loader2, Pencil, Trash2, Warehouse } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Loader2, Package, Pencil, Trash2, Warehouse, XCircle } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import darkStoreApi from '../../api/darkStoreApi';
 import { BTN, BTN_PRIMARY, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
@@ -36,6 +36,8 @@ export default function MultiVendorDetailPage() {
   const [assigning, setAssigning] = useState(false);
   const [products, setProducts] = useState([]);
   const [crops, setCrops] = useState([]);
+  const [productRequests, setProductRequests] = useState([]);
+  const [requestBusyId, setRequestBusyId] = useState('');
 
   const loadProducts = useCallback(async () => {
     try {
@@ -55,10 +57,47 @@ export default function MultiVendorDetailPage() {
     }
   }, [vendorId]);
 
+  const loadProductRequests = useCallback(async () => {
+    try {
+      const res = await opsApi.list('vendor-product-requests', { vendorId, status: 'Pending' });
+      setProductRequests(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setProductRequests([]);
+    }
+  }, [vendorId]);
+
   useEffect(() => {
     loadProducts();
     loadCrops();
-  }, [loadProducts, loadCrops]);
+    loadProductRequests();
+  }, [loadProducts, loadCrops, loadProductRequests]);
+
+  const approveProductRequest = async (reqItem) => {
+    if (!window.confirm(`Approve and add "${reqItem.productName}" to this vendor's catalog?`)) return;
+    setRequestBusyId(reqItem.id);
+    try {
+      await opsApi.create(`vendor-product-requests/${reqItem.id}/approve`, {});
+      await Promise.all([loadProductRequests(), loadProducts()]);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not approve request');
+    } finally {
+      setRequestBusyId('');
+    }
+  };
+
+  const rejectProductRequest = async (reqItem) => {
+    const reason = window.prompt(`Reason for rejecting "${reqItem.productName}":`, 'Not suitable for current catalog');
+    if (!reason) return;
+    setRequestBusyId(reqItem.id);
+    try {
+      await opsApi.create(`vendor-product-requests/${reqItem.id}/reject`, { remarks: reason });
+      await loadProductRequests();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not reject request');
+    } finally {
+      setRequestBusyId('');
+    }
+  };
 
   const removeCrop = async (crop) => {
     if (!window.confirm(`Remove "${crop.cropName}" from this collection centre?`)) return;
@@ -343,6 +382,81 @@ export default function MultiVendorDetailPage() {
             ))
           )}
         </InfoSection>
+
+        {productRequests.length > 0 ? (
+          <InfoSection title={`Pending Product Requests (${productRequests.length})`}>
+            <div className="py-2">
+              <div className="mb-2.5 flex items-center justify-between">
+                <span className="text-xs text-amber-700 font-semibold">
+                  {productRequests.length} catalog product request{productRequests.length === 1 ? '' : 's'} waiting for admin approval.
+                </span>
+                <Link
+                  to={`/vendor-product-requests?vendorId=${encodeURIComponent(row.id)}`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                >
+                  <Package className="h-3.5 w-3.5" /> All Product Requests Hub →
+                </Link>
+              </div>
+              <div className="divide-y divide-slate-100 rounded-xl border border-amber-200 overflow-hidden bg-white">
+                {productRequests.map((reqItem) => {
+                  const img = reqItem.productImage || reqItem.catalog?.image;
+                  return (
+                    <div key={reqItem.id} className="flex flex-col gap-3 p-3.5 bg-white sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={reqItem.productName}
+                            className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-sm font-bold text-emerald-700">
+                            {String(reqItem.productName || 'P').charAt(0)}
+                          </div>
+                        )}
+                        <div className="space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-slate-900 text-sm">{reqItem.productName}</span>
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 ring-1 ring-amber-200">
+                              Pending Approval
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            {[reqItem.category, reqItem.unit].filter(Boolean).join(' · ')}
+                            {reqItem.catalog?.price ? ` · ₹${reqItem.catalog.price}` : ''}
+                            {' · '}Requested {formatDate(reqItem.createdAt)}
+                          </p>
+                          {reqItem.notes ? <p className="text-xs text-slate-600 italic">“{reqItem.notes}”</p> : null}
+                          {reqItem.adminRemarks ? (
+                            <p className="text-xs font-medium text-rose-600">Admin Remarks: {reqItem.adminRemarks}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
+                        <button
+                          type="button"
+                          disabled={requestBusyId === reqItem.id}
+                          onClick={() => rejectProductRequest(reqItem)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Reject
+                        </button>
+                        <button
+                          type="button"
+                          disabled={requestBusyId === reqItem.id}
+                          onClick={() => approveProductRequest(reqItem)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </InfoSection>
+        ) : null}
 
         <InfoSection title={`Products (${products.length})`}>
           {products.length === 0 ? (

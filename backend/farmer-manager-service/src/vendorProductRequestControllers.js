@@ -295,16 +295,8 @@ export async function listFarmerVendorProducts(req, res) {
       return res.json({ success: true, vendorId: "", total: 0, products: [] });
     }
 
-    const [vendorProds, farmerProdsUnderVendor, myProducts] = await Promise.all([
+    const [vendorProds, myProducts] = await Promise.all([
       vendorProductsWithCatalog(farmer.vendorId),
-      FarmerProduct.find({
-        vendorId: farmer.vendorId,
-        status: { $in: ["Active", "Approved", "Published"] },
-        isDeleted: { $ne: true },
-      })
-        .select("id productId name productName category variety unit sellingPrice pricePerKg stock availableQuantity image images description")
-        .sort({ createdAt: -1 })
-        .lean(),
       FarmerProduct.find({
         farmerId: farmer.id,
         isDeleted: { $ne: true },
@@ -362,44 +354,6 @@ export async function listFarmerVendorProducts(req, res) {
       });
     }
 
-    for (const fp of farmerProdsUnderVendor) {
-      const name = String(fp.productName || fp.name || "").trim();
-      const pid = String(fp.productId || fp.id || "").trim();
-      const key = `${name.toLowerCase()}:::${String(fp.variety || "").toLowerCase()}`;
-      if (!name || seenKeys.has(key)) continue;
-      seenKeys.add(key);
-
-      const myProd = myProductByKey.get(pid.toLowerCase()) || myProductByKey.get(name.toLowerCase());
-      const myStatus = String(myProd?.status || "").trim();
-      const isAdded = myStatus === "Active" || myStatus === "Approved" || myStatus === "Published";
-      const isPending = myStatus === "Pending Approval" || myStatus === "Pending" || myStatus === "PENDING_APPROVAL";
-      const isRejected = myStatus === "Rejected";
-
-      result.push({
-        id: pid || fp.id,
-        productId: pid,
-        productName: name,
-        name,
-        category: fp.category || "Vegetables",
-        variety: fp.variety || "",
-        unit: fp.unit || "Kg",
-        image: fp.image || fp.images?.[0] || "",
-        imageUrl: fp.image || fp.images?.[0] || "",
-        price: Number(fp.sellingPrice || fp.pricePerKg || 0),
-        mrp: Number(fp.sellingPrice || fp.pricePerKg || 0),
-        discountedPrice: Number(fp.sellingPrice || fp.pricePerKg || 0),
-        sellingPrice: Number(fp.sellingPrice || fp.pricePerKg || 0),
-        description: fp.description || "",
-        inStock: true,
-        isAdded,
-        isPending,
-        isRejected,
-        status: isAdded ? "Active" : isPending ? "Pending Approval" : isRejected ? "Rejected" : "Available",
-        rejectionReason: isRejected ? (myProd?.rejectionReason || "") : "",
-        myProductId: myProd?.id || "",
-      });
-    }
-
     res.json({
       success: true,
       vendorId: farmer.vendorId,
@@ -429,33 +383,53 @@ export async function requestFarmerProduct(req, res) {
     }
 
     const productId = String(payload.productId || "").trim();
-    const existing = await FarmerProduct.findOne({
-      farmerId: farmer.id,
-      isDeleted: { $ne: true },
+
+    // Verify that the requested product is approved and assigned to the farmer's vendor
+    const vendorProd = await VendorProduct.findOne({
+      vendorId: farmer.vendorId,
       $or: [
         ...(productId ? [{ productId }, { id: productId }] : []),
         { name: new RegExp(`^${escapeRegex(productName)}$`, "i") },
         { productName: new RegExp(`^${escapeRegex(productName)}$`, "i") },
       ],
+    }).lean();
+
+    if (!vendorProd) {
+      return res.status(400).json({ message: "This product is not approved in your vendor's catalog." });
+    }
+
+    const boundProductId = vendorProd.productId || vendorProd.id || productId;
+    const finalProductName = vendorProd.productName || vendorProd.name || productName;
+
+    const existing = await FarmerProduct.findOne({
+      farmerId: farmer.id,
+      isDeleted: { $ne: true },
+      $or: [
+        ...(boundProductId ? [{ productId: boundProductId }, { id: boundProductId }] : []),
+        { name: new RegExp(`^${escapeRegex(finalProductName)}$`, "i") },
+        { productName: new RegExp(`^${escapeRegex(finalProductName)}$`, "i") },
+      ],
     });
 
     if (existing) {
       const st = existing.status;
-      if (st === "Active" || st === "Approved") {
+      if (st === "Active" || st === "Approved" || st === "Published") {
         return res.status(409).json({ message: "This product is already active in your products." });
       }
-      if (st === "Pending Approval" || st === "Pending") {
+      if (st === "Pending Approval" || st === "Pending" || st === "PENDING_APPROVAL") {
         return res.status(409).json({ message: "A request for this product is already pending vendor approval." });
       }
       // Re-request if previously rejected
       existing.status = "Pending Approval";
       existing.rejectionReason = "";
-      existing.sellingPrice = Number(payload.sellingPrice || payload.pricePerKg) || existing.sellingPrice;
-      existing.pricePerKg = Number(payload.sellingPrice || payload.pricePerKg) || existing.pricePerKg;
-      existing.stock = Number(payload.stock || payload.availableQuantity) || existing.stock;
-      existing.availableQuantity = Number(payload.stock || payload.availableQuantity) || existing.availableQuantity;
-      if (payload.unit) existing.unit = payload.unit;
-      if (payload.image || payload.imageUrl) existing.image = payload.image || payload.imageUrl;
+      existing.sellingPrice = Number(payload.sellingPrice || payload.pricePerKg) || existing.sellingPrice || vendorProd.discountedPrice || vendorProd.price || 0;
+      existing.pricePerKg = existing.sellingPrice;
+      existing.stock = Number(payload.stock || payload.availableQuantity) || existing.stock || 10;
+      existing.availableQuantity = existing.stock;
+      if (payload.unit || vendorProd.unit) existing.unit = payload.unit || vendorProd.unit;
+      if (payload.image || payload.imageUrl || vendorProd.productImage || vendorProd.image) {
+        existing.image = payload.image || payload.imageUrl || vendorProd.productImage || vendorProd.image;
+      }
       existing.grades = [
         { id: "g-a", label: "Grade A", quantity: existing.stock || 0 }
       ];
@@ -470,36 +444,37 @@ export async function requestFarmerProduct(req, res) {
 
     const id = await generateId({
       module: "ART",
-      category: categoryFromName(payload.category || productName),
-      crop: cropCodeFromName(productName),
-      variety: varietyCodeFromName(payload.variety || ""),
+      category: categoryFromName(vendorProd.category || payload.category || finalProductName),
+      crop: cropCodeFromName(finalProductName),
+      variety: varietyCodeFromName(payload.variety || vendorProd.variety || vendorProd.varietyName || ""),
     });
 
     const stock = Number(payload.stock || payload.availableQuantity || payload.quantity) || 10;
-    const price = Number(payload.sellingPrice || payload.pricePerKg || payload.price) || 0;
-    const mrp = Number(payload.mrp || payload.price || price) || price;
+    const price = Number(payload.sellingPrice || payload.pricePerKg || payload.price) || Number(vendorProd.discountedPrice || vendorProd.price) || 0;
+    const mrp = Number(payload.mrp || payload.price || price) || Number(vendorProd.price || price) || price;
+    const image = payload.image || payload.imageUrl || vendorProd.productImage || vendorProd.image || "";
 
     const newProduct = new FarmerProduct({
       id,
-      productId: productId || id,
+      productId: boundProductId,
       vendorId: farmer.vendorId,
       managerId: farmer.managerId || "",
       farmerId: farmer.id,
-      name: productName,
-      productName,
-      category: payload.category || "Vegetables",
-      subCategory: payload.subCategory || "Fresh Produce",
-      variety: payload.variety || "",
-      unit: payload.unit || "Kg",
+      name: finalProductName,
+      productName: finalProductName,
+      category: vendorProd.category || payload.category || "Vegetables",
+      subCategory: vendorProd.subcategory || payload.subCategory || "Fresh Produce",
+      variety: payload.variety || vendorProd.variety || vendorProd.varietyName || "",
+      unit: payload.unit || vendorProd.unit || "Kg",
       sellingPrice: price,
       pricePerKg: price,
       mrp,
       stock,
       availableQuantity: stock,
       status: "Pending Approval",
-      image: payload.image || payload.imageUrl || "",
-      images: (payload.image || payload.imageUrl) ? [payload.image || payload.imageUrl] : [],
-      cropName: payload.cropLinked || payload.cropName || productName,
+      image,
+      images: image ? [image] : [],
+      cropName: payload.cropLinked || payload.cropName || finalProductName,
       farmingType: payload.farmingType || "Conventional",
       produceType: payload.farmingType === "Organic" ? "organic" : "non-organic",
       farmName: farmer.farmName || "",

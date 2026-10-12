@@ -20,6 +20,7 @@ import {
   PickupDriver,
   CollectionCentre,
   QualityInspection,
+  VendorProduct,
 } from "./models.js";
 import { isCropAvailableForVendor, vendorAvailableCrops } from "./vendorCropRequestControllers.js";
 import {
@@ -2357,9 +2358,15 @@ function applyProductFields(product, parsed, farmer, crop) {
 export async function listMyProducts(req, res) {
   try {
     const farmerId = authFarmerId(req);
+    const query = { farmerId, isDeleted: { $ne: true } };
+    if (req.query?.status) {
+      query.status = req.query.status;
+    } else {
+      query.status = { $in: ["Active", "Approved", "Published"] };
+    }
     const [farmer, products] = await Promise.all([
       Farmer.findOne({ id: farmerId }).lean(),
-      FarmerProduct.find({ farmerId }).sort({ createdAt: -1 }),
+      FarmerProduct.find(query).sort({ createdAt: -1 }),
     ]);
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const upgraded = await normalizeProductList(products);
@@ -3774,6 +3781,8 @@ async function loadAccessibleFarmerProduct(req, res) {
   return { farmer, product };
 }
 
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export async function reviewFarmerProduct(req, res) {
   try {
     const loaded = await loadAccessibleFarmerProduct(req, res);
@@ -3787,6 +3796,50 @@ export async function reviewFarmerProduct(req, res) {
     const decision = String(req.body?.decision || req.body?.status || "").trim().toLowerCase();
     const reviewer = req.user?.name || req.user?.role || "";
     if (["approved", "approve", "active"].includes(decision)) {
+      // 1. Verify farmer belongs to the authenticated vendor (enforced by accessibleFarmerQuery in loadAccessibleFarmerProduct)
+      // 2. Verify product is approved and assigned to that vendor's catalog
+      const vendorId = farmer.vendorId || req.user?.vendorId || req.user?.id;
+      const targetProductId = String(product.productId || product.id || "").trim();
+      const targetName = String(product.name || product.productName || "").trim();
+      const vendorProduct = await VendorProduct.findOne({
+        vendorId,
+        $or: [
+          ...(targetProductId ? [{ productId: targetProductId }, { id: targetProductId }] : []),
+          ...(targetName ? [
+            { name: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
+            { productName: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
+          ] : []),
+        ],
+      });
+      if (!vendorProduct) {
+        return res.status(400).json({
+          message: "Product is not approved and assigned to your vendor catalog.",
+        });
+      }
+
+      // 3. Verify product has not already been assigned to that farmer
+      const existingApproved = await FarmerProduct.findOne({
+        farmerId: farmer.id,
+        _id: { $ne: product._id },
+        isDeleted: { $ne: true },
+        status: { $in: ["Active", "Approved", "Published"] },
+        $or: [
+          ...(targetProductId ? [{ productId: targetProductId }, { id: targetProductId }] : []),
+          ...(targetName ? [
+            { name: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
+            { productName: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
+          ] : []),
+        ],
+      });
+      if (existingApproved) {
+        return res.status(409).json({
+          message: "This product is already active/approved for this farmer.",
+        });
+      }
+
+      if (vendorProduct.productId && (!product.productId || product.productId === product.id)) {
+        product.productId = vendorProduct.productId;
+      }
       const qty = Number(product.availableQuantity ?? product.stock ?? 0);
       product.status = applyStockDrivenStatus("Active", qty, product.lowStockLimit);
       product.rejectionReason = "";
