@@ -133,27 +133,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadSavedBankDetails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final holder = prefs.getString('farmer_bank_holder');
-      final name = prefs.getString('farmer_bank_name');
-      final accNo = prefs.getString('farmer_bank_acc_no');
-      final ifsc = prefs.getString('farmer_bank_ifsc');
-      final branch = prefs.getString('farmer_bank_branch');
-      final accType = prefs.getString('farmer_bank_acc_type');
+      final p = FarmerState().profile;
+      final holder = prefs.getString('farmer_bank_holder') ?? p.bankAccountHolder;
+      final name = prefs.getString('farmer_bank_name') ?? p.bankName;
+      final accNo = prefs.getString('farmer_bank_acc_no') ?? p.bankAccountNumber;
+      final ifsc = prefs.getString('farmer_bank_ifsc') ?? p.bankIfsc;
+      final branch = prefs.getString('farmer_bank_branch') ?? p.bankBranch;
+      final accType = prefs.getString('farmer_bank_acc_type') ?? p.bankAccountType;
       final aadhaar = prefs.getString('farmer_aadhaar');
       final pan = prefs.getString('farmer_pan');
-      final upi = prefs.getString('farmer_upi_id');
+      final upi = prefs.getString('farmer_upi_id') ?? p.bankUpiId;
 
       if (mounted) {
         setState(() {
-          if (holder != null && holder.isNotEmpty) _bankHolderController.text = holder;
-          if (name != null && name.isNotEmpty) _bankNameController.text = name;
-          if (accNo != null && accNo.isNotEmpty) _bankAccountNoController.text = accNo;
-          if (ifsc != null && ifsc.isNotEmpty) _bankIfscController.text = ifsc;
-          if (branch != null && branch.isNotEmpty) _bankBranchController.text = branch;
-          if (accType != null && accType.isNotEmpty) _bankAccountType = accType;
+          if (holder.isNotEmpty) _bankHolderController.text = holder;
+          if (name.isNotEmpty) _bankNameController.text = name;
+          if (accNo.isNotEmpty) _bankAccountNoController.text = accNo;
+          if (ifsc.isNotEmpty) _bankIfscController.text = ifsc;
+          if (branch.isNotEmpty) _bankBranchController.text = branch;
+          if (accType.isNotEmpty) _bankAccountType = accType;
           if (aadhaar != null && aadhaar.isNotEmpty) _aadhaarController.text = aadhaar;
           if (pan != null && pan.isNotEmpty) _panCardController.text = pan;
-          if (upi != null && upi.isNotEmpty) _upiIdController.text = upi;
+          if (upi.isNotEmpty) _upiIdController.text = upi;
         });
       }
     } catch (_) {}
@@ -222,7 +223,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final current = FarmerState().profile;
     final updated = current.copyWith(
-      bankVerificationStatus: 'PENDING',
+      bankAccountHolder: _bankHolderController.text.trim(),
+      bankName: _bankNameController.text.trim(),
+      bankAccountNumber: _bankAccountNoController.text.trim(),
+      bankIfsc: _bankIfscController.text.trim(),
+      bankBranch: _bankBranchController.text.trim(),
+      bankAccountType: _bankAccountType,
+      bankUpiId: _upiIdController.text.trim(),
+      bankVerificationStatus: current.bankVerificationStatus == 'VERIFIED' ? 'VERIFIED' : 'PENDING',
     );
     FarmerState().updateProfile(updated);
 

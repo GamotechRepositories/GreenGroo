@@ -339,10 +339,21 @@ export async function getFarmer360(req, res) {
         district: farmer.address?.district || farmer.farmGeo?.district,
         state: farmer.address?.state,
         pincode: farmer.address?.pincode || farmer.farmGeo?.pincode,
-        bankStatus: farmer.bankVerificationStatus,
+        registeredAddress:
+          [
+            farmer.address?.village,
+            farmer.address?.taluka,
+            farmer.address?.district,
+            farmer.address?.state,
+          ].filter(Boolean).join(", ") +
+          (farmer.address?.pincode ? ` - ${farmer.address.pincode}` : ""),
+        farmLocation: typeof farmer.farmLocation === "string" ? farmer.farmLocation : (farmer.farm?.farmLocation || ""),
+        bank: farmer.bank || {},
+        bankAccount: farmer.bank || {},
+        bankStatus: farmer.bankVerificationStatus || "PENDING",
+        bankVerificationStatus: farmer.bankVerificationStatus || "PENDING",
         farmPhotos: farmer.farm?.farmPhotos || [],
         farmVideos: farmer.farm?.farmVideos || [],
-        farmLocation: farmer.farmGeo || farmer.farmLocation,
         managerName: manager?.name || "",
         vendorName: vendor?.vendorName || vendor?.ownerName || "",
       },

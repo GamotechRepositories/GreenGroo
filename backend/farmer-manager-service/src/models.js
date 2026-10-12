@@ -64,6 +64,9 @@ const farmerSchema = new mongoose.Schema(
       bankName: { type: String, default: "" },
       accountNumber: { type: String, default: "" },
       ifsc: { type: String, default: "" },
+      branch: { type: String, default: "" },
+      accountType: { type: String, default: "Savings" },
+      upiId: { type: String, default: "" },
     },
     status: {
       type: String,

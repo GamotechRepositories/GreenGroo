@@ -983,6 +983,21 @@ export default function FarmersPage() {
                       <div className="rounded-xl border border-gray-200 bg-white p-4">
                         <h4 className="font-bold text-gray-900 mb-3">Address & Geographical Details</h4>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          <div className="col-span-2 sm:col-span-3 rounded-lg bg-emerald-50/60 border border-emerald-100 p-2.5">
+                            <span className="text-[10px] text-emerald-800 font-semibold uppercase">Registration Address</span>
+                            <p className="mt-0.5 font-semibold text-slate-900">
+                              {farmerDetails?.farmer?.registeredAddress ||
+                                [
+                                  farmerDetails?.farmer?.village || selectedFarmer.village,
+                                  farmerDetails?.farmer?.taluka || selectedFarmer.taluka,
+                                  farmerDetails?.farmer?.district || selectedFarmer.district,
+                                  farmerDetails?.farmer?.state || selectedFarmer.state,
+                                ].filter(Boolean).join(', ') +
+                                ((farmerDetails?.farmer?.pincode || selectedFarmer.pincode)
+                                  ? ` - ${farmerDetails?.farmer?.pincode || selectedFarmer.pincode}`
+                                  : '') || '—'}
+                            </p>
+                          </div>
                           <div className="rounded-lg bg-gray-50 p-2.5">
                             <span className="text-[10px] text-gray-400 font-semibold uppercase">Village</span>
                             <p className="mt-0.5 font-semibold text-gray-800">
@@ -1102,37 +1117,52 @@ export default function FarmersPage() {
                   {detailsTab === 'Documents & KYC' && (
                     <div className="space-y-4">
                       {/* Bank info */}
-                      <div className="rounded-xl border border-gray-200 bg-white p-4">
-                        <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-                          <Landmark className="h-4 w-4 text-[#217346]" /> Bank Account Verification
-                        </h4>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                          <div className="rounded-lg bg-gray-50 p-2.5">
-                            <span className="text-[10px] text-gray-400 font-semibold uppercase">Account Holder</span>
-                            <p className="mt-0.5 font-semibold text-gray-800">
-                              {farmerDetails?.farmer?.bankAccount?.accountHolder || selectedFarmer.fullName || '—'}
-                            </p>
+                      {(() => {
+                        const bank = farmerDetails?.farmer?.bank || farmerDetails?.farmer?.bankAccount || selectedFarmer.bank || selectedFarmer.bankAccount || {};
+                        const bStatus = farmerDetails?.farmer?.bankVerificationStatus || farmerDetails?.farmer?.bankStatus || selectedFarmer.bankVerificationStatus || selectedFarmer.bankStatus || 'Pending';
+                        return (
+                          <div className="rounded-xl border border-gray-200 bg-white p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-bold text-gray-900 flex items-center gap-1.5">
+                                <Landmark className="h-4 w-4 text-[#217346]" /> Bank Account Verification
+                              </h4>
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                String(bStatus).toUpperCase() === 'VERIFIED'
+                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                              }`}>
+                                {bStatus}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                              <div className="rounded-lg bg-gray-50 p-2.5">
+                                <span className="text-[10px] text-gray-400 font-semibold uppercase">Account Holder</span>
+                                <p className="mt-0.5 font-semibold text-gray-800">
+                                  {bank.accountHolder || farmerDetails?.farmer?.name || selectedFarmer.fullName || selectedFarmer.name || '—'}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-gray-50 p-2.5">
+                                <span className="text-[10px] text-gray-400 font-semibold uppercase">Bank Name</span>
+                                <p className="mt-0.5 font-semibold text-gray-800">
+                                  {bank.bankName || '—'}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-gray-50 p-2.5">
+                                <span className="text-[10px] text-gray-400 font-semibold uppercase">Account Number</span>
+                                <p className="mt-0.5 font-mono text-gray-800">
+                                  {bank.accountNumber || '—'}
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-gray-50 p-2.5">
+                                <span className="text-[10px] text-gray-400 font-semibold uppercase">IFSC Code</span>
+                                <p className="mt-0.5 font-mono text-gray-800">
+                                  {bank.ifsc || '—'}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="rounded-lg bg-gray-50 p-2.5">
-                            <span className="text-[10px] text-gray-400 font-semibold uppercase">Bank Name</span>
-                            <p className="mt-0.5 font-semibold text-gray-800">
-                              {farmerDetails?.farmer?.bankAccount?.bankName || '—'}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-gray-50 p-2.5">
-                            <span className="text-[10px] text-gray-400 font-semibold uppercase">Account Number</span>
-                            <p className="mt-0.5 font-mono text-gray-800">
-                              {farmerDetails?.farmer?.bankAccount?.accountNumber ? `••••${String(farmerDetails.farmer.bankAccount.accountNumber).slice(-4)}` : '—'}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-gray-50 p-2.5">
-                            <span className="text-[10px] text-gray-400 font-semibold uppercase">IFSC Code</span>
-                            <p className="mt-0.5 font-mono text-gray-800">
-                              {farmerDetails?.farmer?.bankAccount?.ifsc || '—'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()}
 
                       {/* Documents */}
                       <div className="rounded-xl border border-gray-200 bg-white p-4">

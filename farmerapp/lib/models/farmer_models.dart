@@ -28,6 +28,13 @@ class FarmerProfile {
   final bool? _locationConfirmed;
   final String? _kycStatus;
   final String? _bankVerificationStatus;
+  final String? _bankAccountHolder;
+  final String? _bankName;
+  final String? _bankAccountNumber;
+  final String? _bankIfsc;
+  final String? _bankBranch;
+  final String? _bankAccountType;
+  final String? _bankUpiId;
   final String profilePhoto;
   final String farmPhoto;
   final List<String>? _farmPhotos;
@@ -42,6 +49,13 @@ class FarmerProfile {
   bool get locationConfirmed => _locationConfirmed ?? false;
   String get kycStatus => _kycStatus ?? 'PENDING';
   String get bankVerificationStatus => _bankVerificationStatus ?? 'PENDING';
+  String get bankAccountHolder => (_bankAccountHolder != null && _bankAccountHolder!.isNotEmpty) ? _bankAccountHolder! : fullName;
+  String get bankName => _bankName ?? '';
+  String get bankAccountNumber => _bankAccountNumber ?? '';
+  String get bankIfsc => _bankIfsc ?? '';
+  String get bankBranch => _bankBranch ?? '';
+  String get bankAccountType => _bankAccountType ?? 'Savings (बचत खाते)';
+  String get bankUpiId => _bankUpiId ?? '';
   List<String> get farmPhotos => _farmPhotos ?? const [];
   List<String> get farmVideos => _farmVideos ?? const [];
 
@@ -73,6 +87,13 @@ class FarmerProfile {
     bool? locationConfirmed,
     String? kycStatus,
     String? bankVerificationStatus,
+    String? bankAccountHolder,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankIfsc,
+    String? bankBranch,
+    String? bankAccountType,
+    String? bankUpiId,
     this.profilePhoto = '',
     this.farmPhoto = '',
     List<String>? farmPhotos,
@@ -86,8 +107,14 @@ class FarmerProfile {
         _locationConfirmed = locationConfirmed ?? false,
         _kycStatus = kycStatus ?? 'PENDING',
         _bankVerificationStatus = bankVerificationStatus ?? 'PENDING',
-        _farmPhotos = farmPhotos ?? const [],
-        _farmVideos = farmVideos ?? const [];
+        _bankAccountHolder = bankAccountHolder ?? '',
+        _bankName = bankName ?? '',
+        _bankAccountNumber = bankAccountNumber ?? '',
+        _bankIfsc = bankIfsc ?? '',
+        _bankBranch = bankBranch ?? '',
+        _bankAccountType = bankAccountType ?? 'Savings (बचत खाते)',
+        _bankUpiId = bankUpiId ?? '',
+        _farmPhotos = farmPhotos ?? const [];
 
   FarmerProfile copyWith({
     String? id,
@@ -117,6 +144,13 @@ class FarmerProfile {
     bool? locationConfirmed,
     String? kycStatus,
     String? bankVerificationStatus,
+    String? bankAccountHolder,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankIfsc,
+    String? bankBranch,
+    String? bankAccountType,
+    String? bankUpiId,
     String? profilePhoto,
     String? farmPhoto,
     List<String>? farmPhotos,
@@ -150,6 +184,13 @@ class FarmerProfile {
       locationConfirmed: locationConfirmed ?? this.locationConfirmed,
       kycStatus: kycStatus ?? this.kycStatus,
       bankVerificationStatus: bankVerificationStatus ?? this.bankVerificationStatus,
+      bankAccountHolder: bankAccountHolder ?? this.bankAccountHolder,
+      bankName: bankName ?? this.bankName,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankIfsc: bankIfsc ?? this.bankIfsc,
+      bankBranch: bankBranch ?? this.bankBranch,
+      bankAccountType: bankAccountType ?? this.bankAccountType,
+      bankUpiId: bankUpiId ?? this.bankUpiId,
       profilePhoto: profilePhoto ?? this.profilePhoto,
       farmPhoto: farmPhoto ?? this.farmPhoto,
       farmPhotos: farmPhotos ?? this.farmPhotos,
@@ -222,6 +263,13 @@ class FarmerProfile {
       locationConfirmed: loc['confirmed'] == true || loc['confirmed'] == 'true',
       kycStatus: str(json['verificationStatus'] ?? json['kycStatus'], 'PENDING').toUpperCase(),
       bankVerificationStatus: str(json['bankVerificationStatus'], 'PENDING').toUpperCase(),
+      bankAccountHolder: str(bank['accountHolder'] ?? json['bankHolder'], ''),
+      bankName: str(bank['bankName'] ?? json['bankName'], ''),
+      bankAccountNumber: str(bank['accountNumber'] ?? json['bankAccountNo'], ''),
+      bankIfsc: str(bank['ifsc'] ?? json['bankIfsc'], ''),
+      bankBranch: str(bank['branch'] ?? json['bankBranch'], ''),
+      bankAccountType: str(bank['accountType'] ?? json['bankAccountType'], 'Savings (बचत खाते)'),
+      bankUpiId: str(bank['upiId'] ?? json['upiId'], ''),
       profilePhoto: str(json['profileImage'] ?? json['profilePhoto'], ''),
       farmPhoto: str(farm['farmPhoto'], ''),
       farmPhotos: (farm['farmPhotos'] is List) ? List<String>.from(farm['farmPhotos'].map((e) => e.toString())) : [],
@@ -260,6 +308,15 @@ class FarmerProfile {
     'locationConfirmed': locationConfirmed,
     'kycStatus': kycStatus,
     'bankVerificationStatus': bankVerificationStatus,
+    'bank': {
+      'accountHolder': bankAccountHolder,
+      'bankName': bankName,
+      'accountNumber': bankAccountNumber,
+      'ifsc': bankIfsc,
+      'branch': bankBranch,
+      'accountType': bankAccountType,
+      'upiId': bankUpiId,
+    },
     'profilePhoto': profilePhoto,
     'profileImage': profilePhoto,
     'farmPhoto': farmPhoto,

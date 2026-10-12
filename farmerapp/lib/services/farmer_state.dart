@@ -1338,6 +1338,15 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       'pincode': newProfile.pincode,
       'profileImage': newProfile.profilePhoto,
       'profilePhoto': newProfile.profilePhoto,
+      'bank': {
+        'accountHolder': newProfile.bankAccountHolder,
+        'bankName': newProfile.bankName,
+        'accountNumber': newProfile.bankAccountNumber,
+        'ifsc': newProfile.bankIfsc,
+        'branch': newProfile.bankBranch,
+        'accountType': newProfile.bankAccountType,
+        'upiId': newProfile.bankUpiId,
+      },
     }).catchError((err) {
       debugPrint('Failed to sync profile to backend: $err');
     });

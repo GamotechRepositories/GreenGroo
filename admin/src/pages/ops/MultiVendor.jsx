@@ -331,7 +331,7 @@ export default function MultiVendor() {
                           <p className="font-semibold text-slate-900">
                             {row.vendorName || row.businessName || row.ownerName}
                           </p>
-                          <p className="text-[11px] text-slate-500">{row.collectionCentre?.id || row.vendorCode || row.id}</p>
+                          <p className="text-[11px] font-mono text-slate-500">{row.collectionCentre?.id || row.id}</p>
                         </div>
                       </div>
                     </td>

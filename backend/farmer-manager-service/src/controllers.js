@@ -1186,6 +1186,16 @@ export async function updateFarmerSelfProfile(req, res) {
       pincode,
       state: farmer.address?.state || "Maharashtra",
     };
+    if (payload.bank) {
+      farmer.bank = {
+        ...(farmer.bank || {}),
+        ...payload.bank,
+        accountHolder: payload.bank.accountHolder || farmer.name || farmer.bank?.accountHolder || "",
+      };
+      if (payload.bank.bankName || payload.bank.accountNumber) {
+        farmer.bankVerificationStatus = farmer.bankVerificationStatus === "VERIFIED" ? "VERIFIED" : "PENDING";
+      }
+    }
 
     await farmer.save();
     res.json(await buildSelfFarmerPayload(farmer));
@@ -1300,15 +1310,28 @@ export async function updateFarmerFarmLocation(req, res) {
     };
     farmer.farmAddress = parsed.farmAddress;
     farmer.farmLocation = [parsed.village, parsed.district].filter(Boolean).join(", ");
-    farmer.address = {
-      ...(farmer.address || {}),
-      village: parsed.village,
-      taluka: parsed.taluka,
-      district: parsed.district,
-      pincode: parsed.pincode,
-    };
+    if (!farmer.address?.village && !farmer.address?.district) {
+      farmer.address = {
+        ...(farmer.address || {}),
+        village: parsed.village,
+        taluka: parsed.taluka,
+        district: parsed.district,
+        pincode: parsed.pincode,
+      };
+    }
     farmer.markModified("farmGeo");
     await farmer.save();
+    await Farm.updateOne(
+      { farmerId: farmer.farmerId || farmer.id },
+      {
+        $set: {
+          address: parsed.farmAddress,
+          farmLocation: farmer.farmLocation,
+          latitude: Number.isFinite(parsed.latitude) ? parsed.latitude : null,
+          longitude: Number.isFinite(parsed.longitude) ? parsed.longitude : null,
+        },
+      }
+    ).catch(() => {});
     res.json(await buildSelfFarmerPayload(farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to save farm location" });
@@ -1335,15 +1358,28 @@ export async function confirmFarmerFarmLocation(req, res) {
     };
     farmer.farmAddress = parsed.farmAddress;
     farmer.farmLocation = [parsed.village, parsed.district].filter(Boolean).join(", ");
-    farmer.address = {
-      ...(farmer.address || {}),
-      village: parsed.village,
-      taluka: parsed.taluka,
-      district: parsed.district,
-      pincode: parsed.pincode,
-    };
+    if (!farmer.address?.village && !farmer.address?.district) {
+      farmer.address = {
+        ...(farmer.address || {}),
+        village: parsed.village,
+        taluka: parsed.taluka,
+        district: parsed.district,
+        pincode: parsed.pincode,
+      };
+    }
     farmer.markModified("farmGeo");
     await farmer.save();
+    await Farm.updateOne(
+      { farmerId: farmer.farmerId || farmer.id },
+      {
+        $set: {
+          address: parsed.farmAddress,
+          farmLocation: farmer.farmLocation,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+        },
+      }
+    ).catch(() => {});
     res.json(await buildSelfFarmerPayload(farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to confirm farm location" });

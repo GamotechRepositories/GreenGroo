@@ -347,7 +347,6 @@ export default function MultiVendorDetailPage() {
 
               {/* Identification Badges */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <CopyBadge label="Vendor Code" value={row.vendorCode || row.id} icon={Building2} />
                 <CopyBadge label="CC Code" value={ccCode} icon={Warehouse} />
                 <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-slate-700 shadow-2xs">
                   <Percent className="h-3.5 w-3.5 text-slate-400" />
@@ -593,12 +592,12 @@ export default function MultiVendorDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <DetailItem label="Vendor / Brand Name" value={row.vendorName} icon={Warehouse} />
+              <DetailItem label="Collection Centre / Vendor Name" value={row.vendorName} icon={Warehouse} />
               <DetailItem label="Legal Business Name" value={row.businessName} icon={Building2} />
-              <DetailItem label="Vendor Code" value={row.vendorCode} icon={Building2} copyable />
-              <DetailItem label="System Vendor ID" value={row.id} icon={Copy} copyable />
+              <DetailItem label="Collection Centre Code (CC Code)" value={ccCode} icon={Warehouse} copyable />
+              <DetailItem label="System ID" value={row.id} icon={Copy} copyable />
               <DetailItem label="Platform Commission" value={`${row.commissionRate ?? 10}%`} icon={Percent} />
-              <DetailItem label="Vendor Status" icon={ShieldCheck}>
+              <DetailItem label="Operational Status" icon={ShieldCheck}>
                 <StatusPill status={row.status} />
               </DetailItem>
               <DetailItem label="Registered On" value={formatDate(row.createdAt)} icon={Calendar} />

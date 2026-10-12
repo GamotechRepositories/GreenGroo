@@ -207,7 +207,8 @@ export default function VendorProductRequestsPage() {
       groups.set(v.id, {
         vendorId: v.id,
         vendorName: v.vendorName || v.businessName || v.ownerName || v.id,
-        vendorCode: v.vendorCode || '',
+        vendorCode: v.collectionCentreId || v.collectionCentre?.id || v.id,
+        ccCode: v.collectionCentreId || v.collectionCentre?.id || v.id,
         ownerName: v.ownerName || '—',
         mobile: v.mobile || '',
         email: v.email || '',
@@ -453,7 +454,7 @@ export default function VendorProductRequestsPage() {
                 {Array.from(vendorLookup.values()).map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.vendorName || v.businessName || v.ownerName || v.id}
-                    {v.vendorCode ? ` (${v.vendorCode})` : ''}
+                    {v.collectionCentreId || v.collectionCentre?.id ? ` (${v.collectionCentreId || v.collectionCentre?.id})` : ''}
                   </option>
                 ))}
               </select>
@@ -903,7 +904,7 @@ export default function VendorProductRequestsPage() {
                           className="font-bold text-emerald-700 hover:underline"
                         >
                           {row.vendorName || row.vendorId}
-                          {row.vendorCode ? ` (${row.vendorCode})` : ''}
+                          {row.collectionCentreId || row.vendorCode ? ` (${row.collectionCentreId || row.vendorCode})` : ''}
                         </Link>{' '}
                         · {formatDate(row.createdAt)}
                       </p>

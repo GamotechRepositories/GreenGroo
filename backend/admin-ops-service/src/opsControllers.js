@@ -702,6 +702,10 @@ export async function createVendorAdmin(req, res, next) {
         village: req.body.village || undefined,
         contactMobile: mobile,
       });
+      if (centre && centre.id) {
+        vendor.vendorCode = centre.id;
+        await vendor.save();
+      }
       await saveVendorDocuments(id, documents, "admin");
     } catch (setupError) {
       await Promise.all([
