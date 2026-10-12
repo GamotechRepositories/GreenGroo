@@ -19,6 +19,7 @@ class HomeAllCategoryProducts extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final currentStore = ref.watch(selectedStoreTabProvider);
 
     return categoriesAsync.when(
       loading: () => const SliverToBoxAdapter(child: _CategorySectionSkeleton()),
@@ -33,8 +34,9 @@ class HomeAllCategoryProducts extends ConsumerWidget {
         return SliverList.builder(
           itemCount: names.length,
           itemBuilder: (context, index) => _CategoryProductSection(
-            key: ValueKey('home-cat-${names[index]}'),
+            key: ValueKey('home-cat-${names[index]}-$currentStore'),
             categoryName: names[index],
+            currentStore: currentStore,
           ),
         );
       },
@@ -43,19 +45,34 @@ class HomeAllCategoryProducts extends ConsumerWidget {
 }
 
 class _CategoryProductSection extends ConsumerWidget {
-  const _CategoryProductSection({super.key, required this.categoryName});
+  const _CategoryProductSection({
+    super.key,
+    required this.categoryName,
+    required this.currentStore,
+  });
 
   final String categoryName;
+  final String currentStore;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(categoryPreviewProductsProvider(categoryName));
+    final productsAsync = ref.watch(
+      categoryPreviewProductsProvider(
+        CategoryPreviewParam(
+          categoryName: categoryName,
+          currentStore: currentStore,
+        ),
+      ),
+    );
     return productsAsync.when(
       loading: () => const _CategorySectionSkeleton(),
       error: (_, _) => const SizedBox.shrink(),
       data: (products) => products.isEmpty
           ? const SizedBox.shrink()
-          : _CategoryProductGrid(categoryName: categoryName, products: products),
+          : _CategoryProductGrid(
+              categoryName: categoryName,
+              products: products,
+            ),
     );
   }
 }
@@ -135,7 +152,7 @@ class _CategoryProductGrid extends StatelessWidget {
 
           // Full-width See All Button
           _SeeAllButton(
-            title: 'See all ${categoryName} products',
+            title: 'See all $categoryName products',
             categoryImages: productImages,
             onTap: () {
               context.push(

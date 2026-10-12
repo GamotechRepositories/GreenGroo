@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
+import '../../features/cart/cart_controller.dart';
 import '../common/fly_target_anchor.dart';
 import '../common/nav_icon_locator.dart';
 
@@ -202,8 +204,9 @@ class FlipkartNavItem {
   final bool showBadge;
 }
 
-class _FloatingNavTab extends StatelessWidget {
+class _FloatingNavTab extends ConsumerWidget {
   const _FloatingNavTab({
+    super.key,
     required this.item,
     required this.selected,
     required this.isAccount,
@@ -222,7 +225,11 @@ class _FloatingNavTab extends StatelessWidget {
   final int badgeCount;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveBadgeCount = item.showBadge
+        ? ref.watch(cartControllerProvider.select((s) => s.cartCount))
+        : badgeCount;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -230,7 +237,7 @@ class _FloatingNavTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildIcon(),
+            _buildIcon(liveBadgeCount),
             const SizedBox(height: 2),
             Text(
               item.label,
@@ -248,7 +255,7 @@ class _FloatingNavTab extends StatelessWidget {
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildIcon(int effectiveBadgeCount) {
     Widget iconWidget;
 
     final iconSize = item.showBadge ? 26.0 : 22.0;
@@ -297,11 +304,11 @@ class _FloatingNavTab extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           iconWidget,
-          if (badgeCount > 0)
+          if (effectiveBadgeCount > 0)
             Positioned(
-              right: -6,
-              top: -4,
-              child: _CartCountBadge(count: badgeCount),
+              right: -7,
+              top: -5,
+              child: _CartCountBadge(count: effectiveBadgeCount),
             ),
         ],
       ),
@@ -360,24 +367,32 @@ class _CartCountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = count > 99 ? '99+' : '$count';
-    final minWidth = count > 9 ? 18.0 : 16.0;
+    final minWidth = count > 9 ? 20.0 : 17.0;
 
     return Container(
-      constraints: BoxConstraints(minWidth: minWidth, minHeight: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      constraints: BoxConstraints(minWidth: minWidth, minHeight: 17),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: AppColors.navBadge,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white, width: 1.2),
+        color: const Color(0xFFEF4444),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
       alignment: Alignment.center,
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          height: 1,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w900,
+          height: 1.0,
         ),
       ),
     );

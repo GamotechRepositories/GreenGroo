@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
+import '../../core/utils/department_utils.dart';
 import '../../core/utils/recently_viewed.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -29,14 +30,13 @@ List<Category> _shopCategories(List<Category> categories) => categories
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final currentStore = ref.watch(selectedStoreTabProvider);
-  String? sectionParam;
+  String sectionParam;
   if (currentStore == 'festive' || currentStore == 'ready2cook') {
     sectionParam = 'ready2cook';
   } else if (currentStore == 'mall' || currentStore == 'instantorder') {
     sectionParam = 'instantorder';
   } else {
-    // 'main', 'preorder', or default -> fetch ALL categories
-    sectionParam = null;
+    sectionParam = 'preorder';
   }
 
   final categories = await ref.read(apiServiceProvider).fetchCategories(section: sectionParam);
@@ -53,24 +53,62 @@ final departmentCategoriesProvider =
   return _shopCategories(categories);
 });
 
-/// Six-product preview for one category row on home. Cached per category, so a
-/// row scrolled away and back shows instantly instead of reloading.
+class CategoryPreviewParam {
+  const CategoryPreviewParam({
+    required this.categoryName,
+    required this.currentStore,
+  });
+
+  final String categoryName;
+  final String currentStore;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CategoryPreviewParam &&
+          runtimeType == other.runtimeType &&
+          categoryName == other.categoryName &&
+          currentStore == other.currentStore;
+
+  @override
+  int get hashCode => Object.hash(categoryName, currentStore);
+}
+
+/// Six-product preview for one category row on home. Cached per category and department.
 final categoryPreviewProductsProvider =
-    FutureProvider.family<List<Product>, String>((ref, categoryName) async {
+    FutureProvider.family<List<Product>, CategoryPreviewParam>((ref, param) async {
   ref.watch(deliveryLocationKeyProvider);
+  String sectionParam;
+  if (param.currentStore == 'festive' || param.currentStore == 'ready2cook') {
+    sectionParam = 'ready2cook';
+  } else if (param.currentStore == 'mall' || param.currentStore == 'instantorder') {
+    sectionParam = 'instantorder';
+  } else {
+    sectionParam = 'preorder';
+  }
+
   final products = await ref.read(apiServiceProvider).fetchProducts({
-    'categoryName': categoryName,
+    'categoryName': param.categoryName,
+    'section': sectionParam,
     'limit': 12,
   });
-  return products.where((p) => p.isActive).take(6).toList();
+
+  final activeDept = departmentForSection(sectionParam);
+  return products
+      .where((p) => p.isActive && p.department == activeDept)
+      .take(6)
+      .toList();
 });
 
 final homeDealsProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final products = await ref.read(apiServiceProvider).fetchProducts({
+    'section': 'preorder',
     'limit': 12,
   });
-  return products.where((product) => product.isActive).toList();
+  return products
+      .where((product) => product.isActive && product.department == Department.preorder)
+      .toList();
 });
 
 final brandsProvider = FutureProvider((ref) async {
@@ -107,18 +145,26 @@ final justArrivedProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final products = await ref.read(apiServiceProvider).fetchProducts({
     'justArrived': true,
+    'section': 'preorder',
     'limit': homeProductLimit,
   });
-  return products.where((product) => product.isActive).take(homeProductLimit).toList();
+  return products
+      .where((product) => product.isActive && product.department == Department.preorder)
+      .take(homeProductLimit)
+      .toList();
 });
 
 final hotSellingProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final products = await ref.read(apiServiceProvider).fetchProducts({
     'hotSelling': true,
+    'section': 'preorder',
     'limit': homeProductLimit,
   });
-  return products.where((product) => product.isActive).take(homeProductLimit).toList();
+  return products
+      .where((product) => product.isActive && product.department == Department.preorder)
+      .take(homeProductLimit)
+      .toList();
 });
 
 final recentlyViewedProductsProvider = FutureProvider<List<Product>>((ref) async {

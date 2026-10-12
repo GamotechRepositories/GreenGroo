@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/utils/product_pricing.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../models/product.dart';
+import 'variant_bottom_sheet.dart';
 
 /// ADD, or `− count +` once the product is in the cart.
 class CartAddButton extends ConsumerWidget {
@@ -13,31 +15,101 @@ class CartAddButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final hasVariants = isMultiVariant(product);
     final qty = ref.watch(cartProductQuantityProvider(product.id));
 
-    if (qty <= 0) {
+    if (hasVariants) {
+      if (qty <= 0) {
+        return InkWell(
+          onTap: () => showVariantBottomSheet(context, product),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF16A34A)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'ADD',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF16A34A),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 13,
+                  color: Color(0xFF16A34A),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return InkWell(
-        onTap: () {
-          ref.read(cartControllerProvider.notifier).addToCart(
-                product,
-                1,
-                flySourceContext: context,
-              );
-        },
+        onTap: () => showVariantBottomSheet(context, product),
         borderRadius: BorderRadius.circular(6),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
+            color: const Color(0xFF16A34A),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF16A34A)),
           ),
-          child: Text(
-            'ADD',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF16A34A),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$qty in cart',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 3),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 13,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (qty <= 0) {
+      return Builder(
+        builder: (btnCtx) => InkWell(
+          onTap: () {
+            ref.read(cartControllerProvider.notifier).addToCart(
+                  product,
+                  1,
+                  flySourceContext: btnCtx,
+                );
+          },
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF16A34A)),
+            ),
+            child: Text(
+              'ADD',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF16A34A),
+              ),
             ),
           ),
         ),
@@ -73,15 +145,17 @@ class CartAddButton extends ConsumerWidget {
               ),
             ),
           ),
-          _Step(
-            label: '+',
-            onTap: () {
-              ref.read(cartControllerProvider.notifier).addToCart(
-                    product,
-                    1,
-                    flySourceContext: context,
-                  );
-            },
+          Builder(
+            builder: (plusCtx) => _Step(
+              label: '+',
+              onTap: () {
+                ref.read(cartControllerProvider.notifier).addToCart(
+                      product,
+                      1,
+                      flySourceContext: plusCtx,
+                    );
+              },
+            ),
           ),
         ],
       ),

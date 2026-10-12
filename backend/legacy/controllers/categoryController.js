@@ -14,13 +14,42 @@ const normalizeSubcategories = (subcategories) => {
 
 export const getCategories = async (req, res) => {
   try {
+    const sec = req.query.section?.trim().toLowerCase();
+    let productSectionMatch = null;
+    if (sec && sec !== "all") {
+      if (sec === "ready2cook" || sec === "ready-2-cook" || sec === "festive") {
+        productSectionMatch = {
+          $or: [
+            { section: { $in: ["ready2cook", "ready-2-cook", "festive"] } },
+            { storeType: "festive" },
+          ],
+        };
+      } else if (sec === "instantorder" || sec === "instant" || sec === "supermall" || sec === "mall" || sec === "instantorders") {
+        productSectionMatch = {
+          $or: [
+            { section: { $in: ["instantorder", "instant", "supermall", "mall", "instantorders"] } },
+            { storeType: "mall" },
+          ],
+        };
+      } else if (sec === "preorder" || sec === "main" || sec === "greengrocc") {
+        productSectionMatch = {
+          section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
+          storeType: { $nin: ["festive", "mall"] },
+        };
+      } else {
+        productSectionMatch = { section: sec };
+      }
+    }
+
+    const matchClause = { isActive: true, ...(productSectionMatch || {}) };
+
     const [categories, counts] = await Promise.all([
       Category.find({ isActive: true }).sort({
         categoryName: 1,
         createdAt: -1,
       }),
       Product.aggregate([
-        { $match: { isActive: true } },
+        { $match: matchClause },
         { $unwind: "$categories" },
         {
           $group: {
@@ -35,7 +64,7 @@ export const getCategories = async (req, res) => {
       counts.map((item) => [String(item._id || "").trim().toLowerCase(), Number(item.productCount) || 0])
     );
 
-    const data = categories.map((category) => {
+    let data = categories.map((category) => {
       const categoryObj = transformCategoryResponse(category);
       const key = String(categoryObj.categoryName || "").trim().toLowerCase();
       return {
@@ -43,6 +72,10 @@ export const getCategories = async (req, res) => {
         productCount: countMap.get(key) || 0,
       };
     });
+
+    if (sec && sec !== "all") {
+      data = data.filter((c) => (countMap.get(String(c.categoryName || "").trim().toLowerCase()) || 0) > 0);
+    }
 
     res.status(200).json({ success: true, data });
   } catch (error) {

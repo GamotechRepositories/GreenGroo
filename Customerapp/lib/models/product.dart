@@ -1,3 +1,4 @@
+import '../core/utils/department_utils.dart';
 import '../core/utils/json_parsers.dart';
 import 'product_pricing_models.dart';
 
@@ -32,6 +33,8 @@ class Product {
     this.badge = '',
     this.purchaseCount = 0,
     this.createdAt,
+    this.section = '',
+    this.storeType = '',
   });
 
   final String id;
@@ -63,6 +66,8 @@ class Product {
   final String badge;
   final int purchaseCount;
   final DateTime? createdAt;
+  final String section;
+  final String storeType;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -71,6 +76,77 @@ class Product {
   bool get isAvailable => isActive && stock > 0;
   double get effectivePrice => discountedPrice > 0 ? discountedPrice : price;
   String get weightUnit => subcategory.isNotEmpty ? subcategory : '';
+
+  /// preorder | ready2cook | instant
+  String get department => departmentForSection(section, storeType);
+
+  Product copyWith({
+    String? id,
+    String? name,
+    List<String>? categories,
+    String? subcategory,
+    String? brandName,
+    double? price,
+    double? discountedPrice,
+    double? discountedPercent,
+    double? ratings,
+    int? stock,
+    List<String>? productImages,
+    String? videoUrl,
+    String? description,
+    List<String>? features,
+    String? warranty,
+    bool? isActive,
+    String? variantType,
+    List<ProductVariant>? variants,
+    String? pricingType,
+    BulkPricing? bulkPricing,
+    List<ProductColor>? colors,
+    List<ProductSpecification>? specifications,
+    int? minOrderQuantity,
+    int? maxOrderQuantity,
+    int? stepByQuantity,
+    String? cardGlowColor,
+    String? badge,
+    int? purchaseCount,
+    DateTime? createdAt,
+    String? section,
+    String? storeType,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      categories: categories ?? this.categories,
+      subcategory: subcategory ?? this.subcategory,
+      brandName: brandName ?? this.brandName,
+      price: price ?? this.price,
+      discountedPrice: discountedPrice ?? this.discountedPrice,
+      discountedPercent: discountedPercent ?? this.discountedPercent,
+      ratings: ratings ?? this.ratings,
+      stock: stock ?? this.stock,
+      productImages: productImages ?? this.productImages,
+      videoUrl: videoUrl ?? this.videoUrl,
+      description: description ?? this.description,
+      features: features ?? this.features,
+      warranty: warranty ?? this.warranty,
+      isActive: isActive ?? this.isActive,
+      variantType: variantType ?? this.variantType,
+      variants: variants ?? this.variants,
+      pricingType: pricingType ?? this.pricingType,
+      bulkPricing: bulkPricing ?? this.bulkPricing,
+      colors: colors ?? this.colors,
+      specifications: specifications ?? this.specifications,
+      minOrderQuantity: minOrderQuantity ?? this.minOrderQuantity,
+      maxOrderQuantity: maxOrderQuantity ?? this.maxOrderQuantity,
+      stepByQuantity: stepByQuantity ?? this.stepByQuantity,
+      cardGlowColor: cardGlowColor ?? this.cardGlowColor,
+      badge: badge ?? this.badge,
+      purchaseCount: purchaseCount ?? this.purchaseCount,
+      createdAt: createdAt ?? this.createdAt,
+      section: section ?? this.section,
+      storeType: storeType ?? this.storeType,
+    );
+  }
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final legacyBulk = json['bulkPricing'];
@@ -130,6 +206,8 @@ class Product {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
           : null,
+      section: json['section']?.toString() ?? '',
+      storeType: json['storeType']?.toString() ?? '',
     );
   }
 }

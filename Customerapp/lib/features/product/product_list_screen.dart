@@ -84,15 +84,28 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     }
   }
 
-  ProductQuery get _query => ProductQuery(
-        categoryName: widget.categoryName,
-        search: widget.searchQuery,
-        brandName: widget.brand,
-        subcategory: widget.subcategory,
-        minPrice: widget.minPrice,
-        maxPrice: widget.maxPrice,
-        sort: _sort.id,
-      );
+  ProductQuery get _query {
+    final currentStore = ref.watch(selectedStoreTabProvider);
+    String section;
+    if (currentStore == 'festive' || currentStore == 'ready2cook') {
+      section = 'ready2cook';
+    } else if (currentStore == 'mall' || currentStore == 'instantorder') {
+      section = 'instantorder';
+    } else {
+      section = 'preorder';
+    }
+
+    return ProductQuery(
+      categoryName: widget.categoryName,
+      search: widget.searchQuery,
+      brandName: widget.brand,
+      subcategory: widget.subcategory,
+      minPrice: widget.minPrice,
+      maxPrice: widget.maxPrice,
+      sort: _sort.id,
+      section: section,
+    );
+  }
 
 
   void _updateSort(ProductSortOption option) {

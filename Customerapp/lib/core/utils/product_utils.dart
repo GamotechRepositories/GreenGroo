@@ -110,25 +110,16 @@ CartItem cartItemFromProduct(
   int quantity, {
   String variantName = '',
   String colorName = '',
+  String? section,
+  String? storeType,
 }) {
-  final base = CartItem.fromProduct(product, quantity: quantity);
-  return CartItem(
-    id: base.id,
-    name: base.name,
-    brandName: base.brandName,
-    price: base.price,
-    discountedPrice: base.discountedPrice,
-    productImages: base.productImages,
-    stock: base.stock,
+  return CartItem.fromProduct(
+    product,
     quantity: quantity,
-    variantName: variantName.trim(),
-    colorName: colorName.trim(),
-    pricingType: base.pricingType,
-    bulkPricing: base.bulkPricing,
-    variantType: base.variantType,
-    variants: base.variants,
-    minOrderQuantity: base.minOrderQuantity,
-    stepByQuantity: base.stepByQuantity,
+    variantName: variantName,
+    colorName: colorName,
+    section: section,
+    storeType: storeType,
   );
 }
 

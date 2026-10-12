@@ -82,37 +82,34 @@ class FlyProductAnimator extends StatefulWidget {
   State<FlyProductAnimator> createState() => _FlyProductAnimatorState();
 }
 
-class _FlyProductAnimatorState extends State<FlyProductAnimator>
-    with SingleTickerProviderStateMixin {
-  static const double _size = 40;
+class _FlyTask {
+  final int id;
+  final FlyProductRequest request;
+  final AnimationController controller;
+  final Animation<double> progress;
+  final Animation<double> scale;
+  final Animation<double> opacity;
 
-  FlyProductRequest? _request;
-  late final AnimationController _controller;
-  late final Animation<double> _progress;
-  late final Animation<double> _scale;
-  late final Animation<double> _opacity;
+  _FlyTask({
+    required this.id,
+    required this.request,
+    required this.controller,
+    required this.progress,
+    required this.scale,
+    required this.opacity,
+  });
+}
+
+class _FlyProductAnimatorState extends State<FlyProductAnimator>
+    with TickerProviderStateMixin {
+  static const double _size = 44;
+
+  final List<_FlyTask> _tasks = [];
+  int _nextId = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-    _progress = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
-    _scale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.78), weight: 45),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 0.36), weight: 37),
-      TweenSequenceItem(tween: Tween(begin: 0.36, end: 0.1), weight: 18),
-    ]).animate(_controller);
-    _opacity = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 45),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 0.82), weight: 37),
-      TweenSequenceItem(tween: Tween(begin: 0.82, end: 0.0), weight: 18),
-    ]).animate(_controller);
     _flyProductTrigger = _startAnimation;
   }
 
@@ -121,75 +118,121 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
     if (_flyProductTrigger == _startAnimation) {
       _flyProductTrigger = null;
     }
-    _controller.dispose();
+    for (final task in _tasks) {
+      task.controller.dispose();
+    }
+    _tasks.clear();
     super.dispose();
   }
 
   void _startAnimation(FlyProductRequest request) {
-    if (!mounted || _controller.isAnimating) return;
+    if (!mounted) return;
 
-    setState(() => _request = request);
-    _controller.forward(from: 0).whenComplete(() {
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    final progress = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOutCubic,
+    );
+
+    final scale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.05, end: 0.82), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.82, end: 0.45), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 0.45, end: 0.15), weight: 20),
+    ]).animate(controller);
+
+    final opacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.98), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.98, end: 0.85), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 0.85, end: 0.0), weight: 20),
+    ]).animate(controller);
+
+    final task = _FlyTask(
+      id: ++_nextId,
+      request: request,
+      controller: controller,
+      progress: progress,
+      scale: scale,
+      opacity: opacity,
+    );
+
+    setState(() {
+      _tasks.add(task);
+    });
+
+    controller.forward().whenComplete(() {
       if (!mounted) return;
-      setState(() => _request = null);
+      setState(() {
+        _tasks.removeWhere((t) => t.id == task.id);
+      });
+      controller.dispose();
     });
   }
 
   Offset _positionAt(FlyProductRequest request, double t) {
     final eased = Curves.easeInOutCubic.transform(t);
     final linear = Offset.lerp(request.start, request.end, eased)!;
-    final arcLift = -72 * math.sin(math.pi * eased);
+    final arcLift = -68 * math.sin(math.pi * eased);
     return Offset(linear.dx, linear.dy + arcLift);
   }
 
   @override
   Widget build(BuildContext context) {
-    final request = _request;
-    if (request == null) {
+    if (_tasks.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final currentScale = _scale.value;
-        final position = _positionAt(request, _progress.value);
-        return Positioned(
-          left: position.dx - (_size * currentScale) / 2,
-          top: position.dy - (_size * currentScale) / 2,
-          child: Opacity(
-            opacity: _opacity.value,
-            child: Transform.scale(
-              scale: currentScale,
-              child: child,
+    return IgnorePointer(
+      child: Stack(
+        children: _tasks.map((task) {
+          return AnimatedBuilder(
+            key: ValueKey(task.id),
+            animation: task.controller,
+            builder: (context, child) {
+              final currentScale = task.scale.value;
+              final position = _positionAt(task.request, task.progress.value);
+              return Positioned(
+                left: position.dx - (_size * currentScale) / 2,
+                top: position.dy - (_size * currentScale) / 2,
+                child: Opacity(
+                  opacity: task.opacity.value.clamp(0.0, 1.0),
+                  child: Transform.scale(
+                    scale: currentScale,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: AppNetworkImage(
+                  imageUrl: task.request.imageUrl,
+                  width: _size,
+                  height: _size,
+                  fit: BoxFit.contain,
+                  cacheWidth: 90,
+                  cacheHeight: 90,
+                  errorIcon: Icons.image_outlined,
+                ),
+              ),
             ),
-          ),
-        );
-      },
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x26000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: AppNetworkImage(
-            imageUrl: request.imageUrl,
-            width: _size,
-            height: _size,
-            fit: BoxFit.contain,
-            cacheWidth: 80,
-            cacheHeight: 80,
-            errorIcon: Icons.image_outlined,
-          ),
-        ),
+          );
+        }).toList(),
       ),
     );
   }

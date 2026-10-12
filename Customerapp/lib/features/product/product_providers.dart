@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
+import '../../core/utils/department_utils.dart';
 import '../../models/product.dart';
 
 Map<String, dynamic> _queryParams(ProductQuery query) {
@@ -33,6 +34,9 @@ Map<String, dynamic> _queryParams(ProductQuery query) {
   if (query.hotSelling) {
     params['hotSelling'] = true;
   }
+  if (query.section != null && query.section!.isNotEmpty) {
+    params['section'] = query.section;
+  }
   return params;
 }
 
@@ -41,6 +45,10 @@ final productListProvider =
   ref.watch(deliveryLocationKeyProvider);
   final params = {..._queryParams(query), 'limit': 50};
   final products = await ref.read(apiServiceProvider).fetchProducts(params);
+  if (query.section != null && query.section!.isNotEmpty) {
+    final activeDept = departmentForSection(query.section!);
+    return products.where((product) => product.isActive && product.department == activeDept).toList();
+  }
   return products.where((product) => product.isActive).toList();
 });
 
@@ -113,8 +121,16 @@ class PagedProductsNotifier extends Notifier<PagedProducts> {
             limit: pageSize,
           );
       if (generation != _generation) return;
+      final filterDept = (query.section != null && query.section!.isNotEmpty)
+          ? departmentForSection(query.section!)
+          : null;
       final seen = {for (final p in state.items) p.id};
-      final fresh = result.items.where((p) => p.isActive && seen.add(p.id)).toList();
+      final fresh = result.items
+          .where((p) =>
+              p.isActive &&
+              (filterDept == null || p.department == filterDept) &&
+              seen.add(p.id))
+          .toList();
       pageWasEmpty = fresh.isEmpty && result.hasMore;
       _page = nextPage;
       state = state.copyWith(
@@ -170,6 +186,7 @@ class ProductQuery {
     this.sort,
     this.justArrived = false,
     this.hotSelling = false,
+    this.section,
   });
 
   final String? categoryName;
@@ -181,6 +198,7 @@ class ProductQuery {
   final String? sort;
   final bool justArrived;
   final bool hotSelling;
+  final String? section;
 
   @override
   bool operator ==(Object other) {
@@ -193,7 +211,8 @@ class ProductQuery {
         other.maxPrice == maxPrice &&
         other.sort == sort &&
         other.justArrived == justArrived &&
-        other.hotSelling == hotSelling;
+        other.hotSelling == hotSelling &&
+        other.section == section;
   }
 
   @override
@@ -207,5 +226,6 @@ class ProductQuery {
         sort,
         justArrived,
         hotSelling,
+        section,
       );
 }

@@ -53,12 +53,11 @@ class CartDefaults {
 }
 
 bool isMultiVariant(Product product) {
-  return product.variantType == 'multi' &&
-      product.variants.isNotEmpty;
+  return product.variants.isNotEmpty;
 }
 
 ProductVariant? getVariant(Product product, String variantName) {
-  if (!isMultiVariant(product) || variantName.trim().isEmpty) {
+  if (variantName.trim().isEmpty || product.variants.isEmpty) {
     return null;
   }
   final target = variantName.trim().toLowerCase();
@@ -71,10 +70,9 @@ ProductVariant? getVariant(Product product, String variantName) {
 }
 
 bool isProductInStock(Product product, [String variantName = '']) {
-  if (isMultiVariant(product)) {
+  if (variantName.trim().isNotEmpty) {
     final variant = getVariant(product, variantName);
-    if (variant == null) return false;
-    return variant.stock > 0;
+    if (variant != null) return variant.stock > 0;
   }
   return product.stock > 0;
 }
@@ -84,8 +82,9 @@ int getVariantStock(Product product, [String variantName = '']) {
 }
 
 List<ProductColor> getAvailableColors(Product product, [String variantName = '']) {
-  if (isMultiVariant(product)) {
-    return getVariant(product, variantName)?.colors ?? const [];
+  if (variantName.trim().isNotEmpty) {
+    final variant = getVariant(product, variantName);
+    if (variant != null && variant.colors.isNotEmpty) return variant.colors;
   }
   return product.colors;
 }
@@ -95,25 +94,30 @@ PricingSource? getPricingSource(Product product, [String variantName = '']) {
   final productMax = product.maxOrderQuantity;
   final productStep = product.stepByQuantity;
 
-  if (isMultiVariant(product)) {
+  if (variantName.trim().isNotEmpty) {
     final variant = getVariant(product, variantName);
-    if (variant == null) return null;
-    return PricingSource(
-      pricingType: variant.pricingType,
-      bulkPricing: variant.bulkPricing,
-      price: variant.price,
-      discountedPrice: variant.discountedPrice,
-      minOrderQuantity: productMoq ?? variant.minOrderQuantity,
-      maxOrderQuantity: productMax ?? variant.maxOrderQuantity,
-      stepByQuantity: productStep ?? variant.stepByQuantity,
-    );
+    if (variant != null) {
+      final vPrice = variant.price > 0 ? variant.price : product.price;
+      final vDiscounted = variant.discountedPrice > 0
+          ? variant.discountedPrice
+          : (variant.price > 0 ? variant.price : product.discountedPrice);
+      return PricingSource(
+        pricingType: variant.pricingType,
+        bulkPricing: variant.bulkPricing,
+        price: vPrice,
+        discountedPrice: vDiscounted,
+        minOrderQuantity: productMoq ?? variant.minOrderQuantity,
+        maxOrderQuantity: productMax ?? variant.maxOrderQuantity,
+        stepByQuantity: productStep ?? variant.stepByQuantity,
+      );
+    }
   }
 
   return PricingSource(
     pricingType: product.pricingType,
     bulkPricing: product.bulkPricing,
     price: product.price,
-    discountedPrice: product.discountedPrice,
+    discountedPrice: product.discountedPrice > 0 ? product.discountedPrice : product.price,
     minOrderQuantity: productMoq,
     maxOrderQuantity: productMax,
     stepByQuantity: productStep,

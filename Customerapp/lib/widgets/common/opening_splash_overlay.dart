@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../config/theme.dart';
-import 'app_logo.dart';
-
 class OpeningSplashHost extends StatefulWidget {
   const OpeningSplashHost({super.key, required this.child});
 
@@ -15,12 +12,9 @@ class OpeningSplashHost extends StatefulWidget {
 
 class _OpeningSplashHostState extends State<OpeningSplashHost>
     with SingleTickerProviderStateMixin {
-  static const _maxTotal = Duration(milliseconds: 2200);
-  static const _holdDuration = Duration(milliseconds: 1500);
+  static const _fadeDuration = Duration(milliseconds: 250);
 
   AnimationController? _controller;
-  Animation<double>? _contentOpacity;
-  Animation<double>? _contentScale;
   Animation<double>? _overlayOpacity;
 
   bool _showOverlay = true;
@@ -39,35 +33,26 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
       return;
     }
 
-    final controller = AnimationController(vsync: this, duration: _maxTotal);
+    final controller = AnimationController(
+      vsync: this,
+      duration: _fadeDuration,
+    );
     _controller = controller;
 
-    _contentOpacity = Tween<double>(begin: 0, end: 1).animate(
+    _overlayOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: controller,
-        curve: const Interval(0, 0.34, curve: Curves.easeOutCubic),
-      ),
-    );
-    _contentScale = Tween<double>(begin: 0.94, end: 1).animate(
-      CurvedAnimation(
-        parent: controller,
-        curve: const Interval(0, 0.34, curve: Curves.easeOutCubic),
-      ),
-    );
-    _overlayOpacity = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(
-        parent: controller,
-        curve: Interval(
-          _holdDuration.inMilliseconds / _maxTotal.inMilliseconds,
-          1,
-          curve: Curves.easeOut,
-        ),
+        curve: Curves.easeOut,
       ),
     );
 
+    // Fade directly into the home screen once the first frame is painted.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _controller == null) return;
-      _controller!.forward();
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted || _controller == null) return;
+        _controller!.forward();
+      });
     });
 
     controller.addStatusListener((status) {
@@ -98,21 +83,13 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
             child: AnimatedBuilder(
               animation: _controller!,
               builder: (context, _) {
-                final overlayOpacity = _overlayOpacity!.value;
+                final overlayOpacity = _overlayOpacity?.value ?? 1.0;
                 return IgnorePointer(
                   child: Opacity(
                     opacity: overlayOpacity,
-                    child: ColoredBox(
+                    child: const ColoredBox(
                       color: Colors.white,
-                      child: Center(
-                        child: Opacity(
-                          opacity: _contentOpacity!.value,
-                          child: Transform.scale(
-                            scale: _contentScale!.value,
-                            child: const _OpeningSplashContent(),
-                          ),
-                        ),
-                      ),
+                      child: _OpeningSplashContent(),
                     ),
                   ),
                 );
@@ -132,12 +109,12 @@ class _OpeningSplashContent extends StatelessWidget {
     return Center(
       child: Image.asset(
         'assets/images/app_icon_launcher.png',
-        width: 140,
-        height: 140,
+        width: 130,
+        height: 130,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => const SizedBox(
-          width: 140,
-          height: 140,
+          width: 130,
+          height: 130,
         ),
       ),
     );

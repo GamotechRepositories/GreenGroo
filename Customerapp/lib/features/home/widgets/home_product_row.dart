@@ -37,7 +37,6 @@ class HomeProductRow extends ConsumerWidget {
   }
 
   Future<void> _handleAdd(WidgetRef ref, Product product, BuildContext context) async {
-    if (product.id.length < 10) return;
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
@@ -56,7 +55,6 @@ class HomeProductRow extends ConsumerWidget {
     Product product,
     BuildContext context,
   ) async {
-    if (product.id.length < 10) return;
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems, product);
     if (line == null) {

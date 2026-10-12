@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/department_utils.dart';
 import '../../../core/utils/product_pricing.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
@@ -136,14 +137,6 @@ class CategoryPillsSection extends ConsumerWidget {
 
           // Featured sub-sections only on main / preorder tab
           if (currentStore == 'main') ...[
-            const Padding(
-              padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
-              child: _ReadyToCookCategoriesSection(),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
-              child: _InstantOrderProductsSection(),
-            ),
             const _BookYourOrderSection(),
           ],
         ],
@@ -481,7 +474,6 @@ class _Image1ProductTile extends ConsumerWidget {
   final Product product;
 
   Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
-    if (product.id.length < 10) return;
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
@@ -532,13 +524,13 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
   Future<void> _fetchProducts() async {
     try {
       final api = ref.read(apiServiceProvider);
-      var prods = await api.fetchProducts({'section': 'preorder', 'limit': 12});
-      if (prods.isEmpty) {
-        prods = await api.fetchProducts({'limit': 12});
-      }
+      final prods = await api.fetchProducts({'section': 'preorder', 'limit': 12});
       if (mounted) {
         setState(() {
-          _products = prods.where((p) => p.isActive).take(6).toList();
+          _products = prods
+              .where((p) => p.isActive && p.department == Department.preorder)
+              .take(6)
+              .toList();
           _loading = false;
         });
       }
@@ -633,7 +625,6 @@ class _Image2ProductTile extends ConsumerWidget {
   final Product product;
 
   Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
-    if (product.id.length < 10) return;
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,

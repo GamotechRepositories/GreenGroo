@@ -593,6 +593,7 @@ export const getProducts = async (req, res) => {
       if (targetSection === "all") {
         // "all" shows all products across all departments!
       } else if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc") {
+<<<<<<< Updated upstream
         filter.$and = [
           ...(filter.$and || []),
           {
@@ -614,6 +615,13 @@ export const getProducts = async (req, res) => {
             storeType: { $nin: ["festive", "mall"] }
           }
         ];
+=======
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
+          storeType: { $nin: ["festive", "mall"] },
+        });
+>>>>>>> Stashed changes
       } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
         filter.$or = [
           { section: "ready2cook" },
@@ -638,6 +646,7 @@ export const getProducts = async (req, res) => {
       } else if (sType === "mall" || sType === "supermall" || sType === "instantorder" || sType === "instant") {
         filter.$or = [{ section: "supermall" }, { section: "instantorder" }, { storeType: "mall" }];
       } else if (sType === "preorder" || sType === "main") {
+<<<<<<< Updated upstream
         filter.$and = [
           ...(filter.$and || []),
           {
@@ -659,6 +668,13 @@ export const getProducts = async (req, res) => {
             storeType: { $nin: ["festive", "mall"] }
           }
         ];
+=======
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
+          storeType: { $nin: ["festive", "mall"] },
+        });
+>>>>>>> Stashed changes
       }
     }
 
@@ -805,19 +821,11 @@ export const getAllProducts = async (req, res) => {
 
       if (req.query.section && req.query.section !== "all") {
         const targetSec = req.query.section.trim().toLowerCase();
-        if (targetSec === "all") {
-          // "all" shows ALL products
-        } else if (targetSec === "preorder" || targetSec === "main" || targetSec === "greengrocc") {
-          filter.$or = [
-            { section: "preorder" },
-            { section: "main" },
-            { section: "greengrocc" },
-            { storeType: "preorder" },
-            { storeType: "main" },
-            { storeType: "greengrocc" },
-            { section: { $exists: false } },
-            { storeType: { $exists: false } }
-          ];
+        if (targetSec === "preorder" || targetSec === "main" || targetSec === "greengrocc") {
+          andClauses.push({
+            section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
+            storeType: { $nin: ["festive", "mall"] },
+          });
         } else if (targetSec === "ready2cook" || targetSec === "ready-2-cook" || targetSec === "festive") {
           filter.$or = [
             { section: "ready2cook" },

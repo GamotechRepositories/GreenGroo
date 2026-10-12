@@ -21,6 +21,7 @@ import '../../features/settings/store_settings_provider.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
+import '../../models/coupon.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
@@ -39,8 +40,10 @@ class CartScreen extends ConsumerStatefulWidget {
 
 class _CartScreenState extends ConsumerState<CartScreen> {
   bool _clearing = false;
-  int _selectedInstructionIndex = -1;
-  int _selectedDonationAmount = 0;
+  final _couponController = TextEditingController();
+  AppliedCoupon? _appliedCoupon;
+  bool _applyingCoupon = false;
+  String _couponError = '';
   String _fulfillment = FulfillmentType.delivery;
   String? _preOrderSlot;
   late final TabScrollRegistry _tabScrollRegistry;
@@ -66,7 +69,67 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   void dispose() {
     _tabScrollRegistry.unregister(ShellTabIndex.cart, _scrollController);
     _scrollController.dispose();
+    _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyCoupon(String code) async {
+    final trimmed = code.trim().toUpperCase();
+    if (trimmed.isEmpty || _applyingCoupon) return;
+
+    final isLoggedIn = ref.read(authControllerProvider).isLoggedIn;
+    if (!isLoggedIn) {
+      ref.read(authControllerProvider.notifier).openAuthModal();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to apply coupons'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _applyingCoupon = true;
+      _couponError = '';
+    });
+
+    try {
+      final items = ref.read(cartControllerProvider).items;
+      final subtotal = calculateCartSummary(items).subtotal;
+      final coupon = await ref.read(apiServiceProvider).validateCoupon(
+            code: trimmed,
+            subtotal: subtotal,
+          );
+      if (!mounted) return;
+      setState(() {
+        _appliedCoupon = coupon;
+        _applyingCoupon = false;
+        _couponError = '';
+        _couponController.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Coupon "${coupon.code}" applied! Saved ₹${coupon.discountAmount.toStringAsFixed(0)}'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _applyingCoupon = false;
+        _couponError = apiErrorMessage(e, fallback: 'Invalid coupon code');
+      });
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _couponError = '';
+    });
   }
 
   Future<void> _loadCart() async {
@@ -159,18 +222,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final items = ref.watch(cartControllerProvider.select((s) => s.items));
     final loading = ref.watch(cartControllerProvider.select((s) => s.loading));
 
-    if (!isLoggedIn) {
-      return ColoredBox(
-        color: const Color(0xFFF4F5F7),
-        child: RefreshableBody(
-          onRefresh: _loadCart,
-          child: _LoginPrompt(
-            onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(),
-          ),
-        ),
-      );
-    }
-
     if (loading && items.isEmpty) {
       return const ColoredBox(
         color: Color(0xFFF4F5F7),
@@ -183,7 +234,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         color: const Color(0xFFF4F5F7),
         child: RefreshableBody(
           onRefresh: _loadCart,
-          child: _EmptyCart(onBrowse: () => context.go(RoutePaths.product)),
+          child: isLoggedIn
+              ? _EmptyCart(onBrowse: () => context.go(RoutePaths.product))
+              : _LoginPrompt(
+                  onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(),
+                ),
         ),
       );
     }
@@ -207,6 +262,16 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final darkStore = storeAsync.value?.store;
 
     void proceedToPayment() {
+      if (!isLoggedIn) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in or register to select payment method and proceed to checkout'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
       String? problem;
       if (hasPreOrder && !slotChosen) {
         problem = 'Choose a pre-order delivery slot first';
@@ -225,9 +290,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         'addressId': activeAddress!.id,
         'fulfillment': _fulfillment,
         if (hasPreOrder && _preOrderSlot != null) 'slot': _preOrderSlot!,
+        if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
       };
       context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
     }
+
+    final couponDiscount = _appliedCoupon != null
+        ? _appliedCoupon!.discountAmount.clamp(0.0, summary.subtotal)
+        : 0.0;
 
     Widget itemsCard(List<CartItem> groupItems) => _CartItemsCard(
           items: groupItems,
@@ -344,11 +414,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                // 3. Make this a Gift Banner
+                // 5. Make this a Gift Banner
                 const _GiftingCard(),
                 const SizedBox(height: 16),
-
-
 
                 // Important Store Notices
                 if (storeSettings != null) ...[
@@ -356,36 +424,36 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                // 5. Bill Details Card with Total Savings Highlight
-                _BlinkitBillDetailsCard(summary: summary, items: items, pickup: isPickup),
+                // Apply Coupon Card
+                _ApplyCouponCard(
+                  controller: _couponController,
+                  appliedCoupon: _appliedCoupon,
+                  isApplying: _applyingCoupon,
+                  errorMessage: _couponError,
+                  onApply: _applyCoupon,
+                  onRemove: _removeCoupon,
+                  onViewAll: () async {
+                    final code = await context.push<String>(RoutePaths.coupons);
+                    if (code != null && code.isNotEmpty && mounted) {
+                      _applyCoupon(code);
+                    }
+                  },
+                ),
                 const SizedBox(height: 12),
 
-                // 6. Add GSTIN Card
+                // 6. Bill Details Card with Total Savings Highlight
+                _BlinkitBillDetailsCard(
+                  summary: summary,
+                  items: items,
+                  pickup: isPickup,
+                  appliedCoupon: _appliedCoupon,
+                  couponDiscount: couponDiscount,
+                ),
+                const SizedBox(height: 12),
+
+                // 7. Add GSTIN Card
                 const _AddGstinCard(),
                 const SizedBox(height: 12),
-
-                // 7. Delivery Instructions Selector
-                _DeliveryInstructionsCard(
-                  selectedIndex: _selectedInstructionIndex,
-                  onSelect: (index) {
-                    setState(() {
-                      _selectedInstructionIndex =
-                          _selectedInstructionIndex == index ? -1 : index;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // 8. Feeding India Cause Banner
-                _FeedingIndiaBanner(
-                  selectedDonation: _selectedDonationAmount,
-                  onSelectDonation: (amt) {
-                    setState(() {
-                      _selectedDonationAmount =
-                          _selectedDonationAmount == amt ? 0 : amt;
-                    });
-                  },
-                ),
               ],
             ),
           ),
@@ -914,27 +982,37 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
     required this.summary,
     required this.items,
     this.pickup = false,
+    this.appliedCoupon,
+    this.couponDiscount = 0.0,
   });
 
   final CartSummary summary;
   final List<CartItem> items;
   final bool pickup;
+  final AppliedCoupon? appliedCoupon;
+  final double couponDiscount;
 
   @override
   Widget build(BuildContext context) {
     final originalTotalMRP = items.fold<double>(
       0,
-      (sum, item) => sum + (item.price > 0 ? item.price : item.discountedPrice) * item.quantity,
+      (sum, item) =>
+          sum +
+          (item.price > 0 ? item.price : item.discountedPrice) * item.quantity,
     );
     final productDiscount = items.fold<double>(
       0,
       (sum, item) {
         final original = item.price > 0 ? item.price : item.discountedPrice;
-        final diff = (original - item.discountedPrice).clamp(0.0, double.infinity);
+        final diff =
+            (original - item.discountedPrice).clamp(0.0, double.infinity);
         return sum + diff * item.quantity;
       },
     );
-    final totalSavings = productDiscount + (summary.shippingFree ? 30 : 0);
+    final totalSavings =
+        productDiscount + (summary.shippingFree ? 30 : 0) + couponDiscount;
+    final grandTotal =
+        (summary.subtotal - couponDiscount).clamp(0.0, double.infinity) + 5;
 
     return Container(
       decoration: BoxDecoration(
@@ -969,7 +1047,8 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 // Items total MRP
                 Row(
                   children: [
-                    const Icon(Icons.article_outlined, size: 18, color: Color(0xFF4B5563)),
+                    const Icon(Icons.article_outlined,
+                        size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
                     Text(
                       'Items total',
@@ -982,7 +1061,8 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                     if (productDiscount > 0) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFFDBEAFE),
                           borderRadius: BorderRadius.circular(4),
@@ -1024,7 +1104,8 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 // Delivery charge
                 Row(
                   children: [
-                    const Icon(Icons.delivery_dining_outlined, size: 18, color: Color(0xFF4B5563)),
+                    const Icon(Icons.delivery_dining_outlined,
+                        size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
                     Text(
                       pickup ? 'Store pickup' : 'Delivery charge',
@@ -1059,7 +1140,8 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 // Handling charge
                 Row(
                   children: [
-                    const Icon(Icons.shopping_bag_outlined, size: 18, color: Color(0xFF4B5563)),
+                    const Icon(Icons.shopping_bag_outlined,
+                        size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
                     Text(
                       'Handling charge',
@@ -1080,6 +1162,34 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                     ),
                   ],
                 ),
+
+                if (couponDiscount > 0 && appliedCoupon != null) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.local_offer_outlined,
+                          size: 18, color: Color(0xFF16A34A)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Coupon (${appliedCoupon!.code})',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF16A34A),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '-${formatInr(couponDiscount)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 14),
 
                 const Divider(height: 1),
@@ -1098,7 +1208,7 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      formatInr(summary.subtotal + 5),
+                      formatInr(grandTotal),
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 18.5,
                         fontWeight: FontWeight.w900,
@@ -1135,7 +1245,9 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Includes ₹30 savings through free delivery',
+                        couponDiscount > 0
+                            ? 'Includes ₹${couponDiscount.toStringAsFixed(0)} coupon discount & ₹30 free delivery'
+                            : 'Includes ₹30 savings through free delivery',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1227,221 +1339,298 @@ class _AddGstinCard extends StatelessWidget {
   }
 }
 
-// --- 7. Delivery Instructions Selector ---
-class _DeliveryInstructionsCard extends StatelessWidget {
-  const _DeliveryInstructionsCard({
-    required this.selectedIndex,
-    required this.onSelect,
+// --- 7. Apply Coupon Card ---
+class _ApplyCouponCard extends StatelessWidget {
+  const _ApplyCouponCard({
+    required this.controller,
+    required this.appliedCoupon,
+    required this.isApplying,
+    required this.errorMessage,
+    required this.onApply,
+    required this.onRemove,
+    required this.onViewAll,
   });
 
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text(
-            'Delivery instructions',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: _InstructionTile(
-                icon: Icons.mic_none_outlined,
-                title: 'Record',
-                titleColor: const Color(0xFF16A34A),
-                subtitle: 'Press here and hold',
-                isSelected: selectedIndex == 0,
-                onTap: () => onSelect(0),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _InstructionTile(
-                icon: Icons.phone_disabled_outlined,
-                title: 'Avoid calling',
-                subtitle: 'No phone calls',
-                isSelected: selectedIndex == 1,
-                onTap: () => onSelect(1),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _InstructionTile(
-                icon: Icons.notifications_off_outlined,
-                title: "Don't ring bell",
-                subtitle: 'Silent drop',
-                isSelected: selectedIndex == 2,
-                onTap: () => onSelect(2),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _InstructionTile extends StatelessWidget {
-  const _InstructionTile({
-    required this.icon,
-    required this.title,
-    this.titleColor,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final Color? titleColor;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFECFDF5) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF16A34A) : Colors.grey.shade200,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, size: 20, color: titleColor ?? const Color(0xFF4B5563)),
-                if (isSelected)
-                  const Icon(Icons.check_box, size: 18, color: Color(0xFF16A34A))
-                else
-                  Icon(Icons.check_box_outline_blank, size: 18, color: Colors.grey.shade400),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: titleColor ?? const Color(0xFF1F2937),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- 8. Feeding India Cause Banner ---
-class _FeedingIndiaBanner extends StatelessWidget {
-  const _FeedingIndiaBanner({
-    required this.selectedDonation,
-    required this.onSelectDonation,
-  });
-
-  final int selectedDonation;
-  final ValueChanged<int> onSelectDonation;
+  final TextEditingController controller;
+  final AppliedCoupon? appliedCoupon;
+  final bool isApplying;
+  final String errorMessage;
+  final ValueChanged<String> onApply;
+  final VoidCallback onRemove;
+  final VoidCallback onViewAll;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.local_offer_rounded,
+                  color: Color(0xFF16A34A),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
               Text(
-                'Join us at feeding india',
+                'Coupons & Offers',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF15803D),
+                  color: const Color(0xFF1F2937),
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF15803D)),
+              const Spacer(),
+              InkWell(
+                onTap: onViewAll,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View all',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF16A34A),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: Color(0xFF16A34A),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Together, we can fuel young minds to grow, learn, and thrive',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF166534)),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _donationChip(5, '₹5'),
-              const SizedBox(width: 8),
-              _donationChip(10, '₹10'),
-              const SizedBox(width: 8),
-              _donationChip(15, '1 MEAL'),
-              const SizedBox(width: 8),
-              _donationChip(0, 'Custom'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _donationChip(int value, String label) {
-    final isSelected = selectedDonation == value && value > 0;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => onSelectDonation(value),
-      selectedColor: const Color(0xFF16A34A),
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: isSelected ? Colors.white : const Color(0xFF15803D),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: isSelected ? const Color(0xFF16A34A) : const Color(0xFF86EFAC),
-        ),
+          if (appliedCoupon != null)
+            // Applied Coupon Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF16A34A),
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        const Icon(Icons.check, size: 14, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              appliedCoupon!.code,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: const Color(0xFF15803D),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFBBF7D0),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'APPLIED',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF166534),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'You save ₹${appliedCoupon!.discountAmount.toStringAsFixed(0)} on this order',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF166534),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onRemove,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Remove',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // Input Box & Apply Button
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: TextField(
+                      controller: controller,
+                      textCapitalization: TextCapitalization.characters,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: const Color(0xFF1F2937),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter coupon code',
+                        hintStyle: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF16A34A),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      onSubmitted: onApply,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 44,
+                  child: FilledButton(
+                    onPressed:
+                        isApplying ? null : () => onApply(controller.text),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
+                    child: isApplying
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'APPLY',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+            if (errorMessage.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 15,
+                    color: Color(0xFFDC2626),
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      errorMessage,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFDC2626),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ],
       ),
     );
   }

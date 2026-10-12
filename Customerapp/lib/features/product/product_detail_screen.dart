@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/image_gallery_save.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
 import '../../core/utils/recently_viewed.dart';
@@ -22,7 +21,6 @@ import '../../models/product.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/skeleton_loaders.dart';
-import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
 import '../../widgets/product/product_video_player.dart';
 
@@ -250,12 +248,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         : (product.weightUnit.isNotEmpty ? product.weightUnit : '1 unit');
     final perUnitPrice = _calculatePerUnitPrice(currentPrice, displayUnit);
 
-    final cartState = ref.watch(cartControllerProvider);
-    final cartCount = cartState.cartCount;
-    final cartTotal = cartState.items.fold<double>(
-      0,
-      (sum, item) => sum + item.lineTotal,
-    );
 
     final images =
         product.productImages.where((i) => i.trim().isNotEmpty).toList();
@@ -269,62 +261,37 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 1,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () => _handleBackNavigation(context),
-          ),
-        title: Text(
-          product.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        actions: [
-          WishlistButton(product: product, size: 38),
-          IconButton(
-            icon: const Icon(Icons.search, color: AppColors.textPrimary),
-            onPressed: () => context.push(RoutePaths.product),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share_outlined, color: AppColors.textPrimary),
-            onPressed: () => showProductShareSheet(
-              context,
-              product,
-              variantName: activeVariantName,
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
+        body: Column(
+          children: [
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: EdgeInsets.zero,
                   cacheExtent: AppScrollConfig.cacheExtent,
                   children: [
-                    // Carousel
+                    // Edge-to-edge product image gallery + top back/wishlist buttons + overlapping highlights
                     _ProductImageGallery(
                       images: images,
                       product: product,
                       videoUrl: product.videoUrl,
+                      onBack: () => _handleBackNavigation(context),
+                      highlightsRow: _buildHighlightsRow(
+                        context,
+                        product,
+                        activeVariantName,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Highlights Chips + "View details" Button Row (as in reference image)
-                    _buildHighlightsRow(context, product, activeVariantName),
                     const SizedBox(height: 14),
 
-                    // Unit & Stock Row
-                    Row(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Unit & Stock Row
+                          Row(
                       children: [
                         Text(
                           displayUnit,
@@ -458,9 +425,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       SizedBox(
-                        height: 78,
+                        height: 56,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: product.variants.length,
@@ -486,12 +453,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   _handleVariantChange(product, variant.name),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 8),
+                                    horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? const Color(0xFFF0FDF4)
                                       : Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: isSelected
                                         ? const Color(0xFF16A34A)
@@ -506,18 +473,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     if (vHasDiscount)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1),
-                                        margin: const EdgeInsets.only(bottom: 3),
+                                            horizontal: 4, vertical: 1),
+                                        margin: const EdgeInsets.only(bottom: 2),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF2563EB),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(3),
                                         ),
                                         child: Text(
                                           '$vDiscountPercent% OFF',
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 9,
+                                            fontSize: 8,
                                             fontWeight: FontWeight.w700,
+                                            height: 1.0,
                                           ),
                                         ),
                                       ),
@@ -525,7 +493,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                       variant.name,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
-                                        fontSize: 13,
+                                        fontSize: 12,
+                                        height: 1.1,
                                         color: isSelected
                                             ? const Color(0xFF16A34A)
                                             : AppColors.textPrimary,
@@ -539,7 +508,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           formatInr(vPrice),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                            fontSize: 11,
+                                            height: 1.1,
                                             color: AppColors.textPrimary,
                                           ),
                                         ),
@@ -548,7 +518,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           Text(
                                             formatInr(vMrp),
                                             style: const TextStyle(
-                                              fontSize: 10,
+                                              fontSize: 9,
+                                              height: 1.1,
                                               color: AppColors.textMuted,
                                               decoration:
                                                   TextDecoration.lineThrough,
@@ -691,9 +662,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     TopCategoryProductsSection(product: product),
 
                     SizedBox(height: MediaQuery.paddingOf(context).bottom + 20),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
+            ),
 
               // Persistent Sticky Bottom Bar
               _ProductDetailBottomBar(
@@ -736,8 +711,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 margin: const EdgeInsets.only(right: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -748,7 +731,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -759,7 +742,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
@@ -786,6 +769,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               color: const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFF86EFAC)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             alignment: Alignment.center,
             child: const Text(
@@ -794,8 +784,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               style: TextStyle(
                 color: Color(0xFF16A34A),
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
-                height: 1.25,
+                fontSize: 11,
+                height: 1.2,
               ),
             ),
           ),
@@ -1913,11 +1903,15 @@ class _ProductImageGallery extends StatefulWidget {
     required this.images,
     required this.product,
     required this.videoUrl,
+    required this.onBack,
+    required this.highlightsRow,
   });
 
   final List<String> images;
   final Product product;
   final String videoUrl;
+  final VoidCallback onBack;
+  final Widget highlightsRow;
 
   @override
   State<_ProductImageGallery> createState() => _ProductImageGalleryState();
@@ -1960,23 +1954,35 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
   @override
   Widget build(BuildContext context) {
     final items = _items;
+    final topPadding = MediaQuery.paddingOf(context).top;
+    const galleryHeight = 370.0;
+    const overlap = 26.0;
+    const totalHeight = galleryHeight + overlap;
 
-    return Column(
-      children: [
-        Stack(
-          children: [
-            Container(
-              height: 290,
+    return SizedBox(
+      height: totalHeight,
+      width: double.infinity,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Full-width edge-to-edge product image gallery (no outside border box)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: galleryHeight,
+            child: Container(
+              color: Colors.white,
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              clipBehavior: Clip.antiAlias,
+              height: galleryHeight,
               child: items.isEmpty
-                  ? const Icon(Icons.image_outlined,
-                      size: 64, color: AppColors.textMuted)
+                  ? const Center(
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 64,
+                        color: AppColors.textMuted,
+                      ),
+                    )
                   : PageView.builder(
                       controller: _pageController,
                       itemCount: items.length,
@@ -1986,156 +1992,127 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                         final item = items[index];
                         if (item.type == 'video') {
                           return ProductVideoPlayer(
-                              url: item.url, embedded: true);
+                            url: item.url,
+                            embedded: true,
+                          );
                         }
-                        return AppNetworkImage(
-                          imageUrl: item.url,
-                          fit: BoxFit.contain,
-                          cacheWidth: 600,
-                          cacheHeight: 600,
-                          errorIcon: Icons.image_outlined,
-                          errorIconSize: 64,
+                        return SizedBox.expand(
+                          child: AppNetworkImage(
+                            imageUrl: item.url,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            cacheWidth: 1000,
+                            cacheHeight: 1000,
+                            errorIcon: Icons.image_outlined,
+                            errorIconSize: 64,
+                          ),
                         );
                       },
                     ),
             ),
+          ),
 
-            // Delivery Chip: "⏱ 10 MINS"
-            Positioned(
-              left: 10,
-              bottom: 10,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.timer_outlined, color: Colors.white, size: 12),
-                    SizedBox(width: 4),
-                    Text(
-                      '10 MINS',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+          // Floating Circular Back Button (top-left) - shifted down comfortably below status bar
+          Positioned(
+            top: topPadding + 32,
+            left: 16,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.95),
+              shape: const CircleBorder(),
+              elevation: 2,
+              shadowColor: Colors.black26,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: widget.onBack,
+                child: const SizedBox(
+                  width: 38,
+                  height: 38,
+                  child: Icon(
+                    Icons.arrow_back,
+                    size: 20,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
+          ),
 
-            // Download Image Button
-            if (items.isNotEmpty && items[_activeMedia.clamp(0, items.length - 1)].type != 'video')
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: _GalleryDownloadButton(
-                  imageUrl: items[_activeMedia.clamp(0, items.length - 1)].url,
-                  productId: widget.product.id,
-                ),
+          // Floating Circular Wishlist Button (top-right) - shifted down comfortably below status bar
+          Positioned(
+            top: topPadding + 32,
+            right: 16,
+            child: WishlistButton(product: widget.product, size: 38),
+          ),
+
+          // Delivery Chip: "⏱ 10 MINS"
+          Positioned(
+            left: 12,
+            bottom: overlap + 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(6),
               ),
-          ],
-        ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.timer_outlined, color: Colors.white, size: 12),
+                  SizedBox(width: 4),
+                  Text(
+                    '10 MINS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
-        // Carousel Dot Indicators
-        if (items.length > 1) ...[
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(items.length, (index) {
-              final isSelected = index == _activeMedia;
-              return Container(
-                width: isSelected ? 16 : 6,
-                height: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF1B7E34)
-                      : const Color(0xFFD1D5DB),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            }),
+
+          // Carousel Dot Indicators (centered above highlights)
+          if (items.length > 1)
+            Positioned(
+              bottom: overlap + 10,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(items.length, (index) {
+                  final isSelected = index == _activeMedia;
+                  return Container(
+                    width: isSelected ? 16 : 6,
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF1B7E34)
+                          : const Color(0xFFD1D5DB),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+          // Floating Highlights row: Half overlapping image bottom, half below on content!
+          Positioned(
+            bottom: 0,
+            left: 16,
+            right: 16,
+            height: 52,
+            child: widget.highlightsRow,
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _GalleryDownloadButton extends StatefulWidget {
-  const _GalleryDownloadButton({
-    required this.imageUrl,
-    required this.productId,
-  });
-
-  final String imageUrl;
-  final String productId;
-
-  @override
-  State<_GalleryDownloadButton> createState() => _GalleryDownloadButtonState();
-}
-
-class _GalleryDownloadButtonState extends State<_GalleryDownloadButton> {
-  bool _saving = false;
-
-  Future<void> _download() async {
-    if (_saving) return;
-    setState(() => _saving = true);
-
-    final result = await saveProductImageToGallery(
-      imageUrl: widget.imageUrl,
-      productId: widget.productId,
-    );
-
-    if (!mounted) return;
-    setState(() => _saving = false);
-
-    final messenger = ScaffoldMessenger.of(context);
-    if (result.success) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Image saved to gallery')),
-      );
-      return;
-    }
-
-    messenger.showSnackBar(
-      SnackBar(content: Text(result.message ?? 'Could not save image.')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.92),
-      shape: const CircleBorder(),
-      elevation: 1,
-      child: InkWell(
-        onTap: _saving ? null : _download,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: _saving
-              ? const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(
-                  Icons.download_rounded,
-                  size: 18,
-                  color: AppColors.textPrimary,
-                ),
-        ),
       ),
     );
   }
 }
+
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.onBack});

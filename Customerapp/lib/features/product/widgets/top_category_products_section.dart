@@ -13,6 +13,7 @@ import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
+import '../../../widgets/product/variant_bottom_sheet.dart';
 import '../../../widgets/product/wishlist_button.dart';
 import '../product_providers.dart';
 
@@ -186,24 +187,16 @@ class _TopCategoryProductsList extends StatelessWidget {
         ),
         const SizedBox(height: 8),
 
-        // Horizontal Product List with "Show More" Card at the end
+        // Horizontal Product List
         SizedBox(
-          height: 245,
+          height: 270,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
-            itemCount: products.length + 1,
+            itemCount: products.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              if (index < products.length) {
-                return _TopCategoryProductCard(product: products[index]);
-              }
-              // Last Item: "Show More" Card
-              return _ShowMoreCategoryCard(
-                categoryName: categoryName,
-                onTap: () => _navigateToCategory(context),
-              );
-            },
+            itemBuilder: (context, index) =>
+                _TopCategoryProductCard(product: products[index]),
           ),
         ),
       ],
@@ -211,80 +204,6 @@ class _TopCategoryProductsList extends StatelessWidget {
   }
 }
 
-class _ShowMoreCategoryCard extends StatelessWidget {
-  const _ShowMoreCategoryCard({
-    required this.categoryName,
-    required this.onTap,
-  });
-
-  final String categoryName;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 124,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFBBF7D0)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFF047857),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF047857).withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Show More',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF065F46),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'See all in $categoryName',
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF047857),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _TopCategoryProductCard extends ConsumerWidget {
   const _TopCategoryProductCard({required this.product});
@@ -303,6 +222,10 @@ class _TopCategoryProductCard extends ConsumerWidget {
   }
 
   Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
+    if (isMultiVariant(product)) {
+      showVariantBottomSheet(context, product);
+      return;
+    }
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
@@ -317,6 +240,10 @@ class _TopCategoryProductCard extends ConsumerWidget {
   }
 
   Future<void> _handleIncrease(WidgetRef ref, BuildContext context) async {
+    if (isMultiVariant(product)) {
+      showVariantBottomSheet(context, product);
+      return;
+    }
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems);
     if (line == null) {
@@ -774,7 +701,7 @@ class _TopCategorySkeleton extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 245,
+          height: 270,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,

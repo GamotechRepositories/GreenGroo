@@ -12,6 +12,7 @@ import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
+import '../../../widgets/product/variant_bottom_sheet.dart';
 import '../../../widgets/product/wishlist_button.dart';
 import '../product_providers.dart';
 
@@ -83,7 +84,7 @@ class _SimilarProductsList extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 245,
+          height: 270,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
@@ -115,6 +116,10 @@ class _BlinkitSimilarProductCard extends ConsumerWidget {
   }
 
   Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
+    if (isMultiVariant(product)) {
+      showVariantBottomSheet(context, product);
+      return;
+    }
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
@@ -129,6 +134,10 @@ class _BlinkitSimilarProductCard extends ConsumerWidget {
   }
 
   Future<void> _handleIncrease(WidgetRef ref, BuildContext context) async {
+    if (isMultiVariant(product)) {
+      showVariantBottomSheet(context, product);
+      return;
+    }
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems);
     if (line == null) {
@@ -588,7 +597,7 @@ class _SimilarProductsSkeleton extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 245,
+          height: 270,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
