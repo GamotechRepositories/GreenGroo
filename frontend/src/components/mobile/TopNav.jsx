@@ -7,7 +7,6 @@ import { useLocation as useDeliveryLocation } from "../../context/LocationContex
 import { useSectionsQuery } from "../../hooks/queries/useSectionsQuery";
 import { useScrollDirection } from "../../hooks/useScrollDirection";
 import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
-import UserAccountDropdown from "../account/UserAccountDropdown";
 import DesktopSearchBar from "./DesktopSearchBar";
 import CategoryNavbar from "../layout/CategoryNavbar";
 
@@ -74,7 +73,9 @@ function TopNav() {
   const displaySections = sections;
 
   const addressLine = hasLocation
-    ? [location.area || location.label, location.city, location.pincode].filter(Boolean).join(", ")
+    ? [location.area || location.label, location.city, location.pincode].filter(Boolean).join(", ") ||
+      location.address ||
+      "Delivery location"
     : "Select your delivery location";
 
   const setStore = (storeKey) => {
@@ -161,50 +162,22 @@ function TopNav() {
               })}
             </nav>
 
-            <div className="flex min-w-0 items-center gap-2.5">
+            {/* Upper bar: Search bar + Cart button */}
+            <div className="flex shrink-0 items-center gap-2.5">
+              <DesktopSearchBar className="w-[190px] xl:w-[230px]" />
               <Link
-                to="/location"
-                className="group flex min-w-0 max-w-[300px] shrink items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-gray-50"
+                to="/cart"
+                data-cart-target="desktop"
+                className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-[#0C831F] text-white shadow-[0_2px_6px_rgba(12,131,31,0.25)] transition-all hover:bg-[#0A6C19] hover:shadow-[0_4px_10px_rgba(12,131,31,0.32)] active:scale-[0.97]"
+                aria-label={cartLabel}
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0C831F]/10 text-[#0C831F] transition-colors group-hover:bg-[#0C831F]/15">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                  </svg>
-                </div>
-                <div className="flex min-w-0 flex-col justify-center leading-none">
-                  <p className="text-[12px] font-semibold text-gray-900">
-                    Delivery in <span className="text-[#0C831F]">15 mins</span>
-                  </p>
-                  <span className="mt-1 flex min-w-0 items-center gap-1">
-                    <span className="truncate text-[11px] font-medium text-gray-500 group-hover:text-gray-700">
-                      {addressLine}
-                    </span>
-                    <svg
-                      className="h-3 w-3 shrink-0 text-gray-400 transition-transform group-hover:translate-y-px"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
+                <CartIcon className="h-4 w-4" />
+                {cartCount > 0 ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold tabular-nums text-[#0C831F] shadow-sm ring-2 ring-[#0C831F]">
+                    {cartCount > 99 ? "99+" : cartCount}
                   </span>
-                </div>
+                ) : null}
               </Link>
-
-              {user ? (
-                <UserAccountDropdown user={user} triggerClassName={upperProfileBtnClass} />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openAuthModal("login")}
-                  className={upperProfileBtnClass}
-                  aria-label="Login"
-                >
-                  <UserIcon />
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -242,21 +215,57 @@ function TopNav() {
                 <CategoryNavbar compact className="min-w-0 flex-1" />
               ) : null}
 
-              <div className="flex shrink-0 items-center gap-2.5">
-                <DesktopSearchBar className="w-[200px] xl:w-[240px]" />
+              {/* Subnavbar: Location picker + Profile button */}
+              <div className="flex shrink-0 items-center gap-2.5 xl:gap-3">
                 <Link
-                  to="/cart"
-                  data-cart-target="desktop"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C831F] text-white shadow-[0_2px_8px_rgba(12,131,31,0.28)] transition-all hover:bg-[#0A6C19] hover:shadow-[0_4px_12px_rgba(12,131,31,0.35)] active:scale-[0.97]"
-                  aria-label={cartLabel}
+                  to="/location"
+                  className="group flex min-w-0 max-w-[280px] xl:max-w-[320px] shrink items-center gap-2 rounded-xl py-1 pl-1.5 pr-2.5 transition-colors hover:bg-gray-50 border border-transparent hover:border-gray-200"
                 >
-                  <CartIcon className="h-[18px] w-[18px]" />
-                  {cartCount > 0 ? (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold tabular-nums text-[#0C831F] shadow-sm ring-2 ring-[#0C831F]">
-                      {cartCount > 99 ? "99+" : cartCount}
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0C831F]/10 text-[#0C831F] transition-colors group-hover:bg-[#0C831F]/15">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex min-w-0 flex-col justify-center leading-none text-left">
+                    <p className="text-[12px] font-semibold text-gray-900">
+                      Delivery in <span className="text-[#0C831F]">15 mins</span>
+                    </p>
+                    <span className="mt-1 flex min-w-0 items-center gap-1">
+                      <span className="truncate text-[11px] font-medium text-gray-500 group-hover:text-gray-700">
+                        {addressLine}
+                      </span>
+                      <svg
+                        className="h-3 w-3 shrink-0 text-gray-400 transition-transform group-hover:translate-y-px"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </span>
-                  ) : null}
+                  </div>
                 </Link>
+
+                {user ? (
+                  <Link
+                    to="/profile"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-xs transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 active:scale-[0.97]"
+                    aria-label={`Profile (${user.name || "Account"})`}
+                  >
+                    <UserIcon className="h-4.5 w-4.5" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("login")}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-xs transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 active:scale-[0.97]"
+                    aria-label="Login"
+                  >
+                    <UserIcon className="h-4.5 w-4.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

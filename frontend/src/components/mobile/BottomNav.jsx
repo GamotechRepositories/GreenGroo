@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useScrollDirection } from "../../hooks/useScrollDirection";
@@ -8,6 +8,25 @@ export function BottomNav() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const hidden = useScrollDirection();
+
+  const [homeAnimKey, setHomeAnimKey] = useState(0);
+  const [isHomeAnimating, setIsHomeAnimating] = useState(false);
+  const homeAnimTimeoutRef = useRef(null);
+
+  const triggerHomeAnim = () => {
+    setHomeAnimKey(Date.now());
+    setIsHomeAnimating(true);
+    if (homeAnimTimeoutRef.current) clearTimeout(homeAnimTimeoutRef.current);
+    homeAnimTimeoutRef.current = setTimeout(() => {
+      setIsHomeAnimating(false);
+    }, 2050);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (homeAnimTimeoutRef.current) clearTimeout(homeAnimTimeoutRef.current);
+    };
+  }, []);
 
   const pathname = location.pathname.toLowerCase();
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
@@ -64,9 +83,16 @@ export function BottomNav() {
       isActive: isHomeActive,
       icon: (active) => (
         <img
-          src="/categoryIcons/homeIcon.png"
+          key={isHomeAnimating ? homeAnimKey : "static"}
+          src={
+            isHomeAnimating
+              ? `/assets/payment/home.webp?t=${homeAnimKey}`
+              : "/assets/payment/home-static.webp"
+          }
           alt="Home"
-          className={`h-6 w-6 object-contain ${!active ? "opacity-60 grayscale" : ""}`}
+          className={`h-6 w-6 object-contain transition-transform duration-200 ${
+            !active ? "opacity-60 grayscale" : ""
+          } ${isHomeAnimating ? "scale-110" : ""}`}
         />
       ),
     },
@@ -121,6 +147,9 @@ export function BottomNav() {
   ];
 
   const handleNavClick = (e, item) => {
+    if (item.label === "Home") {
+      triggerHomeAnim();
+    }
     if ((item.to.includes("/orders") || item.to.includes("/profile")) && !user) {
       e.preventDefault();
       openAuthModal("login");

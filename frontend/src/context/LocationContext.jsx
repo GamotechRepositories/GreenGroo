@@ -28,6 +28,8 @@ function readStoredLocation() {
 
 export function locationIsSet(location) {
   if (!location) return false;
+  if (location.address && location.address !== "Select your delivery location") return true;
+  if (location.fullAddress) return true;
   const lat = location.lat ?? location.latitude;
   const lng = location.lng ?? location.longitude;
   const hasCoords = lat != null && lat !== "" && lng != null && lng !== "";
@@ -41,6 +43,9 @@ export function LocationProvider({ children }) {
     setLocationState(next);
     localStorage.setItem(DELIVERY_LOCATION_KEY, JSON.stringify(next));
     queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    queryClient.invalidateQueries({ queryKey: ["sections"] });
+    queryClient.invalidateQueries({ queryKey: ["brands"] });
     queryClient.invalidateQueries({ queryKey: ["nearest-store"] });
   }, []);
 

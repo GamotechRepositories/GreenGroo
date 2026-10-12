@@ -70,9 +70,9 @@ function UserAccountDropdown({ user, triggerClassName }) {
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
+      <Link
+        to="/profile"
+        onClick={() => setOpen(false)}
         className={
           triggerClassName ||
           "flex h-10 w-10 items-center justify-center rounded-lg text-text-primary transition hover:text-primary"
@@ -82,7 +82,7 @@ function UserAccountDropdown({ user, triggerClassName }) {
         aria-label={`My account, ${firstName}`}
       >
         <UserIcon />
-      </button>
+      </Link>
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.1)]">

@@ -78,6 +78,11 @@ export const addressFieldDefinitions = {
     trim: true,
     default: "",
   },
+  addressType: {
+    type: String,
+    trim: true,
+    default: "Home",
+  },
   location: {
     lat: { type: Number },
     lng: { type: Number },

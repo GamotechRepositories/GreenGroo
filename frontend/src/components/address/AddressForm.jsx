@@ -10,6 +10,7 @@ import {
 import LocationAutocomplete from "./LocationAutocomplete";
 import { detectCurrentLocation } from "../../utils/detectCurrentLocation";
 import MapLocationPicker from "./MapLocationPicker";
+import { getAddressTypeTag } from "../../utils/addressDisplay";
 
 export const ADDRESS_FORM_FIELDS = {
   fullName: "",
@@ -23,6 +24,7 @@ export const ADDRESS_FORM_FIELDS = {
   city: "",
   state: "",
   pincode: "",
+  addressType: "Home",
   location: null,
 };
 
@@ -68,7 +70,15 @@ async function fetchList(apiCall) {
   return data?.data || [];
 }
 
-function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false }) {
+function AddressForm({
+  initial,
+  onSubmit,
+  onCancel,
+  submitting,
+  plain = false,
+  existingAddresses = [],
+  editingId = null,
+}) {
   const [form, setForm] = useState(initial || ADDRESS_FORM_FIELDS);
   const [validationError, setValidationError] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
@@ -182,6 +192,24 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       return;
     }
 
+    const chosenType = (form.addressType || "Home").trim();
+    // Validate that only one address can have this tag
+    const duplicate = existingAddresses.find((item, index) => {
+      const itemId = String(item._id || item.id || "");
+      const currentEditingId = String(editingId || "");
+      if (currentEditingId && itemId && itemId === currentEditingId) return false;
+      
+      const tag = getAddressTypeTag(item, index);
+      return tag.trim().toLowerCase() === chosenType.toLowerCase();
+    });
+
+    if (duplicate) {
+      setValidationError(
+        `You already have an address saved under "${chosenType}". Each tag (Home, Office, Other) can contain only one address. Please choose another tag or edit the existing one.`
+      );
+      return;
+    }
+
     onSubmit({
       fullName: form.fullName.trim(),
       number: form.number.trim(),
@@ -194,6 +222,8 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       city: form.city.trim(),
       state: form.state.trim(),
       pincode: form.pincode.trim(),
+      addressType: chosenType,
+      label: chosenType,
       location: form.location,
     });
   };
@@ -245,6 +275,50 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
           <MapIcon className="h-4 w-4" />
           Choose on Map
         </button>
+      </div>
+
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="text-xs font-semibold text-text-secondary">Address Tag</label>
+          <span className="text-[11px] text-text-muted">1 address per tag</span>
+        </div>
+        <div className="flex gap-2">
+          {["Home", "Office", "Other"].map((type) => {
+            const isSelected = (form.addressType || "Home") === type;
+            const isTaken = existingAddresses.some((item, index) => {
+              const itemId = String(item._id || item.id || "");
+              const currentEditingId = String(editingId || "");
+              if (currentEditingId && itemId && itemId === currentEditingId) return false;
+              const tag = getAddressTypeTag(item, index);
+              return tag.trim().toLowerCase() === type.toLowerCase();
+            });
+
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => {
+                  setForm((prev) => ({ ...prev, addressType: type }));
+                  if (validationError) setValidationError("");
+                }}
+                className={`relative flex-1 rounded-xl border py-2.5 text-xs font-bold transition ${
+                  isSelected
+                    ? "border-primary bg-primary text-white shadow-xs"
+                    : isTaken
+                    ? "border-slate-200 bg-slate-100/70 text-slate-400 hover:bg-slate-100"
+                    : "border-border-light bg-slate-50 text-text-secondary hover:bg-slate-100 hover:text-text-primary"
+                }`}
+              >
+                {type}
+                {isTaken && !isSelected && (
+                  <span className="block text-[9px] font-medium text-slate-400 mt-0.5">
+                    (in use)
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

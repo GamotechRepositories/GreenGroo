@@ -13,6 +13,7 @@ const REQUIRED_FIELDS = [
   "city",
   "state",
   "pincode",
+  "addressType",
 ];
 
 function coordsFromBody(body = {}) {
@@ -35,6 +36,7 @@ function normalizeAddressBody(body) {
   const city = (body.city || "City").trim();
   const state = (body.state || "State").trim();
   const pincode = String(body.pincode || "110001").trim();
+  const addressType = (body.addressType || body.label || "Home").trim();
 
   return {
     fullName: fullName || "Customer",
@@ -48,6 +50,7 @@ function normalizeAddressBody(body) {
     city: city || "City",
     state: state || "State",
     pincode: pincode || "110001",
+    addressType: addressType || "Home",
     ...(location ? { location } : {}),
     isDefault: body.isDefault,
   };

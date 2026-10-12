@@ -4,7 +4,8 @@ import { useLocation } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
 import { getAddresses } from "../../api/api";
 import { detectCurrentLocation, formatDeliveryLine } from "../../utils/detectCurrentLocation";
-import { formatAddressLine, getAddressFullName } from "../../utils/addressDisplay";
+import { formatAddressLine, getAddressFullName, getAddressTypeTag, sortAddressesByLatest } from "../../utils/addressDisplay";
+import AddressTagBadge from "../address/AddressTagBadge";
 import MapLocationPicker from "../address/MapLocationPicker";
 import { MapPin, Navigation, Compass, Check, ArrowRight, ShieldCheck } from "lucide-react";
 
@@ -28,7 +29,7 @@ export default function MandatoryLocationModal() {
         .then((res) => {
           if (!isMounted) return;
           const addrs = res.data?.data || res.data || [];
-          const list = Array.isArray(addrs) ? addrs : [];
+          const list = sortAddressesByLatest(Array.isArray(addrs) ? addrs : []);
           setSavedLocations(list);
           if (list.length > 0) {
             setSelectedId(list[0]._id || list[0].id);
@@ -227,13 +228,19 @@ export default function MandatoryLocationModal() {
               {/* Saved Locations */}
               {savedLocations.length > 0 ? (
                 <div>
-                  <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Or select from saved locations
-                  </p>
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Or select from saved locations
+                    </p>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Latest 3 addresses
+                    </span>
+                  </div>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {savedLocations.map((loc) => {
+                    {savedLocations.slice(0, 3).map((loc, index) => {
                       const id = loc._id || loc.id;
                       const isSelected = selectedId === id;
+                      const tag = getAddressTypeTag(loc, index);
                       return (
                         <button
                           key={id}
@@ -253,14 +260,17 @@ export default function MandatoryLocationModal() {
                             {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold text-slate-900">
-                              {loc.label || getAddressFullName(loc)}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <AddressTagBadge tag={tag} />
+                              <p className="text-sm font-bold text-slate-900">
+                                {getAddressFullName(loc) || loc.label || tag}
+                              </p>
+                            </div>
                             <p className="mt-0.5 text-xs text-slate-500 truncate">
                               {formatAddressLine(loc)}
                             </p>
                             <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                              {loc.city} · PIN {loc.pincode}
+                              {[loc.area || loc.streetArea, loc.city, loc.pincode ? `PIN ${loc.pincode}` : ""].filter(Boolean).join(" · ")}
                             </p>
                           </div>
                         </button>

@@ -669,10 +669,8 @@ function Checkout() {
     hasAutoOpenedAddressRef.current = true;
     if (addresses.length === 0) {
       setShowAddressForm(true);
-    } else if (!selectedAddressId) {
-      setShowAddressPicker(true);
     }
-  }, [addressesLoading, addresses.length, selectedAddressId]);
+  }, [addressesLoading, addresses.length]);
 
   useEffect(() => {
     if (
@@ -1254,28 +1252,6 @@ function Checkout() {
                   ) : selectedAddress ? (
                     <>
                       <AddressSummary address={selectedAddress} />
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowAddressPicker(true)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-                          </svg>
-                          Change
-                        </button>
-                        <button
-                          type="button"
-                          onClick={openAddressForm}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-[#0C831F] shadow-sm transition-all hover:bg-emerald-100"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                          </svg>
-                          Add new
-                        </button>
-                      </div>
                     </>
                   ) : (
                     <>

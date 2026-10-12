@@ -591,17 +591,28 @@ export const getProducts = async (req, res) => {
     if (req.query.section?.trim()) {
       const targetSection = req.query.section.trim().toLowerCase();
       if (targetSection === "all") {
-        // "all" shows EVERYTHING - all products across all departments!
+        // "all" shows all products across all departments!
       } else if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc") {
-        filter.$or = [
-          { section: "preorder" },
-          { section: "main" },
-          { section: "greengrocc" },
-          { storeType: "preorder" },
-          { storeType: "main" },
-          { storeType: "greengrocc" },
-          { section: { $exists: false } },
-          { storeType: { $exists: false } }
+        filter.$and = [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { section: "preorder" },
+              { section: "main" },
+              { section: "greengrocc" },
+              { storeType: "preorder" },
+              { storeType: "main" },
+              { storeType: "greengrocc" },
+              { section: { $exists: false } },
+              { storeType: { $exists: false } }
+            ]
+          },
+          {
+            section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall"] }
+          },
+          {
+            storeType: { $nin: ["festive", "mall"] }
+          }
         ];
       } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
         filter.$or = [
@@ -627,7 +638,27 @@ export const getProducts = async (req, res) => {
       } else if (sType === "mall" || sType === "supermall" || sType === "instantorder" || sType === "instant") {
         filter.$or = [{ section: "supermall" }, { section: "instantorder" }, { storeType: "mall" }];
       } else if (sType === "preorder" || sType === "main") {
-        // Preorder shows EVERYTHING
+        filter.$and = [
+          ...(filter.$and || []),
+          {
+            $or: [
+              { section: "preorder" },
+              { section: "main" },
+              { section: "greengrocc" },
+              { storeType: "preorder" },
+              { storeType: "main" },
+              { storeType: "greengrocc" },
+              { section: { $exists: false } },
+              { storeType: { $exists: false } }
+            ]
+          },
+          {
+            section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall"] }
+          },
+          {
+            storeType: { $nin: ["festive", "mall"] }
+          }
+        ];
       }
     }
 

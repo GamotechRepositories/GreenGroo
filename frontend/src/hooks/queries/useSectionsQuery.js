@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSections } from "../../api/api";
 import { queryKeys } from "./queryKeys";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 export function normalizeSections(list) {
   if (!Array.isArray(list)) return [];
@@ -23,9 +24,10 @@ export function useSectionsQuery(paramsOrOptions = {}, maybeOptions = {}) {
     !paramsOrOptions.enabled;
   const params = isParams ? paramsOrOptions : {};
   const options = isParams ? maybeOptions : paramsOrOptions;
+  const locationKey = useDeliveryLocationKey();
 
   return useQuery({
-    queryKey: queryKeys.sections.all,
+    queryKey: [...queryKeys.sections.all, locationKey],
     queryFn: async () => {
       const { data } = await getSections(params);
       return normalizeSections(data?.data);

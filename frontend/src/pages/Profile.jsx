@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useLocation } from "../context/LocationContext";
 import {
   getAddresses,
   addAddress,
@@ -10,12 +11,15 @@ import {
   getRewardSettings,
 } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
+import AddressTagBadge from "../components/address/AddressTagBadge";
 import BuyAgainCard from "../components/product/BuyAgainCard";
 import RewardPointsModal from "../components/rewards/RewardPointsModal";
 import {
   formatAddressLine,
   getAddressFullName,
   mapAddressToForm,
+  getAddressTypeTag,
+  sortAddressesByLatest,
 } from "../utils/addressDisplay";
 import { extractRecentOrderItems } from "../utils/orderItems";
 
@@ -94,6 +98,7 @@ function QuickLink({ icon, label, onClick, to }) {
 function Profile() {
   const navigate = useNavigate();
   const { user, openAuthModal, logout, updateProfile } = useAuth();
+  const { location, setLocation, hasLocation } = useLocation();
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -131,7 +136,7 @@ function Profile() {
     setLoading(true);
     try {
       const { data } = await getAddresses();
-      setAddresses(data.data || []);
+      setAddresses(sortAddressesByLatest(data.data || []));
     } catch {
       setAddresses([]);
     } finally {
@@ -173,17 +178,14 @@ function Profile() {
     setFormError("");
     try {
       if (editingAddress) {
-        const { data } = await updateAddress(editingAddress._id, formData);
-        setAddresses((prev) =>
-          prev.map((addr) => (addr._id === editingAddress._id ? data.data : addr))
-        );
+        await updateAddress(editingAddress._id, formData);
       } else {
-        const { data } = await addAddress({
+        await addAddress({
           ...formData,
           isDefault: addresses.length === 0,
         });
-        setAddresses((prev) => [data.data, ...prev]);
       }
+      await loadAddresses();
       setShowAddressForm(false);
       setEditingAddress(null);
     } catch (err) {
@@ -226,11 +228,48 @@ function Profile() {
     setFormError("");
   };
 
+  const isCurrentDeliveryLocation = (addr) => {
+    if (!hasLocation || !location) return false;
+    if (addr.location?.lat != null && location.lat != null) {
+      if (Math.abs(addr.location.lat - location.lat) < 0.001) {
+        return true;
+      }
+    }
+    if (addr.pincode && location.pincode && addr.pincode === location.pincode) {
+      if (addr.area && location.area && addr.area === location.area) {
+        return true;
+      }
+      if (addr.city && location.city && addr.city === location.city) {
+        return true;
+      }
+    }
+    if (addr.fullAddress && (location.fullAddress || location.address)) {
+      if (addr.fullAddress === (location.fullAddress || location.address)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handleSelectDeliveryLocation = (addr) => {
+    setLocation({
+      label: addr.label || addr.area || addr.city || addr.shopName || getAddressFullName(addr) || "Delivery location",
+      address: addr.fullAddress || formatAddressLine(addr),
+      city: addr.city || "",
+      area: addr.area || addr.streetArea || "",
+      pincode: addr.pincode || "",
+      state: addr.state || "",
+      lat: addr.location?.lat,
+      lng: addr.location?.lng,
+      shopName: addr.shopName || "",
+      landmark: addr.landmark || "",
+      fullAddress: addr.fullAddress || "",
+    });
+  };
+
   const scrollToAddresses = () => {
     addressesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const currentAddress = addresses[addressIndex];
 
   if (!user) {
     return (
@@ -432,7 +471,12 @@ function Profile() {
 
         <section ref={addressesRef}>
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-text-primary">Saved Addresses</h2>
+            <div>
+              <h2 className="text-base font-bold text-text-primary">Saved Addresses</h2>
+              {addresses.length > 0 && !showAddressForm && (
+                <p className="text-xs text-text-secondary">Showing latest 3 addresses</p>
+              )}
+            </div>
             {!showAddressForm && (
               <button
                 type="button"
@@ -458,6 +502,7 @@ function Profile() {
                 <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
               )}
               <AddressForm
+                key={editingAddress?._id || "new"}
                 plain
                 initial={
                   editingAddress
@@ -472,95 +517,144 @@ function Profile() {
                 onSubmit={handleSaveAddress}
                 onCancel={cancelAddressForm}
                 submitting={savingAddress}
+                existingAddresses={addresses}
+                editingId={editingAddress?._id}
               />
             </>
           ) : loading ? (
             <div className="h-52 animate-pulse rounded-2xl border border-border-light bg-white" />
           ) : addresses.length === 0 ? (
-            <div className="rounded-2xl border border-border-light bg-white p-5 text-sm text-text-secondary">
-              No saved addresses yet.
+            <div className="rounded-2xl border border-border-light bg-white p-6 text-center text-sm text-text-secondary">
+              <p>No saved addresses yet.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAddress(null);
+                  setShowAddressForm(true);
+                  setFormError("");
+                }}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white transition hover:brightness-105"
+              >
+                + Add Delivery Address
+              </button>
             </div>
           ) : (
-            <>
-              <div className="rounded-2xl border border-border-light bg-white p-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
-                    <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-bold text-text-primary">{getAddressFullName(currentAddress)}</p>
-                      {currentAddress.isDefault && (
-                        <span className="rounded-md bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">
-                          DEFAULT
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                      {formatAddressLine(currentAddress)}
-                    </p>
-                    <p className="mt-2 flex items-center gap-1 text-sm text-text-secondary">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      +91 {currentAddress.number}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleEditAddress(currentAddress)}
-                    className="px-2 text-sm font-semibold text-primary"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAddress(currentAddress._id)}
-                    className="px-2 text-sm font-semibold text-red-600"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
+            <div className="space-y-3">
+              {addresses.slice(0, 3).map((addr, index) => {
+                const isActive = isCurrentDeliveryLocation(addr);
+                const tag = getAddressTypeTag(addr, index);
 
-              {addresses.length > 1 && (
-                <div className="mt-3 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    disabled={addressIndex === 0}
-                    onClick={() => setAddressIndex((i) => Math.max(0, i - 1))}
-                    className="rounded-full border border-border-light px-3 py-1 text-xs disabled:opacity-40"
+                return (
+                  <div
+                    key={addr._id}
+                    className={`rounded-2xl border p-4 transition ${
+                      isActive
+                        ? "border-primary bg-primary-light/40 shadow-sm ring-1 ring-primary/30"
+                        : "border-border-light bg-white hover:border-primary/40 hover:shadow-xs"
+                    }`}
                   >
-                    Prev
-                  </button>
-                  <div className="flex gap-1.5">
-                    {addresses.map((addr, index) => (
+                    <div className="flex items-start gap-3">
+                      {/* Radio button to select location */}
                       <button
-                        key={addr._id}
                         type="button"
-                        aria-label={`Address ${index + 1}`}
-                        onClick={() => setAddressIndex(index)}
-                        className={`h-2 rounded-full transition ${
-                          index === addressIndex ? "w-2 bg-primary" : "w-2 bg-border-light"
+                        onClick={() => handleSelectDeliveryLocation(addr)}
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                          isActive
+                            ? "border-primary bg-primary text-white"
+                            : "border-gray-300 hover:border-primary"
                         }`}
-                      />
-                    ))}
+                        aria-label={isActive ? "Active delivery location" : "Select as delivery location"}
+                      >
+                        {isActive ? (
+                          <svg className="h-3 w-3 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : null}
+                      </button>
+
+                      <div
+                        className="min-w-0 flex-1 cursor-pointer"
+                        onClick={() => handleSelectDeliveryLocation(addr)}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <AddressTagBadge tag={tag} />
+                          <p className="font-bold text-text-primary">
+                            {getAddressFullName(addr) || addr.label || tag}
+                          </p>
+                          {isActive && (
+                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                              Active Location
+                            </span>
+                          )}
+                          {addr.isDefault && !isActive && (
+                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+                          {formatAddressLine(addr)}
+                        </p>
+
+                        <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          +91 {addr.number}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Actions: Deliver Here, Edit, Remove */}
+                    <div className="mt-3 flex items-center justify-between border-t border-border-light/60 pt-2.5">
+                      <div>
+                        {!isActive ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectDeliveryLocation(addr)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                          >
+                            <span>Deliver to this address</span>
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                            Currently selected for delivery
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditAddress(addr);
+                          }}
+                          className="text-xs font-semibold text-text-secondary hover:text-primary transition"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAddress(addr._id);
+                          }}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={addressIndex >= addresses.length - 1}
-                    onClick={() => setAddressIndex((i) => Math.min(addresses.length - 1, i + 1))}
-                    className="rounded-full border border-border-light px-3 py-1 text-xs disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </>
+                );
+              })}
+            </div>
           )}
         </section>
       </div>
