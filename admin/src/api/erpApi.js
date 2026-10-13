@@ -1,7 +1,7 @@
 import apiClient from './client';
 
 export const erpApi = {
-  dashboard: () => apiClient.get('/erp/ceo/dashboard'),
+  dashboard: (params) => apiClient.get('/erp/ceo/dashboard', { params }),
   search: (q) => apiClient.get('/erp/search', { params: { q } }),
   modules: () => apiClient.get('/erp/modules'),
   farmers: (params) => apiClient.get('/erp/farmers', { params }),

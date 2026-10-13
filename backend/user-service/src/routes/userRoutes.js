@@ -8,11 +8,13 @@ import {
   updateUser,
   deleteUser,
   getUserOrderStats,
+  createUnblockRequest,
 } from "../../../legacy/controllers/userController.js";
 import { clearFcmToken, saveFcmToken } from "../../../legacy/controllers/fcmTokenController.js";
 
 const router = express.Router();
 
+router.post("/unblock-request", createUnblockRequest);
 router.get("/me", protect, getMe);
 router.patch("/me", protect, updateMe);
 router.post("/fcm-token", protect, saveFcmToken);

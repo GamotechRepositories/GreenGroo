@@ -140,6 +140,30 @@ const userSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Reward points cannot be negative"],
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "blocked"],
+      default: "active",
+      index: true,
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    blockReason: {
+      type: String,
+      default: "",
+    },
+    blockedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true, collection: "users" }
 );

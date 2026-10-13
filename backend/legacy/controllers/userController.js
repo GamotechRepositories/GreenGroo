@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import Admin from "../models/admin.js";
 import Order from "../models/order/Order.js";
+import UnblockRequest from "../models/UnblockRequest.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
 import {
@@ -11,6 +12,16 @@ import {
   markPhoneOtpVerified,
   consumeVerifiedPhone,
 } from "../utils/msg91.js";
+
+export function isUserBlocked(user) {
+  if (!user || user.role === "admin") return false;
+  return (
+    user.isActive === false ||
+    user.isBlocked === true ||
+    user.status === "blocked" ||
+    user.status === "inactive"
+  );
+}
 
 const signToken = (userId) => {
   if (!process.env.JWT_SECRET) {
@@ -36,6 +47,9 @@ const formatAuthUser = (user) => ({
   ownerContact: user.ownerContact || "",
   role: user.role,
   rewardPoints: user.rewardPoints || 0,
+  isActive: user.isActive !== false && !user.isBlocked && user.status !== "blocked",
+  status: user.status || "active",
+  isBlocked: Boolean(user.isBlocked || user.isActive === false || user.status === "blocked"),
 });
 
 function normalizeAccountType(value) {
@@ -209,6 +223,20 @@ export const login = async (req, res) => {
       });
     }
 
+    if (isUserBlocked(user)) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message:
+          user.blockReason
+            ? `Your account is deactivated/blocked by admin. Reason: ${user.blockReason}`
+            : "Your account is deactivated/blocked by admin. You can submit an unblock request.",
+        phone: user.phone,
+        email: user.email,
+        blockReason: user.blockReason || "",
+      });
+    }
+
     const token = signToken(user._id);
 
     res.status(200).json({
@@ -273,6 +301,20 @@ async function loginWithPhoneCredentials(_req, res, phone, password) {
     });
   }
 
+  if (isUserBlocked(user)) {
+    return res.status(403).json({
+      success: false,
+      isBlocked: true,
+      message:
+        user.blockReason
+          ? `Your account is deactivated/blocked by admin. Reason: ${user.blockReason}`
+          : "Your account is deactivated/blocked by admin. You can submit an unblock request.",
+      phone: user.phone,
+      email: user.email,
+      blockReason: user.blockReason || "",
+    });
+  }
+
   const token = signToken(user._id);
 
   return res.status(200).json({
@@ -320,6 +362,18 @@ export const sendOtpLogin = async (req, res) => {
         return res.status(403).json({
           success: false,
           message: "Please use the admin panel to sign in.",
+        });
+      }
+      if (isUserBlocked(user)) {
+        return res.status(403).json({
+          success: false,
+          isBlocked: true,
+          message:
+            user.blockReason
+              ? `Your account is deactivated/blocked by admin. Reason: ${user.blockReason}`
+              : "Your account is deactivated/blocked by admin. You can submit an unblock request.",
+          phone: user.phone,
+          blockReason: user.blockReason || "",
         });
       }
     }
@@ -407,6 +461,19 @@ export const verifyOtpLogin = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "Please use the admin panel to sign in.",
+      });
+    }
+
+    if (isUserBlocked(user)) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message:
+          user.blockReason
+            ? `Your account is deactivated/blocked by admin. Reason: ${user.blockReason}`
+            : "Your account is deactivated/blocked by admin. You can submit an unblock request.",
+        phone: user.phone,
+        blockReason: user.blockReason || "",
       });
     }
 
@@ -1112,6 +1179,44 @@ export const updateUser = async (req, res) => {
     if (name?.trim()) user.name = name.trim();
     if (password) user.password = password;
 
+    if (req.body.isActive !== undefined) {
+      user.isActive = Boolean(req.body.isActive);
+      user.isBlocked = !user.isActive;
+      user.status = user.isActive ? "active" : "blocked";
+      if (user.isBlocked) {
+        user.blockReason = String(req.body.blockReason || req.body.reason || "Deactivated by admin").trim();
+        user.blockedAt = new Date();
+      } else {
+        user.blockReason = "";
+        user.blockedAt = null;
+      }
+    } else if (req.body.isBlocked !== undefined) {
+      user.isBlocked = Boolean(req.body.isBlocked);
+      user.isActive = !user.isBlocked;
+      user.status = user.isBlocked ? "blocked" : "active";
+      if (user.isBlocked) {
+        user.blockReason = String(req.body.blockReason || req.body.reason || "Deactivated by admin").trim();
+        user.blockedAt = new Date();
+      } else {
+        user.blockReason = "";
+        user.blockedAt = null;
+      }
+    }
+
+    if (req.body.status) {
+      user.status = String(req.body.status).trim().toLowerCase();
+      if (user.status === "blocked" || user.status === "inactive") {
+        user.isActive = false;
+        user.isBlocked = true;
+        if (!user.blockedAt) user.blockedAt = new Date();
+      } else if (user.status === "active") {
+        user.isActive = true;
+        user.isBlocked = false;
+        user.blockReason = "";
+        user.blockedAt = null;
+      }
+    }
+
     await user.save();
 
     res.status(200).json({
@@ -1122,6 +1227,11 @@ export const updateUser = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        accountType: user.accountType,
+        isActive: user.isActive !== false && !user.isBlocked && user.status !== "blocked",
+        status: user.status || "active",
+        isBlocked: Boolean(user.isBlocked || user.isActive === false || user.status === "blocked"),
+        blockReason: user.blockReason || "",
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -1133,6 +1243,79 @@ export const updateUser = async (req, res) => {
         .join(", ");
       return res.status(400).json({ success: false, message });
     }
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createUnblockRequest = async (req, res) => {
+  try {
+    const rawPhone = req.body.phone;
+    const rawEmail = req.body.email;
+    const reason = String(req.body.reason || "").trim();
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a reason or explanation for your unblock request.",
+      });
+    }
+
+    const phone = rawPhone ? normalizeIndianPhone(rawPhone) : null;
+    const email = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
+
+    if (!phone && !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid 10-digit phone number or email is required.",
+      });
+    }
+
+    const query = phone ? { phone } : { email };
+    const user = await User.findOne(query);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No registered account found with these details.",
+      });
+    }
+
+    if (!isUserBlocked(user)) {
+      return res.status(400).json({
+        success: false,
+        message: "This account is currently active. You can log in directly.",
+      });
+    }
+
+    const existingPending = await UnblockRequest.findOne({
+      userId: user._id,
+      status: "pending",
+    });
+
+    if (existingPending) {
+      return res.status(400).json({
+        success: false,
+        message: "You already have a pending unblock request under review by the admin team.",
+        data: existingPending,
+      });
+    }
+
+    const unblockReq = await UnblockRequest.create({
+      userId: user._id,
+      name: user.name || "Customer",
+      phone: user.phone,
+      email: user.email || email || "",
+      accountType: user.accountType || "retail",
+      reason,
+      status: "pending",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Unblock request submitted successfully. The administrator will review your account.",
+      data: unblockReq,
+    });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

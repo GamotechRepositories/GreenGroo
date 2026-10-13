@@ -3,30 +3,96 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useScrollDirection } from "../../hooks/useScrollDirection";
 
+// Preload home assets in memory once so touch is 100% instant with 0ms network latency
+let cachedHomeBlob = null;
+let homeBlobPromise = null;
+
+function preloadHomeBlob() {
+  if (cachedHomeBlob) return Promise.resolve(cachedHomeBlob);
+  if (!homeBlobPromise && typeof window !== "undefined") {
+    homeBlobPromise = fetch("/assets/payment/home.webp")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load home webp");
+        return res.blob();
+      })
+      .then((b) => {
+        cachedHomeBlob = b;
+        return b;
+      })
+      .catch(() => null);
+  }
+  return homeBlobPromise;
+}
+
+if (typeof window !== "undefined") {
+  preloadHomeBlob();
+}
+
 export function BottomNav() {
   const { user, openAuthModal } = useAuth();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const hidden = useScrollDirection();
 
-  const [homeAnimKey, setHomeAnimKey] = useState(0);
+  const [animSrc, setAnimSrc] = useState(null);
   const [isHomeAnimating, setIsHomeAnimating] = useState(false);
   const homeAnimTimeoutRef = useRef(null);
-
-  const triggerHomeAnim = () => {
-    setHomeAnimKey(Date.now());
-    setIsHomeAnimating(true);
-    if (homeAnimTimeoutRef.current) clearTimeout(homeAnimTimeoutRef.current);
-    homeAnimTimeoutRef.current = setTimeout(() => {
-      setIsHomeAnimating(false);
-    }, 2050);
-  };
+  const prevObjectUrlRef = useRef(null);
 
   useEffect(() => {
+    // Warm up static image cache
+    if (typeof window !== "undefined") {
+      const img = new Image();
+      img.src = "/assets/payment/home-static.webp";
+    }
+    preloadHomeBlob();
+
     return () => {
       if (homeAnimTimeoutRef.current) clearTimeout(homeAnimTimeoutRef.current);
+      if (prevObjectUrlRef.current) {
+        try {
+          URL.revokeObjectURL(prevObjectUrlRef.current);
+        } catch (_) {}
+      }
     };
   }, []);
+
+  const triggerHomeAnim = async () => {
+    // CRITICAL: If already animating, let it finish completely — DO NOT cut in between!
+    if (isHomeAnimating) return;
+
+    try {
+      const blob = await preloadHomeBlob();
+      if (!blob) {
+        // Fallback: brief scale feedback if blob couldn't load
+        setIsHomeAnimating(true);
+        homeAnimTimeoutRef.current = setTimeout(() => {
+          setIsHomeAnimating(false);
+        }, 500);
+        return;
+      }
+
+      // Revoke previous blob URL to avoid memory leaks
+      if (prevObjectUrlRef.current) {
+        try {
+          URL.revokeObjectURL(prevObjectUrlRef.current);
+        } catch (_) {}
+      }
+
+      const freshUrl = URL.createObjectURL(blob);
+      prevObjectUrlRef.current = freshUrl;
+      setAnimSrc(freshUrl);
+      setIsHomeAnimating(true);
+
+      if (homeAnimTimeoutRef.current) clearTimeout(homeAnimTimeoutRef.current);
+      // Full duration of home.webp: 41 frames = ~2025ms
+      homeAnimTimeoutRef.current = setTimeout(() => {
+        setIsHomeAnimating(false);
+      }, 2050);
+    } catch (_) {
+      setIsHomeAnimating(false);
+    }
+  };
 
   const pathname = location.pathname.toLowerCase();
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
@@ -82,18 +148,27 @@ export function BottomNav() {
       label: "Home",
       isActive: isHomeActive,
       icon: (active) => (
-        <img
-          key={isHomeAnimating ? homeAnimKey : "static"}
-          src={
-            isHomeAnimating
-              ? `/assets/payment/home.webp?t=${homeAnimKey}`
-              : "/assets/payment/home-static.webp"
-          }
-          alt="Home"
-          className={`h-6 w-6 object-contain transition-transform duration-200 ${
-            !active ? "opacity-60 grayscale" : ""
-          } ${isHomeAnimating ? "scale-110" : ""}`}
-        />
+        <div className="relative flex h-6 w-6 items-center justify-center">
+          {/* Base static icon: ALWAYS in DOM, never flickers, never reloads, never blanks */}
+          <img
+            src="/assets/payment/home-static.webp"
+            alt="Home"
+            className={`h-6 w-6 object-contain transition-all duration-200 ${
+              !active ? "opacity-60 grayscale" : "opacity-100"
+            } ${isHomeAnimating ? "scale-105" : ""}`}
+          />
+          {/* Animated overlay: in-memory blob URL, runs full cycle without cut or reload */}
+          {animSrc && (
+            <img
+              src={animSrc}
+              alt=""
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 h-6 w-6 object-contain transition-opacity duration-200 ${
+                isHomeAnimating ? "opacity-100 scale-105" : "opacity-0"
+              }`}
+            />
+          )}
+        </div>
       ),
     },
     {
@@ -149,6 +224,9 @@ export function BottomNav() {
   const handleNavClick = (e, item) => {
     if (item.label === "Home") {
       triggerHomeAnim();
+      if (isHomeActive) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
     if ((item.to.includes("/orders") || item.to.includes("/profile")) && !user) {
       e.preventDefault();
@@ -169,7 +247,7 @@ export function BottomNav() {
             key={item.label}
             to={item.to}
             onClick={(e) => handleNavClick(e, item)}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-bold transition-all ${
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-bold active:scale-95 transition-all select-none ${
               item.isActive ? activeColor : "text-slate-500 hover:text-slate-900"
             }`}
           >

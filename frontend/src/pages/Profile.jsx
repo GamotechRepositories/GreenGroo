@@ -206,6 +206,13 @@ function Profile() {
     }
   };
 
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      logout();
+      navigate("/", { replace: true });
+    }
+  };
+
   const handleEditAddress = (addr) => {
     setEditingAddress(addr);
     setShowAddressForm(true);
@@ -300,15 +307,28 @@ function Profile() {
             </h1>
             <p className="mt-1 text-sm text-text-secondary">Manage your profile & addresses</p>
           </div>
-          <div className="relative shrink-0">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/15 bg-[#FFE8D4] text-lg font-bold text-primary">
-              {profileInitials(user.name)}
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-border-light bg-white shadow-sm">
-              <svg className="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M4 20h4l10.5-10.5a1.5 1.5 0 00-4.5-4.5L4 15.5V20z" />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/90 px-3.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 hover:border-red-300 active:scale-95 shadow-sm"
+              title="Log out"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-            </span>
+              <span>Logout</span>
+            </button>
+            <div className="relative shrink-0">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/15 bg-[#FFE8D4] text-base font-bold text-primary">
+                {profileInitials(user.name)}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-border-light bg-white shadow-sm">
+                <svg className="h-2.5 w-2.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M4 20h4l10.5-10.5a1.5 1.5 0 00-4.5-4.5L4 15.5V20z" />
+                </svg>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -657,6 +677,20 @@ function Profile() {
             </div>
           )}
         </section>
+
+        {/* Quick Actions / Logout Button Card */}
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white py-3.5 px-4 text-sm font-semibold text-red-600 shadow-sm transition hover:bg-red-50 hover:border-red-300 active:scale-[0.99]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Log Out from GreenGroo</span>
+          </button>
+        </div>
       </div>
 
       {showSettings && (

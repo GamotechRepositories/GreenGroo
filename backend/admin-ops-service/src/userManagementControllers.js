@@ -3,6 +3,7 @@ import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.j
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import Order from "../../legacy/models/order/Order.js";
 import User from "../../legacy/models/user.js";
+import UnblockRequest from "../../legacy/models/UnblockRequest.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -245,7 +246,7 @@ export async function listUserMgmtStoreUsers(req, res, next) {
           role: { $ne: "admin" },
           $or: orClauses,
         })
-          .select("name phone email accountType shopName shopAddress gstNumber addresses createdAt")
+          .select("name phone email accountType shopName shopAddress gstNumber addresses createdAt isActive status isBlocked blockReason blockedAt")
           .lean()
       : [];
 
@@ -267,6 +268,7 @@ export async function listUserMgmtStoreUsers(req, res, next) {
       const key = String(user._id);
       const qty = orderItemQty(order.items);
       const amount = orderAmount(order);
+      const isBlocked = Boolean(user.isBlocked || user.isActive === false || user.status === "blocked" || user.status === "inactive");
       const existing = buckets.get(key) || {
         userId: key,
         name: user.name || order.customerName || "Customer",
@@ -276,6 +278,11 @@ export async function listUserMgmtStoreUsers(req, res, next) {
         shopName: user.shopName || "",
         shopAddress: user.shopAddress || "",
         gstNumber: user.gstNumber || "",
+        isActive: !isBlocked,
+        status: isBlocked ? "blocked" : "active",
+        isBlocked,
+        blockReason: user.blockReason || "",
+        blockedAt: user.blockedAt || null,
         orderCount: 0,
         totalQuantity: 0,
         totalAmount: 0,
@@ -317,6 +324,11 @@ export async function listUserMgmtStoreUsers(req, res, next) {
       shopName: row.shopName,
       shopAddress: row.shopAddress,
       gstNumber: row.gstNumber,
+      isActive: row.isActive,
+      status: row.status,
+      isBlocked: row.isBlocked,
+      blockReason: row.blockReason,
+      blockedAt: row.blockedAt,
       orderCount: row.orderCount,
       totalQuantity: row.totalQuantity,
       totalAmount: row.totalAmount,
@@ -394,6 +406,291 @@ export async function listUserMgmtStoreUsers(req, res, next) {
         totalAmount: rows.reduce((s, r) => s + r.totalAmount, 0),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Update user active/blocked status (Admin authority).
+ */
+export async function updateUserStatus(req, res, next) {
+  try {
+    const userId = String(req.params.userId || "").trim();
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return fail(res, 400, "Invalid user ID");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return fail(res, 404, "User not found");
+    if (user.role === "admin") return fail(res, 403, "Cannot change status of an admin account");
+
+    const { isActive, isBlocked, status, reason, blockReason } = req.body;
+    const explicitReason = String(reason || blockReason || "").trim();
+
+    if (isActive !== undefined) {
+      user.isActive = Boolean(isActive);
+      user.isBlocked = !user.isActive;
+      user.status = user.isActive ? "active" : "blocked";
+    } else if (isBlocked !== undefined) {
+      user.isBlocked = Boolean(isBlocked);
+      user.isActive = !user.isBlocked;
+      user.status = user.isBlocked ? "blocked" : "active";
+    } else if (status) {
+      const normalizedStatus = String(status).trim().toLowerCase();
+      user.status = normalizedStatus;
+      if (normalizedStatus === "blocked" || normalizedStatus === "inactive") {
+        user.isActive = false;
+        user.isBlocked = true;
+      } else if (normalizedStatus === "active") {
+        user.isActive = true;
+        user.isBlocked = false;
+      }
+    }
+
+    if (user.isBlocked || user.isActive === false) {
+      user.blockReason = explicitReason || user.blockReason || "Deactivated by administrator";
+      user.blockedAt = user.blockedAt || new Date();
+    } else {
+      user.blockReason = "";
+      user.blockedAt = null;
+    }
+
+    await user.save();
+
+    return ok(res, {
+      userId: String(user._id),
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      accountType: user.accountType,
+      isActive: user.isActive !== false && !user.isBlocked && user.status !== "blocked",
+      status: user.status || "active",
+      isBlocked: Boolean(user.isBlocked || user.isActive === false || user.status === "blocked"),
+      blockReason: user.blockReason || "",
+      blockedAt: user.blockedAt || null,
+      updatedAt: user.updatedAt,
+    }, {
+      message: user.isActive ? "User activated successfully" : "User deactivated/blocked successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * List all users across the system with status, role & search filters.
+ */
+export async function listAllUsersDirectory(req, res, next) {
+  try {
+    const search = String(req.query.search || req.query.q || "").trim();
+    const accountType = normalizeAccountType(req.query.accountType);
+    const statusFilter = String(req.query.status || "all").trim().toLowerCase();
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const skip = (page - 1) * limit;
+
+    const query = { role: { $ne: "admin" } };
+
+    if (accountType) {
+      query.accountType = accountType;
+    }
+
+    if (statusFilter === "active") {
+      query.$and = [
+        { $or: [{ isActive: true }, { isActive: { $exists: false } }] },
+        { $or: [{ isBlocked: false }, { isBlocked: { $exists: false } }] },
+        { $or: [{ status: "active" }, { status: { $exists: false } }] },
+      ];
+    } else if (statusFilter === "blocked" || statusFilter === "inactive") {
+      query.$or = [
+        { isActive: false },
+        { isBlocked: true },
+        { status: "blocked" },
+        { status: "inactive" },
+      ];
+    }
+
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = new RegExp(escaped, "i");
+      const digits = search.replace(/\D/g, "");
+
+      const orSearch = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { shopName: searchRegex },
+      ];
+      if (digits) {
+        orSearch.push({ phone: new RegExp(digits, "i") });
+      }
+
+      if (query.$and) {
+        query.$and.push({ $or: orSearch });
+      } else if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: orSearch }];
+        delete query.$or;
+      } else {
+        query.$or = orSearch;
+      }
+    }
+
+    const [totalUsers, users] = await Promise.all([
+      User.countDocuments(query),
+      User.find(query)
+        .select("name phone email accountType shopName shopAddress gstNumber isActive status isBlocked blockReason blockedAt createdAt")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    const formatted = users.map((u) => {
+      const blocked = Boolean(u.isBlocked || u.isActive === false || u.status === "blocked" || u.status === "inactive");
+      return {
+        userId: String(u._id),
+        name: u.name,
+        phone: u.phone,
+        email: u.email || "",
+        accountType: u.accountType || "retail",
+        shopName: u.shopName || "",
+        shopAddress: u.shopAddress || "",
+        gstNumber: u.gstNumber || "",
+        isActive: !blocked,
+        status: blocked ? "blocked" : "active",
+        isBlocked: blocked,
+        blockReason: u.blockReason || "",
+        blockedAt: u.blockedAt || null,
+        createdAt: u.createdAt,
+      };
+    });
+
+    return ok(res, formatted, {
+      total: totalUsers,
+      page,
+      limit,
+      totalPages: Math.ceil(totalUsers / limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * List unblock requests submitted by blocked users.
+ */
+export async function listUnblockRequests(req, res, next) {
+  try {
+    const status = String(req.query.status || "all").trim().toLowerCase();
+    const search = String(req.query.search || req.query.q || "").trim();
+
+    const filter = {};
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = new RegExp(escaped, "i");
+      const digits = search.replace(/\D/g, "");
+      const orClauses = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { reason: searchRegex },
+      ];
+      if (digits) {
+        orClauses.push({ phone: new RegExp(digits, "i") });
+      }
+      filter.$or = orClauses;
+    }
+
+    const [requests, pendingCount] = await Promise.all([
+      UnblockRequest.find(filter).sort({ createdAt: -1 }).lean(),
+      UnblockRequest.countDocuments({ status: "pending" }),
+    ]);
+
+    const formatted = requests.map((item) => ({
+      id: String(item._id),
+      userId: String(item.userId),
+      name: item.name || "Customer",
+      phone: item.phone,
+      email: item.email || "",
+      accountType: item.accountType || "retail",
+      reason: item.reason,
+      status: item.status,
+      adminNotes: item.adminNotes || "",
+      reviewedAt: item.reviewedAt || null,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }));
+
+    return ok(res, formatted, {
+      count: formatted.length,
+      pendingCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Review an unblock request (Approve & Unblock or Reject).
+ */
+export async function reviewUnblockRequest(req, res, next) {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return fail(res, 400, "Invalid unblock request ID");
+    }
+
+    const action = String(req.body.action || "").trim().toLowerCase();
+    if (action !== "approve" && action !== "reject") {
+      return fail(res, 400, "Action must be either 'approve' or 'reject'");
+    }
+
+    const adminNotes = String(req.body.adminNotes || req.body.notes || "").trim();
+
+    const request = await UnblockRequest.findById(id);
+    if (!request) return fail(res, 404, "Unblock request not found");
+
+    if (action === "approve") {
+      request.status = "approved";
+      request.adminNotes = adminNotes || "Approved and reactivated by administrator";
+      request.reviewedAt = new Date();
+      if (req.user?.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+        request.reviewedBy = req.user.id;
+      }
+      await request.save();
+
+      // Automatically reactivate the user
+      const user = await User.findById(request.userId);
+      if (user) {
+        user.isActive = true;
+        user.isBlocked = false;
+        user.status = "active";
+        user.blockReason = "";
+        user.blockedAt = null;
+        await user.save();
+      }
+
+      return ok(res, request, {
+        message: "Unblock request approved. User account has been reactivated.",
+      });
+    }
+
+    if (action === "reject") {
+      request.status = "rejected";
+      request.adminNotes = adminNotes || "Appeal rejected by administrator";
+      request.reviewedAt = new Date();
+      if (req.user?.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+        request.reviewedBy = req.user.id;
+      }
+      await request.save();
+
+      return ok(res, request, {
+        message: "Unblock request rejected.",
+      });
+    }
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
-import { signup, login, loginWithPhone, sendOtpLogin, verifyOtpLogin, completeOtpSignup, resetPasswordWithPhoneOtp, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, getUserOrderStats, updateUser, deleteUser } from "../controllers/userController.js";
+import { signup, login, loginWithPhone, sendOtpLogin, verifyOtpLogin, completeOtpSignup, resetPasswordWithPhoneOtp, createUnblockRequest, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, getUserOrderStats, updateUser, deleteUser } from "../controllers/userController.js";
 import { clearFcmToken, saveFcmToken } from "../controllers/fcmTokenController.js";
 import {
   addAddressForUser,
@@ -13,6 +13,7 @@ const router = express.Router();
 router.post("/signup", signup);
 router.post("/login", login);
 router.post("/login/phone", loginWithPhone);
+router.post("/unblock-request", createUnblockRequest);
 router.post("/admin/forgot-password", requestAdminPasswordReset);
 router.post("/admin/reset-password", resetAdminPassword);
 router.post("/otp/send", sendOtpLogin);

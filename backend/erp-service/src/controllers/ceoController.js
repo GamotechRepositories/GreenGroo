@@ -26,10 +26,11 @@ import { receiveGoodsAtomic } from "../services/inventoryService.js";
 import { auditFromReq } from "../services/auditService.js";
 import { RESOURCES } from "../config/resources.js";
 
-export async function ceoDashboard(_req, res) {
+export async function ceoDashboard(req, res) {
   try {
-    const data = await getCeoDashboard();
-    res.json({ success: true, ...data });
+    const period = String(req.query.period || req.query.timeFilter || "30d").toLowerCase();
+    const data = await getCeoDashboard(period);
+    res.json({ success: true, period, ...data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Dashboard failed" });
   }

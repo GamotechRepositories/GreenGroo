@@ -41,6 +41,20 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    if (
+      user.role !== "admin" &&
+      (user.isActive === false ||
+        user.isBlocked === true ||
+        user.status === "blocked" ||
+        user.status === "inactive")
+    ) {
+      return res.status(403).json({
+        success: false,
+        isBlocked: true,
+        message: "Your account is deactivated or blocked by admin. You can submit an unblock request.",
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {
