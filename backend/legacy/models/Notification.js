@@ -6,7 +6,6 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "UserBulkMart",
       required: true,
-      index: true,
     },
     title: {
       type: String,

@@ -11,7 +11,6 @@ const storeInventorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryManager",
       required: true,
-      index: true,
     },
     sku: {
       type: String,

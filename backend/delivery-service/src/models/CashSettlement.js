@@ -20,13 +20,11 @@ const cashSettlementSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryManager",
       required: true,
-      index: true,
     },
     riderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryBoy",
       required: true,
-      index: true,
     },
     orderId: {
       type: mongoose.Schema.Types.ObjectId,

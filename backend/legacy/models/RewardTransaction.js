@@ -6,7 +6,6 @@ const rewardTransactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "UserBulkMart",
       required: true,
-      index: true,
     },
     order: {
       type: mongoose.Schema.Types.ObjectId,

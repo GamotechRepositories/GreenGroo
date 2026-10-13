@@ -76,7 +76,6 @@ const supportMessageSchema = new mongoose.Schema(
     roleKey: {
       type: String,
       trim: true,
-      index: true,
       default: "customer",
       enum: SUPPORT_ROLE_KEYS,
     },

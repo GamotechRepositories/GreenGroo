@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const vendorCouponSchema = new mongoose.Schema(
   {
-    vendorId: { type: String, required: true, trim: true, index: true },
+    vendorId: { type: String, required: true, trim: true },
     code: { type: String, required: true, uppercase: true, trim: true },
     title: { type: String, trim: true, default: "" },
     discountType: { type: String, enum: ["percentage", "fixed"], required: true },
@@ -21,7 +21,7 @@ vendorCouponSchema.index({ vendorId: 1, code: 1 }, { unique: true });
 
 const vendorGiftCardSchema = new mongoose.Schema(
   {
-    vendorId: { type: String, required: true, trim: true, index: true },
+    vendorId: { type: String, required: true, trim: true },
     code: { type: String, required: true, uppercase: true, trim: true },
     amount: { type: Number, required: true, min: 1 },
     balance: { type: Number, required: true, min: 0 },

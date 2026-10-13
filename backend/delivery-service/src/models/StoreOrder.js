@@ -43,13 +43,11 @@ const storeOrderSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      index: true,
     },
     managerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryManager",
       required: true,
-      index: true,
     },
     /** Same as managerId — Dark Store ownership key */
     darkStoreId: {

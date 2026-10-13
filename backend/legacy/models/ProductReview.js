@@ -6,7 +6,6 @@ const productReviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "GreenGroccProduct",
       required: true,
-      index: true,
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,

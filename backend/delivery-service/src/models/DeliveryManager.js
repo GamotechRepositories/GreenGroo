@@ -43,7 +43,6 @@ const deliveryManagerSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
-      index: true,
     },
     area: {
       type: String,

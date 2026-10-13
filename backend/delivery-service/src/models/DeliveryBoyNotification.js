@@ -29,7 +29,6 @@ const deliveryBoyNotificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryBoy",
       required: true,
-      index: true,
     },
     /** Legacy alias field kept in sync for older queries */
     deliveryBoyId: {

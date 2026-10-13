@@ -1,4 +1,7 @@
 {
+  "name": "greengroo-workspace",
+  "private": true,
+  "type": "module",
   "dependencies": {
     "pako": "^3.0.1"
   }

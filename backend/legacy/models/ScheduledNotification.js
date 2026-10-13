@@ -12,7 +12,6 @@ const scheduledNotificationSchema = new mongoose.Schema(
       type: String,
       enum: ["scheduled", "sending", "sent", "cancelled", "failed"],
       default: "scheduled",
-      index: true,
     },
     summary: { type: mongoose.Schema.Types.Mixed, default: null },
     error: { type: String, default: "" },
