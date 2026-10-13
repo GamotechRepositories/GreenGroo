@@ -593,35 +593,11 @@ export const getProducts = async (req, res) => {
       if (targetSection === "all") {
         // "all" shows all products across all departments!
       } else if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc") {
-<<<<<<< Updated upstream
-        filter.$and = [
-          ...(filter.$and || []),
-          {
-            $or: [
-              { section: "preorder" },
-              { section: "main" },
-              { section: "greengrocc" },
-              { storeType: "preorder" },
-              { storeType: "main" },
-              { storeType: "greengrocc" },
-              { section: { $exists: false } },
-              { storeType: { $exists: false } }
-            ]
-          },
-          {
-            section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall"] }
-          },
-          {
-            storeType: { $nin: ["festive", "mall"] }
-          }
-        ];
-=======
         filter.$and = filter.$and || [];
         filter.$and.push({
           section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
           storeType: { $nin: ["festive", "mall"] },
         });
->>>>>>> Stashed changes
       } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
         filter.$or = [
           { section: "ready2cook" },
@@ -646,35 +622,11 @@ export const getProducts = async (req, res) => {
       } else if (sType === "mall" || sType === "supermall" || sType === "instantorder" || sType === "instant") {
         filter.$or = [{ section: "supermall" }, { section: "instantorder" }, { storeType: "mall" }];
       } else if (sType === "preorder" || sType === "main") {
-<<<<<<< Updated upstream
-        filter.$and = [
-          ...(filter.$and || []),
-          {
-            $or: [
-              { section: "preorder" },
-              { section: "main" },
-              { section: "greengrocc" },
-              { storeType: "preorder" },
-              { storeType: "main" },
-              { storeType: "greengrocc" },
-              { section: { $exists: false } },
-              { storeType: { $exists: false } }
-            ]
-          },
-          {
-            section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall"] }
-          },
-          {
-            storeType: { $nin: ["festive", "mall"] }
-          }
-        ];
-=======
         filter.$and = filter.$and || [];
         filter.$and.push({
           section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
           storeType: { $nin: ["festive", "mall"] },
         });
->>>>>>> Stashed changes
       }
     }
 
