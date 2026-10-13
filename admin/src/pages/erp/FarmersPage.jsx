@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Boxes,
   Building,
+  Calendar,
   Check,
+  CheckCircle2,
+  Clock,
   Copy,
   ExternalLink,
   Eye,
@@ -20,8 +24,11 @@ import {
   Tractor,
   Trash2,
   X,
+  Banknote,
+  FileSpreadsheet,
 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
+import FarmerEarningsSpreadsheet from './FarmerEarningsSpreadsheet';
 
 const PAGE_SIZE = 25;
 
@@ -53,6 +60,67 @@ function splitIdTwoLines(id) {
   return [s];
 }
 
+function extractGradeInventoryRows(source) {
+  if (!Array.isArray(source)) return [];
+  const rows = [];
+  for (const item of source) {
+    if (!item) continue;
+    if (Array.isArray(item.grades) && item.grades.length > 0) {
+      for (const g of item.grades) {
+        const gName = g.grade || g.label || g.name || 'Grade A';
+        const gStock = Number(g.stock ?? g.quantity ?? 0);
+        rows.push({
+          id: g.articleId || `${item.productId || item.id || ''}-${gName}`,
+          articleId: g.articleId || item.articleId || '',
+          productId: item.productId || item.id || '—',
+          productName: item.productName || item.name || 'Product',
+          variety: item.variety || 'Standard',
+          grade: gName,
+          stock: gStock,
+          availableQuantity: gStock,
+          unit: item.unit || 'Kg',
+          status: item.status || 'Active',
+        });
+      }
+    } else {
+      rows.push({
+        id: item.articleId || item.id || item.productId,
+        productId: item.productId || item.id || '—',
+        productName: item.productName || item.name || 'Product',
+        variety: item.variety || 'Standard',
+        grade: item.grade || 'Grade A',
+        stock: Number(item.availableQuantity ?? item.stock ?? 0),
+        availableQuantity: Number(item.availableQuantity ?? item.stock ?? 0),
+        unit: item.unit || 'Kg',
+        status: item.status || 'Active',
+      });
+    }
+  }
+  return rows;
+}
+
+function getGradeStock(product, gradeLetter) {
+  if (!product) return 0;
+  const target = String(gradeLetter).toUpperCase().trim();
+  if (Array.isArray(product.grades) && product.grades.length > 0) {
+    const match = product.grades.find((g) => {
+      const gStr = String(g.grade || g.label || g.name || '').toUpperCase().trim();
+      return (
+        gStr === target ||
+        gStr === `GRADE ${target}` ||
+        gStr.endsWith(` ${target}`) ||
+        gStr.includes(target)
+      );
+    });
+    if (match) return Number(match.stock ?? match.quantity ?? 0);
+  }
+  const pGrade = String(product.grade || '').toUpperCase().trim();
+  if (pGrade.includes(target)) {
+    return Number(product.availableQuantity ?? product.stock ?? 0);
+  }
+  return 0;
+}
+
 export default function FarmersPage() {
   const [farmers, setFarmers] = useState([]);
   const [managers, setManagers] = useState([]);
@@ -73,6 +141,7 @@ export default function FarmersPage() {
   const [farmerDetails, setFarmerDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailsTab, setDetailsTab] = useState('Overview');
+  const [approvingDocId, setApprovingDocId] = useState(null);
 
   const [addForm, setAddForm] = useState({
     name: '',
@@ -172,6 +241,53 @@ export default function FarmersPage() {
   const handleCloseViewModal = () => {
     setSelectedFarmer(null);
     setFarmerDetails(null);
+    setApprovingDocId(null);
+  };
+
+  const handleReviewDocInModal = async (doc, status) => {
+    const fid = selectedFarmer?.farmerId || selectedFarmer?.id || selectedFarmer?.sourceId;
+    if (!fid) return;
+    const docKey = doc.id || doc._id || doc.type;
+    setApprovingDocId(docKey);
+
+    // Instant Optimistic Update in modal state (0ms delay)
+    setFarmerDetails((prev) => {
+      if (!prev) return prev;
+      const nextDocs = (prev.documents || []).map((d) => {
+        if (
+          (d.id && d.id === doc.id) ||
+          (d._id && d._id === doc._id) ||
+          (d.type && d.type === doc.type)
+        ) {
+          return { ...d, status };
+        }
+        return d;
+      });
+      return { ...prev, documents: nextDocs };
+    });
+
+    try {
+      await erpApi.reviewFarmerDocument(fid, doc.id || doc.type, { status });
+    } catch (err) {
+      console.error('Failed to update document status in modal', err);
+      // Revert if error
+      setFarmerDetails((prev) => {
+        if (!prev) return prev;
+        const nextDocs = (prev.documents || []).map((d) => {
+          if (
+            (d.id && d.id === doc.id) ||
+            (d._id && d._id === doc._id) ||
+            (d.type && d.type === doc.type)
+          ) {
+            return { ...d, status: doc.status };
+          }
+          return d;
+        });
+        return { ...prev, documents: nextDocs };
+      });
+    } finally {
+      setApprovingDocId(null);
+    }
   };
 
   const handleAssignManager = async (farmerId, managerId) => {
@@ -797,19 +913,28 @@ export default function FarmersPage() {
             </div>
 
             {/* Modal Tabs */}
-            <div className="flex border-b border-gray-100 bg-white px-5">
-              {['Overview', 'Farm & Location', 'Crops & Products', 'Documents & KYC'].map((t) => (
+            <div className="flex border-b border-gray-100 bg-white px-5 overflow-x-auto scrollbar-none">
+              {[
+                { key: 'Overview', label: 'Overview' },
+                { key: 'Farm & Location', label: 'Farm & Location' },
+                { key: 'Crops', label: `Crops (${farmerDetails?.crops?.length ?? selectedFarmer.cropCount ?? 0})` },
+                { key: 'Products', label: `Products (${farmerDetails?.products?.length ?? selectedFarmer.totalProducts ?? selectedFarmer.productCount ?? 0})` },
+                { key: 'Inventory', label: `Inventory (${farmerDetails?.stockHistory?.length ?? farmerDetails?.inventory?.length ?? 0})` },
+                { key: 'Orders', label: `Orders (${farmerDetails?.orders?.length ?? selectedFarmer.orderCount ?? 0})` },
+                { key: 'Earnings', label: `Earnings (${farmerDetails?.earnings?.length || farmerDetails?.orders?.length || 0})` },
+                { key: 'Documents & KYC', label: `Documents & KYC (${farmerDetails?.documents?.length ?? selectedFarmer.documentCount ?? 0})` },
+              ].map((t) => (
                 <button
-                  key={t}
+                  key={t.key}
                   type="button"
-                  onClick={() => setDetailsTab(t)}
-                  className={`border-b-2 px-3.5 py-2.5 text-xs font-semibold transition ${
-                    detailsTab === t
+                  onClick={() => setDetailsTab(t.key)}
+                  className={`border-b-2 px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition ${
+                    detailsTab === t.key
                       ? 'border-[#217346] text-[#217346]'
                       : 'border-transparent text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  {t}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -827,17 +952,19 @@ export default function FarmersPage() {
                   {detailsTab === 'Overview' && (
                     <div className="space-y-4">
                       {/* Stats Grid */}
-                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-7">
                         {[
                           {
                             label: 'Farms',
                             val: farmerDetails?.farms?.length ?? selectedFarmer.farmCount ?? 0,
                             icon: Tractor,
+                            tab: 'Farm & Location',
                           },
                           {
                             label: 'Crops',
                             val: farmerDetails?.crops?.length ?? selectedFarmer.cropCount ?? 0,
                             icon: Leaf,
+                            tab: 'Crops',
                           },
                           {
                             label: 'Products',
@@ -847,34 +974,45 @@ export default function FarmersPage() {
                               selectedFarmer.productCount ??
                               0,
                             icon: Package,
+                            tab: 'Products',
+                          },
+                          {
+                            label: 'Inventory',
+                            val:
+                              farmerDetails?.inventory?.length ??
+                              farmerDetails?.stockHistory?.length ??
+                              0,
+                            icon: Boxes,
+                            tab: 'Inventory',
                           },
                           {
                             label: 'Orders',
                             val: farmerDetails?.orders?.length ?? selectedFarmer.orderCount ?? 0,
                             icon: ShoppingCart,
+                            tab: 'Orders',
+                          },
+                          {
+                            label: 'Earnings',
+                            val: `₹${Number(farmerDetails?.payments || selectedFarmer.earnings || selectedFarmer.totalEarnings || 0).toLocaleString('en-IN')}`,
+                            icon: Banknote,
+                            tab: 'Earnings',
                           },
                           {
                             label: 'Documents',
                             val:
                               farmerDetails?.documents?.length ?? selectedFarmer.documentCount ?? 0,
                             icon: FileText,
-                          },
-                          {
-                            label: 'Earnings',
-                            val: `₹${Number(
-                              farmerDetails?.payments ??
-                                selectedFarmer.totalEarnings ??
-                                selectedFarmer.earnings ??
-                                0
-                            ).toLocaleString('en-IN')}`,
-                            icon: Landmark,
+                            tab: 'Documents & KYC',
                           },
                         ].map((s) => {
                           const Icon = s.icon;
                           return (
                             <div
                               key={s.label}
-                              className="rounded-xl border border-gray-100 bg-gray-50/70 p-3"
+                              onClick={() => s.tab && setDetailsTab(s.tab)}
+                              className={`rounded-xl border border-gray-100 bg-gray-50/70 p-3 transition ${
+                                s.tab ? 'cursor-pointer hover:bg-emerald-50/60 hover:border-emerald-200' : ''
+                              }`}
                             >
                               <div className="flex items-center justify-between text-gray-400">
                                 <span className="text-[10px] font-semibold uppercase">{s.label}</span>
@@ -1060,57 +1198,337 @@ export default function FarmersPage() {
                     </div>
                   )}
 
-                  {/* CROPS & PRODUCTS TAB */}
-                  {detailsTab === 'Crops & Products' && (
+                  {/* CROPS TAB */}
+                  {detailsTab === 'Crops' && (
                     <div className="space-y-4">
-                      {/* Crops */}
                       <div className="rounded-xl border border-gray-200 bg-white p-4">
-                        <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
-                          <Leaf className="h-4 w-4 text-[#217346]" /> Active Crops ({farmerDetails?.crops?.length || 0})
-                        </h4>
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                          <h4 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                            <Leaf className="h-4 w-4 text-[#217346]" /> Active Crops ({farmerDetails?.crops?.length || 0})
+                          </h4>
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            Total Registered: {farmerDetails?.crops?.length || 0}
+                          </span>
+                        </div>
                         {!farmerDetails?.crops?.length ? (
-                          <p className="text-gray-400 py-3">No active crops registered for this farmer.</p>
+                          <div className="py-8 text-center text-gray-400">
+                            <Leaf className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                            <p>No active crops registered for this farmer.</p>
+                          </div>
                         ) : (
                           <div className="divide-y divide-gray-100">
                             {farmerDetails.crops.map((c) => (
-                              <div key={c._id || c.cropId || c.id} className="py-2 flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-gray-800">{c.cropName || c.name}</p>
-                                  <p className="text-[11px] text-gray-400">{c.variety || 'Standard'} · {c.category || 'Veg'}</p>
+                              <div key={c._id || c.cropId || c.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-gray-900 text-sm">{c.cropName || c.name}</p>
+                                    <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                                      {c.status || 'Active'}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-gray-500">
+                                    <span>Variety: <strong className="text-gray-700">{c.variety || 'Standard'}</strong></span>
+                                    <span>·</span>
+                                    <span>Category: <strong className="text-gray-700">{c.category || 'VEG'}</strong></span>
+                                    {c.cropId ? (
+                                      <>
+                                        <span>·</span>
+                                        <span className="font-mono text-gray-400">{c.cropId}</span>
+                                      </>
+                                    ) : null}
+                                  </div>
                                 </div>
-                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                  {c.status || 'Active'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Products */}
-                      <div className="rounded-xl border border-gray-200 bg-white p-4">
-                        <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
-                          <Package className="h-4 w-4 text-[#217346]" /> Products Catalog ({farmerDetails?.products?.length || 0})
-                        </h4>
-                        {!farmerDetails?.products?.length ? (
-                          <p className="text-gray-400 py-3">No products cataloged for this farmer.</p>
-                        ) : (
-                          <div className="divide-y divide-gray-100">
-                            {farmerDetails.products.map((p) => (
-                              <div key={p._id || p.productId || p.id} className="py-2 flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-gray-800">{p.productName || p.name}</p>
-                                  <p className="text-[11px] text-gray-400">Stock: {p.stock ?? 0} {p.unit || 'Kg'}</p>
+                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center text-right shrink-0">
+                                  <p className="font-semibold text-gray-800 text-xs">
+                                    Area: {c.area ? `${c.area} ${c.areaUnit || 'Acre'}` : '—'}
+                                  </p>
+                                  <p className="text-[11px] text-gray-500">
+                                    Est. Qty: {c.estimatedQuantity || c.expectedProduction ? `${c.estimatedQuantity || c.expectedProduction} ${c.unit || 'Kg'}` : '—'}
+                                  </p>
+                                  {c.expectedHarvestDate ? (
+                                    <p className="text-[10px] text-emerald-700 font-medium">
+                                      Harvest: {new Date(c.expectedHarvestDate).toLocaleDateString('en-IN')}
+                                    </p>
+                                  ) : null}
                                 </div>
-                                <span className="font-semibold text-[#217346]">
-                                  ₹{p.price || p.basePrice || 0}
-                                </span>
                               </div>
                             ))}
                           </div>
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {/* PRODUCTS TAB */}
+                  {detailsTab === 'Products' && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                          <h4 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                            <Package className="h-4 w-4 text-[#217346]" /> Products Catalog ({farmerDetails?.products?.length || 0})
+                          </h4>
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            Live Produce Items
+                          </span>
+                        </div>
+                        {!farmerDetails?.products?.length ? (
+                          <div className="py-8 text-center text-gray-400">
+                            <Package className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                            <p>No products cataloged for this farmer.</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {farmerDetails.products.map((p) => (
+                              <div key={p._id || p.productId || p.id} className="py-3 flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-gray-900 text-sm">{p.productName || p.name}</p>
+                                    {p.productId && (
+                                      <span className="font-mono text-[11px] bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-200">
+                                        ID: {p.productId}
+                                      </span>
+                                    )}
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      p.status === 'Active' || p.status === 'Approved'
+                                        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                                    }`}>
+                                      {p.status || 'Active'}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-gray-500">
+                                    <span>Variety: <strong className="text-gray-700">{p.variety || 'Standard'}</strong></span>
+                                    {p.cropName && (
+                                      <>
+                                        <span>·</span>
+                                        <span>Crop: <strong className="text-gray-700">{p.cropName}</strong></span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* INVENTORY TAB */}
+                  {detailsTab === 'Inventory' && (
+                    <div className="space-y-4">
+                      {/* Current Stock Level (Grade Wise) */}
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                          <h4 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                            <Boxes className="h-4 w-4 text-[#217346]" /> Current Inventory (Grade-Wise)
+                          </h4>
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            Live Stock by Grade
+                          </span>
+                        </div>
+                        {!(farmerDetails?.inventory?.length || farmerDetails?.products?.length) ? (
+                          <div className="py-8 text-center text-gray-400">
+                            <Boxes className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                            <p>No active inventory records found.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-400 bg-gray-50/70">
+                                  <th className="py-2.5 px-3">Product ID</th>
+                                  <th className="py-2.5 px-3">Product Name</th>
+                                  <th className="py-2.5 px-3">Variety</th>
+                                  <th className="py-2.5 px-3 text-center">Grade A</th>
+                                  <th className="py-2.5 px-3 text-center">Grade B</th>
+                                  <th className="py-2.5 px-3 text-center">Grade C</th>
+                                  <th className="py-2.5 px-3 text-right">Total Stock</th>
+                                  <th className="py-2.5 px-3 text-right">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {(farmerDetails?.products?.length ? farmerDetails.products : (farmerDetails?.inventory || [])).map((row) => {
+                                  const stockA = getGradeStock(row, 'A');
+                                  const stockB = getGradeStock(row, 'B');
+                                  const stockC = getGradeStock(row, 'C');
+                                  const totalStock = Number(row.stock ?? row.availableQuantity ?? (stockA + stockB + stockC));
+                                  return (
+                                    <tr key={row.id || row.productId} className="hover:bg-gray-50/50 transition-colors">
+                                      <td className="py-3 px-3 font-mono font-semibold text-slate-700 whitespace-nowrap">
+                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-[11px]">
+                                          {row.productId || row.id || '—'}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 px-3 font-bold text-gray-900 whitespace-nowrap">
+                                        {row.productName || row.name}
+                                      </td>
+                                      <td className="py-3 px-3 text-gray-600 whitespace-nowrap">
+                                        {row.variety || 'Standard'}
+                                      </td>
+                                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                                        {stockA > 0 ? (
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                            {Number(stockA).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-300 font-medium">—</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                                        {stockB > 0 ? (
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                            {Number(stockB).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-300 font-medium">—</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                                        {stockC > 0 ? (
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                            {Number(stockC).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-300 font-medium">—</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-3 text-right font-extrabold text-[#217346] whitespace-nowrap">
+                                        {Number(totalStock).toLocaleString('en-IN')}{' '}
+                                        <span className="text-[11px] font-normal text-gray-600">{row.unit || 'Kg'}</span>
+                                      </td>
+                                      <td className="py-3 px-3 text-right whitespace-nowrap">
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                          row.status === 'Active' || row.status === 'Approved'
+                                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                                            : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                                        }`}>
+                                          {row.status || 'Active'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stock Movement History */}
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                          <Clock className="h-4 w-4 text-[#217346]" /> Stock Movements & Log ({farmerDetails?.stockHistory?.length || 0})
+                        </h4>
+                        {!farmerDetails?.stockHistory?.length ? (
+                          <p className="text-gray-400 py-3 text-center">No stock movement logs recorded yet.</p>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {farmerDetails.stockHistory.map((s, idx) => (
+                              <div key={s.id || s._id || idx} className="py-2.5 flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-semibold text-gray-800 text-xs">{s.productName || 'Produce'}</span>
+                                    {s.productId && (
+                                      <span className="font-mono text-[9px] bg-gray-100 text-gray-600 px-1 py-0.2 rounded">{s.productId}</span>
+                                    )}
+                                    {s.grade ? (
+                                      <span className="rounded bg-gray-100 px-1 py-0.2 text-[9px] text-gray-600 font-medium">{s.grade}</span>
+                                    ) : null}
+                                  </div>
+                                  <p className="text-[11px] text-gray-400">
+                                    {s.action || 'Stock update'} · {s.reason || 'Inventory'}{' '}
+                                    {s.at || s.createdAt ? `· ${new Date(s.at || s.createdAt).toLocaleDateString('en-IN')}` : ''}
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className={`text-xs font-bold ${
+                                    Number(s.changedQuantity) > 0 ? 'text-emerald-600' : 'text-slate-700'
+                                  }`}>
+                                    {Number(s.changedQuantity) > 0 ? `+${s.changedQuantity}` : s.changedQuantity}
+                                  </span>
+                                  <p className="text-[10px] text-gray-500">Balance: {s.newStock ?? s.changedQuantity}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ORDERS TAB */}
+                  {detailsTab === 'Orders' && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                          <h4 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                            <ShoppingCart className="h-4 w-4 text-[#217346]" /> Farmer Orders ({farmerDetails?.orders?.length || 0})
+                          </h4>
+                          <span className="text-[11px] text-gray-500 font-medium">
+                            Orders for Pickups & Dispatch
+                          </span>
+                        </div>
+                        {!farmerDetails?.orders?.length ? (
+                          <div className="py-8 text-center text-gray-400">
+                            <ShoppingCart className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                            <p>No orders registered for this farmer yet.</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-gray-100">
+                            {farmerDetails.orders.map((o) => (
+                              <div key={o.id || o.orderId || o._id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-gray-900 text-xs font-mono">{o.orderId || o.id}</p>
+                                    {o.productId && (
+                                      <span className="font-mono text-[10px] bg-slate-100 text-slate-700 font-semibold px-1.5 py-0.5 rounded border border-slate-200">
+                                        Product ID: {o.productId}
+                                      </span>
+                                    )}
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      String(o.status).toUpperCase() === 'ORDER_COMPLETED' || String(o.status).toUpperCase() === 'COMPLETED'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : String(o.status).toUpperCase().includes('DRIVER') || String(o.status).toUpperCase() === 'IN_TRANSIT'
+                                        ? 'bg-sky-100 text-sky-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {o.status || 'Pending'}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-gray-500">
+                                    <span>Product: <strong className="text-gray-800">{o.productName || 'Farm Produce'}</strong></span>
+                                    <span>·</span>
+                                    <span>Quantity: <strong className="text-gray-800">{Number(o.totalQuantity || o.orderedQuantity || 0).toLocaleString('en-IN')} {o.unit || 'Kg'}</strong></span>
+                                    <span>·</span>
+                                    <span>Payment: <span className="font-medium text-gray-700">{o.paymentStatus || 'Pending'}</span></span>
+                                  </div>
+                                </div>
+                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center text-right shrink-0">
+                                  <span className="text-sm font-bold text-[#217346]">
+                                    ₹{Number(o.totalAmount || o.orderValue || o.amount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400">
+                                    {o.orderDate || o.createdAt ? new Date(o.orderDate || o.createdAt).toLocaleDateString('en-IN') : '—'}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* EARNINGS TAB */}
+                  {detailsTab === 'Earnings' && (
+                    <FarmerEarningsSpreadsheet
+                      orders={farmerDetails?.orders}
+                      earnings={farmerDetails?.earnings}
+                      products={farmerDetails?.products}
+                      farmer={farmerDetails?.farmer || selectedFarmer}
+                      title="Farmer Earning Statement"
+                    />
                   )}
 
                   {/* DOCUMENTS & KYC TAB */}
@@ -1173,25 +1591,60 @@ export default function FarmersPage() {
                           <p className="text-gray-400 py-3">No documents uploaded yet.</p>
                         ) : (
                           <div className="divide-y divide-gray-100">
-                            {farmerDetails.documents.map((doc) => (
-                              <div key={doc._id || doc.documentId || doc.id} className="py-2.5 flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-gray-800">{doc.documentType || doc.title || 'Farmer Document'}</p>
-                                  <p className="text-[11px] text-gray-400">{doc.documentNumber || 'Doc Record'}</p>
+                            {farmerDetails.documents.map((doc) => {
+                              const docKey = doc.id || doc._id || doc.type;
+                              const isApproving = approvingDocId === docKey;
+                              return (
+                                <div key={docKey} className="py-2.5 flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-gray-800 text-xs truncate">
+                                      {doc.documentType || doc.title || doc.name || doc.type || 'Farmer Document'}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 truncate">
+                                      {doc.documentNumber || doc.fileName || 'Doc Record'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {doc.fileUrl ? (
+                                      <a
+                                        href={doc.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs font-medium text-emerald-700 hover:underline"
+                                      >
+                                        View
+                                      </a>
+                                    ) : null}
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                        doc.status === 'Approved'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : doc.status === 'Rejected'
+                                          ? 'bg-rose-100 text-rose-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}
+                                    >
+                                      {doc.status || 'Pending'}
+                                    </span>
+                                    {doc.status !== 'Approved' ? (
+                                      <button
+                                        type="button"
+                                        disabled={isApproving}
+                                        onClick={() => handleReviewDocInModal(doc, 'Approved')}
+                                        className="inline-flex items-center gap-1 rounded-md bg-[#217346] px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs hover:bg-[#1a5c38] active:scale-95 disabled:opacity-60 transition"
+                                      >
+                                        {isApproving ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <CheckCircle2 className="h-3 w-3" />
+                                        )}
+                                        Approve
+                                      </button>
+                                    ) : null}
+                                  </div>
                                 </div>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    doc.status === 'Approved'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : doc.status === 'Rejected'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}
-                                >
-                                  {doc.status || 'Pending'}
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>

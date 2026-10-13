@@ -31,6 +31,8 @@ export const transformProductResponse = (product) => {
   const isMongoose = typeof product.toObject === 'function';
   const data = isMongoose ? product.toObject() : { ...product };
 
+  data.productId = data.productId || data.sku || "";
+
   if (data.productImages) {
     data.productImages = resolveImageArray(data.productImages);
   }

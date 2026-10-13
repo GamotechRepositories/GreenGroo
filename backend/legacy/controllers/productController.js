@@ -16,6 +16,11 @@ import {
 } from "../../delivery-service/src/services/catalogStoreInventory.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
 import { buildDepartmentId, normalizeDeptToken } from "../utils/departmentHelpers.js";
+import {
+  cropCodeFromName,
+  varietyCodeFromName,
+  resolveCategoryCode,
+} from "../../erp-service/src/config/idRegistry.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -23,6 +28,56 @@ const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeProductFlag = (value) => value === true || value === "true";
+
+export async function generateAdminProductId({ categoryName = "", name = "", varietyName = "" } = {}) {
+  const catCode = resolveCategoryCode(categoryName || name);
+  const cropCode = cropCodeFromName(name);
+  const varCode = varietyName?.trim() ? varietyCodeFromName(varietyName) : "NAN";
+  const prefix = `GGC-ART-${catCode}-${cropCode}-${varCode}-`;
+
+  const prefixRegex = new RegExp(`^${escapeRegex(prefix)}(\\d+)$`, "i");
+
+  const [products, farmerProducts] = await Promise.all([
+    Product.find({
+      $or: [{ productId: prefixRegex }, { sku: prefixRegex }],
+    })
+      .select("productId sku")
+      .lean()
+      .catch(() => []),
+    mongoose.models.FarmerProduct
+      ? mongoose.models.FarmerProduct.find({
+          $or: [{ productId: prefixRegex }, { sku: prefixRegex }],
+        })
+          .select("productId sku")
+          .lean()
+          .catch(() => [])
+      : [],
+  ]);
+
+  let maxSerial = 0;
+  const checkId = (id) => {
+    if (!id) return;
+    const match = String(id).toUpperCase().match(new RegExp(`^${escapeRegex(prefix)}(\\d+)$`));
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (Number.isFinite(num) && num > maxSerial) {
+        maxSerial = num;
+      }
+    }
+  };
+
+  products.forEach((p) => {
+    checkId(p.productId);
+    checkId(p.sku);
+  });
+  farmerProducts.forEach((p) => {
+    checkId(p.productId);
+    checkId(p.sku);
+  });
+
+  const nextSerial = maxSerial + 1;
+  return `${prefix}${nextSerial}`;
+}
 
 const normalizeImages = (productImages, images) => {
   const source = productImages ?? images;
@@ -297,6 +352,7 @@ const buildProductPayload = (body) => {
   const variantType = body.variantType === "multi" ? "multi" : "single";
   const pricingType = body.pricingType === "bulk" ? "bulk" : "single";
   const sku = body.sku?.trim().toUpperCase() ?? "";
+  const productId = body.productId?.trim().toUpperCase() ?? "";
 
   const mapBulkPricingInput = (bulkPricing) => ({
     slabs: bulkPricing?.slabs || [],
@@ -315,6 +371,7 @@ const buildProductPayload = (body) => {
   });
 
   return {
+    productId,
     name: body.name?.trim(),
     sku,
     categories: normalizeCategories(
@@ -1148,8 +1205,9 @@ const resolveStoreType = (section, storeType) => {
 };
 
 const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => ({
+  productId: payload.productId || payload.sku || "",
   name: payload.name,
-  sku: payload.sku,
+  sku: payload.sku || payload.productId || "",
   categories: categoryCheck.categories,
   subcategory: categoryCheck.subcategory,
   subcategories: categoryCheck.subcategories,
@@ -1229,6 +1287,41 @@ const badRequest = (message) => ({ status: 400, body: { success: false, message 
 export async function createProductRecord(body, { ownerManagerId = null } = {}) {
   try {
     const payload = buildProductPayload(body);
+
+    if (!ownerManagerId) {
+      const isCanonicalPattern = (id) =>
+        /^GGC-ART-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-\d+$/i.test(String(id || "").trim());
+
+      let finalId = "";
+      if (isCanonicalPattern(payload.productId)) {
+        finalId = payload.productId;
+      } else if (isCanonicalPattern(payload.sku)) {
+        finalId = payload.sku;
+      }
+
+      if (finalId) {
+        const existing = await Product.findOne({
+          $or: [{ sku: finalId }, { productId: finalId }],
+        }).select("_id");
+        if (existing) {
+          finalId = "";
+        }
+      }
+
+      if (!finalId) {
+        const primaryCat =
+          payload.categories?.[0] || body.categoryName || body.category || payload.name;
+        finalId = await generateAdminProductId({
+          categoryName: primaryCat,
+          name: payload.name,
+          varietyName: payload.varietyName,
+        });
+      }
+
+      payload.productId = finalId;
+      payload.sku = finalId;
+    }
+
     const requiredError = validateRequiredFields(payload);
     if (requiredError) return badRequest(requiredError);
 
@@ -1340,6 +1433,7 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
         body.hotSelling !== undefined
           ? body.hotSelling
           : existing.hotSelling,
+      productId: body.productId ?? existing.productId ?? existing.sku,
       sku: body.sku ?? existing.sku,
       minOrderQuantity:
         body.minOrderQuantity !== undefined
@@ -1454,3 +1548,18 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getNextProductId = async (req, res) => {
+  try {
+    const { name, category, categoryName, variety, varietyName } = req.query;
+    const productId = await generateAdminProductId({
+      categoryName: category || categoryName || "",
+      name: name || "",
+      varietyName: variety || varietyName || "",
+    });
+    res.status(200).json({ success: true, productId });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

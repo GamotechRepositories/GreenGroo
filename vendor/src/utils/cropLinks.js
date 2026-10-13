@@ -93,9 +93,15 @@ export function cropCodeFromName(name = "") {
 
 export function varietyCodeFromName(name = "") {
   const raw = String(name || "").trim();
-  if (!raw) return "XXX";
+  if (!raw || raw.toUpperCase() === "NAN") return "NAN";
+  const lower = raw.toLowerCase();
+  if (lower === "none" || lower === "null" || lower === "undefined") return "NAN";
+  if (lower.includes("hybrid") || lower === "hyb") return "HYB";
+  if (lower.includes("desi") || lower === "dsi" || lower === "des") return "DES";
+  if (lower.includes("local") || lower === "loc") return "LOC";
+  if (lower.includes("organic") || lower === "org") return "ORG";
   const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (!cleaned) return "XXX";
+  if (!cleaned) return "NAN";
   return cleaned.slice(0, 3).toUpperCase().padEnd(3, "X");
 }
 

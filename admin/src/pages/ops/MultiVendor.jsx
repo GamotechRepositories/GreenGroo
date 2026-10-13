@@ -1,7 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, FileText, Loader2, MapPin, Package, Plus, RefreshCw, Search, Store, Trash2, Upload, Warehouse, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MapPin,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  Store,
+  Trash2,
+  Upload,
+  Warehouse,
+  X,
+} from 'lucide-react';
 import opsApi from '../../api/opsApi';
+import apiClient from '../../api/client';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 import {
   DOCUMENT_TYPES,
@@ -74,6 +92,32 @@ export default function MultiVendor() {
   const location = useLocation();
   const pendingEdit = useRef(location.state?.editId ? location.state : null);
 
+  // All Products Catalog State
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 12;
+
+  const loadProducts = useCallback(async () => {
+    setProductsLoading(true);
+    try {
+      const res = await apiClient.get('/products/all', { params: { limit: 500 } });
+      const pData = res.data;
+      const list = pData?.data && Array.isArray(pData.data) ? pData.data : Array.isArray(pData) ? pData : [];
+      setCatalogProducts(list);
+    } catch (err) {
+      console.error('Failed to load catalog products:', err);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -109,6 +153,36 @@ export default function MultiVendor() {
       ].some((value) => String(value || '').toLowerCase().includes(q))
     );
   }, [rows, search]);
+
+  const categoriesList = useMemo(() => {
+    const set = new Set();
+    catalogProducts.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set).sort();
+  }, [catalogProducts]);
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    return catalogProducts.filter((p) => {
+      if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+      if (!q) return true;
+      return (
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.productId && p.productId.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.subcategory && p.subcategory.toLowerCase().includes(q)) ||
+        (p.varietyName && p.varietyName.toLowerCase().includes(q))
+      );
+    });
+  }, [catalogProducts, productSearch, selectedCategory]);
+
+  const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = useMemo(() => {
+    const start = (productPage - 1) * PRODUCTS_PER_PAGE;
+    return filteredProducts.slice(start, start + PRODUCTS_PER_PAGE);
+  }, [filteredProducts, productPage]);
 
   const setField = (name) => (e) => setForm((prev) => ({ ...prev, [name]: e.target.value }));
 
@@ -437,6 +511,230 @@ export default function MultiVendor() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* ALL PRODUCTS SECTION */}
+      <div className="space-y-4 pt-6 border-t border-slate-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">
+                <Package className="h-4 w-4" />
+              </span>
+              <h2 className="text-lg font-bold text-slate-900">
+                All Products ({filteredProducts.length})
+              </h2>
+              {catalogProducts.length > 0 ? (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  {catalogProducts.length} total in catalog
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500">
+              All catalog products available across collection centres and multi vendors.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={loadProducts}
+              className={`${BTN} gap-1.5 text-xs`}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh Products
+            </button>
+            <Link
+              to="/products"
+              className={`${BTN_PRIMARY} gap-1.5 text-xs`}
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open Full Catalog
+            </Link>
+          </div>
+        </div>
+
+        {/* Product Filters Bar */}
+        <div className={`${PANEL} flex flex-col gap-2 p-3 sm:flex-row sm:items-center`}>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={productSearch}
+              onChange={(e) => {
+                setProductSearch(e.target.value);
+                setProductPage(1);
+              }}
+              placeholder="Search product name, SKU, category, variety..."
+              className={`${INPUT} pl-9`}
+            />
+            {productSearch ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setProductSearch('');
+                  setProductPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setProductPage(1);
+              }}
+              className="rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-600"
+            >
+              <option value="all">All Categories ({catalogProducts.length})</option>
+              {categoriesList.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Products Table */}
+        <div className={`overflow-hidden ${PANEL}`}>
+          {productsLoading ? (
+            <div className="flex items-center justify-center py-16 text-slate-400">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : paginatedProducts.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-slate-500">
+              {productSearch || selectedCategory !== 'all'
+                ? 'No products matched your search or category filter.'
+                : 'No catalog products found.'}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Product</th>
+                      <th className="px-4 py-3 font-semibold">Product ID / SKU</th>
+                      <th className="px-4 py-3 font-semibold">Category</th>
+                      <th className="px-4 py-3 font-semibold">Unit</th>
+                      <th className="px-4 py-3 font-semibold">Price</th>
+                      <th className="px-4 py-3 font-semibold">Stock</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedProducts.map((p) => {
+                      const img =
+                        p.mainImage ||
+                        p.image ||
+                        (Array.isArray(p.images) && p.images[0]) ||
+                        p.farmerDetails?.cropPhoto ||
+                        '';
+                      const mrp = p.mrp || p.price;
+                      const sellPrice = p.discountedPrice || p.price;
+                      const inStock = p.inStock ?? (Number(p.stock) > 0);
+
+                      return (
+                        <tr key={p._id || p.id || p.productId} className="hover:bg-slate-50/70 transition">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              {img ? (
+                                <img
+                                  src={img}
+                                  alt={p.name}
+                                  className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-200"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 font-bold text-sm">
+                                  {String(p.name || 'P').charAt(0)}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 truncate max-w-xs">{p.name}</p>
+                                {p.varietyName ? (
+                                  <p className="text-[11px] text-slate-500 truncate">Variety: {p.varietyName}</p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                              {p.productId || p.sku || '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-600">
+                            {[p.category, p.subcategory].filter(Boolean).join(' · ') || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-600">{p.unit || p.unitType || '—'}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-slate-900 text-xs">
+                              ₹{Number(sellPrice || 0).toLocaleString('en-IN')}
+                            </span>
+                            {Number(mrp) > Number(sellPrice) ? (
+                              <span className="ml-1.5 text-[10px] text-slate-400 line-through">
+                                ₹{Number(mrp).toLocaleString('en-IN')}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                            {p.stock != null ? Number(p.stock).toLocaleString('en-IN') : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                inStock
+                                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'
+                              }`}
+                            >
+                              {inStock ? 'In Stock' : 'Out of Stock'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalProductPages > 1 ? (
+                <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
+                  <span>
+                    Showing {(productPage - 1) * PRODUCTS_PER_PAGE + 1} to{' '}
+                    {Math.min(productPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={productPage <= 1}
+                      onClick={() => setProductPage((p) => Math.max(1, p - 1))}
+                      className="rounded-md border border-slate-200 p-1 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="px-2 font-medium">
+                      Page {productPage} of {totalProductPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={productPage >= totalProductPages}
+                      onClick={() => setProductPage((p) => Math.min(totalProductPages, p + 1))}
+                      className="rounded-md border border-slate-200 p-1 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
 
       {modal ? (

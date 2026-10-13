@@ -193,6 +193,13 @@ const productVariantSchema = new mongoose.Schema(
 
 const productSchema = new mongoose.Schema(
   {
+    productId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      index: true,
+    },
     name: {
       type: String,
       required: [true, "Product name is required"],

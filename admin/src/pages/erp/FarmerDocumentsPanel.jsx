@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ExternalLink, FileText, Loader2, Video, XCircle } from 'lucide-react';
 import erpApi from '../../api/erpApi';
 import { INPUT, PANEL } from '../../utils/ui';
@@ -93,6 +93,8 @@ function Preview({ url, kind }) {
 }
 
 function DocumentCard({ doc, farmerId, onUpdated }) {
+  const [localStatus, setLocalStatus] = useState(doc.status);
+  const [localReason, setLocalReason] = useState(doc.rejectionReason || '');
   const [saving, setSaving] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -100,22 +102,53 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
   const url = String(doc.fileUrl || '');
   const kind = fileKind(url);
 
+  useEffect(() => {
+    setLocalStatus(doc.status);
+    setLocalReason(doc.rejectionReason || '');
+  }, [doc.status, doc.rejectionReason]);
+
   const submit = async (status) => {
     if (status === 'Rejected' && !reason.trim()) {
       setError('Enter a reason so the farmer knows what to fix.');
       return;
     }
+    const prevStatus = localStatus;
+    const prevReason = localReason;
+    const finalReason = status === 'Rejected' ? reason.trim() : '';
+
+    // ⚡ Instant Optimistic Update (0ms delay)
+    setLocalStatus(status);
+    setLocalReason(finalReason);
+    setRejecting(false);
     setSaving(status);
     setError('');
+
+    const optimisticDoc = {
+      ...doc,
+      status,
+      rejectionReason: finalReason,
+    };
+
+    if (onUpdated) {
+      onUpdated(optimisticDoc, false);
+    }
+
     try {
-      await erpApi.reviewFarmerDocument(farmerId, doc.id || doc.type, {
+      const res = await erpApi.reviewFarmerDocument(farmerId, doc.id || doc.type, {
         status,
-        rejectionReason: status === 'Rejected' ? reason.trim() : '',
+        rejectionReason: finalReason,
       });
-      setRejecting(false);
       setReason('');
-      await onUpdated();
+      if (onUpdated) {
+        onUpdated(res?.data ? { ...optimisticDoc, ...res.data } : optimisticDoc, false);
+      }
     } catch (err) {
+      // Rollback on failure
+      setLocalStatus(prevStatus);
+      setLocalReason(prevReason);
+      if (onUpdated) {
+        onUpdated({ ...doc, status: prevStatus, rejectionReason: prevReason }, false);
+      }
       setError(err.response?.data?.message || 'Could not update document');
     } finally {
       setSaving('');
@@ -123,7 +156,7 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
   };
 
   return (
-    <article className={`${PANEL} flex flex-col p-4`}>
+    <article className={`${PANEL} flex flex-col p-4 transition-all duration-200`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
@@ -133,16 +166,16 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
           <p className="mt-0.5 truncate text-xs text-slate-500">{doc.fileName || doc.type}</p>
           <p className="mt-1 text-[11px] text-slate-400">Uploaded {when(doc.uploadedAt || doc.createdAt)}</p>
         </div>
-        <StatusPill status={doc.status} />
+        <StatusPill status={localStatus} />
       </div>
 
       <div className="mt-3">
         <Preview url={url} kind={kind} />
       </div>
 
-      {doc.status === 'Rejected' && doc.rejectionReason ? (
+      {localStatus === 'Rejected' && localReason ? (
         <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">
-          Reason: {doc.rejectionReason}
+          Reason: {localReason}
         </p>
       ) : null}
 
@@ -167,7 +200,7 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
         >
           <ExternalLink className="h-3.5 w-3.5" /> Open
         </button>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {rejecting ? (
             <>
               <button
@@ -184,7 +217,7 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
                 type="button"
                 disabled={!!saving}
                 onClick={() => submit('Rejected')}
-                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60 transition"
               >
                 {saving === 'Rejected' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Confirm reject
@@ -192,22 +225,22 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
             </>
           ) : (
             <>
-              {doc.status !== 'Rejected' ? (
+              {localStatus !== 'Rejected' ? (
                 <button
                   type="button"
                   disabled={!!saving}
                   onClick={() => setRejecting(true)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 transition"
                 >
                   <XCircle className="h-3.5 w-3.5" /> Reject
                 </button>
               ) : null}
-              {doc.status !== 'Approved' ? (
+              {localStatus !== 'Approved' ? (
                 <button
                   type="button"
                   disabled={!!saving}
                   onClick={() => submit('Approved')}
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 active:scale-95 disabled:opacity-60 transition-all"
                 >
                   {saving === 'Approved' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -216,7 +249,11 @@ function DocumentCard({ doc, farmerId, onUpdated }) {
                   )}
                   Approve
                 </button>
-              ) : null}
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg ring-1 ring-emerald-200">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Approved
+                </span>
+              )}
             </>
           )}
         </div>

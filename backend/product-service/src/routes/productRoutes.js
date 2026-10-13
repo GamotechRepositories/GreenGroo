@@ -7,6 +7,7 @@ import {
   addProduct,
   updateProduct,
   deleteProduct,
+  getNextProductId,
 } from "../../../legacy/controllers/productController.js";
 
 const router = express.Router();
@@ -14,6 +15,7 @@ const router = express.Router();
 // Public & Listing routes
 router.get("/", getProducts);
 router.get("/all", getAllProducts);
+router.get("/next-id", getNextProductId);
 router.get("/:id/similar", getSimilarProducts);
 router.get("/:id", getProductById);
 

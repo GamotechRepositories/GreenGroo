@@ -111,7 +111,7 @@ export async function listFarmers(req, res) {
     const vendorIds = [...new Set(items.map((f) => f.vendorId).filter(Boolean))];
     const [farms, erpCrops, farmerCrops, products, orders, earnings, allDocuments, managers, vendors] = await Promise.all([
       Farm.find({ farmerId: { $in: allKeys } }).lean(),
-      Crop.find({ farmerId: { $in: allKeys } }).lean(),
+      Crop.find({ farmerId: { $in: allKeys }, isDeleted: { $ne: true }, status: { $ne: "CLOSED" } }).lean(),
       FarmerCrop.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerProduct.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerOrder.find({ farmerId: { $in: allKeys } }).lean(),
@@ -303,7 +303,7 @@ export async function getFarmer360(req, res) {
       vendor,
     ] = await Promise.all([
       Farm.find(related).lean(),
-      Crop.find(related).lean(),
+      Crop.find({ ...related, isDeleted: { $ne: true } }).lean(),
       FarmerCrop.find(related).sort({ createdAt: -1 }).lean(),
       FarmerCropPlan.find(related).sort({ createdAt: -1 }).lean(),
       Article.find(related).lean(),
@@ -321,8 +321,266 @@ export async function getFarmer360(req, res) {
         : null,
       farmer.vendorId ? Vendor.findOne({ id: farmer.vendorId }).select("-password").lean() : null,
     ]);
-    const crops = farmerCrops.length ? farmerCrops : erpCrops;
-    const chain = await TraceabilityService.getByFarmerId(farmerId);
+
+    // 1. Only show crops added by the farmer (FarmerCrop). If none, fallback to active non-deleted ERP crops.
+    const activeErpCrops = (erpCrops || []).filter((c) => !c.isDeleted && c.status !== "CLOSED");
+    const farmerAddedCrops = (farmerCrops && farmerCrops.length > 0) ? farmerCrops : activeErpCrops;
+    const seenCropKeys = new Set();
+    const normalizedCrops = [];
+    for (const c of farmerAddedCrops) {
+      const cid = c.cropId || c.id || String(c._id);
+      const nameKey = `${(c.cropName || c.name || "").toLowerCase().trim()}_${(c.variety || "").toLowerCase().trim()}`;
+      const dedupKey = cid || nameKey;
+      if (dedupKey && !seenCropKeys.has(dedupKey)) {
+        seenCropKeys.add(dedupKey);
+        normalizedCrops.push({
+          ...c,
+          id: cid,
+          cropId: cid,
+          cropName: c.cropName || c.name || "Crop",
+          name: c.cropName || c.name || "Crop",
+          variety: c.variety || "Standard",
+          category: c.category || "VEG",
+          area: c.area || c.landArea || c.totalArea || 0,
+          areaUnit: c.areaUnit || "Acre",
+          estimatedQuantity: c.estimatedQuantity || c.expectedProduction || c.availableQuantity || 0,
+          unit: c.unit || "Kg",
+          status: c.status || "Active",
+          sowingDate: c.sowingDate || "",
+          expectedHarvestDate: c.expectedHarvestDate || c.harvestDate || "",
+        });
+      }
+    }
+
+    // 2. Merge and normalize products (from FarmerProduct & Article) grouped by true Product ID
+    const productsMap = new Map();
+
+    const registerItem = (item, isArticle = false) => {
+      if (!item) return;
+      const rawProdId = isArticle
+        ? (item.sourceProductId || item.cropId || item.productId || item.articleId || item.id || String(item._id || ""))
+        : (item.productId || item.id || item.sourceProductId || String(item._id || ""));
+      const prodId = String(rawProdId || "").trim();
+      if (!prodId) return;
+
+      const pName = item.productName || item.name || "Product";
+      const varietyVal = item.variety || "";
+      const cropVal = item.cropCode || item.cropName || "";
+      const unitVal = item.unit || "Kg";
+      const statusVal = item.status || "Active";
+      const priceVal = Number(item.sellingPrice || item.purchasePrice || item.price || item.pricePerKg || 0) || 0;
+      const stockVal = Number(item.availableStock ?? item.stock ?? item.availableQuantity ?? item.quantity ?? 0) || 0;
+
+      // Extract grade if available
+      let gradeLabel = "Grade A";
+      if (item.grade) {
+        const rawG = String(item.grade).trim();
+        gradeLabel = rawG.toUpperCase().startsWith("GRADE") ? rawG : `Grade ${rawG}`;
+      }
+
+      if (!productsMap.has(prodId)) {
+        productsMap.set(prodId, {
+          id: prodId,
+          productId: prodId,
+          sourceProductId: item.sourceProductId || prodId,
+          name: pName,
+          productName: pName,
+          cropName: cropVal,
+          variety: varietyVal,
+          unit: unitVal,
+          stock: 0,
+          availableQuantity: 0,
+          price: priceVal,
+          sellingPrice: priceVal,
+          status: statusVal,
+          grades: [],
+          articles: [],
+        });
+      }
+
+      const existing = productsMap.get(prodId);
+      existing.stock += stockVal;
+      existing.availableQuantity += stockVal;
+      if (!existing.variety && varietyVal) existing.variety = varietyVal;
+      if (!existing.cropName && cropVal) existing.cropName = cropVal;
+      if ((!existing.productName || existing.productName === "Product") && pName && pName !== "Product") {
+        existing.productName = pName;
+        existing.name = pName;
+      }
+      if (!existing.price && priceVal) {
+        existing.price = priceVal;
+        existing.sellingPrice = priceVal;
+      }
+      if (item.articleId && !existing.articles.includes(item.articleId)) {
+        existing.articles.push(item.articleId);
+      }
+
+      // Check if product itself has an array of grades (from FarmerProduct)
+      if (Array.isArray(item.grades) && item.grades.length > 0) {
+        for (const g of item.grades) {
+          const gName = g.label || g.name || (g.grade ? (String(g.grade).startsWith("Grade") ? g.grade : `Grade ${g.grade}`) : "Grade A");
+          const gStock = Number(g.quantity ?? g.stock ?? 0) || 0;
+          const gPrice = Number(g.price ?? g.rate ?? priceVal) || priceVal;
+          const matchedG = existing.grades.find((x) => x.grade === gName || x.label === gName);
+          if (matchedG) {
+            matchedG.stock = Math.max(matchedG.stock, gStock);
+          } else {
+            existing.grades.push({ grade: gName, label: gName, stock: gStock, price: gPrice, articleId: "" });
+          }
+        }
+      } else {
+        const matchedG = existing.grades.find((x) => x.grade === gradeLabel || x.label === gradeLabel);
+        if (matchedG) {
+          matchedG.stock += stockVal;
+          if (item.articleId && !matchedG.articleId) matchedG.articleId = item.articleId;
+        } else {
+          existing.grades.push({
+            grade: gradeLabel,
+            label: gradeLabel,
+            stock: stockVal,
+            price: priceVal,
+            articleId: item.articleId || "",
+          });
+        }
+      }
+    };
+
+    // First register all articles (they contain real stock and grades)
+    for (const a of (articles || [])) {
+      registerItem(a, true);
+    }
+    // Then register farmer products
+    for (const p of (products || [])) {
+      registerItem(p, false);
+    }
+
+    const normalizedProducts = Array.from(productsMap.values()).map((p) => {
+      const sortedGrades = (p.grades || []).sort((a, b) => a.grade.localeCompare(b.grade));
+      const summaryParts = sortedGrades.map((g) => `${g.grade}: ${Number(g.stock).toLocaleString("en-IN")} ${p.unit}`);
+      const gradesSummary = summaryParts.length ? summaryParts.join(" · ") : `Grade A: ${Number(p.stock).toLocaleString("en-IN")} ${p.unit}`;
+      return {
+        ...p,
+        grades: sortedGrades,
+        gradesSummary,
+        grade: sortedGrades[0]?.grade || "Grade A",
+      };
+    });
+
+    // 3. Normalize orders with resolved names, quantities, and status
+    const normalizedOrders = (orders || []).map((o) => {
+      const firstProduct = o.products?.[0] || {};
+      const orderProdId = String(o.productId || firstProduct.productId || firstProduct.id || "").trim();
+
+      // Match with grouped products
+      const matchedProduct = orderProdId
+        ? (productsMap.get(orderProdId) || Array.from(productsMap.values()).find((p) => p.articles.includes(orderProdId)))
+        : Array.from(productsMap.values()).find(
+            (p) =>
+              (o.productName && p.productName.toLowerCase() === o.productName.toLowerCase()) ||
+              (firstProduct.name && p.productName.toLowerCase() === firstProduct.name.toLowerCase())
+          );
+
+      const finalProdId = matchedProduct?.productId || orderProdId || "";
+      const prodName =
+        o.productName ||
+        matchedProduct?.productName ||
+        firstProduct.name ||
+        o.cropName ||
+        (o.products && o.products.length > 0
+          ? o.products.map((p) => p.name).filter(Boolean).join(", ")
+          : "Farm Produce");
+      const qty =
+        o.totalQuantity ||
+        o.orderedQuantity ||
+        o.quantity ||
+        (o.products && o.products.length > 0
+          ? o.products.reduce((s, p) => s + (Number(p.quantity) || 0), 0)
+          : 0);
+      const amt =
+        o.totalAmount ||
+        o.orderValue ||
+        o.amount ||
+        (o.products && o.products.length > 0
+          ? o.products.reduce((s, p) => s + (Number(p.total) || 0), 0)
+          : 0);
+
+      return {
+        ...o,
+        id: o.orderId || o.id || String(o._id),
+        orderId: o.orderId || o.id || String(o._id),
+        productId: finalProdId,
+        productName: prodName,
+        totalQuantity: qty,
+        orderedQuantity: qty,
+        unit: o.unit || firstProduct.unit || matchedProduct?.unit || "Kg",
+        totalAmount: amt,
+        orderValue: amt,
+        amount: amt,
+        status: o.status || "Confirmed",
+        paymentStatus: o.paymentStatus || "Pending",
+        orderDate: o.orderDate || o.createdAt,
+      };
+    });
+
+    // Grade-wise inventory breakdown
+    const gradeInventory = [];
+    for (const p of normalizedProducts) {
+      if (Array.isArray(p.grades) && p.grades.length > 0) {
+        for (const g of p.grades) {
+          gradeInventory.push({
+            id: g.articleId || `${p.productId}-${g.grade}`,
+            articleId: g.articleId || "",
+            productId: p.productId,
+            productName: p.productName || p.name,
+            name: p.productName || p.name,
+            variety: p.variety || "Standard",
+            cropName: p.cropName || "",
+            grade: g.grade || g.label || "Grade A",
+            stock: g.stock ?? 0,
+            availableQuantity: g.stock ?? 0,
+            unit: p.unit || "Kg",
+            price: g.price || p.price || 0,
+            status: p.status || "Active",
+          });
+        }
+      } else {
+        gradeInventory.push({
+          id: p.productId,
+          articleId: "",
+          productId: p.productId,
+          productName: p.productName || p.name,
+          name: p.productName || p.name,
+          variety: p.variety || "Standard",
+          cropName: p.cropName || "",
+          grade: p.grade || "Grade A",
+          stock: p.stock ?? 0,
+          availableQuantity: p.stock ?? 0,
+          unit: p.unit || "Kg",
+          price: p.price || 0,
+          status: p.status || "Active",
+        });
+      }
+    }
+
+    // 4. Inventory: synthesize current stock items if stockHistory log is empty
+    let finalStockHistory = stockHistory || [];
+    if (!finalStockHistory.length && gradeInventory.length) {
+      finalStockHistory = gradeInventory
+        .filter((g) => Number(g.stock) > 0)
+        .map((g) => ({
+          id: `inv-${g.id}`,
+          productId: g.productId,
+          productName: g.productName || g.name,
+          grade: g.grade || "Grade A",
+          action: "Current Stock",
+          changedQuantity: g.stock,
+          newStock: g.stock,
+          reason: "Active Inventory",
+          at: new Date(),
+          createdAt: new Date(),
+        }));
+    }
+
     const production =
       harvests.reduce((s, h) => s + (h.totalQuantity || 0), 0) ||
       batches.reduce((s, b) => s + (b.quantity || 0), 0);
@@ -376,14 +634,16 @@ export async function getFarmer360(req, res) {
               },
             ]
           : [],
-      crops,
+      crops: normalizedCrops,
       cropPlans,
       erpCrops,
-      articles: articles.length ? articles : products,
-      products,
-      stockHistory,
+      articles: normalizedProducts,
+      products: normalizedProducts,
+      inventory: gradeInventory,
+      gradeInventory,
+      stockHistory: finalStockHistory,
       batches,
-      orders,
+      orders: normalizedOrders,
       earnings,
       documents: (documents || []).filter(isRealFarmerDocument),
       harvests,
@@ -391,7 +651,6 @@ export async function getFarmer360(req, res) {
       inspections,
       production,
       payments,
-      chain,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Failed to load farmer" });

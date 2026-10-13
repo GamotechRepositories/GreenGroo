@@ -309,6 +309,13 @@ export const NAV_GROUPS = [
             description: 'Every vendor is a collection centre. Add and manage all of them.',
           },
           {
+            name: 'All Products',
+            href: '/products',
+            icon: Package,
+            implemented: true,
+            description: 'All catalog products available for collection centres and vendors.',
+          },
+          {
             name: 'All Farmers',
             href: '/collection-farmers',
             icon: Tractor,

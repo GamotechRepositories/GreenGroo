@@ -25,26 +25,131 @@ export const CROP_CODES = {
 export const CROP_CODE_BY_NAME = {
   tomato: "TOM",
   onion: "ONI",
+  kanda: "ONI",
   potato: "POT",
+  batata: "POT",
   carrot: "CAR",
+  gajar: "CAR",
   cucumber: "CUC",
+  kakdi: "CUC",
   spinach: "SPI",
   palak: "SPI",
   cabbage: "CAB",
   cauliflower: "CAU",
   brinjal: "BRI",
+  vangi: "BRI",
   eggplant: "BRI",
   chilli: "CHI",
   chili: "CHI",
+  mirchi: "CHI",
   capsicum: "CAP",
+  "shimla mirchi": "CAP",
   beans: "BEA",
   okra: "OKR",
   bhindi: "OKR",
   garlic: "GAR",
+  lasun: "GAR",
   ginger: "GIN",
+  ale: "GIN",
   lemon: "LEM",
+  limbu: "LEM",
   mango: "MAN",
+  aam: "MAN",
   banana: "BAN",
+  kele: "BAN",
+  apple: "APP",
+  seb: "APP",
+  pomegranate: "POM",
+  dalimb: "POM",
+  anar: "POM",
+  grapes: "GRP",
+  draksh: "GRP",
+  orange: "ORA",
+  santra: "ORA",
+  papaya: "PAP",
+  popai: "PAP",
+  guava: "GUA",
+  peru: "GUA",
+  amrud: "GUA",
+  watermelon: "WAT",
+  tarbuj: "WAT",
+  kalingad: "WAT",
+  methi: "MET",
+  fenugreek: "MET",
+  coriander: "COR",
+  kothimbir: "COR",
+  dhania: "COR",
+  radish: "RAD",
+  mula: "RAD",
+  beetroot: "BEE",
+  beet: "BEE",
+  peas: "PEA",
+  matar: "PEA",
+  corn: "CRN",
+  makka: "CRN",
+  lauki: "LAU",
+  dudhi: "LAU",
+  "bottle gourd": "LAU",
+  karela: "KAR",
+  "bitter gourd": "KAR",
+  dodka: "DOD",
+  "ridge gourd": "DOD",
+  pumpkin: "PUM",
+  bhopla: "PUM",
+  broccoli: "BRO",
+  "bell pepper": "CAP",
+  pepper: "CAP",
+  "dragon fruit": "DRA",
+  kiwi: "KIW",
+  mosambi: "MOS",
+  sweetlime: "MOS",
+  mushroom: "MUS",
+  mint: "MNT",
+  pudina: "MNT",
+  honey: "HON",
+  coffee: "COF",
+  tea: "TEA",
+  rice: "RIC",
+  basmati: "RIC",
+  atta: "ATT",
+  wheat: "WHE",
+  jowar: "JOW",
+  bajra: "BAJ",
+  besan: "BES",
+  toor: "TOO",
+  moong: "MOO",
+  rajma: "RAJ",
+  chana: "CHA",
+  poha: "POH",
+  turmeric: "TUR",
+  haldi: "TUR",
+  jeera: "JEE",
+  cumin: "JEE",
+  cardamom: "CRD",
+  "green cardamom": "CRD",
+  veldoda: "CRD",
+  almond: "ALM",
+  badam: "ALM",
+  cashew: "CSH",
+  kaju: "CSH",
+  walnut: "WAL",
+  akhrot: "WAL",
+  dates: "DAT",
+  khajur: "DAT",
+  milk: "MLK",
+  paneer: "PAN",
+  butter: "BUT",
+  makkhan: "BUT",
+  curd: "DAH",
+  dahi: "DAH",
+  ghee: "GHE",
+  noodle: "NDL",
+  chip: "CHP",
+  biscuit: "BIS",
+  chocolate: "CHO",
+  juice: "JUI",
+  pav: "PAV",
+  bread: "BRD",
 };
 
 export const CROP_CATEGORIES = {
@@ -649,7 +754,8 @@ export function farmerSerialFromId(farmerId = "") {
 export function cropCodeFromName(name = "") {
   const key = String(name).trim().toLowerCase();
   if (CROP_CODE_BY_NAME[key]) return CROP_CODE_BY_NAME[key];
-  const hit = Object.keys(CROP_CODE_BY_NAME).find((n) => key.includes(n));
+  const sortedKeys = Object.keys(CROP_CODE_BY_NAME).sort((a, b) => b.length - a.length);
+  const hit = sortedKeys.find((n) => key.includes(n));
   if (hit) return CROP_CODE_BY_NAME[hit];
   return String(name)
     .replace(/[^a-zA-Z]/g, "")
@@ -658,12 +764,18 @@ export function cropCodeFromName(name = "") {
     .padEnd(3, "X");
 }
 
-/** 3-letter variety code for crop IDs (e.g. Bajra → BAJ). */
+/** 3-letter variety code for crop IDs (e.g. Hybrid → HYB, Desi → DES, none → NAN). */
 export function varietyCodeFromName(name = "") {
   const raw = String(name || "").trim();
-  if (!raw) return "XXX";
+  if (!raw || raw.toUpperCase() === "NAN") return "NAN";
+  const lower = raw.toLowerCase();
+  if (lower === "none" || lower === "null" || lower === "undefined") return "NAN";
+  if (lower.includes("hybrid") || lower === "hyb") return "HYB";
+  if (lower.includes("desi") || lower === "dsi" || lower === "des") return "DES";
+  if (lower.includes("local") || lower === "loc") return "LOC";
+  if (lower.includes("organic") || lower === "org") return "ORG";
   const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
-  if (!cleaned) return "XXX";
+  if (!cleaned) return "NAN";
   return cleaned.slice(0, 3).toUpperCase().padEnd(3, "X");
 }
 
@@ -678,3 +790,24 @@ export function categoryFromName(name = "") {
   if (/(cotton|sugarcane|tobacco|cash|jute)/.test(n)) return "CSH";
   return "VEG";
 }
+
+export function resolveCategoryCode(name = "") {
+  const n = String(name || "").trim().toLowerCase();
+  if (/(vegetable|veggie|fresh produce|greens|leafy)/.test(n)) return "VEG";
+  if (/(fruit)/.test(n)) return "FRT";
+  if (/(grain|cereal|wheat|rice|millet)/.test(n)) return "GRN";
+  if (/(pulse|dal|bean|lentil)/.test(n)) return "PLS";
+  if (/(spice|masala|herb)/.test(n)) return "SPC";
+  if (/(oil)/.test(n)) return "OIL";
+  if (/(dairy|milk)/.test(n)) return "DRY";
+  if (/(bakery|bread)/.test(n)) return "BAK";
+  if (/(snack)/.test(n)) return "SNK";
+  if (/(beverage|drink|tea|coffee)/.test(n)) return "BEV";
+  if (/(flower)/.test(n)) return "FLW";
+  const regCat = categoryFromName(name);
+  if (regCat && regCat !== "VEG") return regCat;
+  const clean = n.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  if (clean.length === 3) return clean;
+  return "VEG";
+}
+

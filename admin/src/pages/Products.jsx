@@ -247,6 +247,127 @@ export const formatUnitString = (qty, type) => {
   return `${q} ${t}`;
 };
 
+export const computeCanonicalProductId = (category = '', title = '', variety = '') => {
+  const cat = String(category || '').toLowerCase();
+  let catCode = 'VEG';
+  if (/(vegetable|veggie|fresh produce|greens|leafy)/.test(cat)) catCode = 'VEG';
+  else if (/(fruit)/.test(cat)) catCode = 'FRT';
+  else if (/(grain|cereal|wheat|rice|millet)/.test(cat)) catCode = 'GRN';
+  else if (/(pulse|dal|bean|lentil)/.test(cat)) catCode = 'PLS';
+  else if (/(spice|masala|herb)/.test(cat)) catCode = 'SPC';
+  else if (/(oil)/.test(cat)) catCode = 'OIL';
+  else if (/(dairy|milk)/.test(cat)) catCode = 'DRY';
+  else if (/(bakery|bread)/.test(cat)) catCode = 'BAK';
+  else if (/(snack)/.test(cat)) catCode = 'SNK';
+  else if (/(beverage|drink|tea|coffee)/.test(cat)) catCode = 'BEV';
+  else if (/(flower)/.test(cat)) catCode = 'FLW';
+  else if (cat.length === 3) catCode = cat.toUpperCase();
+
+  const CROP_MAP = {
+    tomato: 'TOM',
+    onion: 'ONI',
+    kanda: 'ONI',
+    potato: 'POT',
+    batata: 'POT',
+    carrot: 'CAR',
+    gajar: 'CAR',
+    cucumber: 'CUC',
+    kakdi: 'CUC',
+    spinach: 'SPI',
+    palak: 'SPI',
+    cabbage: 'CAB',
+    cauliflower: 'CAU',
+    brinjal: 'BRI',
+    vangi: 'BRI',
+    eggplant: 'BRI',
+    chilli: 'CHI',
+    chili: 'CHI',
+    mirchi: 'CHI',
+    capsicum: 'CAP',
+    beans: 'BEA',
+    okra: 'OKR',
+    bhindi: 'OKR',
+    garlic: 'GAR',
+    lasun: 'GAR',
+    ginger: 'GIN',
+    ale: 'GIN',
+    lemon: 'LEM',
+    mango: 'MAN',
+    banana: 'BAN',
+    apple: 'APP',
+    pomegranate: 'POM',
+    dalimb: 'POM',
+    grapes: 'GRP',
+    orange: 'ORA',
+    papaya: 'PAP',
+    guava: 'GUA',
+    watermelon: 'WAT',
+    methi: 'MET',
+    coriander: 'COR',
+    kothimbir: 'COR',
+    radish: 'RAD',
+    beetroot: 'BEE',
+    peas: 'PEA',
+    corn: 'CRN',
+    lauki: 'LAU',
+    karela: 'KAR',
+    dodka: 'DOD',
+    pumpkin: 'PUM',
+  };
+
+  const t = String(title || '').toLowerCase();
+  let cropCode = '';
+  for (const [k, v] of Object.entries(CROP_MAP)) {
+    if (t.includes(k)) {
+      cropCode = v;
+      break;
+    }
+  }
+  if (!cropCode) {
+    const clean = t.replace(/[^a-z]/gi, '');
+    cropCode = clean ? clean.slice(0, 3).toUpperCase().padEnd(3, 'X') : 'GEN';
+  }
+
+  const varStr = String(variety || '').trim().toLowerCase();
+  let varCode = 'NAN';
+  if (!varStr || varStr === 'nan' || varStr === 'none') {
+    varCode = 'NAN';
+  } else if (varStr.includes('hybrid') || varStr === 'hyb') {
+    varCode = 'HYB';
+  } else if (varStr.includes('desi') || varStr === 'des' || varStr === 'dsi') {
+    varCode = 'DES';
+  } else if (varStr.includes('local') || varStr === 'loc') {
+    varCode = 'LOC';
+  } else if (varStr.includes('organic') || varStr === 'org') {
+    varCode = 'ORG';
+  } else {
+    const cleanV = varStr.replace(/[^a-z0-9]/gi, '');
+    varCode = cleanV ? cleanV.slice(0, 3).toUpperCase().padEnd(3, 'X') : 'NAN';
+  }
+
+  const prefix = `GGC-ART-${catCode}-${cropCode}-${varCode}-`;
+
+  let maxSerial = 0;
+  if (Array.isArray(existingProducts) && existingProducts.length > 0) {
+    const prefixEscaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rx = new RegExp(`^${prefixEscaped}(\\d+)$`, 'i');
+    existingProducts.forEach((p) => {
+      const match1 = String(p.productId || '').match(rx);
+      const match2 = String(p.sku || '').match(rx);
+      if (match1) {
+        const n = parseInt(match1[1], 10);
+        if (Number.isFinite(n) && n > maxSerial) maxSerial = n;
+      }
+      if (match2) {
+        const n = parseInt(match2[1], 10);
+        if (Number.isFinite(n) && n > maxSerial) maxSerial = n;
+      }
+    });
+  }
+
+  return `${prefix}${maxSerial + 1}`;
+};
+
 const DEMO_FARMER = {
   name: 'Kiran Vitthal Pawar',
   location: 'Niphad, Nashik',
@@ -331,8 +452,8 @@ export default function Products() {
   const [stockFilter, setStockFilter] = useState('all'); // all, in_stock, out_of_stock
   const [viewMode, setViewMode] = useState('table'); // table or grid
 
-  // Drill-down: audience → sections → categories → subcategories → products
-  const [navLevel, setNavLevel] = useState('audience'); // audience | sections | categories | subcategories | products
+  // Direct products table view by default
+  const [navLevel, setNavLevel] = useState('products'); // products | categories | sections | audience
   const [listAudience, setListAudience] = useState(null); // null | retail | bulk
 
   // Taxonomy CRUD (section / category / subcategory)
@@ -354,6 +475,12 @@ export default function Products() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Quick Variety Modal
+  const [quickVarietyProduct, setQuickVarietyProduct] = useState(null);
+  const [quickVarietyName, setQuickVarietyName] = useState('');
+  const [isQuickVarietySubmitting, setIsQuickVarietySubmitting] = useState(false);
+  const [quickVarietyError, setQuickVarietyError] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -501,6 +628,21 @@ export default function Products() {
     });
   }, [sections]);
 
+  const departmentFilterOptions = useMemo(() => {
+    if (sections && sections.length > 0) {
+      return sections.map((s) => {
+        const theme = getSectionTheme(s.slug, s.sectionName);
+        return { slug: s.slug, name: s.sectionName || theme.name };
+      });
+    }
+    return SECTION_THEMES.map((s) => ({ slug: s.slug, name: s.name }));
+  }, [sections]);
+
+  const availableCategoriesForFilter = useMemo(() => {
+    if (!selectedDepartment) return categories;
+    return categories.filter((c) => sectionMatches(c.section, selectedDepartment));
+  }, [categories, selectedDepartment]);
+
   // Available subcategories for the selected category
   const availableSubcategoriesForForm = useMemo(() => {
     if (!formData.category) return [];
@@ -537,7 +679,7 @@ export default function Products() {
     setCatalogMode(mode);
     setFormData({
       name: options.name || '',
-      sku: `GRN-${Date.now().toString().slice(-6)}`,
+      sku: computeCanonicalProductId(defaultCat, options.name || '', options.varietyName || '', products),
       department: defaultSec,
       deptNumber: '',
       rackRow: '',
@@ -663,6 +805,84 @@ export default function Products() {
       discountedPrice: '',
       stock: 100,
     });
+  };
+
+  /** Quick add/assign variety modal submit */
+  const handleSaveQuickVariety = async (mode = 'assign') => {
+    if (!quickVarietyProduct) return;
+    const trimmed = quickVarietyName.trim();
+    if (!trimmed) {
+      setQuickVarietyError('Please enter a variety name (e.g. Hybrid, Desi, Cherry, Jyoti)');
+      return;
+    }
+    setQuickVarietyError('');
+
+    if (mode === 'create_new') {
+      const prod = quickVarietyProduct;
+      setQuickVarietyProduct(null);
+      setQuickVarietyName('');
+      handleAddVariety(prod);
+      setFormData((prev) => ({
+        ...prev,
+        varietyName: trimmed,
+        sku: computeCanonicalProductId(prev.category, prev.name, trimmed, products),
+      }));
+      return;
+    }
+
+    try {
+      setIsQuickVarietySubmitting(true);
+      const prod = quickVarietyProduct;
+      const primaryCat = Array.isArray(prod.categories) && prod.categories[0] ? prod.categories[0] : prod.category || 'Vegetables';
+      const newSku = computeCanonicalProductId(primaryCat, prod.name || '', trimmed, products);
+
+      const payload = {
+        name: prod.name,
+        productId: newSku,
+        sku: newSku,
+        categories: prod.categories || [primaryCat],
+        category: primaryCat,
+        subcategory: prod.subcategory || 'General',
+        brandName: prod.brandName || 'GreenGrocc',
+        unit: prod.unit || '1 pc',
+        varietyGroupId: prod.varietyGroupId || prod._id,
+        varietyName: trimmed,
+        variantType: prod.variantType || 'single',
+        variants: prod.variants || [],
+        enableBulkGrades: Boolean(prod.enableBulkGrades),
+        bulkGrades: prod.bulkGrades || [],
+        price: prod.price || 0,
+        discountedPrice: prod.discountedPrice != null ? prod.discountedPrice : prod.price,
+        discountedPercent: prod.discountedPercent || 0,
+        stock: prod.stock ?? 100,
+        inStock: prod.inStock !== false,
+        productImages: prod.productImages || [],
+        videoUrl: prod.videoUrl || '',
+        description: prod.description || '',
+        features: prod.features || [],
+        specifications: prod.specifications || [],
+        isActive: prod.isActive !== false,
+        section: prod.section || 'greengrocc',
+        storeType: prod.storeType || 'main',
+        deptNumber: prod.deptNumber || '',
+        rackRow: prod.rackRow || '',
+        rackColumn: prod.rackColumn || '',
+        farmerName: prod.farmerName || '',
+        farmerLocation: prod.farmerLocation || '',
+      };
+
+      await apiClient.put(`/products/${prod._id}`, payload);
+      setSuccessMsg(`Variety "${trimmed}" added to "${prod.name}" (ID: ${newSku})!`);
+      setQuickVarietyProduct(null);
+      setQuickVarietyName('');
+      await fetchData();
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Failed to assign variety:', err);
+      setQuickVarietyError(err.response?.data?.message || 'Failed to update variety. Please try again.');
+    } finally {
+      setIsQuickVarietySubmitting(false);
+    }
   };
 
   const startCatalogMode = (mode) => {
@@ -1229,6 +1449,7 @@ export default function Products() {
 
       const payload = {
         name: formData.name.trim(),
+        productId: formData.sku.trim() || undefined,
         sku: formData.sku.trim() || undefined,
         categories: [formData.category],
         subcategory: formData.subcategory.trim() || 'General',
@@ -1384,7 +1605,7 @@ export default function Products() {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesName = (p.name || '').toLowerCase().includes(query);
-        const matchesSku = (p.sku || '').toLowerCase().includes(query);
+        const matchesSku = (p.sku || '').toLowerCase().includes(query) || (p.productId || '').toLowerCase().includes(query);
         const matchesBrand = (p.brandName || '').toLowerCase().includes(query);
         const matchesDeptId = (p.departmentId || '').toLowerCase().includes(query);
         if (!matchesName && !matchesSku && !matchesBrand && !matchesDeptId) return false;
@@ -1531,7 +1752,7 @@ export default function Products() {
       setSelectedDepartment(null);
       setSelectedCategory(null);
       setSelectedSubcategory(null);
-      setNavLevel('audience');
+      setNavLevel('products');
       return;
     }
     if (level === 'sections') {
@@ -2049,23 +2270,49 @@ export default function Products() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Fresh Palak / Spinach (250g)"
+                      placeholder="e.g. Fresh Red Onion (1 Kg)"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setFormData((prev) => {
+                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
+                          return {
+                            ...prev,
+                            name: newName,
+                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(prev.category, newName, prev.varietyName, products) : prev.sku,
+                          };
+                        });
+                      }}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
                   </div>
 
                   <div className="sm:col-span-1">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      SKU Code Identifier
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Product ID / SKU
+                      </label>
+                      {!editingProduct && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              sku: computeCanonicalProductId(prev.category, prev.name, prev.varietyName, products),
+                            }));
+                          }}
+                          className="text-[10px] text-emerald-600 hover:text-emerald-700 font-medium"
+                        >
+                          Auto Generate
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="text"
-                      placeholder="e.g. PALAK-001"
+                      placeholder="e.g. GGC-ART-VEG-ONI-HYB-1"
                       value={formData.sku}
                       onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono font-semibold text-emerald-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
                   </div>
                 </div>
@@ -2081,9 +2328,19 @@ export default function Products() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Alphonso, Organic, Premium Cut"
+                      placeholder="e.g. Hybrid, Alphonso, Desi"
                       value={formData.varietyName}
-                      onChange={(e) => setFormData({ ...formData, varietyName: e.target.value })}
+                      onChange={(e) => {
+                        const newVar = e.target.value;
+                        setFormData((prev) => {
+                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
+                          return {
+                            ...prev,
+                            varietyName: newVar,
+                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(prev.category, prev.name, newVar, products) : prev.sku,
+                          };
+                        });
+                      }}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
                     <p className="mt-1 text-[10px] text-slate-500">
@@ -2103,11 +2360,15 @@ export default function Products() {
                       onChange={(e) => {
                         const chosenCat = e.target.value;
                         const catObj = categories.find((c) => c.categoryName.toLowerCase() === chosenCat.toLowerCase());
-                        setFormData((prev) => ({
-                          ...prev,
-                          category: chosenCat,
-                          subcategory: catObj?.subcategories?.[0] || 'General',
-                        }));
+                        setFormData((prev) => {
+                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
+                          return {
+                            ...prev,
+                            category: chosenCat,
+                            subcategory: catObj?.subcategories?.[0] || 'General',
+                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(chosenCat, prev.name, prev.varietyName, products) : prev.sku,
+                          };
+                        });
                       }}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
                     >
@@ -3595,9 +3856,9 @@ export default function Products() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className={PAGE_KICKER}>Catalog</p>
-          <h1 className={PAGE_TITLE}>Product Management</h1>
+          <h1 className={PAGE_TITLE}>All Products</h1>
           <p className={PAGE_SUB}>
-            User type → Section → Category → Products (add products &amp; varieties here)
+            All products catalog with pricing, stock and inventory
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -3605,39 +3866,29 @@ export default function Products() {
             <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-          {navLevel === 'products' ? (
-            <>
-              <button type="button" onClick={() => handleOpenCreate()} className={BTN_PRIMARY}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add product
-              </button>
-            </>
-          ) : null}
+          <button type="button" onClick={() => handleOpenCreate()} className={BTN_PRIMARY}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add product
+          </button>
         </div>
       </div>
 
       {/* Breadcrumb */}
-      {navLevel !== 'audience' ? (
+      {selectedCategory || selectedDepartment || listAudience ? (
         <nav className="flex flex-wrap items-center gap-1.5 text-xs">
-          <button type="button" onClick={() => goBreadcrumb('audience')} className="font-semibold text-emerald-700 hover:underline">
-            User type
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCategory(null);
+              setSelectedDepartment(null);
+              setSelectedSubcategory(null);
+              setListAudience(null);
+              setNavLevel('products');
+            }}
+            className="font-semibold text-emerald-700 hover:underline"
+          >
+            All Products
           </button>
-          {listAudience ? (
-            <>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-              <button type="button" onClick={() => goBreadcrumb('sections')} className="font-semibold text-slate-700 hover:underline">
-                {isBulkAudience ? 'Bulk users' : 'Normal users'}
-              </button>
-            </>
-          ) : null}
-          {selectedDepartment ? (
-            <>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-              <button type="button" onClick={() => goBreadcrumb('categories')} className="font-semibold text-slate-700 hover:underline">
-                {deptLabel || selectedDepartment}
-              </button>
-            </>
-          ) : null}
           {selectedCategory ? (
             <>
               <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -3888,20 +4139,16 @@ export default function Products() {
           <div className={`${PANEL} space-y-3 p-4`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  {selectedCategory}
+                <h3 className="text-base font-bold text-slate-900">
+                  {selectedCategory || 'All Products'}
                   {isBulkAudience ? (
                     <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200">
                       Bulk
                     </span>
-                  ) : (
-                    <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 ring-1 ring-emerald-200">
-                      Normal
-                    </span>
-                  )}
+                  ) : null}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Add products or clone a variety (keeps category, media &amp; farmer info).
+                  Showing {filteredProducts.length} product{filteredProducts.length === 1 ? '' : 's'} in catalog
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -3909,10 +4156,20 @@ export default function Products() {
                   <Plus className="mr-1.5 h-4 w-4" />
                   Add product
                 </button>
-                <button type="button" onClick={() => goBreadcrumb('categories')} className={BTN}>
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  Back
-                </button>
+                {selectedCategory || selectedDepartment ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setSelectedDepartment(null);
+                      setSelectedSubcategory(null);
+                    }}
+                    className={BTN}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Clear filters
+                  </button>
+                ) : null}
               </div>
             </div>
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -3920,12 +4177,47 @@ export default function Products() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search title, SKU, or brand…"
+                  placeholder="Search title, SKU, brand, ID…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`${INPUT} pl-9`}
                 />
               </div>
+
+              {/* Department Filter */}
+              <select
+                value={selectedDepartment || 'all'}
+                onChange={(e) => {
+                  setSelectedDepartment(e.target.value === 'all' ? null : e.target.value);
+                  setSelectedCategory(null);
+                  setSelectedSubcategory(null);
+                }}
+                className={`${INPUT} min-w-[150px]`}
+              >
+                <option value="all">All Departments ({departmentFilterOptions.length})</option>
+                {departmentFilterOptions.map((dept) => (
+                  <option key={dept.slug} value={dept.slug}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Category Filter */}
+              <select
+                value={selectedCategory || 'all'}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value === 'all' ? null : e.target.value);
+                  setSelectedSubcategory(null);
+                }}
+                className={`${INPUT} min-w-[150px]`}
+              >
+                <option value="all">All categories ({availableCategoriesForFilter.length})</option>
+                {availableCategoriesForFilter.map((cat) => (
+                  <option key={cat._id || cat.categoryName} value={cat.categoryName}>
+                    {cat.categoryName}
+                  </option>
+                ))}
+              </select>
               {drillSubcategories.length > 0 ? (
                 <select
                   value={selectedSubcategory || 'all'}
@@ -3992,7 +4284,9 @@ export default function Products() {
       ) : filteredProducts.length === 0 ? (
         <div className={`${PANEL} px-6 py-16 text-center`}>
           <Package className="mx-auto h-10 w-10 text-emerald-600/30" />
-          <p className="mt-3 text-base font-semibold text-slate-800">No products in {selectedCategory}</p>
+          <p className="mt-3 text-base font-semibold text-slate-800">
+            No products found {selectedCategory ? `in ${selectedCategory}` : ''}
+          </p>
           <p className="mt-1 text-sm text-slate-400">
             {searchQuery || stockFilter !== 'all' || selectedSubcategory
               ? 'Try clearing search or filters.'
@@ -4009,7 +4303,7 @@ export default function Products() {
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-slate-100 bg-slate-50/80">
                 <tr>
-                  {['Product', 'Department', 'Category', 'Price', 'Stock', 'Status', ''].map((h) => (
+                  {['Product', 'Department', 'Category', 'Variety', 'Price', 'Stock', 'Status', ''].map((h) => (
                     <th
                       key={h || 'actions'}
                       className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
@@ -4054,7 +4348,7 @@ export default function Products() {
                               </span>
                             </div>
                             <p className="mt-0.5 text-[11px] text-slate-400">
-                              <span className="font-mono">SKU {p.sku || '—'}</span>
+                              <span className="font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">ID {p.productId || p.sku || '—'}</span>
                               {p.departmentId ? (
                                 <span className="font-mono font-semibold text-emerald-700"> · {p.departmentId}</span>
                               ) : null}
@@ -4079,6 +4373,38 @@ export default function Products() {
                       <td className="px-3 py-3">
                         <p className="text-sm font-medium text-slate-800">{primaryCat || '—'}</p>
                         <p className="text-[11px] text-slate-400">{p.subcategory || 'General'}</p>
+                      </td>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        {p.varietyName?.trim() ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 ring-1 ring-inset ring-purple-200">
+                              <Sparkles className="h-3 w-3 text-purple-500" />
+                              {p.varietyName}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAddVariety(p)}
+                              className="inline-flex items-center justify-center h-5 w-5 rounded-md text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition"
+                              title="Add another sibling variety"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickVarietyProduct(p);
+                              setQuickVarietyName('');
+                              setQuickVarietyError('');
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100"
+                            title="Add variety for this product"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add variety
+                          </button>
+                        )}
                       </td>
                       <td className="px-3 py-3">
                         <p className="font-semibold tabular-nums text-slate-900">
@@ -4121,15 +4447,6 @@ export default function Products() {
                       </td>
                       <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleAddVariety(p)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200 transition hover:bg-amber-100"
-                            title="Clone as new variety (new SKU, same info)"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            Add variety
-                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(p)}
@@ -4217,15 +4534,26 @@ export default function Products() {
                     {p.inStock ? `${p.stock ?? 0} in stock` : 'Out of stock'}
                   </span>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => handleAddVariety(p)}
-                      className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
-                      title="Add variety"
-                    >
-                      <Copy className="h-3 w-3" />
-                      Variety
-                    </button>
+                    {p.varietyName?.trim() ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 ring-1 ring-purple-200">
+                        <Sparkles className="h-2.5 w-2.5 text-purple-500" />
+                        {p.varietyName}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuickVarietyProduct(p);
+                          setQuickVarietyName('');
+                          setQuickVarietyError('');
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-1 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
+                        title="Add variety"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Variety
+                      </button>
+                    )}
                     <span
                       role="button"
                       tabIndex={0}
@@ -4480,6 +4808,141 @@ export default function Products() {
               >
                 {isDeleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {quickVarietyProduct ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-900/10 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-700 ring-1 ring-purple-200">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Product Variety</h3>
+                  <p className="text-xs text-slate-500">व्हरायटी जोडा किंवा नवीन प्रकार तयार करा</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickVarietyProduct(null);
+                  setQuickVarietyName('');
+                  setQuickVarietyError('');
+                }}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-800 truncate">{quickVarietyProduct.name}</span>
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {quickVarietyProduct.productId || quickVarietyProduct.sku}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {Array.isArray(quickVarietyProduct.categories) ? quickVarietyProduct.categories[0] : quickVarietyProduct.category} · {quickVarietyProduct.unit || 'Standard'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Variety Name (व्हरायटीचे नाव) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                autoFocus
+                placeholder="e.g. Hybrid, Desi, Cherry, Nashik Red, Jyoti"
+                value={quickVarietyName}
+                onChange={(e) => {
+                  setQuickVarietyName(e.target.value);
+                  setQuickVarietyError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveQuickVariety('assign');
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 shadow-sm"
+              />
+
+              {/* Quick suggestion tags */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] font-medium text-slate-400">Quick:</span>
+                {['Hybrid', 'Desi', 'Local', 'Organic', 'Export'].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setQuickVarietyName(s);
+                      setQuickVarietyError('');
+                    }}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 hover:bg-purple-50 hover:text-purple-700 hover:ring-1 hover:ring-purple-200 transition"
+                  >
+                    + {s}
+                  </button>
+                ))}
+              </div>
+
+              {quickVarietyName.trim() ? (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800">
+                  <span className="font-semibold">New ID Preview: </span>
+                  <span className="font-mono font-bold text-emerald-900">
+                    {computeCanonicalProductId(
+                      Array.isArray(quickVarietyProduct.categories) ? quickVarietyProduct.categories[0] : quickVarietyProduct.category,
+                      quickVarietyProduct.name,
+                      quickVarietyName.trim(),
+                      products
+                    )}
+                  </span>
+                </div>
+              ) : null}
+
+              {quickVarietyError ? (
+                <p className="text-xs text-rose-600 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {quickVarietyError}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickVarietyProduct(null);
+                  setQuickVarietyName('');
+                  setQuickVarietyError('');
+                }}
+                className="px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isQuickVarietySubmitting || !quickVarietyName.trim()}
+                onClick={() => handleSaveQuickVariety('create_new')}
+                className="px-3 py-2 text-xs font-semibold rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100 disabled:opacity-50 transition"
+                title="Create as a separate product sibling"
+              >
+                Create as New Sibling
+              </button>
+              <button
+                type="button"
+                disabled={isQuickVarietySubmitting || !quickVarietyName.trim()}
+                onClick={() => handleSaveQuickVariety('assign')}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:opacity-50 transition"
+              >
+                {isQuickVarietySubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Set for this Product
               </button>
             </div>
           </div>

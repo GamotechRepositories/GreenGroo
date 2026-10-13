@@ -164,9 +164,11 @@ export function productQty(product) {
 }
 
 export function formatProductId(product = {}) {
-  const raw = String(product.productId || product.id || "").trim();
-  if (isBusinessProductId(raw)) return raw;
-  return "";
+  const pid = String(product.productId || "").trim();
+  if (pid && isBusinessProductId(pid)) return pid;
+  const id = String(product.id || "").trim();
+  if (id && isBusinessProductId(id)) return id;
+  return pid || id || "";
 }
 
 export function productFarmersPath(product) {

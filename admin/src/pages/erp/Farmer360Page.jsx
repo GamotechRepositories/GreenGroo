@@ -16,9 +16,9 @@ import {
   X,
 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
-import opsApi from '../../api/opsApi';
 import { BTN, PAGE_KICKER, PANEL } from '../../utils/ui';
 import FarmerDocumentsPanel from './FarmerDocumentsPanel';
+import FarmerEarningsSpreadsheet from './FarmerEarningsSpreadsheet';
 
 const TABS = [
   'Overview',
@@ -27,11 +27,8 @@ const TABS = [
   'Products',
   'Inventory',
   'Orders',
-  'Harvests',
   'Earnings',
   'Documents',
-  'Pickups',
-  'Meetings',
 ];
 
 function money(value) {
@@ -80,6 +77,67 @@ function Empty({ label }) {
   );
 }
 
+function extractGradeInventoryRows(source) {
+  if (!Array.isArray(source)) return [];
+  const rows = [];
+  for (const item of source) {
+    if (!item) continue;
+    if (Array.isArray(item.grades) && item.grades.length > 0) {
+      for (const g of item.grades) {
+        const gName = g.grade || g.label || g.name || 'Grade A';
+        const gStock = Number(g.stock ?? g.quantity ?? 0);
+        rows.push({
+          id: g.articleId || `${item.productId || item.id || ''}-${gName}`,
+          articleId: g.articleId || item.articleId || '',
+          productId: item.productId || item.id || '—',
+          productName: item.productName || item.name || 'Product',
+          variety: item.variety || 'Standard',
+          grade: gName,
+          stock: gStock,
+          availableQuantity: gStock,
+          unit: item.unit || 'Kg',
+          status: item.status || 'Active',
+        });
+      }
+    } else {
+      rows.push({
+        id: item.articleId || item.id || item.productId,
+        productId: item.productId || item.id || '—',
+        productName: item.productName || item.name || 'Product',
+        variety: item.variety || 'Standard',
+        grade: item.grade || 'Grade A',
+        stock: Number(item.availableQuantity ?? item.stock ?? 0),
+        availableQuantity: Number(item.availableQuantity ?? item.stock ?? 0),
+        unit: item.unit || 'Kg',
+        status: item.status || 'Active',
+      });
+    }
+  }
+  return rows;
+}
+
+function getGradeStock(product, gradeLetter) {
+  if (!product) return 0;
+  const target = String(gradeLetter).toUpperCase().trim();
+  if (Array.isArray(product.grades) && product.grades.length > 0) {
+    const match = product.grades.find((g) => {
+      const gStr = String(g.grade || g.label || g.name || '').toUpperCase().trim();
+      return (
+        gStr === target ||
+        gStr === `GRADE ${target}` ||
+        gStr.endsWith(` ${target}`) ||
+        gStr.includes(target)
+      );
+    });
+    if (match) return Number(match.stock ?? match.quantity ?? 0);
+  }
+  const pGrade = String(product.grade || '').toUpperCase().trim();
+  if (pGrade.includes(target)) {
+    return Number(product.availableQuantity ?? product.stock ?? 0);
+  }
+  return 0;
+}
+
 function Table({ columns, rows, rowKey }) {
   if (!rows?.length) return <Empty label="No records" />;
   return (
@@ -91,7 +149,9 @@ function Table({ columns, rows, rowKey }) {
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                  className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${
+                    col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
+                  }`}
                 >
                   {col.label}
                 </th>
@@ -105,7 +165,12 @@ function Table({ columns, rows, rowKey }) {
                 className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-3 py-2.5 text-slate-700">
+                  <td
+                    key={col.key}
+                    className={`px-3 py-2.5 text-slate-700 ${
+                      col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
+                    }`}
+                  >
                     {col.render ? col.render(row) : row[col.key] || '—'}
                   </td>
                 ))}
@@ -161,15 +226,11 @@ export default function Farmer360Page() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([
-      erpApi.farmer(id),
-      opsApi.list('hr/meetings').catch(() => ({ data: [] }))
-    ])
-      .then(([res, meetingsRes]) => {
+    erpApi
+      .farmer(id)
+      .then((res) => {
         if (alive) {
           setData(res.data);
-          const allMeetings = Array.isArray(meetingsRes) ? meetingsRes : meetingsRes?.data || [];
-          setMeetings(allMeetings.filter(m => Array.isArray(m?.roles) && (m.roles.includes('all') || m.roles.includes('farmer'))));
         }
       })
       .catch((err) => alive && setError(err.response?.data?.message || 'Farmer not found'))
@@ -180,6 +241,54 @@ export default function Farmer360Page() {
   }, [id]);
 
   const reload = () => erpApi.farmer(id).then((res) => setData(res.data));
+
+  const handleDocumentUpdated = (reviewedDoc, shouldReload = false) => {
+    if (reviewedDoc && typeof reviewedDoc === 'object') {
+      setData((prev) => {
+        if (!prev) return prev;
+        const nextDocs = (prev.documents || []).map((d) => {
+          if (
+            (reviewedDoc.id && d.id === reviewedDoc.id) ||
+            (reviewedDoc.type && d.type === reviewedDoc.type) ||
+            (reviewedDoc._id && d._id === reviewedDoc._id)
+          ) {
+            return { ...d, ...reviewedDoc };
+          }
+          return d;
+        });
+        const bankDoc = nextDocs.find((d) => d.type === 'bank');
+        let nextBankStatus = prev.farmer?.bankStatus;
+        if (bankDoc?.status === 'Approved') nextBankStatus = 'VERIFIED';
+        else if (bankDoc?.status === 'Rejected') nextBankStatus = 'REJECTED';
+
+        const requiredTypes = ['aadhaar', 'pan', 'address_proof', 'bank'];
+        const allApproved = requiredTypes.every(
+          (t) => nextDocs.find((d) => d.type === t)?.status === 'Approved'
+        );
+        const anyRejected = requiredTypes.some(
+          (t) => nextDocs.find((d) => d.type === t)?.status === 'Rejected'
+        );
+        let nextKycStatus = prev.farmer?.kycStatus;
+        if (allApproved) nextKycStatus = 'APPROVED';
+        else if (anyRejected) nextKycStatus = 'REJECTED';
+
+        return {
+          ...prev,
+          documents: nextDocs,
+          farmer: {
+            ...prev.farmer,
+            bankStatus: nextBankStatus,
+            bankVerificationStatus: nextBankStatus,
+            kycStatus: nextKycStatus,
+          },
+        };
+      });
+    }
+
+    if (shouldReload) {
+      reload();
+    }
+  };
 
   const farmer = data?.farmer || {};
 
@@ -509,26 +618,28 @@ export default function Farmer360Page() {
       {tab === 'Products' && (
         <Table
           rows={data.products}
-          rowKey={(row) => row.id || row.productId}
+          rowKey={(row) => row.productId || row.id || row._id}
           columns={[
-            { key: 'productId', label: 'Product ID', render: (row) => row.productId || row.id },
+            {
+              key: 'productId',
+              label: 'Product ID',
+              render: (row) => (
+                <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {row.productId || row.id}
+                </span>
+              ),
+            },
             {
               key: 'name',
               label: 'Name',
-              render: (row) => row.name || row.productName,
+              render: (row) => (
+                <div>
+                  <p className="font-semibold text-slate-900">{row.productName || row.name}</p>
+                  {row.variety && <p className="text-xs text-slate-500">Variety: {row.variety}</p>}
+                </div>
+              ),
             },
-            { key: 'cropName', label: 'Crop' },
-            {
-              key: 'stock',
-              label: 'Stock',
-              render: (row) =>
-                `${row.availableQuantity ?? row.stock ?? 0} ${row.unit || ''}`.trim(),
-            },
-            {
-              key: 'sellingPrice',
-              label: 'Price',
-              render: (row) => money(row.sellingPrice || row.pricePerKg),
-            },
+            { key: 'cropName', label: 'Crop', render: (row) => row.cropName || '—' },
             {
               key: 'status',
               label: 'Status',
@@ -539,31 +650,168 @@ export default function Farmer360Page() {
       )}
 
       {tab === 'Inventory' && (
-        <Table
-          rows={data.stockHistory}
-          rowKey={(row) => row.id || row._id}
-          columns={[
-            { key: 'at', label: 'When', render: (row) => when(row.at || row.createdAt) },
-            { key: 'productName', label: 'Product' },
-            { key: 'action', label: 'Action' },
-            { key: 'changedQuantity', label: 'Change' },
-            { key: 'newStock', label: 'New stock' },
-            { key: 'reason', label: 'Reason' },
-          ]}
-        />
+        <div className="space-y-6">
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900">Current Stock in Hand</h3>
+              <span className="text-xs text-slate-500 font-medium">Live Stock by Grade</span>
+            </div>
+            <Table
+              rows={data.products?.length ? data.products : (data.inventory || [])}
+              rowKey={(row) => row.id || row.productId || row._id}
+              columns={[
+                {
+                  key: 'productId',
+                  label: 'Product ID',
+                  render: (row) => (
+                    <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      {row.productId || row.id || '—'}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'productName',
+                  label: 'Product Name',
+                  render: (row) => <span className="font-bold text-slate-900">{row.productName || row.name}</span>,
+                },
+                {
+                  key: 'variety',
+                  label: 'Variety',
+                  render: (row) => <span className="text-slate-600">{row.variety || 'Standard'}</span>,
+                },
+                {
+                  key: 'gradeA',
+                  label: 'Grade A',
+                  align: 'center',
+                  render: (row) => {
+                    const stock = getGradeStock(row, 'A');
+                    return stock > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {Number(stock).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 font-medium">—</span>
+                    );
+                  },
+                },
+                {
+                  key: 'gradeB',
+                  label: 'Grade B',
+                  align: 'center',
+                  render: (row) => {
+                    const stock = getGradeStock(row, 'B');
+                    return stock > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                        {Number(stock).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 font-medium">—</span>
+                    );
+                  },
+                },
+                {
+                  key: 'gradeC',
+                  label: 'Grade C',
+                  align: 'center',
+                  render: (row) => {
+                    const stock = getGradeStock(row, 'C');
+                    return stock > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        {Number(stock).toLocaleString('en-IN')} {row.unit || 'Kg'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 font-medium">—</span>
+                    );
+                  },
+                },
+                {
+                  key: 'totalStock',
+                  label: 'Total Stock',
+                  align: 'right',
+                  render: (row) => {
+                    const stockA = getGradeStock(row, 'A');
+                    const stockB = getGradeStock(row, 'B');
+                    const stockC = getGradeStock(row, 'C');
+                    const total = Number(row.stock ?? row.availableQuantity ?? (stockA + stockB + stockC));
+                    return (
+                      <span className="font-extrabold text-[#217346]">
+                        {Number(total).toLocaleString('en-IN')}{' '}
+                        <span className="text-xs font-normal text-slate-500">{row.unit || 'Kg'}</span>
+                      </span>
+                    );
+                  },
+                },
+                {
+                  key: 'status',
+                  label: 'Status',
+                  align: 'right',
+                  render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
+                },
+              ]}
+            />
+          </div>
+          <div>
+            <h3 className="mb-3 text-base font-semibold text-slate-900">Stock Movements & Log</h3>
+            <Table
+              rows={data.stockHistory}
+              rowKey={(row) => row.id || row._id}
+              columns={[
+                { key: 'at', label: 'When', render: (row) => when(row.at || row.createdAt) },
+                {
+                  key: 'productName',
+                  label: 'Product',
+                  render: (row) => (
+                    <div>
+                      <span>{row.productName || 'Produce'}</span>
+                      {row.productId && <p className="font-mono text-[10px] text-slate-400">{row.productId}</p>}
+                    </div>
+                  ),
+                },
+                { key: 'action', label: 'Action' },
+                {
+                  key: 'changedQuantity',
+                  label: 'Change',
+                  render: (row) => (
+                    <span className={Number(row.changedQuantity) > 0 ? 'text-emerald-700 font-semibold' : ''}>
+                      {Number(row.changedQuantity) > 0 ? `+${row.changedQuantity}` : row.changedQuantity}
+                    </span>
+                  ),
+                },
+                { key: 'newStock', label: 'New stock' },
+                { key: 'reason', label: 'Reason' },
+              ]}
+            />
+          </div>
+        </div>
       )}
 
       {tab === 'Orders' && (
         <Table
           rows={data.orders}
-          rowKey={(row) => row.id || row.orderId}
+          rowKey={(row) => row.orderId || row.id}
           columns={[
-            { key: 'orderId', label: 'Order', render: (row) => row.orderId || row.id },
-            { key: 'productName', label: 'Product' },
+            { key: 'orderId', label: 'Order ID', render: (row) => <span className="font-mono text-xs">{row.orderId || row.id}</span> },
+            {
+              key: 'productId',
+              label: 'Product ID',
+              render: (row) =>
+                row.productId ? (
+                  <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    {row.productId}
+                  </span>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                ),
+            },
+            {
+              key: 'productName',
+              label: 'Product',
+              render: (row) => <span className="font-semibold text-slate-900">{row.productName || row.name || 'Farm Produce'}</span>,
+            },
             {
               key: 'totalQuantity',
               label: 'Qty',
-              render: (row) => row.totalQuantity || row.orderedQuantity || 0,
+              render: (row) => `${Number(row.totalQuantity || row.orderedQuantity || 0).toLocaleString('en-IN')} ${row.unit || 'Kg'}`.trim(),
             },
             {
               key: 'totalAmount',
@@ -575,7 +823,7 @@ export default function Farmer360Page() {
               label: 'Status',
               render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
             },
-            { key: 'paymentStatus', label: 'Payment' },
+            { key: 'paymentStatus', label: 'Payment', render: (row) => row.paymentStatus || 'Pending' },
             {
               key: 'createdAt',
               label: 'Date',
@@ -585,126 +833,20 @@ export default function Farmer360Page() {
         />
       )}
 
-      {tab === 'Harvests' && (
-        <Table
-          rows={data.harvests}
-          rowKey={(row) => row.id}
-          columns={[
-            { key: 'date', label: 'Date' },
-            { key: 'productName', label: 'Product' },
-            { key: 'totalQuantity', label: 'Qty' },
-            {
-              key: 'totalAmount',
-              label: 'Amount',
-              render: (row) => money(row.totalAmount),
-            },
-            {
-              key: 'status',
-              label: 'Status',
-              render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
-            },
-          ]}
-        />
-      )}
-
       {tab === 'Earnings' && (
-        <Table
-          rows={data.earnings}
-          rowKey={(row) => row.id}
-          columns={[
-            { key: 'date', label: 'Date' },
-            { key: 'cropName', label: 'Crop' },
-            { key: 'quantity', label: 'Qty' },
-            {
-              key: 'netEarnings',
-              label: 'Net',
-              render: (row) => money(row.netEarnings),
-            },
-            {
-              key: 'status',
-              label: 'Status',
-              render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
-            },
-          ]}
+        <FarmerEarningsSpreadsheet
+          orders={data.orders}
+          earnings={data.earnings}
+          products={data.products}
+          farmer={farmer}
+          title="Farmer Earning Statement"
         />
       )}
 
       {tab === 'Documents' && (
-        <FarmerDocumentsPanel farmerId={farmer.farmerId} documents={documents} onUpdated={reload} />
+        <FarmerDocumentsPanel farmerId={farmer.farmerId || id} documents={documents} onUpdated={handleDocumentUpdated} />
       )}
 
-      {tab === 'Pickups' && (
-        <div className="space-y-6">
-          <Table
-            rows={data.pickups}
-            rowKey={(row) => row.pickupId || row.id}
-            columns={[
-              {
-                key: 'pickupId',
-                label: 'Pickup',
-                render: (row) => row.pickupId || row.id,
-              },
-              { key: 'productName', label: 'Product' },
-              {
-                key: 'status',
-                label: 'Status',
-                render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
-              },
-              { key: 'driverName', label: 'Driver' },
-              { key: 'packedQuantity', label: 'Packed qty' },
-              { key: 'scheduledDate', label: 'Scheduled' },
-            ]}
-          />
-          <div>
-            <p className={PAGE_KICKER}>Quality inspections</p>
-            <h3 className="mb-3 mt-1 text-base font-semibold text-slate-900">Inspections</h3>
-            <Table
-              rows={data.inspections}
-              rowKey={(row) => row.id || row._id}
-              columns={[
-                {
-                  key: 'inspectionId',
-                  label: 'ID',
-                  render: (row) => row.inspectionId || row.id,
-                },
-                {
-                  key: 'status',
-                  label: 'Status',
-                  render: (row) => (
-                    <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>
-                  ),
-                },
-                {
-                  key: 'gradeAQuantity',
-                  label: 'A / B / C',
-                  render: (row) =>
-                    `${row.gradeAQuantity || 0} / ${row.gradeBQuantity || 0} / ${row.gradeCQuantity || 0}`,
-                },
-                { key: 'rejectedQuantity', label: 'Rejected' },
-                {
-                  key: 'createdAt',
-                  label: 'Date',
-                  render: (row) => when(row.createdAt),
-                },
-              ]}
-            />
-          </div>
-        </div>
-      )}
-
-      {tab === 'Meetings' ? (
-        <Table
-          rows={meetings}
-          rowKey={(r) => r._id}
-          columns={[
-            { key: 'link', label: 'Link', render: (r) => r.link ? <a href={r.link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{r.link}</a> : '—' },
-            { key: 'meetingId', label: 'Meeting ID', render: (r) => <span className="font-mono text-xs">{r.meetingId || '—'}</span> },
-            { key: 'password', label: 'Password', render: (r) => <span className="font-mono text-xs">{r.password || '—'}</span> },
-            { key: 'note', label: 'Note', render: (r) => r.note || '—' },
-            { key: 'date', label: 'Date', render: (r) => new Date(r.createdAt).toLocaleDateString() },
-          ]}
-        />
-      ) : null}
 
       {editingBank && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">

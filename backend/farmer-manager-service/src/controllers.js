@@ -256,8 +256,11 @@ async function getAssignedFarmers(req, select = FARMER_LIST_EXCLUDE) {
 function enrichProductRow(p, farmerName = "") {
   const totalQty = p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
   const gradesSummary = p.grades?.map((g) => `${g.label} - ${g.quantity} ${p.unit || "Kg"}`).join(", ") || "";
+  const displayPid = p.productId || p.id || "";
   return {
     ...p,
+    id: p.id || displayPid,
+    productId: displayPid,
     totalQuantity: totalQty,
     stock: totalQty,
     availableQuantity: totalQty,
@@ -3825,35 +3828,16 @@ export async function reviewFarmerProduct(req, res) {
     if (!loaded) return;
     const { farmer, product } = loaded;
     const current = normalizeProductStatus(product.status);
-    if (current !== "Pending Approval") {
-      return res.status(400).json({ message: "Only pending products can be reviewed" });
+    if (!["Pending Approval", "Draft", "Pending"].includes(current)) {
+      return res.status(400).json({ message: "Only pending or draft products can be reviewed" });
     }
 
     const decision = String(req.body?.decision || req.body?.status || "").trim().toLowerCase();
     const reviewer = req.user?.name || req.user?.role || "";
     if (["approved", "approve", "active"].includes(decision)) {
-      // 1. Verify farmer belongs to the authenticated vendor (enforced by accessibleFarmerQuery in loadAccessibleFarmerProduct)
-      // 2. Verify product is approved and assigned to that vendor's catalog
-      const vendorId = farmer.vendorId || req.user?.vendorId || req.user?.id;
+      // Verify product has not already been assigned to that farmer
       const targetProductId = String(product.productId || product.id || "").trim();
       const targetName = String(product.name || product.productName || "").trim();
-      const vendorProduct = await VendorProduct.findOne({
-        vendorId,
-        $or: [
-          ...(targetProductId ? [{ productId: targetProductId }, { id: targetProductId }] : []),
-          ...(targetName ? [
-            { name: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
-            { productName: new RegExp(`^${escapeRegex(targetName)}$`, "i") },
-          ] : []),
-        ],
-      });
-      if (!vendorProduct) {
-        return res.status(400).json({
-          message: "Product is not approved and assigned to your vendor catalog.",
-        });
-      }
-
-      // 3. Verify product has not already been assigned to that farmer
       const existingApproved = await FarmerProduct.findOne({
         farmerId: farmer.id,
         _id: { $ne: product._id },
@@ -3873,9 +3857,6 @@ export async function reviewFarmerProduct(req, res) {
         });
       }
 
-      if (vendorProduct.productId && (!product.productId || product.productId === product.id)) {
-        product.productId = vendorProduct.productId;
-      }
       const qty = Number(product.availableQuantity ?? product.stock ?? 0);
       product.status = applyStockDrivenStatus("Active", qty, product.lowStockLimit);
       product.rejectionReason = "";
@@ -5189,7 +5170,26 @@ export async function updateFarmerDocumentStatus(req, res) {
     emitFarmerDocumentUpdate(farmerRecord, doc);
     pushFarmerDocumentReview(doc);
 
-    res.json(doc);
+    const leanDoc = {
+      id: doc.id,
+      _id: doc._id,
+      farmerId: doc.farmerId,
+      type: doc.type,
+      name: doc.name,
+      fileName: doc.fileName,
+      status: doc.status,
+      rejectionReason: doc.rejectionReason,
+      adminRemarks: doc.adminRemarks,
+      updatedAt: doc.updatedAt,
+      createdAt: doc.createdAt,
+      kycStatus: farmerRecord?.kycStatus,
+      bankVerificationStatus: farmerRecord?.bankVerificationStatus,
+    };
+    if (doc.fileUrl && !doc.fileUrl.startsWith("data:")) {
+      leanDoc.fileUrl = doc.fileUrl;
+    }
+
+    res.json(leanDoc);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update document status" });
   }

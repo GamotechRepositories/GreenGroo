@@ -71,6 +71,18 @@ export default function VendorMyProductsPage() {
     }
   };
 
+  const removeProduct = async (product) => {
+    if (!window.confirm(`Remove "${product.name || product.productId}" from My Products?`)) return;
+    try {
+      await vendorApi.deleteMyProduct(product.productId);
+      setProducts((prev) => prev.filter((p) => p.productId !== product.productId));
+      setNotice(`Removed "${product.name || product.productId}" from your products.`);
+      window.setTimeout(() => setNotice(""), 3000);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to remove product");
+    }
+  };
+
   const applyUpdate = (updated, message) => {
     if (updated) setProducts((prev) => prev.map((p) => (p.productId === updated.productId ? updated : p)));
     setEditing(null);
@@ -198,15 +210,24 @@ export default function VendorMyProductsPage() {
                         </td>
                         <td className="px-4 py-2 text-gray-600">{formatDate(p.createdAt)}</td>
                         <td className="px-4 py-2 text-right">
-                          {p.catalogMissing ? null : (
+                          <div className="flex items-center justify-end gap-3">
+                            {!p.catalogMissing && (
+                              <button
+                                type="button"
+                                onClick={() => setEditing(p)}
+                                className="text-[11px] font-semibold text-[#217346] hover:underline"
+                              >
+                                Edit
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => setEditing(p)}
-                              className="text-[11px] font-semibold text-[#217346] hover:underline"
+                              onClick={() => removeProduct(p)}
+                              className="text-[11px] font-semibold text-red-600 hover:underline"
                             >
-                              Edit
+                              Remove
                             </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))}

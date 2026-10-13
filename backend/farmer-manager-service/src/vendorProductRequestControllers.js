@@ -186,6 +186,23 @@ export async function updateVendorMyProduct(req, res) {
   }
 }
 
+export async function deleteVendorMyProduct(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const productId = String(req.params.productId || "").trim();
+    const removed = await VendorProduct.findOneAndDelete({
+      vendorId,
+      $or: [{ productId }, { id: productId }],
+    });
+    if (!removed) {
+      return res.status(404).json({ message: "Product not found in your products" });
+    }
+    res.json({ success: true, message: "Product removed from your products" });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to remove product" });
+  }
+}
+
 export async function listVendorCatalogProducts(req, res) {
   try {
     const vendorId = vendorIdOf(req);
