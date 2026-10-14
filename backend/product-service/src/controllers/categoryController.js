@@ -450,14 +450,14 @@ export async function seedDefaultCategoriesIfEmpty() {
       if (!cat.section || cat.section === "greengrocc") {
         cat.section = cat.storeType === "festive" ? "ready2cook" : cat.storeType === "mall" ? "instantorder" : "preorder";
         needsSave = true;
-      }
+      } ``
       if (!cat.sectionName || cat.sectionName === "GreenGrocc") {
         cat.sectionName =
           cat.section === "ready2cook"
             ? "Ready2Cook"
             : cat.section === "instantorder" || cat.section === "supermall"
-            ? "Instant Order"
-            : "Preorder";
+              ? "Instant Order"
+              : "Preorder";
         needsSave = true;
       }
       if (needsSave) {
@@ -475,8 +475,7 @@ export async function seedDefaultCategoriesIfEmpty() {
       console.log(`[CategoryService] Successfully seeded categories.`);
     }
   } catch (error) {
-    console.error("[CategoryService] Failed to seed default categories:", error.message);
-    console.error("[CategoryService] Failed to seed default categories:", error.message);
+    console.error("[CategoryService] Failed to seed default categories:", error.message); console.error("[CategoryService] Failed to seed default categories:", error.message);
   }
 }
 
@@ -708,7 +707,7 @@ export const createCategory = async (req, res) => {
       const parentSection = await Section.findOne({ slug: resolvedSection });
       resolvedSectionName = parentSection ? parentSection.sectionName : (
         resolvedSection === "ready2cook" ? "Ready2Cook" :
-        resolvedSection === "instantorder" || resolvedSection === "supermall" ? "Instant Order" : "Preorder"
+          resolvedSection === "instantorder" || resolvedSection === "supermall" ? "Instant Order" : "Preorder"
       );
     }
 
@@ -789,7 +788,7 @@ export const updateCategory = async (req, res) => {
         const parentSection = await Section.findOne({ slug: updates.section });
         updates.sectionName = parentSection ? parentSection.sectionName : (
           updates.section === "ready2cook" ? "Ready2Cook" :
-          updates.section === "supermall" ? "SuperMall" : "GreenGrocc"
+            updates.section === "supermall" ? "SuperMall" : "GreenGrocc"
         );
       }
     }
