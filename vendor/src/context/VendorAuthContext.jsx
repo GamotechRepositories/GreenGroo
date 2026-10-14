@@ -50,10 +50,47 @@ export function VendorAuthProvider({ children }) {
     return res.data;
   };
 
+  const updateVendorState = (updatedVendor) => {
+    const raw = localStorage.getItem(VENDOR_STORAGE_KEY);
+    let currentToken = token;
+    if (raw) {
+      try {
+        currentToken = JSON.parse(raw)?.token || token;
+      } catch {}
+    }
+    persist(updatedVendor, currentToken);
+  };
+
+  const refreshProfile = async () => {
+    try {
+      const res = await vendorApi.me();
+      const raw = localStorage.getItem(VENDOR_STORAGE_KEY);
+      let currentToken = token;
+      if (raw) {
+        try {
+          currentToken = JSON.parse(raw)?.token || token;
+        } catch {}
+      }
+      persist(res.data, currentToken);
+      return res.data;
+    } catch (e) {
+      console.error("Failed to refresh profile", e);
+    }
+  };
+
   const logout = () => clear();
 
   const value = useMemo(
-    () => ({ vendor, token, loading, isAuthenticated: Boolean(vendor && token), login, logout }),
+    () => ({
+      vendor,
+      token,
+      loading,
+      isAuthenticated: Boolean(vendor && token),
+      login,
+      logout,
+      updateVendorState,
+      refreshProfile,
+    }),
     [vendor, token, loading]
   );
 

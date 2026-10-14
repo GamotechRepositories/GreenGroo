@@ -15,6 +15,8 @@ import { pushFarmerOrderChange } from "./farmerPush.js";
 import { syncQualityToErp } from "../../erp-service/src/services/harvestSync.js";
 import { parsePickupQr } from "./pickupControllers.js";
 import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, INSPECTION_LIST_EXCLUDE } from "./listProjections.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { todayYmd } from "../../erp-service/src/config/idRegistry.js";
 
 const QUALITY_PENDING = "QUALITY_PENDING";
 const INSPECTION = "INSPECTION";
@@ -94,6 +96,16 @@ function toPlain(doc) {
 
 function newId(prefix) {
   return `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+}
+
+async function nextQualityInspectionId(date) {
+  try {
+    return await generateId({ module: "QC", date: date ? todayYmd(date) : todayYmd() });
+  } catch (err) {
+    console.error("generateId for QC failed, falling back to date-sequence:", err);
+    const dStr = todayYmd(date || new Date());
+    return `GGC-QC-${dStr}-${String(Date.now()).slice(-6)}`;
+  }
 }
 
 function qty(n) {
@@ -448,11 +460,20 @@ async function ensureInspection(pickup, order) {
       inspection.batchId = pickup.collectionBatchId;
       await inspection.save();
     }
+    if (!inspection.inspectionId || !inspection.inspectionId.startsWith("GGC-QC-")) {
+      try {
+        inspection.inspectionId = await nextQualityInspectionId(inspection.createdAt);
+        await inspection.save();
+      } catch (err) {
+        console.error("Failed to upgrade inspectionId for existing inspection:", err);
+      }
+    }
     return inspection;
   }
   const flat = flattenOrder(order || {});
+  const inspectionId = await nextQualityInspectionId();
   inspection = await QualityInspection.create({
-    inspectionId: newId("qi"),
+    inspectionId,
     orderId,
     farmerId: pickup.farmerId,
     productId: flat.productId || order?.productId || "",
@@ -1136,6 +1157,15 @@ async function requireEligibleBundle(req, orderId) {
   }
   const order = bundle.order || (await findOrder(bundle.pickup.orderId));
   const inspection = bundle.inspection || (await ensureInspection(bundle.pickup, order));
+  if (inspection && (!inspection.inspectionId || !inspection.inspectionId.startsWith("GGC-QC-"))) {
+    try {
+      const newQcId = await nextQualityInspectionId(inspection.createdAt);
+      await QualityInspection.updateOne({ _id: inspection._id }, { $set: { inspectionId: newQcId } });
+      inspection.inspectionId = newQcId;
+    } catch (e) {
+      console.error("Failed to upgrade inspectionId in requireEligibleBundle:", e);
+    }
+  }
   const centre = bundle.pickup.collectionCentreId
     ? await CollectionCentre.findOne({ id: bundle.pickup.collectionCentreId }).lean()
     : null;
@@ -1225,6 +1255,15 @@ export async function listQualityPending(req, res) {
         continue;
       }
       if (!isWeightVerified(pickup)) continue;
+      if (!inspection.inspectionId || !inspection.inspectionId.startsWith("GGC-QC-")) {
+        try {
+          const newQcId = await nextQualityInspectionId(inspection.createdAt);
+          await QualityInspection.updateOne({ _id: inspection._id }, { $set: { inspectionId: newQcId } });
+          inspection.inspectionId = newQcId;
+        } catch (e) {
+          console.error("Failed to upgrade inspectionId in listQualityPending:", e);
+        }
+      }
       const order = await orderFromCache(orderCache, inspection.orderId);
       const farmer = farmerById.get(String(inspection.farmerId)) || null;
       const centre = pickup.collectionCentreId ? centreById.get(String(pickup.collectionCentreId)) || null : null;

@@ -34,6 +34,7 @@ const vendorSchema = new mongoose.Schema(
     },
     password: { type: String, default: "" },
     role: { type: String, default: "VENDOR" },
+    settings: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

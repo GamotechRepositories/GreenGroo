@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLive } from "../../realtime/useLive";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -36,6 +36,7 @@ import { staffApi } from "../../api/staffApi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PANEL, EXCEL_HEAD, EXCEL_CELL } from "../../utils/excelStyles";
+import { useVendorSettings } from "../../context/VendorSettingsContext";
 
 function formatWhen(value) {
   if (!value) return "—";
@@ -147,6 +148,15 @@ export default function DashboardPage() {
   }, [applied]);
 
   useLive(({ initial }) => loadAll(!initial), [loadAll]);
+
+  const { autoRefreshInterval } = useVendorSettings();
+  useEffect(() => {
+    if (!autoRefreshInterval || autoRefreshInterval <= 0) return;
+    const timer = setInterval(() => {
+      loadAll(true);
+    }, autoRefreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [autoRefreshInterval, loadAll]);
 
   const applyFilter = (next) =>
     setApplied((prev) =>

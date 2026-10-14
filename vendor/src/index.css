@@ -88,3 +88,69 @@
     box-shadow: none !important;
   }
 }
+
+/* ========================================================= */
+/* VENDOR PANEL WORKABLE SETTINGS: COMPACT TABLES & DARK MODE */
+/* ========================================================= */
+.vendor-compact-tables td,
+.vendor-compact-tables th {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  font-size: 12px !important;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #0b1322 !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark .bg-white {
+  background-color: #151e2e !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/30 {
+  background-color: #0f172a !important;
+}
+
+html.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+html.dark .text-gray-700,
+html.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .border-slate-200,
+html.dark .border-slate-200\/90,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-100 {
+  border-color: #243044 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #151e2e !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+

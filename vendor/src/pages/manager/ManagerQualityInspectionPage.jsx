@@ -560,7 +560,7 @@ export default function ManagerQualityInspectionPage() {
     <div className="space-y-5 p-4 sm:p-6 lg:p-8">
       <p className="mb-1 break-words text-xs text-[#6B7280] print:hidden">
         <Link to="/vendor/quality/pending" className="hover:text-[#217346]">Quality and Grading Manager</Link>
-        <span> › {data.orderDisplayId}</span>
+        <span> › {data.inspectionId || data.orderDisplayId}</span>
       </p>
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <StatusBadge status={data.status} className="shrink-0" />
@@ -585,6 +585,7 @@ export default function ManagerQualityInspectionPage() {
         <div className={EXCEL_PANEL_HEAD}>1. Order Information</div>
         <div className="p-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <Info label="Inspection ID" value={data.inspectionId} />
             <Info label="Order ID" value={data.orderDisplayId} />
             <Info label="QR / Order Code" value={data.qrPayload} />
             <Info label="Farmer Name" value={data.farmerName} />

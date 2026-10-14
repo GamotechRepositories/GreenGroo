@@ -47,9 +47,20 @@ export default function VendorLoginPage() {
     const vendorOk = vendorResult.status === "fulfilled";
     const driverOk = driverResult.status === "fulfilled";
 
+    const defaultVendorTarget = (() => {
+      try {
+        const raw = localStorage.getItem("greengroo_vendor_panel_settings");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.display?.defaultLandingPage) return parsed.display.defaultLandingPage;
+        }
+      } catch {}
+      return "/dashboard";
+    })();
+
     if (vendorOk && !driverOk) {
       driverLogout();
-      navigate(fromPath.startsWith("/vendor/") ? fromPath : "/vendor/farmer-managers", { replace: true });
+      navigate(fromPath.startsWith("/vendor/") || fromPath.startsWith("/dashboard") ? fromPath : defaultVendorTarget, { replace: true });
       return;
     }
     if (driverOk && !vendorOk) {
@@ -59,7 +70,7 @@ export default function VendorLoginPage() {
     }
     if (vendorOk && driverOk) {
       driverLogout();
-      navigate(fromPath.startsWith("/vendor/") ? fromPath : "/vendor/farmer-managers", { replace: true });
+      navigate(fromPath.startsWith("/vendor/") || fromPath.startsWith("/dashboard") ? fromPath : defaultVendorTarget, { replace: true });
       return;
     }
 

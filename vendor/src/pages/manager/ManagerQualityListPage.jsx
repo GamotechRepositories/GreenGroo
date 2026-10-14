@@ -245,18 +245,29 @@ function QualityMobileCard({ row, onOpen, label = "Start Inspection", showReject
   const unit = row.unit || "Kg";
   const product = row.productName || row.product || "Produce";
   const id = row.orderDisplayId || row.orderId;
+  const qcId = row.inspectionId;
   const rejected = showRejected ? rejectedBreakdown(row) : null;
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center justify-between gap-1.5">
         <p className="min-w-0 truncate text-[13px] font-bold text-[#1F2937]">
           {product}
           {row.variety ? <span className="font-semibold text-[#6B7280]"> · {row.variety}</span> : null}
         </p>
+        {qcId ? (
+          <CopyId
+            value={qcId}
+            className="shrink-0"
+            textClassName="font-mono text-[10px] font-bold text-emerald-700"
+          />
+        ) : null}
+      </div>
+      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+        <span className="shrink-0 font-medium text-slate-500">Order:</span>
         <CopyId
           value={id}
           className="min-w-0 flex-1"
-          textClassName="font-mono text-[10px] text-emerald-700"
+          textClassName="font-mono text-[10px] text-slate-600"
         />
       </div>
       <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 text-[11px] text-[#6B7280]">
@@ -357,10 +368,11 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
           </div>
 
           <div className="hidden w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
-            <table className="w-full min-w-[760px] border-collapse text-[10px] sm:text-[11px]">
+            <table className="w-full min-w-[840px] border-collapse text-[10px] sm:text-[11px]">
               <colgroup>
                 <col className="w-10" />
-                <col className="w-[13.5rem]" />
+                <col className="w-[12.5rem]" />
+                <col className="w-[12.5rem]" />
                 <col className="w-[8rem]" />
                 <col className="w-[5.5rem]" />
                 <col className="w-[5.5rem]" />
@@ -375,6 +387,7 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
               <thead>
                 <tr>
                   <th className={TH}>#</th>
+                  <th className={TH}>Inspection ID</th>
                   <th className={TH}>Order ID</th>
                   <th className={TH}>Product</th>
                   <th className={TH}>Order Date</th>
@@ -403,6 +416,7 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
               <tbody>
                 {rows.map((r, idx) => {
                   const id = r.orderDisplayId || r.orderId;
+                  const qcId = r.inspectionId;
                   const map = gradeDetailMap(r);
                   const unit = r.unit || "Kg";
                   const rejected = showRejected ? rejectedBreakdown(r) : null;
@@ -412,7 +426,15 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
                       <td className={`${TD} text-center text-[#9CA3AF]`}>{idx + 1}</td>
                       <td className={`${TD} whitespace-nowrap sm:text-[11px]`}>
                         <span className="inline-flex max-w-full items-center gap-0.5">
-                          <span className="truncate font-mono text-[10px] font-semibold text-[#217346] sm:text-[11px]" title={id}>
+                          <span className="truncate font-mono text-[10px] font-bold text-[#217346] sm:text-[11px]" title={qcId}>
+                            {qcId || "—"}
+                          </span>
+                          {qcId ? <CopyButton value={qcId} /> : null}
+                        </span>
+                      </td>
+                      <td className={`${TD} whitespace-nowrap sm:text-[11px]`}>
+                        <span className="inline-flex max-w-full items-center gap-0.5">
+                          <span className="truncate font-mono text-[10px] font-medium text-slate-600 sm:text-[11px]" title={id}>
                             {id}
                           </span>
                           <CopyButton value={id} />

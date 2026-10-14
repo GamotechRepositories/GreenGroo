@@ -37,9 +37,13 @@ api.interceptors.request.use((config) => {
 });
 
 export const vendorApi = {
-  // Auth
+  // Auth & Profile
   login: (data) => api.post("/api/vendor/auth/login", data),
   me: () => api.get("/api/vendor/auth/me"),
+  getProfile: () => api.get("/api/vendor/auth/me"),
+  updateProfile: (data) => api.put("/api/vendor/auth/me", data),
+  getSettings: () => api.get("/api/vendor/settings"),
+  updateSettings: (data) => api.put("/api/vendor/settings", data),
 
   // Dashboard
   getDashboard: (params) => api.get("/api/vendor/dashboard", { params }),

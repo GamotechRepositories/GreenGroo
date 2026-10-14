@@ -66,7 +66,7 @@ export default function QualityListPage({ mode = "pending" }) {
   };
 
   const heads = useMemo(
-    () => ["Order ID", "Farmer", "Product", "Received Qty", "Centre", "Status", ""],
+    () => ["Inspection ID", "Order ID", "Farmer", "Product", "Received Qty", "Centre", "Status", ""],
     []
   );
 
@@ -106,13 +106,14 @@ export default function QualityListPage({ mode = "pending" }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400">{meta.empty}</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400">{meta.empty}</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.inspectionId} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-3 py-2 font-semibold">{r.orderDisplayId}</td>
+                  <td className="px-3 py-2 font-mono font-bold text-[#217346]">{r.inspectionId || "—"}</td>
+                  <td className="px-3 py-2 font-mono font-medium text-gray-600">{r.orderDisplayId}</td>
                   <td className="px-3 py-2">{r.farmerName}</td>
                   <td className="px-3 py-2">{r.productName}</td>
                   <td className="px-3 py-2">{r.receivedQuantity} {r.unit}</td>

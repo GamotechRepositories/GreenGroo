@@ -5562,7 +5562,8 @@ export async function vendorLogin(req, res) {
 
 export async function getVendorMe(req, res) {
   try {
-    const vendor = await Vendor.findOne({ id: req.user.vendorId }).lean();
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const vendor = await Vendor.findOne({ id: vendorId }).lean();
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
     const { password: _pw, ...vendorData } = vendor;
     res.json(vendorData);
@@ -5570,6 +5571,153 @@ export async function getVendorMe(req, res) {
     res.status(500).json({ message: err.message || "Failed" });
   }
 }
+
+export async function updateVendorMe(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const vendor = await Vendor.findOne({ id: vendorId });
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+
+    const payload = req.body || {};
+    const allowed = [
+      "vendorName",
+      "ownerName",
+      "email",
+      "phone",
+      "businessName",
+      "businessAddress",
+      "city",
+      "state",
+      "pincode",
+      "gstNumber",
+      "panNumber",
+      "profileImage",
+    ];
+
+    for (const key of allowed) {
+      if (payload[key] !== undefined) {
+        vendor[key] = typeof payload[key] === "string" ? payload[key].trim() : payload[key];
+      }
+    }
+
+    if (payload.bank && typeof payload.bank === "object") {
+      const currentBank = vendor.bank && typeof vendor.bank === "object" ? vendor.bank : {};
+      vendor.bank = {
+        accountHolder: payload.bank.accountHolder !== undefined ? String(payload.bank.accountHolder).trim() : currentBank.accountHolder || "",
+        bankName: payload.bank.bankName !== undefined ? String(payload.bank.bankName).trim() : currentBank.bankName || "",
+        accountNumber: payload.bank.accountNumber !== undefined ? String(payload.bank.accountNumber).trim() : currentBank.accountNumber || "",
+        ifsc: payload.bank.ifsc !== undefined ? String(payload.bank.ifsc).trim().toUpperCase() : currentBank.ifsc || "",
+      };
+      vendor.markModified("bank");
+    }
+
+    if (payload.settings && typeof payload.settings === "object") {
+      const currentSettings = vendor.settings && typeof vendor.settings === "object" ? vendor.settings : {};
+      vendor.settings = { ...currentSettings, ...payload.settings };
+      vendor.markModified("settings");
+    }
+
+    if (payload.password && typeof payload.password === "string" && payload.password.trim()) {
+      vendor.password = await bcrypt.hash(payload.password.trim(), 10);
+    }
+
+    await vendor.save();
+    const { password: _pw, ...vendorData } = vendor.toObject();
+    res.json({ success: true, vendor: vendorData });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update profile" });
+  }
+}
+
+export async function getVendorSettings(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const vendor = await Vendor.findOne({ id: vendorId }).lean();
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+
+    const defaultSettings = {
+      display: {
+        theme: "light",
+        compactMode: false,
+        autoRefreshInterval: 0,
+        dateFormat: "DD/MM/YYYY",
+        currency: "INR",
+        defaultLandingPage: "/dashboard",
+      },
+      operations: {
+        autoAssignDrivers: false,
+        defaultBatchSize: 5,
+        collectionCenterOpening: "08:00",
+        collectionCenterClosing: "20:00",
+        autoConfirmPreorders: false,
+        requireQualityPhotos: true,
+        strictGradingConfirmation: true,
+      },
+      notifications: {
+        orderReceivedSound: true,
+        emailNotifications: true,
+        smsAlerts: false,
+        lowStockThresholdKg: 50,
+        notifyDriverArrival: true,
+        notifyQualityCompleted: true,
+        dailySummaryEmail: false,
+      },
+      security: {
+        twoFactorAuth: false,
+        autoLogoutMinutes: 60,
+        ipRestrictionEnabled: false,
+        allowedIps: "",
+      },
+      integrations: {
+        erpWebhookUrl: "",
+        exportFormat: "excel",
+        realtimeSync: true,
+      },
+    };
+
+    const saved = vendor.settings && typeof vendor.settings === "object" ? vendor.settings : {};
+    const merged = {
+      display: { ...defaultSettings.display, ...(saved.display || {}) },
+      operations: { ...defaultSettings.operations, ...(saved.operations || {}) },
+      notifications: { ...defaultSettings.notifications, ...(saved.notifications || {}) },
+      security: { ...defaultSettings.security, ...(saved.security || {}) },
+      integrations: { ...defaultSettings.integrations, ...(saved.integrations || {}) },
+    };
+
+    res.json({ success: true, settings: merged });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load settings" });
+  }
+}
+
+export async function updateVendorSettings(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id;
+    const vendor = await Vendor.findOne({ id: vendorId });
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+
+    const payload = req.body || {};
+    const current = vendor.settings && typeof vendor.settings === "object" ? vendor.settings : {};
+
+    vendor.settings = {
+      ...current,
+      ...payload,
+      display: { ...(current.display || {}), ...(payload.display || {}) },
+      operations: { ...(current.operations || {}), ...(payload.operations || {}) },
+      notifications: { ...(current.notifications || {}), ...(payload.notifications || {}) },
+      security: { ...(current.security || {}), ...(payload.security || {}) },
+      integrations: { ...(current.integrations || {}), ...(payload.integrations || {}) },
+    };
+
+    vendor.markModified("settings");
+    await vendor.save();
+
+    res.json({ success: true, settings: vendor.settings });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to save settings" });
+  }
+}
+
 
 export async function getVendors(req, res) {
   try {

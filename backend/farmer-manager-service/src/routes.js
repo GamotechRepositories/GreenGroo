@@ -84,6 +84,9 @@ import {
   // Vendor auth
   vendorLogin,
   getVendorMe,
+  updateVendorMe,
+  getVendorSettings,
+  updateVendorSettings,
   getVendors,
   createVendor,
   updateVendor,
@@ -413,6 +416,12 @@ vendorManagerRouter.patch("/:managerId/status", setManagerStatus);
 // ------------------------------------
 vendorAuthRouter.post("/login", vendorLogin);
 vendorAuthRouter.get("/me", requireVendor, getVendorMe);
+vendorAuthRouter.put("/me", requireVendor, updateVendorMe);
+vendorAuthRouter.patch("/me", requireVendor, updateVendorMe);
+vendorRouter.put("/profile", requireVendor, updateVendorMe);
+vendorRouter.get("/settings", requireVendor, getVendorSettings);
+vendorRouter.put("/settings", requireVendor, updateVendorSettings);
+vendorRouter.patch("/settings", requireVendor, updateVendorSettings);
 vendorAuthRouter.post("/driver/login", driverLogin);
 vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);
 vendorAuthRouter.post("/driver/push-token", requireDriver, saveDriverPushToken);

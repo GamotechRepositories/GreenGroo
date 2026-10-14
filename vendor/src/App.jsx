@@ -71,12 +71,15 @@ import HrPayrollPage from './pages/hr/HrPayrollPage'
 import HrRecruitmentPage from './pages/hr/HrRecruitmentPage'
 import HrAttendancePage from './pages/hr/HrAttendancePage'
 import HrMeetingsPage from './pages/hr/HrMeetingsPage'
+import VendorProfilePage from './pages/profile/VendorProfilePage'
+import { VendorSettingsProvider } from './context/VendorSettingsContext'
 
 function App() {
   return (
     <VendorAuthProvider>
-      <DriverAuthProvider>
-      <AuthProvider>
+      <VendorSettingsProvider>
+        <DriverAuthProvider>
+        <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -204,16 +207,19 @@ function App() {
                   }
                 />
                 <Route path="/support" element={<SupportPage />} />
-                <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />
-                <Route path="/profile" element={<PlaceholderPage title="My Profile" subtitle="Your account details" />} />
+                <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/vendor/settings" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/profile" element={<VendorProfilePage />} />
+                <Route path="/vendor/profile" element={<VendorProfilePage />} />
               </Route>
             </Route>
             <Route path="/" element={<Navigate to="/vendor/login" replace />} />
             <Route path="*" element={<Navigate to="/vendor/login" replace />} />
           </Routes>
         </BrowserRouter>
-      </AuthProvider>
-      </DriverAuthProvider>
+        </AuthProvider>
+        </DriverAuthProvider>
+      </VendorSettingsProvider>
     </VendorAuthProvider>
   )
 }
