@@ -12,11 +12,14 @@ import '../../../config/theme.dart';
 import '../../../services/socket_service.dart';
 import '../widgets/preorder_progress_steps.dart';
 import 'live_tracking_map.dart';
+import '../../../models/order.dart';
 import 'order_tracking_models.dart';
-import 'osm_tracking_map.dart';
 import 'order_tracking_repository.dart';
+import 'osm_tracking_map.dart';
 import 'polyline_codec.dart';
+import 'road_route_service.dart';
 import 'tracking_timeline.dart';
+import 'widgets/modern_tracking_view.dart';
 
 const _green = Color(0xFF2E7D32);
 
@@ -26,11 +29,21 @@ const _green = Color(0xFF2E7D32);
 /// call button, status timeline. Pre-order: status timeline + delivery slot only.
 /// Both update in real time from the socket (`order_status`, `location_update`).
 class OrderTrackingPanel extends ConsumerStatefulWidget {
-  const OrderTrackingPanel({super.key, required this.orderId, this.onStatusChanged});
+  const OrderTrackingPanel({
+    super.key,
+    required this.orderId,
+    this.order,
+    this.onStatusChanged,
+    this.onOrderAgain,
+    this.onInvoice,
+  });
 
   final String orderId;
+  final Order? order;
   /// Lets the parent reload the full order (bill, OTP, rating…) on status changes.
   final VoidCallback? onStatusChanged;
+  final VoidCallback? onOrderAgain;
+  final VoidCallback? onInvoice;
 
   @override
   ConsumerState<OrderTrackingPanel> createState() => _OrderTrackingPanelState();
@@ -90,7 +103,10 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
 
   bool _isThisOrder(Map<String, dynamic> data) {
     final id = data['orderId']?.toString();
-    return id == widget.orderId || (id != null && id == _tracking?.orderId);
+    final storeId = data['storeOrderId']?.toString();
+    return id == widget.orderId ||
+        (id != null && id == _tracking?.orderId) ||
+        (storeId != null && (storeId == widget.orderId || storeId == _tracking?.storeOrderId));
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -111,14 +127,19 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
       final fix = tracking.lastLocation;
       final fixIsNewer = fix != null &&
           (_lastFixAt == null || (fix.updatedAt != null && fix.updatedAt!.isAfter(_lastFixAt!)));
+      final serverPoints = tracking.routePolyline != null ? decodePolyline(tracking.routePolyline!) : const <LatLng>[];
       setState(() {
         _tracking = tracking;
-        _route = tracking.routePolyline != null ? decodePolyline(tracking.routePolyline!) : const [];
+        _route = serverPoints.length > 2 ? serverPoints : const [];
         _loading = false;
         _error = null;
         if (!tracking.liveTracking || tracking.isClosed) {
           _driver = null;
           _heading = null;
+        } else if (_driver == null && fix != null) {
+          _driver = fix.position;
+          _heading = fix.heading ?? _heading;
+          _lastFixAt = fix.updatedAt ?? DateTime.now();
         } else if (fixIsNewer) {
           _driver = fix.position;
           _heading = fix.heading ?? _heading;
@@ -126,6 +147,14 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
         }
       });
       _scheduleRouteRefresh(tracking);
+
+      // If backend returned straight-line estimate or no route, fetch turn-by-turn road geometry
+      if (serverPoints.length <= 2 && tracking.destination != null && !tracking.isClosed) {
+        final origin = _driver ?? tracking.storeLocation;
+        if (origin != null) {
+          unawaited(_resolveRoadRoute(origin, tracking.destination!));
+        }
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -139,6 +168,21 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
         unawaited(_load(silent: true));
       }
     }
+  }
+
+  Future<void> _resolveRoadRoute(LatLng origin, LatLng destination) async {
+    final res = await RoadRouteService.fetchRoadRoute(origin: origin, destination: destination);
+    if (!mounted || res == null || res.points.length < 2) return;
+    setState(() {
+      _route = res.points;
+      if (_tracking != null) {
+        _tracking = _tracking!.withAccurateEta(
+          text: res.etaText,
+          distanceMeters: res.distanceMeters,
+          seconds: res.durationSeconds,
+        );
+      }
+    });
   }
 
   /// Route + ETA refresh while the order is on its way (live types only).
@@ -163,7 +207,11 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
       _lastFixAt = DateTime.tryParse('${data['updatedAt']}')?.toLocal() ?? DateTime.now();
     });
     // First fix after pickup: pull rider details, route and ETA.
-    if (!tracking.liveTracking) _load(silent: true);
+    if (!tracking.liveTracking) {
+      _load(silent: true);
+    } else if (_route.length <= 2 && tracking.destination != null) {
+      unawaited(_resolveRoadRoute(LatLng(lat, lng), tracking.destination!));
+    }
   }
 
   void _onOrderStatus(Map<String, dynamic> data) {
@@ -171,7 +219,9 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
     if (!_isThisOrder(data) || tracking == null) return;
     final status = data['status']?.toString();
     final storeOrderId = data['storeOrderId']?.toString();
-    final samePart = storeOrderId != null && storeOrderId == tracking.storeOrderId;
+    final samePart = storeOrderId == null ||
+        tracking.storeOrderId == null ||
+        storeOrderId == tracking.storeOrderId;
     if (status != null && samePart && status != tracking.status) {
       setState(() {
         _tracking = tracking.withStatus(status, live: data['liveTracking'] == true);
@@ -218,6 +268,86 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
   @override
   Widget build(BuildContext context) {
     final tracking = _tracking;
+
+    // Full-screen modern tracking view when order model is provided
+    if (widget.order != null) {
+      if (_loading && tracking == null) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F8F6),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF0F5A31),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: const Text(
+              'Track Your Order',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+          ),
+          body: const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0F5A31), strokeWidth: 3),
+          ),
+        );
+      }
+      if (tracking == null) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F8F6),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF0F5A31),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: const Text(
+              'Track Your Order',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 48, color: Color(0xFF94A3B8)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _error ?? 'Live tracking is currently unavailable.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: _load,
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0F5A31)),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Render the complete modern tracking view matching the exact UI mockup
+      return ModernTrackingView(
+        order: widget.order!,
+        tracking: tracking,
+        route: _route,
+        driver: _driver,
+        heading: _heading,
+        onBack: () => Navigator.of(context).maybePop(),
+        onStatusChanged: widget.onStatusChanged,
+        onInvoice: widget.onInvoice,
+        onOrderAgain: widget.onOrderAgain,
+      );
+    }
+
     if (_loading && tracking == null) {
       return const _Card(
         child: SizedBox(
@@ -331,6 +461,9 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
                   store: tracking.storeLocation,
                   destination: tracking.destination,
                   route: _route,
+                  etaText: tracking.eta?.text,
+                  distanceMeters: tracking.eta?.distanceMeters,
+                  liveTracking: tracking.liveTracking,
                 )
               else
                 OsmTrackingMap(

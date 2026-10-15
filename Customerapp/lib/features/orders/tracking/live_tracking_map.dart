@@ -5,9 +5,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'bike_marker.dart';
-
-const _routeGreen = Color(0xFF2E7D32);
+import 'road_route_service.dart';
+import 'tracking_markers.dart';
 
 /// Map with the rider's bike marker gliding between GPS fixes (≈1 s), rotated by
 /// heading, plus the route polyline, dark store and delivery location.
@@ -19,7 +18,10 @@ class LiveTrackingMap extends StatefulWidget {
     this.store,
     this.destination,
     this.route = const [],
-    this.height = 300,
+    this.etaText,
+    this.distanceMeters,
+    this.liveTracking = false,
+    this.height = 270,
   });
 
   final LatLng? driver;
@@ -27,6 +29,9 @@ class LiveTrackingMap extends StatefulWidget {
   final LatLng? store;
   final LatLng? destination;
   final List<LatLng> route;
+  final String? etaText;
+  final int? distanceMeters;
+  final bool liveTracking;
   final double height;
 
   @override
@@ -40,8 +45,9 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
   )..addListener(_onTick);
 
   GoogleMapController? _map;
-  BitmapDescriptor? _bikeIcon;
-  bool _iconRequested = false;
+  BitmapDescriptor? _riderIcon;
+  BitmapDescriptor? _destIcon;
+  bool _iconsRequested = false;
   bool _userMoved = false;
 
   LatLng? _shown;
@@ -51,22 +57,33 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
   double _fromHeading = 0;
   double _toHeading = 0;
 
+  List<LatLng>? _roadRoute;
+  String? _roadEtaText;
+  int? _roadDistanceMeters;
+
   @override
   void initState() {
     super.initState();
     _shown = widget.driver;
     _shownHeading = widget.heading ?? 0;
+    _ensureRoadRoute();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_iconRequested) return;
-    _iconRequested = true;
-    BikeMarker.descriptor(MediaQuery.devicePixelRatioOf(context)).then((icon) {
-      if (mounted) setState(() => _bikeIcon = icon);
+    if (_iconsRequested) return;
+    _iconsRequested = true;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    TrackingMarkers.riderMarker(dpr).then((icon) {
+      if (mounted) setState(() => _riderIcon = icon);
+    });
+    TrackingMarkers.destinationMarker(dpr).then((icon) {
+      if (mounted) setState(() => _destIcon = icon);
     });
   }
+
+  bool _initialCameraFitted = false;
 
   @override
   void didUpdateWidget(covariant LiveTrackingMap oldWidget) {
@@ -77,9 +94,45 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
     } else if (next == null && oldWidget.driver != null) {
       _move.stop();
       setState(() => _shown = null);
-    } else if (widget.destination != oldWidget.destination || widget.store != oldWidget.store) {
+    } else if (widget.destination != oldWidget.destination ||
+        widget.store != oldWidget.store) {
+      _roadRoute = null;
+      _ensureRoadRoute();
       _fitCamera();
     }
+    if (widget.route != oldWidget.route && widget.route.length > 2) {
+      if (_roadRoute != null) setState(() => _roadRoute = null);
+    } else if (_roadRoute == null && widget.route.length <= 2) {
+      _ensureRoadRoute();
+    }
+  }
+
+  void _ensureRoadRoute() {
+    // If we already have a real multi-point turn-by-turn road route from props, use it
+    if (widget.route.length > 2) {
+      if (_roadRoute != null) setState(() => _roadRoute = null);
+      return;
+    }
+    // If road route already resolved, do not re-fetch on every GPS coordinate tick
+    if (_roadRoute != null && _roadRoute!.length > 2) {
+      return;
+    }
+    final origin = _shown ?? widget.store;
+    final dest = widget.destination;
+    if (origin == null || dest == null) return;
+    if (_metersBetween(origin, dest) < 20) return;
+
+    RoadRouteService.fetchRoadRoute(origin: origin, destination: dest).then((res) {
+      if (!mounted || res == null || res.points.length < 2) return;
+      setState(() {
+        _roadRoute = res.points;
+        _roadEtaText = res.etaText;
+        _roadDistanceMeters = res.distanceMeters;
+      });
+      if (!_initialCameraFitted) {
+        _fitCamera();
+      }
+    });
   }
 
   @override
@@ -96,15 +149,17 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
         _shown = target;
         _shownHeading = heading ?? _shownHeading;
       });
-      _fitCamera();
+      if (!_initialCameraFitted) {
+        _fitCamera();
+      }
       return;
     }
     _from = current;
     _to = target;
     _fromHeading = _shownHeading;
     _toHeading = heading ?? (_metersBetween(current, target) > 3 ? _bearing(current, target) : _shownHeading);
+    // Smoothly animate the rider marker along the route without moving/zooming the camera
     _move.forward(from: 0);
-    _fitCamera(include: target);
   }
 
   void _onTick() {
@@ -125,10 +180,16 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
   void _fitCamera({LatLng? include}) {
     final map = _map;
     if (map == null || _userMoved) return;
+    _initialCameraFitted = true;
+    final scooty = include ?? _shown;
+    final routePoints = (_roadRoute != null && _roadRoute!.length > 2) ? _roadRoute! : widget.route;
+    final dest = widget.destination;
+    final store = widget.store;
     final points = <LatLng>[
-      if (include != null) include else if (_shown != null) _shown!,
-      ?widget.destination,
-      if (_shown == null && include == null && widget.store != null) widget.store!,
+      ?scooty,
+      ?dest,
+      if (scooty == null && store != null) store,
+      ...routePoints,
     ];
     if (points.isEmpty) return;
     if (points.length == 1) {
@@ -143,14 +204,17 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
       west = math.min(west, p.longitude);
       east = math.max(east, p.longitude);
     }
-    if ((north - south).abs() < 0.0005 && (east - west).abs() < 0.0005) {
-      map.animateCamera(CameraUpdate.newLatLngZoom(points.first, 16));
+    final latSpan = (north - south).abs();
+    final lngSpan = (east - west).abs();
+    if (latSpan < 0.0006 && lngSpan < 0.0006) {
+      final mid = LatLng((north + south) / 2, (east + west) / 2);
+      map.animateCamera(CameraUpdate.newLatLngZoom(mid, 17.5));
       return;
     }
     map.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(southwest: LatLng(south, west), northeast: LatLng(north, east)),
-        64,
+        60,
       ),
     );
   }
@@ -166,25 +230,26 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
         Marker(
           markerId: const MarkerId('store'),
           position: widget.store!,
+          consumeTapEvents: true,
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          infoWindow: const InfoWindow(title: 'Dark store'),
         ),
       if (widget.destination != null)
         Marker(
           markerId: const MarkerId('destination'),
           position: widget.destination!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: const InfoWindow(title: 'Delivery location'),
+          consumeTapEvents: true,
+          anchor: const Offset(0.5, 0.5),
+          icon: _destIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       if (_shown != null)
         Marker(
           markerId: const MarkerId('driver'),
           position: _shown!,
-          rotation: _shownHeading,
-          flat: true,
-          anchor: const Offset(0.5, 0.5),
+          consumeTapEvents: true,
+          flat: false,
+          anchor: const Offset(0.5, 0.65),
           zIndexInt: 3,
-          icon: _bikeIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: _riderIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         ),
     };
   }
@@ -192,6 +257,40 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final initialTarget = _shown ?? widget.store ?? widget.destination ?? const LatLng(20.5937, 78.9629);
+
+    final scootyPos = _shown ?? widget.store;
+    final destPos = widget.destination;
+
+    // Use real street road route if client resolved or if props has multi-point road
+    final baseRoute = (_roadRoute != null && _roadRoute!.length > 2)
+        ? _roadRoute!
+        : (widget.route.length > 2 ? widget.route : const <LatLng>[]);
+
+    // Connect path from scooty to destination along the road
+    final activeRoute = <LatLng>[
+      if (baseRoute.length > 2) ...[
+        if (scootyPos != null && _metersBetween(scootyPos, baseRoute.first) > 10) scootyPos,
+        ...baseRoute,
+        if (destPos != null && _metersBetween(destPos, baseRoute.last) > 10) destPos,
+      ],
+    ];
+
+    final effectiveMeters = _roadDistanceMeters ?? widget.distanceMeters;
+    final effectiveEta = _roadEtaText ?? widget.etaText;
+
+    final String distanceLabel;
+    if (effectiveMeters != null) {
+      if (effectiveMeters <= 30) {
+        distanceLabel = 'Near you';
+      } else if (effectiveMeters >= 1000) {
+        distanceLabel = '${(effectiveMeters / 1000).toStringAsFixed(1)} km away';
+      } else {
+        distanceLabel = '$effectiveMeters m away';
+      }
+    } else {
+      distanceLabel = '';
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
@@ -205,23 +304,59 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
               child: GoogleMap(
                 initialCameraPosition: CameraPosition(target: initialTarget, zoom: 14),
                 markers: _markers(),
+                circles: {
+                  if (destPos != null)
+                    Circle(
+                      circleId: const CircleId('dest_halo'),
+                      center: destPos,
+                      radius: 35,
+                      fillColor: const Color(0x2200C853),
+                      strokeColor: const Color(0xFF00C853),
+                      strokeWidth: 2,
+                    ),
+                },
                 polylines: {
-                  if (widget.route.length >= 2)
+                  if (activeRoute.length > 2) ...[
+                    // Layer 1: Outer glow
                     Polyline(
-                      polylineId: const PolylineId('route'),
-                      points: widget.route,
-                      color: _routeGreen,
-                      width: 5,
+                      polylineId: const PolylineId('route_glow'),
+                      points: activeRoute,
+                      color: const Color(0x3800E676),
+                      width: 14,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,
                     ),
+                    // Layer 2: Deep Dark Green casing
+                    Polyline(
+                      polylineId: const PolylineId('route_dark_casing'),
+                      points: activeRoute,
+                      color: const Color(0xFF1B5E20), // Rich Dark Green
+                      width: 8,
+                      startCap: Cap.roundCap,
+                      endCap: Cap.roundCap,
+                      jointType: JointType.round,
+                    ),
+                    // Layer 3: Vibrant Highlight Green road core
+                    Polyline(
+                      polylineId: const PolylineId('route_core'),
+                      points: activeRoute,
+                      color: const Color(0xFF00E676), // Bright Green
+                      width: 4,
+                      startCap: Cap.roundCap,
+                      endCap: Cap.roundCap,
+                      jointType: JointType.round,
+                    ),
+                  ],
                 },
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 mapToolbarEnabled: false,
                 compassEnabled: false,
                 tiltGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                onCameraMoveStarted: () => _userMoved = true,
+                padding: const EdgeInsets.only(bottom: 12, left: 12),
                 gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
                   Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
                 },
@@ -231,21 +366,77 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
                 },
               ),
             ),
-            if (_userMoved)
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Material(
+            // Floating ETA Pill (bottom-left) matching the UI mockup
+            Positioned(
+              bottom: 10,
+              left: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: const CircleBorder(),
-                  elevation: 3,
-                  child: IconButton(
-                    tooltip: 'Re-center',
-                    icon: const Icon(Icons.my_location, color: _routeGreen),
-                    onPressed: _recenter,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: Color(0xFF0F5A31),
+                      size: 13.5,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'ETA ${effectiveEta ?? '12 mins'}${distanceLabel.isNotEmpty ? ' • $distanceLabel' : ''}',
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.access_time_rounded,
+                      color: Color(0xFF64748B),
+                      size: 11.5,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Floating Re-center FAB (top-right) matching the UI mockup
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Material(
+                color: Colors.white,
+                shape: const CircleBorder(),
+                elevation: 2.5,
+                shadowColor: Colors.black.withValues(alpha: 0.18),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _recenter,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.my_location_rounded,
+                      color: Color(0xFF475569),
+                      size: 16,
+                    ),
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),

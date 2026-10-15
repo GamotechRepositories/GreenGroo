@@ -282,6 +282,19 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
+
+    // Full-page modern tracking view for live trackable orders matching UI mockup
+    if (_usesDarkStoreTracking(order)) {
+      return OrderTrackingPanel(
+        key: ValueKey('tracking-${order.id}'),
+        orderId: order.id,
+        order: order,
+        onStatusChanged: widget.onTrackingStatusChanged,
+        onOrderAgain: widget.onOrderAgain,
+        onInvoice: widget.onInvoice,
+      );
+    }
+
     final shipments = splitOrderShipments(order.items);
     final shipmentItems = shipments[_selectedShipment.clamp(0, shipments.length - 1)];
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));

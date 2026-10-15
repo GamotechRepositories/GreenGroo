@@ -49,8 +49,49 @@ function bearing(from, to) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-/** A slightly wavy path so the marker turns like a real ride. */
-function buildPath(from, to, count) {
+import { getRouteAndEta } from "../delivery-service/src/services/directionsService.js";
+
+function decodePolyline(encoded = "") {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += dlat;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += dlng;
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return points;
+}
+
+/** Get turn-by-turn road path from OSRM / Google, with fallback to interpolated path. */
+async function buildRoadPath(from, to, count) {
+  try {
+    const route = await getRouteAndEta({ origin: from, destination: to });
+    if (route?.polyline) {
+      const decoded = decodePolyline(route.polyline);
+      if (decoded.length >= 2) {
+        console.log(`[fake] fetched road route (${decoded.length} waypoints, ${route.distanceMeters} m, ${route.etaText})`);
+        return decoded;
+      }
+    }
+  } catch (err) {
+    console.warn("[fake] road route fetch failed, using interpolated path:", err.message);
+  }
+
   const points = [];
   for (let i = 0; i <= count; i += 1) {
     const t = i / count;
@@ -82,7 +123,7 @@ async function loadOrder() {
   const customerOrder = order.sourceOrderId
     ? await EcommerceOrder.findById(order.sourceOrderId).select("user deliveryAddress").lean()
     : null;
-  const from = { lat: Number(manager?.latitude), lng: Number(manager?.longitude) };
+  let from = { lat: Number(manager?.latitude), lng: Number(manager?.longitude) };
   const custLoc = customerOrder?.deliveryAddress?.location || {};
   const to = {
     lat: Number(order.customerLat ?? custLoc.lat),
@@ -92,6 +133,12 @@ async function loadOrder() {
 
   if (![from.lat, from.lng].every(Number.isFinite)) throw new Error("Dark store has no latitude/longitude");
   if (![to.lat, to.lng].every(Number.isFinite)) throw new Error("Order has no customer coordinates");
+
+  // If store and customer are within 250m (e.g. testing in the same room), offset origin 1.6km down the road
+  if (Math.abs(from.lat - to.lat) < 0.002 && Math.abs(from.lng - to.lng) < 0.002) {
+    from = { lat: 18.5905, lng: 73.7295 };
+  }
+
   return { order, from, to, customerUserId: customerOrder?.user ? String(customerOrder.user) : null };
 }
 
@@ -111,14 +158,15 @@ function watchAsCustomer(customerUserId, customerOrderId) {
 async function main() {
   const { order, from, to, customerUserId } = await loadOrder();
   console.log(`[fake] order ${order.orderNumber} status=${order.status} type=${order.orderType || "(derived)"}`);
-  console.log(`[fake] ${from.lat},${from.lng} → ${to.lat},${to.lng} in ${steps} steps every ${intervalMs} ms`);
+
+  const path = await buildRoadPath(from, to, steps);
+  console.log(`[fake] ${from.lat},${from.lng} → ${to.lat},${to.lng} in ${path.length} steps every ${intervalMs} ms`);
 
   const customerOrderId = order.sourceOrderId ? String(order.sourceOrderId) : null;
   const watcher = arg("watch") && customerUserId && customerOrderId ? watchAsCustomer(customerUserId, customerOrderId) : null;
 
   const token = jwt.sign({ id: String(order.assignedRiderId), role: "delivery_boy" }, secret, { expiresIn: "1h" });
   const socket = connect(baseUrl, { transports: ["websocket"], auth: { token } });
-  const path = buildPath(from, to, steps);
   let index = 0;
   let timer = null;
 

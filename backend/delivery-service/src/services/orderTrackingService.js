@@ -177,7 +177,11 @@ export async function recordDriverLocation({ storeOrder, rider, lat, lng, headin
 
   try {
     const io = getIO();
-    io.to(orderRoom(customerOrderId)).emit("location_update", {
+    const rooms = io.to(orderRoom(customerOrderId));
+    if (storeOrderId && storeOrderId !== customerOrderId) {
+      rooms.to(orderRoom(storeOrderId));
+    }
+    rooms.emit("location_update", {
       orderId: customerOrderId,
       storeOrderId,
       ...location,
@@ -314,7 +318,11 @@ export function emitOrderStatus(storeOrder, storeStatus = storeOrder?.status) {
   if (alreadyEmitted(`${idOf(storeOrder)}:${storeStatus}`)) return;
   try {
     const payload = buildStatusPayload(storeOrder, storeStatus);
-    getIO().to(orderRoom(payload.orderId)).emit("order_status", payload);
+    const rooms = getIO().to(orderRoom(payload.orderId));
+    if (payload.storeOrderId && payload.storeOrderId !== payload.orderId) {
+      rooms.to(orderRoom(payload.storeOrderId));
+    }
+    rooms.emit("order_status", payload);
   } catch (err) {
     console.warn("[tracking] order_status emit failed:", err.message);
   }

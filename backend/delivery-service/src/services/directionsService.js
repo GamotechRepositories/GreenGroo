@@ -14,6 +14,19 @@ const cache = new Map();
 
 export function toPoint(value) {
   if (!value) return null;
+  // If wrapped in location or point object
+  if (value.location && typeof value.location === "object") return toPoint(value.location);
+  if (value.point && typeof value.point === "object") return toPoint(value.point);
+
+  // GeoJSON coordinates [longitude, latitude]
+  if (Array.isArray(value.coordinates) && value.coordinates.length >= 2) {
+    const lng = Number(value.coordinates[0]);
+    const lat = Number(value.coordinates[1]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0)) {
+      return { lat, lng };
+    }
+  }
+
   const lat = Number(value.lat ?? value.latitude);
   const lng = Number(value.lng ?? value.longitude);
   if (value.lat == null && value.latitude == null) return null;
@@ -67,6 +80,46 @@ function estimateRoute(origin, destination) {
   };
 }
 
+async function fetchGoogleRoutesV2(origin, destination, apiKey) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+      },
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+        destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 100)}`);
+    }
+    const data = await res.json();
+    const route = data.routes?.[0];
+    if (!route || !route.polyline?.encodedPolyline) throw new Error("No route found in Routes v2 response");
+    const seconds = Math.max(60, parseInt(route.duration, 10) || 0);
+    const distanceMeters = Number(route.distanceMeters || 0);
+    return {
+      polyline: route.polyline.encodedPolyline,
+      distanceMeters,
+      etaSeconds: seconds,
+      etaText: formatEta(seconds),
+      source: "google_v2",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchGoogleRoute(origin, destination, apiKey) {
   const params = new URLSearchParams({
     origin: `${origin.lat},${origin.lng}`,
@@ -99,9 +152,39 @@ async function fetchGoogleRoute(origin, destination, apiKey) {
   }
 }
 
+async function fetchOsrmRoute(origin, destination) {
+  const url = `http://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=polyline`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.code !== "Ok" || !data.routes?.length) {
+      throw new Error(`OSRM code: ${data.code}`);
+    }
+    const route = data.routes[0];
+    const distanceMeters = Math.round(route.distance || 0);
+    const seconds = Math.max(60, Math.round(route.duration || 0));
+    return {
+      polyline: route.geometry,
+      distanceMeters,
+      etaSeconds: seconds,
+      etaText: formatEta(seconds),
+      source: "osrm",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
- * Route polyline + ETA from origin to destination. Google Directions when
- * GOOGLE_MAPS_API_KEY is set, otherwise (or on failure) a distance-based estimate.
+ * Route polyline + ETA from origin to destination.
+ * Order of resolution:
+ * 1. Google Routes API v2 (if GOOGLE_MAPS_API_KEY is configured and permitted)
+ * 2. Legacy Google Directions API
+ * 3. OSRM driving route (free turn-by-turn road geometry & realistic street ETA)
+ * 4. Fallback straight-line road estimate
  * Cached per `cacheKey` for 30 s as long as the origin moved less than 75 m.
  */
 export async function getRouteAndEta({ cacheKey = "", origin, destination }) {
@@ -122,14 +205,34 @@ export async function getRouteAndEta({ cacheKey = "", origin, destination }) {
 
   let result = null;
   const apiKey = String(process.env.GOOGLE_MAPS_API_KEY || "").trim();
+
+  // 1. Try Google Routes API v2
   if (apiKey) {
     try {
-      result = await fetchGoogleRoute(from, to, apiKey);
+      result = await fetchGoogleRoutesV2(from, to, apiKey);
     } catch (err) {
-      console.warn("[directions] Google Directions failed, using estimate:", err.message);
+      // 2. Try legacy Google Directions API
+      try {
+        result = await fetchGoogleRoute(from, to, apiKey);
+      } catch (errLegacy) {
+        // Fall through to OSRM
+      }
     }
   }
-  if (!result) result = estimateRoute(from, to);
+
+  // 3. Try OSRM (turn-by-turn road polyline without requiring GCP billing/credentials)
+  if (!result) {
+    try {
+      result = await fetchOsrmRoute(from, to);
+    } catch (errOsrm) {
+      console.warn("[directions] OSRM route fetch failed:", errOsrm.message);
+    }
+  }
+
+  // 4. Final fallback straight line estimate
+  if (!result) {
+    result = estimateRoute(from, to);
+  }
 
   if (cacheKey) {
     if (cache.size >= MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);

@@ -27,9 +27,9 @@ class Env {
   static bool get liveMapEnabled =>
       dotenv.env['LIVE_MAP_ENABLED']?.trim().toLowerCase() != 'false';
 
-  /// `osm` (default) = OpenStreetMap tiles, no API key. `google` = Google Maps SDK.
+  /// `google` (default) = Google Maps SDK. `osm` = OpenStreetMap tiles.
   static bool get useGoogleMaps =>
-      dotenv.env['MAP_PROVIDER']?.trim().toLowerCase() == 'google';
+      dotenv.env['MAP_PROVIDER']?.trim().toLowerCase() != 'osm';
 
   static String get merchantUpiId => dotenv.env['MERCHANT_UPI_ID']?.trim() ?? '';
 

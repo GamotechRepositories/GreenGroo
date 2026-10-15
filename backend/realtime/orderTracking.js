@@ -62,6 +62,9 @@ export function registerOrderTrackingSocket(io) {
         if (!access.ok) return reply(ack, { ok: false, code: access.code, message: access.message });
         const roomOrderId = String(access.customerOrder._id);
         socket.join(orderRoom(roomOrderId));
+        if (orderId && orderId !== roomOrderId) {
+          socket.join(orderRoom(orderId));
+        }
         return reply(ack, { ok: true, orderId: roomOrderId });
       } catch (err) {
         console.warn("[tracking] join_order failed:", err.message);

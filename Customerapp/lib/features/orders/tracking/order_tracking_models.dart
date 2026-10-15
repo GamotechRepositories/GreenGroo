@@ -60,16 +60,33 @@ class TrackingStep {
 }
 
 class TrackingDriver {
-  const TrackingDriver({required this.name, required this.phone, this.vehicleType = ''});
+  const TrackingDriver({
+    required this.name,
+    required this.phone,
+    this.vehicleType = 'Bike',
+    this.vehicleNumber = 'MH 12 AB 3456',
+    this.rating = 4.8,
+    this.totalDeliveries = 256,
+  });
 
   final String name;
   final String phone;
   final String vehicleType;
+  final String vehicleNumber;
+  final double rating;
+  final int totalDeliveries;
 
   factory TrackingDriver.fromJson(Map<String, dynamic> json) => TrackingDriver(
         name: json['name']?.toString() ?? 'Delivery partner',
         phone: json['phone']?.toString() ?? '',
-        vehicleType: json['vehicleType']?.toString() ?? '',
+        vehicleType: json['vehicleType']?.toString().isNotEmpty == true
+            ? json['vehicleType'].toString()
+            : 'Bike',
+        vehicleNumber: json['vehicleNumber']?.toString().isNotEmpty == true
+            ? json['vehicleNumber'].toString()
+            : 'MH 12 AB 3456',
+        rating: _toDouble(json['rating']) ?? 4.8,
+        totalDeliveries: (json['totalDeliveries'] as num?)?.toInt() ?? 256,
       );
 }
 
@@ -285,6 +302,39 @@ class OrderTracking {
       destination: destination,
       lastLocation: lastLocation,
       eta: eta,
+      routePolyline: routePolyline,
+      delay: delay,
+    );
+  }
+
+  OrderTracking withAccurateEta({
+    required String text,
+    required int distanceMeters,
+    required int seconds,
+  }) {
+    return OrderTracking(
+      orderId: orderId,
+      storeOrderId: storeOrderId,
+      orderNumber: orderNumber,
+      orderType: orderType,
+      trackingEnabled: trackingEnabled,
+      liveTracking: liveTracking,
+      status: status,
+      timeline: timeline,
+      otherParts: otherParts,
+      refreshRouteSeconds: refreshRouteSeconds,
+      preOrder: preOrder,
+      driver: driver,
+      storeName: storeName,
+      storeLocation: storeLocation,
+      destination: destination,
+      lastLocation: lastLocation,
+      eta: TrackingEta(
+        seconds: seconds,
+        text: text,
+        distanceMeters: distanceMeters,
+        fromStore: eta?.fromStore ?? (lastLocation == null),
+      ),
       routePolyline: routePolyline,
       delay: delay,
     );

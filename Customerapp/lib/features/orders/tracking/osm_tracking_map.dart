@@ -178,26 +178,28 @@ class _OsmTrackingMapState extends State<OsmTrackingMap> with SingleTickerProvid
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                    subdomains: const ['a', 'b', 'c', 'd'],
-                    userAgentPackageName: 'com.greengrocc.app',
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.greengrocc.userapp',
                     maxZoom: 19,
                   ),
-                  if (widget.route.length >= 2)
+                  if (widget.route.length > 2)
                     PolylineLayer(
                       polylines: [
                         Polyline(
                           points: widget.route.map(_ll).toList(),
-                          color: _routeGreen,
-                          strokeWidth: 5,
-                          borderColor: Colors.white,
-                          borderStrokeWidth: 1.5,
+                          color: const Color(0xFF1B5E20),
+                          strokeWidth: 7,
+                        ),
+                        Polyline(
+                          points: widget.route.map(_ll).toList(),
+                          color: const Color(0xFF00E676),
+                          strokeWidth: 4,
                         ),
                       ],
                     ),
                   MarkerLayer(
                     markers: [
-                      if (widget.store != null && _shown == null)
+                      if (widget.store != null)
                         Marker(
                           point: _ll(widget.store!),
                           width: 36,
