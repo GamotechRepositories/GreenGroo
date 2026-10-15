@@ -55,8 +55,11 @@ function storeRadiusKm(manager) {
 function addressHaystack(address = {}) {
   return [
     address.area,
+    address.streetArea,
     address.landmark,
+    address.address,
     address.fullAddress,
+    address.label,
     address.shopName,
     address.shopNo,
   ]
@@ -77,13 +80,21 @@ function matchesCity(manager, city) {
 
 function matchesArea(manager, address) {
   const area = norm(manager.area);
-  if (!area) return false;
-  const explicit = norm(address.area);
-  if (explicit && (explicit === area || explicit.includes(area) || area.includes(explicit))) {
-    return true;
+  const storeName = norm(manager.storeName);
+  const name = norm(manager.name);
+
+  const explicitArea = norm(address.area || address.streetArea);
+  if (explicitArea) {
+    if (area && (explicitArea === area || explicitArea.includes(area) || area.includes(explicitArea))) return true;
+    if (storeName && (explicitArea.includes(storeName) || storeName.includes(explicitArea))) return true;
   }
+
   const haystack = addressHaystack(address);
-  return Boolean(haystack) && haystack.includes(area);
+  if (!haystack) return false;
+  if (area && haystack.includes(area)) return true;
+  if (storeName && haystack.includes(storeName)) return true;
+  if (name && haystack.includes(name)) return true;
+  return false;
 }
 
 function withDistance(manager, coords) {
@@ -208,6 +219,21 @@ export async function resolveDarkStoreForOrder(
     return { manager: null, reason: "no_active_stores", city, distanceKm: null };
   }
 
+  // 1. Explicit Area / Address match FIRST:
+  // If the customer specifically selected or entered an area/address (e.g. Kothrud),
+  // route to that area's dark store so the customer sees that store's catalog even
+  // if their browser's physical GPS is elsewhere.
+  const areaMatches = active.filter((m) => matchesArea(m, address));
+  if (areaMatches.length > 0) {
+    const picked = pickNearest(areaMatches.map((manager) => withDistance(manager, coords)));
+    return {
+      manager: picked?.manager || areaMatches[0],
+      reason: "area_match",
+      city: picked?.manager?.city || city,
+      distanceKm: picked?.distanceKm ?? null,
+    };
+  }
+
   if (coords) {
     const withDistances = active
       .map((manager) => withDistance(manager, coords))
@@ -223,6 +249,21 @@ export async function resolveDarkStoreForOrder(
         distanceKm: nearest.distanceKm,
       };
     }
+
+    // 2. Check within each dark store's configured delivery radius (e.g. 5km - 10km)
+    const inStoreRadius = withDistances.filter(
+      (row) => row.distanceKm <= storeRadiusKm(row.manager)
+    );
+    const nearestInRadius = pickNearest(inStoreRadius);
+    if (nearestInRadius) {
+      return {
+        manager: nearestInRadius.manager,
+        reason: "within_store_radius",
+        city,
+        distanceKm: nearestInRadius.distanceKm,
+      };
+    }
+
     if (anyDistance) {
       const nearestAny = pickNearest(withDistances);
       if (nearestAny) {
@@ -254,15 +295,17 @@ export async function resolveDarkStoreForOrder(
     }
   }
 
-  if (!coords) {
-    return resolveDarkStoreForAddress(address);
+  // Fall back to city matching so an explicitly chosen city is served by a dark store in that city
+  const cityResolved = await resolveDarkStoreForAddress(address);
+  if (cityResolved?.manager) {
+    return cityResolved;
   }
 
   return {
     manager: null,
-    reason: allowPincodeFallback
-      ? `no_store_within_${ORDER_ROUTING_RADIUS_KM}km_or_pincode`
-      : `no_store_within_${ORDER_ROUTING_RADIUS_KM}km`,
+    reason: coords
+      ? `no_store_within_radius`
+      : `no_store_in_area`,
     city,
     distanceKm: null,
   };

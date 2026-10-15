@@ -9,7 +9,7 @@ export default function LoginPage() {
   const { location, detecting, error: locationError, detect } = useCurrentStoreLocation({
     auto: true,
   });
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +20,13 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    const payload = { email, password };
+    const trimmed = identifier.trim();
+    const payload = {
+      identifier: trimmed,
+      email: trimmed,
+      phone: trimmed,
+      password,
+    };
     if (location?.latitude != null && location?.longitude != null) {
       payload.latitude = location.latitude;
       payload.longitude = location.longitude;
@@ -86,13 +92,14 @@ export default function LoginPage() {
 
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Email or Mobile Number</label>
             <input
-              type="email"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              placeholder="e.g. manager@greengrocc.com or 9876543210"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 outline-none focus:border-green-primary"
             />
           </div>

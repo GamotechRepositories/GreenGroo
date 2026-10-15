@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation as useRouterLocation } from "react-router-dom";
 import { useLocation } from "../context/LocationContext";
 import { useAuth } from "../context/AuthContext";
-import { getAddresses, updateAddress } from "../api/api";
+import { getAddresses, updateAddress, getActiveDarkStores } from "../api/api";
 import {
   formatAddressLine,
   getAddressFullName,
@@ -27,6 +27,8 @@ function Location() {
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState("");
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [darkStores, setDarkStores] = useState([]);
+  const [loadingStores, setLoadingStores] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -71,6 +73,26 @@ function Location() {
       isMounted = false;
     };
   }, [user, location?.lat, location?.pincode, location?.area, location?.city]);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingStores(true);
+    getActiveDarkStores()
+      .then((res) => {
+        if (!isMounted) return;
+        const list = res.data?.data || [];
+        setDarkStores(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (isMounted) setDarkStores([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingStores(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const applyLocation = (next) => {
     const formatted = {
@@ -264,6 +286,85 @@ function Location() {
           )}
 
           {error ? <p className="mt-3 text-sm font-semibold text-rose-600">{error}</p> : null}
+
+          {/* Active Dark Stores / Service Areas */}
+          {darkStores.length > 0 && (
+            <div className="mt-6">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-text-primary">
+                    Select by Dark Store / Area
+                  </p>
+                  <p className="text-[11px] text-text-secondary">
+                    Pick a store to view its local inventory & products
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {darkStores.length} Stores Available
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {darkStores.map((store) => {
+                  const isCurrentStore =
+                    location?.area &&
+                    store.area &&
+                    (location.area.toLowerCase() === store.area.toLowerCase() ||
+                      (store.latitude && location.lat && Math.abs(store.latitude - location.lat) < 0.01));
+
+                  return (
+                    <button
+                      key={store.id || store.storeName}
+                      type="button"
+                      onClick={() => {
+                        applyLocation({
+                          label: store.storeName || `${store.area} Dark Store`,
+                          address: store.address || `${store.area}, ${store.city}`,
+                          area: store.area,
+                          city: store.city,
+                          pincode: store.pincode,
+                          lat: store.latitude,
+                          lng: store.longitude,
+                          fullAddress: store.address || `${store.area}, ${store.city}`,
+                        });
+                      }}
+                      className={`group flex items-start gap-3 rounded-2xl border p-3.5 text-left transition cursor-pointer ${
+                        isCurrentStore
+                          ? "border-emerald-600 bg-emerald-50/80 shadow-xs ring-1 ring-emerald-500/30"
+                          : "border-slate-200 bg-white hover:border-emerald-500/50 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 text-lg group-hover:scale-105 transition-transform">
+                        🏪
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-sm text-slate-900 truncate">
+                            {store.area || store.storeName}
+                          </span>
+                          {isCurrentStore && (
+                            <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {store.storeName} · {store.city}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-emerald-600">
+                            {store.inStockCount > 0
+                              ? `${store.inStockCount} items in stock`
+                              : "Store active"}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {savedLocations.length > 0 ? (
             <>

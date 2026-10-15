@@ -7,3 +7,4 @@ export {
 } from "./middleware/auth.js";
 export { errorHandler, notFound } from "./middleware/errorHandler.js";
 export { createServiceApp } from "./createServiceApp.js";
+export { checkPhoneConflict, normalizeIndianPhone } from "./utils/phoneCheck.js";

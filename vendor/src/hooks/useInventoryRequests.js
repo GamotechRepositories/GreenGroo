@@ -2,14 +2,17 @@ import { useCallback, useState } from "react";
 import { staffApi } from "../api/staffApi";
 import { useLive } from "../realtime/useLive";
 
-export function useInventoryRequests() {
+export function useInventoryRequests(params = {}) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const storeIdParam = params?.storeId || "";
+
   const load = useCallback(async () => {
     try {
-      const res = await staffApi.inventoryRequests();
+      const q = storeIdParam ? { storeId: storeIdParam } : {};
+      const res = await staffApi.inventoryRequests(q);
       setRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
       setError("");
     } catch (err) {
@@ -17,7 +20,7 @@ export function useInventoryRequests() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeIdParam]);
 
   useLive(load, [load]);
 

@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { PageShell } from '../../components/layout/ProductManagerLayout'
 import { staffApi } from '../../api/staffApi'
+import { vendorApi } from '../../api/vendorApi'
 import { useInventoryRequests } from '../../hooks/useInventoryRequests'
 import {
   Package,
@@ -194,7 +196,37 @@ const FALLBACK_SEED_REQUESTS = [
 const STORAGE_KEY = 'greengroo_segregation_packaging_v1'
 
 export default function InventoryRequestsPage() {
-  const { requests: apiRequests, loading, error, reload } = useInventoryRequests()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const storeIdParam = searchParams.get('storeId') || ''
+
+  const { requests: apiRequests, loading, error, reload } = useInventoryRequests({ storeId: storeIdParam })
+
+  const [vendorStores, setVendorStores] = useState([])
+  useEffect(() => {
+    vendorApi
+      .getDarkStoreRequests()
+      .then((res) => {
+        const list = Array.isArray(res.data?.darkStores)
+          ? res.data.darkStores
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+          ? res.data
+          : []
+        setVendorStores(list)
+      })
+      .catch(() => setVendorStores([]))
+  }, [])
+
+  // Find store matching storeIdParam
+  const selectedStoreObj = useMemo(() => {
+    if (!storeIdParam) return null
+    return vendorStores.find(
+      (s) =>
+        String(s._id || s.id) === storeIdParam ||
+        String(s.deliveryManagerId || '') === storeIdParam
+    )
+  }, [storeIdParam, vendorStores])
 
   // Packaging details persisted state: { [requestId]: { containerType, crateCount, packageStatus, note } }
   const [packagingState, setPackagingState] = useState(() => {
@@ -223,6 +255,30 @@ export default function InventoryRequestsPage() {
   const [toast, setToast] = useState('')
   const [busyId, setBusyId] = useState('')
 
+  // Sync selectedDarkstore when storeIdParam changes
+  useEffect(() => {
+    if (selectedStoreObj?.storeName) {
+      setSelectedDarkstore(selectedStoreObj.storeName)
+    } else if (!storeIdParam) {
+      setSelectedDarkstore('all')
+    }
+  }, [selectedStoreObj, storeIdParam])
+
+  // Handle darkstore change in dropdown with URL synchronization
+  const handleDarkstoreChange = (newStoreName) => {
+    setSelectedDarkstore(newStoreName)
+    if (newStoreName === 'all') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('storeId')
+      setSearchParams(next)
+    } else {
+      const found = vendorStores.find((s) => s.storeName === newStoreName)
+      if (found) {
+        setSearchParams({ storeId: found.id || found._id })
+      }
+    }
+  }
+
   // Print Modals State
   const [printLabelOrder, setPrintLabelOrder] = useState(null)
   const [printManifestStore, setPrintManifestStore] = useState(null)
@@ -230,7 +286,10 @@ export default function InventoryRequestsPage() {
 
   // Combine API requests with fallback seed requests if empty
   const allOrders = useMemo(() => {
-    const baseList = Array.isArray(apiRequests) && apiRequests.length > 0 ? apiRequests : FALLBACK_SEED_REQUESTS
+    const hasApi = Array.isArray(apiRequests) && apiRequests.length > 0
+    const baseList = hasApi
+      ? apiRequests
+      : (storeIdParam || vendorStores.length > 0 ? [] : FALLBACK_SEED_REQUESTS)
     return baseList.map((req) => {
       const id = req.id || req._id || req.requestNumber
       const saved = packagingState[id] || {}
@@ -248,16 +307,19 @@ export default function InventoryRequestsPage() {
         packageStatus: saved.packageStatus || req.packageStatus || (req.status === 'approved' ? 'pending' : 'pending'),
       }
     })
-  }, [apiRequests, packagingState])
+  }, [apiRequests, packagingState, storeIdParam, vendorStores.length])
 
   // Unique darkstore list for dropdown filter
   const darkstoreList = useMemo(() => {
     const set = new Set()
+    vendorStores.forEach((s) => {
+      if (s.storeName) set.add(s.storeName)
+    })
     allOrders.forEach((o) => {
       if (o.storeName) set.add(o.storeName)
     })
     return Array.from(set)
-  }, [allOrders])
+  }, [vendorStores, allOrders])
 
   // Filtered orders based on search, darkstore, status
   const filteredOrders = useMemo(() => {
@@ -456,6 +518,45 @@ export default function InventoryRequestsPage() {
         </div>
       )}
 
+      {/* Active Selected Dark Store Banner */}
+      {selectedStoreObj && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-emerald-50/30 p-4.5 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm text-2xl">
+              🏪
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-extrabold text-slate-900 text-lg">{selectedStoreObj.storeName}</h2>
+                <span className="rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                  {selectedStoreObj.status || 'Active Dark Store'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-emerald-600 inline" />
+                <span>{[selectedStoreObj.area, selectedStoreObj.city, selectedStoreObj.state].filter(Boolean).join(', ')}</span>
+                {selectedStoreObj.contactPhone && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span>📞 {selectedStoreObj.contactPhone}</span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSearchParams({})}
+              className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-xs"
+            >
+              ← View All Dark Stores
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI METRIC CARDS */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-5">
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -604,7 +705,7 @@ export default function InventoryRequestsPage() {
             <Store className="h-4 w-4 text-slate-400" />
             <select
               value={selectedDarkstore}
-              onChange={(e) => setSelectedDarkstore(e.target.value)}
+              onChange={(e) => handleDarkstoreChange(e.target.value)}
               className="h-9 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-600 focus:outline-none"
             >
               <option value="all">All Dark Stores</option>
@@ -641,9 +742,26 @@ export default function InventoryRequestsPage() {
         <div className="space-y-6">
           {darkstoreGroups.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-sm">
-              <Store className="mx-auto h-12 w-12 text-slate-300" />
-              <p className="mt-3 text-sm font-semibold text-slate-700">No darkstore orders found</p>
-              <p className="mt-1 text-xs text-slate-400">Try clearing filters or search terms.</p>
+              <Store className="mx-auto h-12 w-12 text-emerald-400" />
+              <p className="mt-3 text-sm font-bold text-slate-800">
+                {selectedStoreObj
+                  ? `No restock requests from ${selectedStoreObj.storeName} yet`
+                  : 'No dark store orders found'}
+              </p>
+              <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                {selectedStoreObj
+                  ? 'When the store manager requests inventory from the Delivery Manager portal, the request will appear here for your review and approval.'
+                  : 'Try selecting a different dark store from the dropdown or clear your search filters.'}
+              </p>
+              {selectedStoreObj && (
+                <button
+                  type="button"
+                  onClick={() => setSearchParams({})}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition"
+                >
+                  View All Dark Stores
+                </button>
+              )}
             </div>
           ) : (
             darkstoreGroups.map((storeGroup) => {
@@ -768,6 +886,10 @@ export default function InventoryRequestsPage() {
                                   {isApproved ? (
                                     <span className="text-[10px] rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 ring-1 ring-emerald-200">
                                       Approved
+                                    </span>
+                                  ) : order.status === 'rejected' ? (
+                                    <span className="text-[10px] rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700 ring-1 ring-rose-200">
+                                      Rejected
                                     </span>
                                   ) : (
                                     <span className="text-[10px] rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 ring-1 ring-amber-200">
@@ -900,14 +1022,24 @@ export default function InventoryRequestsPage() {
 
                                 {/* If backend request is still pending approval */}
                                 {order.status === 'pending' && (
-                                  <button
-                                    type="button"
-                                    disabled={Boolean(busyId)}
-                                    onClick={() => review(order.id, 'approved')}
-                                    className="rounded-lg bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                                  >
-                                    Approve
-                                  </button>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={Boolean(busyId)}
+                                      onClick={() => review(order.id, 'approved')}
+                                      className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={Boolean(busyId)}
+                                      onClick={() => review(order.id, 'rejected')}
+                                      className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1086,14 +1218,24 @@ export default function InventoryRequestsPage() {
                               Label
                             </button>
                             {order.status === 'pending' && (
-                              <button
-                                type="button"
-                                disabled={Boolean(busyId)}
-                                onClick={() => review(order.id, 'approved')}
-                                className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
-                              >
-                                Approve
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={Boolean(busyId)}
+                                  onClick={() => review(order.id, 'approved')}
+                                  className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={Boolean(busyId)}
+                                  onClick={() => review(order.id, 'rejected')}
+                                  className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>

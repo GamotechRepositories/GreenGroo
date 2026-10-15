@@ -450,7 +450,7 @@ export async function seedDefaultCategoriesIfEmpty() {
       if (!cat.section || cat.section === "greengrocc") {
         cat.section = cat.storeType === "festive" ? "ready2cook" : cat.storeType === "mall" ? "instantorder" : "preorder";
         needsSave = true;
-      } ``
+      }
       if (!cat.sectionName || cat.sectionName === "GreenGrocc") {
         cat.sectionName =
           cat.section === "ready2cook"

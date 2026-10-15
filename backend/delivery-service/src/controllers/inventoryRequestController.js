@@ -111,6 +111,7 @@ export const createInventoryRequest = async (req, res, next) => {
     const request = await InventoryRequest.create({
       requestNumber: makeRequestNumber(),
       managerId: manager._id,
+      vendorId: manager.vendorId || "",
       storeName: manager.storeName || `${manager.area} Store`,
       managerName: manager.name || "",
       city: manager.city || "",
@@ -182,7 +183,37 @@ export const listAllInventoryRequests = async (req, res, next) => {
     }
 
     const managerIds = await scopedManagerIds(req);
-    if (managerIds) filter.managerId = { $in: managerIds };
+    const rawTargetId = String(
+      req.query.storeId || req.query.darkStoreId || req.query.managerId || ""
+    ).trim();
+
+    let targetStoreId = rawTargetId;
+    if (rawTargetId && !mongoose.isValidObjectId(rawTargetId)) {
+      try {
+        const dsr = await mongoose.connection.collection("darkstorerequests").findOne({ id: rawTargetId });
+        if (dsr?.darkStoreId && mongoose.isValidObjectId(dsr.darkStoreId)) {
+          targetStoreId = String(dsr.darkStoreId);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (targetStoreId && mongoose.isValidObjectId(targetStoreId)) {
+      if (managerIds) {
+        const inScope = managerIds.some((id) => String(id) === targetStoreId);
+        if (!inScope) {
+          return res.json({ success: true, count: 0, requests: [] });
+        }
+      }
+      filter.managerId = targetStoreId;
+    } else if (managerIds) {
+      const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
+      filter.$or = [
+        ...(vendorId ? [{ vendorId }] : []),
+        { managerId: { $in: managerIds } },
+      ];
+    }
 
     const requests = await InventoryRequest.find(filter).sort({ createdAt: -1 });
     return res.json({
@@ -218,14 +249,25 @@ export const reviewInventoryRequest = async (req, res, next) => {
     }
 
     const request = await InventoryRequest.findById(req.params.requestId);
-    const managerIds = request ? await scopedManagerIds(req) : null;
-    const outOfScope =
-      managerIds && !managerIds.some((id) => String(id) === String(request.managerId));
-    if (!request || outOfScope) {
+    if (!request) {
       return res.status(404).json({
         success: false,
         message: "Inventory request not found",
       });
+    }
+
+    if (isVendorRole(req.user?.role)) {
+      const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
+      const managerIds = await scopedManagerIds(req);
+      const isMine =
+        (request.vendorId && request.vendorId === vendorId) ||
+        (managerIds && managerIds.some((id) => String(id) === String(request.managerId)));
+      if (!isMine) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to review this dark store's requests",
+        });
+      }
     }
 
     // Allow status transitions from any state to any state for flexibility, or just track changes.
@@ -246,10 +288,10 @@ export const reviewInventoryRequest = async (req, res, next) => {
       if (staff) reviewerName = staff.name || staff.email || reviewerName;
     }
 
-    if (decision === "approved" && request.status === "pending") {
+    if (decision === "approved" && request.status !== "approved") {
       const updated = await StoreInventory.findOneAndUpdate(
         { managerId: request.managerId, sku: request.sku },
-        { $inc: { stockCount: request.quantity } },
+        { $inc: { stockCount: request.quantity }, $set: { isActive: true } },
         { new: true }
       );
 

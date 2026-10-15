@@ -2,6 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import { DarkStoreRequest } from "./models.js";
+import { checkPhoneConflict } from "../../shared/utils/phoneCheck.js";
 
 function vendorIdOf(req) {
   return req.user?.vendorId || req.user?.id || "";
@@ -58,13 +59,17 @@ export async function createVendorDarkStoreRequest(req, res) {
       return res.status(400).json({ message: "Enter both latitude and longitude, or leave both empty" });
     }
 
-    const [takenAccount, pendingDuplicate] = await Promise.all([
-      DeliveryManager.exists({ $or: [{ email }, { phone }] }),
-      DarkStoreRequest.exists({ status: "Pending", $or: [{ email }, { phone }] }),
+    const [takenEmail, pendingEmail, phoneConflict] = await Promise.all([
+      DeliveryManager.exists({ email }),
+      DarkStoreRequest.exists({ status: "Pending", email }),
+      checkPhoneConflict(phone),
     ]);
-    if (takenAccount) return res.status(409).json({ message: "A dark store with this email or mobile already exists" });
-    if (pendingDuplicate) {
-      return res.status(409).json({ message: "A pending request with this email or mobile is already waiting for approval" });
+    if (takenEmail) return res.status(409).json({ message: "A dark store with this email already exists" });
+    if (pendingEmail) {
+      return res.status(409).json({ message: "A pending request with this email is already waiting for approval" });
+    }
+    if (phoneConflict.inUse) {
+      return res.status(409).json({ message: phoneConflict.message });
     }
 
     const request = await DarkStoreRequest.create({

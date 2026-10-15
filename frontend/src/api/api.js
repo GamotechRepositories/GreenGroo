@@ -81,6 +81,8 @@ export const getSimilarProducts = (id, params) =>
   api.get(`/api/products/${id}/similar`, { params });
 export const getNearestStore = (params) =>
   api.get("/api/stores/nearest", { params });
+export const getActiveDarkStores = () =>
+  api.get("/api/stores/all");
 
 export const getCart = () => api.get("/api/cart");
 export const addToCartItem = (data) => api.post("/api/cart", data);

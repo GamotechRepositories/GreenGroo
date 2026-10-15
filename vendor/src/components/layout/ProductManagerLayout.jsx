@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BadgeCheck,
+  Boxes,
   Briefcase,
   CalendarClock,
   CalendarDays,
@@ -117,6 +118,14 @@ const navItems = [
       { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
     ],
   },
+  {
+    id: 'req-stock',
+    label: 'Req Stock',
+    icon: Boxes,
+    children: [
+      { to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true },
+    ],
+  },
   { to: '/vendor/preorders', label: 'Pre-orders', icon: CalendarClock },
   {
     id: 'orders',
@@ -167,8 +176,13 @@ const footerItems = [
 function NavGroup({ item, collapsed, onNavigate }) {
   const location = useLocation()
   const path = location.pathname
+  const currentFull = location.pathname + location.search
+
   const isChildActive = Boolean(
     item.children?.some((child) => {
+      if (child.to.includes('?')) {
+        return currentFull === child.to
+      }
       const childPath = String(child.to || '').split('?')[0]
       return (
         path.startsWith(childPath) ||
@@ -181,7 +195,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
 
   useEffect(() => {
     if (isChildActive) setOpen(true)
-  }, [location.pathname, isChildActive])
+  }, [location.pathname, location.search, isChildActive])
 
   if (collapsed) {
     return (
@@ -225,13 +239,14 @@ function NavGroup({ item, collapsed, onNavigate }) {
         <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2.5">
           {item.children.map((child) => {
             const childPath = String(child.to || '').split('?')[0]
-            const isChildItemActive =
-              path === childPath ||
-              (!child.exact && path.startsWith(childPath + '/')) ||
-              (childPath.endsWith('/farmer') &&
-                (path === '/vendor/orders' ||
-                  path.startsWith('/vendor/orders/create') ||
-                  path.startsWith('/vendor/orders/detail')))
+            const hasQuery = child.to.includes('?')
+            const isChildItemActive = hasQuery
+              ? currentFull === child.to
+              : (!location.search && (path === childPath || (!child.exact && path.startsWith(childPath + '/')))) ||
+                (childPath.endsWith('/farmer') &&
+                  (path === '/vendor/orders' ||
+                    path.startsWith('/vendor/orders/create') ||
+                    path.startsWith('/vendor/orders/detail')))
 
             return (
               <NavLink
@@ -312,6 +327,41 @@ export default function ProductManagerLayout() {
 
   const compact = collapsed && !mobileOpen
 
+  const [vendorDarkStores, setVendorDarkStores] = useState([])
+
+  useEffect(() => {
+    let isMounted = true
+    vendorApi
+      .getDarkStoreRequests()
+      .then((res) => {
+        if (!isMounted) return
+        setVendorDarkStores(res.data?.darkStores || [])
+      })
+      .catch(() => {})
+    return () => {
+      isMounted = false
+    }
+  }, [location.pathname])
+
+  const itemsToRender = useMemo(() => {
+    return navItems.map((item) => {
+      if (item.id === 'req-stock') {
+        const storeChildren = (vendorDarkStores || []).map((store) => ({
+          to: `/vendor/inventory-requests?storeId=${store.id || store._id}`,
+          label: store.storeName || `${store.area} Store`,
+        }))
+        return {
+          ...item,
+          children: [
+            { to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true },
+            ...storeChildren,
+          ],
+        }
+      }
+      return item
+    })
+  }, [vendorDarkStores])
+
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
@@ -382,7 +432,7 @@ export default function ProductManagerLayout() {
 
         {/* Scrollable Navigation */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {navItems.map((item) => (
+          {itemsToRender.map((item) => (
             <NavItem
               key={item.to || item.id}
               item={item}

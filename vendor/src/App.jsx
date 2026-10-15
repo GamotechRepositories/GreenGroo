@@ -195,6 +195,7 @@ function App() {
                 <Route path="/vendor/hr-management/recruitment" element={<HrRecruitmentPage />} />
                 <Route path="/vendor/hr-management/attendance" element={<HrAttendancePage />} />
                 <Route path="/vendor/hr-management/meetings" element={<HrMeetingsPage />} />
+                <Route path="/vendor/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
                 <Route

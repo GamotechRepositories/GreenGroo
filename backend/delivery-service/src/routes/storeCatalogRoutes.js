@@ -1,7 +1,28 @@
 import express from "express";
-import { loadNearestStoreCatalog } from "../services/nearestStoreCatalog.js";
+import DeliveryManager from "../models/DeliveryManager.js";
+import StoreInventory from "../models/StoreInventory.js";
+import { loadNearestStoreCatalog, storePublicPayload } from "../services/nearestStoreCatalog.js";
 
 const router = express.Router();
+
+router.get("/all", async (req, res, next) => {
+  try {
+    const managers = await DeliveryManager.find({ isActive: true }).lean();
+    const storesWithCounts = await Promise.all(
+      managers.map(async (m) => {
+        const inStockCount = await StoreInventory.countDocuments({
+          managerId: m._id,
+          isActive: true,
+          stockCount: { $gt: 0 },
+        });
+        return storePublicPayload(m, { inStockCount });
+      })
+    );
+    return res.json({ success: true, data: storesWithCounts });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/nearest", async (req, res, next) => {
   try {

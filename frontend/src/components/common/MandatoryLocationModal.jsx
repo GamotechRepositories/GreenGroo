@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 import { useLocation } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
-import { getAddresses } from "../../api/api";
+import { getAddresses, getActiveDarkStores } from "../../api/api";
 import { detectCurrentLocation, formatDeliveryLine } from "../../utils/detectCurrentLocation";
 import { formatAddressLine, getAddressFullName, getAddressTypeTag, sortAddressesByLatest } from "../../utils/addressDisplay";
 import AddressTagBadge from "../address/AddressTagBadge";
@@ -20,6 +20,7 @@ export default function MandatoryLocationModal() {
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState("");
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [darkStores, setDarkStores] = useState([]);
 
   // Load saved locations for logged-in user
   useEffect(() => {
@@ -44,6 +45,22 @@ export default function MandatoryLocationModal() {
       isMounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getActiveDarkStores()
+      .then((res) => {
+        if (!isMounted) return;
+        const list = res.data?.data || [];
+        setDarkStores(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (isMounted) setDarkStores([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const isAuthOrLocationPage = [
     "/login",
@@ -224,6 +241,53 @@ export default function MandatoryLocationModal() {
                   </div>
                 </button>
               </div>
+
+              {/* Active Dark Stores / Service Areas */}
+              {darkStores.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Or select by Dark Store / Area
+                    </p>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      {darkStores.length} Stores Available
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {darkStores.map((store) => (
+                      <button
+                        key={store.id || store.storeName}
+                        type="button"
+                        onClick={() => {
+                          applyLocation({
+                            label: store.storeName || `${store.area} Dark Store`,
+                            address: store.address || `${store.area}, ${store.city}`,
+                            area: store.area,
+                            city: store.city,
+                            pincode: store.pincode,
+                            lat: store.latitude,
+                            lng: store.longitude,
+                            fullAddress: store.address || `${store.area}, ${store.city}`,
+                          });
+                        }}
+                        className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 text-left transition hover:border-emerald-500 hover:bg-emerald-50/50 cursor-pointer"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-base">
+                          🏪
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            {store.area || store.storeName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {store.storeName} · {store.inStockCount > 0 ? `${store.inStockCount} items in stock` : "Active"}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Saved Locations */}
               {savedLocations.length > 0 ? (

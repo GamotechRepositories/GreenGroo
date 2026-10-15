@@ -35,6 +35,7 @@ import {
 import CatalogProduct from "../../legacy/models/Product.js";
 import { createCentreForVendor, createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
+import { checkPhoneConflict } from "../../shared/utils/phoneCheck.js";
 import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
 import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
 import {
@@ -838,6 +839,10 @@ export async function createDarkStoreAdmin(req, res, next) {
     if (!state || !city || !area) return fail(res, 400, "State, city and area are required");
     if (vendorId && !(await Vendor.exists({ id: vendorId }))) return fail(res, 400, "Selected collection centre was not found");
 
+    const phoneConflict = await checkPhoneConflict(phone);
+    if (phoneConflict.inUse) return fail(res, 409, phoneConflict.message);
+    if (await DeliveryManager.exists({ email })) return fail(res, 409, "A dark store with this email already exists");
+
     const latitude = body.latitude === "" || body.latitude == null ? null : Number(body.latitude);
     const longitude = body.longitude === "" || body.longitude == null ? null : Number(body.longitude);
     if ((latitude === null) !== (longitude === null) || [latitude, longitude].some((n) => n !== null && !Number.isFinite(n))) {
@@ -902,8 +907,15 @@ export async function approveDarkStoreRequestAdmin(req, res, next) {
     if (!(await Vendor.exists({ id: request.vendorId }))) {
       return fail(res, 400, "The collection centre that sent this request no longer exists");
     }
-    if (await DeliveryManager.exists({ $or: [{ email: request.email }, { phone: request.phone }] })) {
-      return fail(res, 409, "A dark store with this email or mobile already exists. Reject this request instead.");
+    const phoneConflict = await checkPhoneConflict(request.phone, {
+      excludeModel: "DarkStoreRequest",
+      excludeId: request.id,
+    });
+    if (phoneConflict.inUse) {
+      return fail(res, 409, `${phoneConflict.message}. Reject this request instead.`);
+    }
+    if (await DeliveryManager.exists({ email: request.email })) {
+      return fail(res, 409, "A dark store with this email already exists. Reject this request instead.");
     }
 
     // Placeholder password satisfies the schema; the vendor-chosen hash is written afterwards so the

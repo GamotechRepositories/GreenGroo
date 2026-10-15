@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
+import { checkPhoneConflict } from "../../../shared/utils/phoneCheck.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -145,11 +146,11 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const existingPhone = await DeliveryManager.findOne({ phone });
-    if (existingPhone) {
+    const phoneConflict = await checkPhoneConflict(phone);
+    if (phoneConflict.inUse) {
       return res.status(409).json({
         success: false,
-        message: "Phone number already registered",
+        message: phoneConflict.message,
       });
     }
 
@@ -186,8 +187,9 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const email = String(req.body.email || "").trim().toLowerCase();
-    const phone = normalizePhone(req.body.phone);
+    const rawIdentifier = String(req.body.identifier || req.body.email || req.body.phone || "").trim();
+    const phone = normalizePhone(req.body.phone || rawIdentifier);
+    const email = rawIdentifier.toLowerCase();
     const password = String(req.body.password || "");
 
     if ((!email && !phone) || !password) {
@@ -197,7 +199,19 @@ export const login = async (req, res, next) => {
       });
     }
 
-    const query = email ? { email } : { phone };
+    let query;
+    if (phone && /^[6-9]\d{9}$/.test(phone) && !rawIdentifier.includes("@")) {
+      query = { phone };
+    } else if (rawIdentifier.includes("@")) {
+      query = { email };
+    } else {
+      query = {
+        $or: [
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phone }] : []),
+        ],
+      };
+    }
     const manager = await DeliveryManager.findOne(query).select("+password");
 
     if (!manager || !(await manager.comparePassword(password))) {
