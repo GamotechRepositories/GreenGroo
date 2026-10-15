@@ -13,8 +13,6 @@ import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/home/home_providers.dart';
-import '../../features/home/widgets/home_delivery_bar.dart';
-import '../../features/home/widgets/home_header_category_strip.dart';
 import '../../features/home/widgets/home_search_bar.dart';
 import '../../features/product/product_providers.dart';
 import '../../models/cart_item.dart';
@@ -81,6 +79,12 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     if (oldWidget.sortId != widget.sortId) {
       _sort = ProductSortOption.fromId(widget.sortId) ??
           ProductSortOption.listingDefault;
+    }
+    if (oldWidget.subcategory != widget.subcategory ||
+        oldWidget.categoryName != widget.categoryName) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
     }
   }
 
@@ -205,166 +209,93 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final topInset = MediaQuery.paddingOf(context).top;
     final activeCategoryName = widget.categoryName ?? 'All';
 
-    // Keep selected category header tab synchronized
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (ref.read(selectedCategoryHeaderTabProvider) != activeCategoryName) {
-        ref
-            .read(selectedCategoryHeaderTabProvider.notifier)
-            .setCategory(activeCategoryName);
-      }
-    });
-
     final currentStore = ref.watch(selectedStoreTabProvider);
+    final headerBgColor = StoreChrome.forStore(currentStore).header;
 
-    return NestedScrollView(
-      headerSliverBuilder: (context, innerBoxIsScrolled) => [
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _StickyHeaderDelegate(
-            topInset: topInset,
-            currentStore: currentStore,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          // Sticky top header: Search bar + Offers button (and back button)
+          Container(
+            color: headerBgColor,
+            padding: EdgeInsets.only(top: topInset + 4, bottom: 6),
+            child: HomeSearchBar(
+              isLightBg: true,
+              showBackButton: true,
+              initialQuery: widget.searchQuery,
+            ),
           ),
-        ),
-      ],
-      body: Builder(
-        builder: (context) {
-          if (paged.loadingFirst) {
-            return const SkeletonProductGrid(useShellBottomInset: true);
-          }
-          if (paged.error != null && paged.items.isEmpty) {
-            return ApiErrorView(
-              message: 'Could not load products',
-              onRetry: _refreshProducts,
-            );
-          }
-          final products = paged.items;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (showLeftSidebar)
-                _LeftSubcategorySidebar(
-                  activeCategory: widget.categoryName!,
-                  activeSubcategory: widget.subcategory,
-                  products: products,
-                  onSelectSubcategory: _applySubcategory,
-                ),
-              Expanded(
-                child: Column(
+          // Content Area: Left Subcategories & Right Products
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (paged.loadingFirst) {
+                  return const SkeletonProductGrid(useShellBottomInset: true);
+                }
+                if (paged.error != null && paged.items.isEmpty) {
+                  return ApiErrorView(
+                    message: 'Could not load products',
+                    onRetry: _refreshProducts,
+                  );
+                }
+                final products = paged.items;
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ProductFiltersBar(
-                      brands: extractBrands(products),
-                      selectedBrand: widget.brand ?? '',
-                      sortBy: _sort,
-                      onBrandChange: _updateBrand,
-                      onSortChange: _updateSort,
-                      hasActiveFilters: _hasActiveFilters,
-                      onClear: _clearListingFilters,
-                    ),
+                    if (showLeftSidebar)
+                      _LeftSubcategorySidebar(
+                        activeCategory: widget.categoryName!,
+                        activeSubcategory: widget.subcategory,
+                        products: products,
+                        onSelectSubcategory: _applySubcategory,
+                      ),
                     Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _refreshProducts,
-                        child: _ProductResultsView(
-                          products: products,
-                          searchQuery: widget.searchQuery,
-                          categoryName: widget.categoryName,
-                          subcategory: widget.subcategory,
-                          brand: widget.brand,
-                          minPrice: widget.minPrice,
-                          maxPrice: widget.maxPrice,
-                          sort: _sort,
-                          onAdd: _handleAdd,
-                          hasMore: paged.hasMore,
-                          loadingMore: paged.loadingMore,
-                          loadMoreFailed: paged.error != null,
-                          onLoadMore: () =>
-                              ref.read(pagedProductsProvider(query).notifier).loadMore(),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ProductFiltersBar(
+                            brands: extractBrands(products),
+                            selectedBrand: widget.brand ?? '',
+                            sortBy: _sort,
+                            onBrandChange: _updateBrand,
+                            onSortChange: _updateSort,
+                            hasActiveFilters: _hasActiveFilters,
+                            onClear: _clearListingFilters,
+                          ),
+                          Expanded(
+                            child: RefreshIndicator(
+                              onRefresh: _refreshProducts,
+                              child: _ProductResultsView(
+                                scrollController: _scrollController,
+                                products: products,
+                                searchQuery: widget.searchQuery,
+                                categoryName: widget.categoryName,
+                                subcategory: widget.subcategory,
+                                brand: widget.brand,
+                                minPrice: widget.minPrice,
+                                maxPrice: widget.maxPrice,
+                                sort: _sort,
+                                onAdd: _handleAdd,
+                                hasMore: paged.hasMore,
+                                loadingMore: paged.loadingMore,
+                                loadMoreFailed: paged.error != null,
+                                onLoadMore: () =>
+                                    ref.read(pagedProductsProvider(query).notifier).loadMore(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double topInset;
-  final String currentStore;
-
-  _StickyHeaderDelegate({
-    required this.topInset,
-    required this.currentStore,
-  });
-
-  @override
-  double get minExtent => topInset + 104.0;
-
-  @override
-  double get maxExtent => topInset + 172.0;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final currentExtent =
-        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    final maxShrink = maxExtent - minExtent;
-    final progress =
-        maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
-    final deliveryBarHeight = (68.0 * (1.0 - progress)).clamp(0.0, 68.0);
-
-    final headerBgColor = StoreChrome.forStore(currentStore).header;
-
-    return SizedBox(
-      height: currentExtent,
-      child: ColoredBox(
-        color: headerBgColor,
-        child: Padding(
-          padding: EdgeInsets.only(top: topInset),
-          child: ClipRect(
-            child: OverflowBox(
-              minHeight: 0,
-              maxHeight: 300,
-              alignment: Alignment.topCenter,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (progress < 1.0)
-                    SizedBox(
-                      height: deliveryBarHeight,
-                      child: OverflowBox(
-                        minHeight: 68.0,
-                        maxHeight: 68.0,
-                        alignment: Alignment.bottomCenter,
-                        child: Opacity(
-                          opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-                          child: const HomeDeliveryBar(),
-                        ),
-                      ),
-                    ),
-                  const HomeSearchBar(isLightBg: true),
-                  const HomeHeaderCategoryStrip(isLightBg: true),
-                ],
-              ),
+                );
+              },
             ),
           ),
-        ),
+        ],
       ),
     );
-  }
-
-  @override
-  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
-    return oldDelegate.topInset != topInset || oldDelegate.currentStore != currentStore;
   }
 }
 
@@ -465,16 +396,15 @@ class _LeftSubcategorySidebarState
           right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
       ),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification notification) {
-          return true; // Isolate sidebar scroll from ancestor NestedScrollView
-        },
-        child: ListView.builder(
-          controller: _sidebarScrollController,
-          physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          itemCount: subItems.length,
-          itemBuilder: (context, index) {
+      child: ListView.builder(
+        controller: _sidebarScrollController,
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: ShellBottomInsets.of(context),
+        ),
+        itemCount: subItems.length,
+        itemBuilder: (context, index) {
           final item = subItems[index];
           final isAll = index == 0;
           final isSelected = isAll
@@ -553,13 +483,13 @@ class _LeftSubcategorySidebarState
           );
         },
       ),
-    ),
-  );
+    );
   }
 }
 
 class _ProductResultsView extends ConsumerStatefulWidget {
   const _ProductResultsView({
+    this.scrollController,
     required this.products,
     required this.searchQuery,
     required this.categoryName,
@@ -575,6 +505,7 @@ class _ProductResultsView extends ConsumerStatefulWidget {
     required this.onLoadMore,
   });
 
+  final ScrollController? scrollController;
   final List<Product> products;
   final String? searchQuery;
   final String? categoryName;
@@ -744,6 +675,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
   Widget _buildGrid(BuildContext context) {
     final bottomPadding = ShellBottomInsets.listPadding(context, top: 12);
     return CustomScrollView(
+      controller: widget.scrollController,
       physics: AppScrollConfig.listPhysics,
       cacheExtent: AppScrollConfig.cacheExtent,
       slivers: [

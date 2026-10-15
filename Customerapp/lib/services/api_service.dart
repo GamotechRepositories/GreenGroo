@@ -491,6 +491,12 @@ class ApiService {
     );
   }
 
+  void _assertCustomerUser(User user) {
+    if (user.isAdmin || user.isBlocked) {
+      throw ApiException(user.blockedMessage);
+    }
+  }
+
   Future<AuthSession> loginWithPhone({
     required String phone,
     required String password,
@@ -506,8 +512,10 @@ class ApiService {
       );
     }
     final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
+    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    _assertCustomerUser(user);
     return AuthSession(
-      user: User.fromJson(data['user'] as Map<String, dynamic>),
+      user: user,
       token: data['token']?.toString() ?? '',
     );
   }
@@ -533,8 +541,10 @@ class ApiService {
       );
     }
     final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
+    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    _assertCustomerUser(user);
     return AuthSession(
-      user: User.fromJson(data['user'] as Map<String, dynamic>),
+      user: user,
       token: data['token']?.toString() ?? '',
     );
   }
@@ -582,8 +592,10 @@ class ApiService {
     if (body is! Map<String, dynamic>) {
       throw ApiException('Invalid signup response');
     }
+    final user = User.fromJson(body['user'] as Map<String, dynamic>);
+    _assertCustomerUser(user);
     return AuthSession(
-      user: User.fromJson(body['user'] as Map<String, dynamic>),
+      user: user,
       token: body['token']?.toString() ?? '',
     );
   }
@@ -608,8 +620,10 @@ class ApiService {
     if (body is! Map<String, dynamic>) {
       throw ApiException('Invalid password reset response');
     }
+    final user = User.fromJson(body['user'] as Map<String, dynamic>);
+    _assertCustomerUser(user);
     return AuthSession(
-      user: User.fromJson(body['user'] as Map<String, dynamic>),
+      user: user,
       token: body['token']?.toString() ?? '',
     );
   }
@@ -667,20 +681,26 @@ class ApiService {
       );
     }
     final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
+    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    _assertCustomerUser(user);
     return AuthSession(
-      user: User.fromJson(data['user'] as Map<String, dynamic>),
+      user: user,
       token: data['token']?.toString() ?? '',
     );
   }
 
   Future<User> fetchMe() async {
     final response = await getMe();
-    return parseOnBackground(parseUserResponse, response.data);
+    final user = await parseOnBackground(parseUserResponse, response.data);
+    _assertCustomerUser(user);
+    return user;
   }
 
   Future<User> updateProfile(Map<String, dynamic> data) async {
     final response = await updateMe(data);
-    return parseOnBackground(parseUserResponse, response.data);
+    final user = await parseOnBackground(parseUserResponse, response.data);
+    _assertCustomerUser(user);
+    return user;
   }
 
   Future<List<Address>> fetchAddresses() async {

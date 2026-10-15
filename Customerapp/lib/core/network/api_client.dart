@@ -45,6 +45,18 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) {
+          final statusCode = error.response?.statusCode;
+          if (statusCode == 401 || statusCode == 403) {
+            final data = error.response?.data;
+            final message = (data is Map<String, dynamic>
+                    ? data['message']?.toString()
+                    : null) ??
+                '';
+            final lower = message.toLowerCase();
+            if (lower.contains('admin') || lower.contains('blocked')) {
+              _authStorage.clear();
+            }
+          }
           handler.reject(
             DioException(
               requestOptions: error.requestOptions,

@@ -38,6 +38,13 @@ class ApiException implements Exception {
           cause: error,
         );
       default:
+        if (response?.statusCode == 403) {
+          return ApiException(
+            'Please use the admin panel to sign in.',
+            statusCode: 403,
+            cause: error,
+          );
+        }
         return ApiException(
           error.message ?? 'Something went wrong',
           statusCode: response?.statusCode,

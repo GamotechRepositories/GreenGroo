@@ -28,6 +28,12 @@ class AuthController extends Notifier<AuthState> {
     return const AuthState();
   }
 
+  void _assertCustomerUser(User user) {
+    if (user.isAdmin || user.isBlocked) {
+      throw ApiException(user.blockedMessage);
+    }
+  }
+
   Future<void> _restoreSession() async {
     final storage = ref.read(authStorageProvider);
     final savedToken = storage.token;
@@ -37,9 +43,22 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
 
+    final rawSession = storage.session;
+    if (rawSession != null && rawSession['user'] is Map<String, dynamic>) {
+      try {
+        final cachedUser =
+            User.fromJson(rawSession['user'] as Map<String, dynamic>);
+        if (cachedUser.isAdmin || cachedUser.isBlocked) {
+          await storage.clear();
+          state = const AuthState(loading: false);
+          return;
+        }
+      } catch (_) {}
+    }
+
     try {
       final user = await ref.read(apiServiceProvider).fetchMe();
-      if (user.isAdmin) {
+      if (user.isAdmin || user.isBlocked) {
         await storage.clear();
         state = const AuthState(loading: false);
         return;
@@ -73,9 +92,7 @@ class AuthController extends Notifier<AuthState> {
           phone: phone,
           password: password,
         );
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
+    _assertCustomerUser(session.user);
     await _persistSession(session);
     return session.user;
   }
@@ -100,9 +117,7 @@ class AuthController extends Notifier<AuthState> {
           ownerContact: ownerContact,
           gstNumber: gstNumber,
         );
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
+    _assertCustomerUser(session.user);
     await _persistSession(session);
     return session.user;
   }
@@ -157,10 +172,7 @@ class AuthController extends Notifier<AuthState> {
       token: body['token']?.toString() ?? '',
     );
 
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
-
+    _assertCustomerUser(session.user);
     await _persistSession(session);
     return OtpVerifyResult(user: session.user);
   }
@@ -186,10 +198,7 @@ class AuthController extends Notifier<AuthState> {
     final session =
         await ref.read(apiServiceProvider).completeOtpSignupProfile(payload);
 
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
-
+    _assertCustomerUser(session.user);
     await _persistSession(session);
     return session.user;
   }
@@ -215,6 +224,10 @@ class AuthController extends Notifier<AuthState> {
 
     try {
       final user = await ref.read(apiServiceProvider).updateProfile(data);
+      if (user.isAdmin || user.isBlocked) {
+        await logout();
+        return user.blockedMessage;
+      }
       await ref.read(authStorageProvider).saveSession(
             user: user.toJson(),
             token: state.token ?? '',
@@ -227,6 +240,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _persistSession(AuthSession session) async {
+    _assertCustomerUser(session.user);
     await ref.read(authStorageProvider).saveSession(
           user: session.user.toJson(),
           token: session.token,

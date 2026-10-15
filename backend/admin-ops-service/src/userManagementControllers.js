@@ -268,7 +268,13 @@ export async function listUserMgmtStoreUsers(req, res, next) {
       const key = String(user._id);
       const qty = orderItemQty(order.items);
       const amount = orderAmount(order);
-      const isBlocked = Boolean(user.isBlocked || user.isActive === false || user.status === "blocked" || user.status === "inactive");
+      const isBlocked =
+        user.isBlocked === true ||
+        user.blocked === true ||
+        user.isActive === false ||
+        user.active === false ||
+        String(user.status || "").trim().toLowerCase() === "blocked" ||
+        String(user.status || "").trim().toLowerCase() === "inactive";
       const existing = buckets.get(key) || {
         userId: key,
         name: user.name || order.customerName || "Customer",
@@ -279,7 +285,7 @@ export async function listUserMgmtStoreUsers(req, res, next) {
         shopAddress: user.shopAddress || "",
         gstNumber: user.gstNumber || "",
         isActive: !isBlocked,
-        status: isBlocked ? "blocked" : "active",
+        status: isBlocked ? "blocked" : (user.status || "active"),
         isBlocked,
         blockReason: user.blockReason || "",
         blockedAt: user.blockedAt || null,
@@ -324,9 +330,9 @@ export async function listUserMgmtStoreUsers(req, res, next) {
       shopName: row.shopName,
       shopAddress: row.shopAddress,
       gstNumber: row.gstNumber,
+      isBlocked: row.isBlocked,
       isActive: row.isActive,
       status: row.status,
-      isBlocked: row.isBlocked,
       blockReason: row.blockReason,
       blockedAt: row.blockedAt,
       orderCount: row.orderCount,
@@ -691,6 +697,63 @@ export async function reviewUnblockRequest(req, res, next) {
         message: "Unblock request rejected.",
       });
     }
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** Toggle block / unblock a customer */
+export async function toggleUserMgmtBlock(req, res, next) {
+  try {
+    const userId = String(req.params.userId || "").trim();
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return fail(res, 400, "Invalid user id");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return fail(res, 404, "User not found");
+    if (user.role === "admin") return fail(res, 403, "Cannot block admin users");
+
+    const currentBlocked =
+      user.isBlocked === true ||
+      user.blocked === true ||
+      user.isActive === false ||
+      user.active === false ||
+      String(user.status || "").trim().toLowerCase() === "blocked" ||
+      String(user.status || "").trim().toLowerCase() === "inactive";
+
+    const blockRequested = typeof req.body.isBlocked === "boolean" ? req.body.isBlocked : !currentBlocked;
+
+    user.isBlocked = blockRequested;
+    user.isActive = !blockRequested;
+    user.status = blockRequested ? "blocked" : "active";
+
+    if (blockRequested) {
+      user.blockReason = String(req.body.reason || req.body.blockReason || "Blocked by administrator").trim();
+      user.blockedAt = user.blockedAt || new Date();
+    } else {
+      user.blockReason = "";
+      user.blockedAt = null;
+    }
+
+    await user.save();
+
+    return ok(
+      res,
+      {
+        userId: String(user._id),
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        accountType: user.accountType,
+        isBlocked: user.isBlocked,
+        isActive: user.isActive,
+        status: user.status,
+        blockReason: user.blockReason || "",
+        blockedAt: user.blockedAt || null,
+      },
+      { message: blockRequested ? "User blocked successfully" : "User unblocked successfully" }
+    );
   } catch (error) {
     next(error);
   }

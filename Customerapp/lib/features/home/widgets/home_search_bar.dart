@@ -12,11 +12,15 @@ import '../home_providers.dart';
 class HomeSearchBar extends ConsumerStatefulWidget {
   final bool isLightBg;
   final String? hintText;
+  final bool showBackButton;
+  final String? initialQuery;
 
   const HomeSearchBar({
     super.key,
     this.isLightBg = false,
     this.hintText,
+    this.showBackButton = false,
+    this.initialQuery,
   });
 
   @override
@@ -30,7 +34,20 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _controller.text = widget.initialQuery!;
+    }
     _controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(HomeSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialQuery != oldWidget.initialQuery &&
+        widget.initialQuery != null &&
+        widget.initialQuery != _controller.text) {
+      _controller.text = widget.initialQuery!;
+    }
   }
 
   void _onTextChanged() {
@@ -66,12 +83,37 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
   Widget build(BuildContext context) {
     final store = ref.watch(selectedStoreTabProvider);
     final hint = widget.hintText ?? StoreChrome.forStore(store).searchHint;
+    final canGoBack =
+        widget.showBackButton && (context.canPop() || Navigator.canPop(context));
 
     return Container(
       color: Colors.transparent,
       padding: const EdgeInsets.fromLTRB(14, 1, 14, 4),
       child: Row(
         children: [
+          if (canGoBack) ...[
+            SizedBox(
+              width: 32,
+              height: 44,
+              child: IconButton(
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(RoutePaths.home);
+                  }
+                },
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF0F172A),
+                  size: 22,
+                ),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
           Expanded(
             child: GestureDetector(
               onTap: () {

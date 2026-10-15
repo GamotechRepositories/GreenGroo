@@ -1280,6 +1280,39 @@ export function UserManagementUsersPage() {
     });
   };
 
+  const [togglingId, setTogglingId] = useState(null);
+
+  const toggleBlock = async (user) => {
+    const nextBlocked = !user.isBlocked;
+    const confirmMsg = nextBlocked
+      ? `Are you sure you want to block ${user.name || user.phone}? They will NOT be able to log in to the Customer app.`
+      : `Are you sure you want to unblock ${user.name || user.phone}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      setTogglingId(user.userId);
+      await opsApi.patch(`user-management/users/${user.userId}/toggle-block`, {
+        isBlocked: nextBlocked,
+      });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.userId === user.userId
+            ? {
+                ...u,
+                isBlocked: nextBlocked,
+                isActive: !nextBlocked,
+                status: nextBlocked ? 'blocked' : 'active',
+              }
+            : u
+        )
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update user status');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1413,14 +1446,14 @@ export function UserManagementUsersPage() {
                   <th className={TH}>Customer</th>
                   <th className={TH}>Phone</th>
                   {accountType === 'bulk' ? <th className={TH}>Shop</th> : null}
-                  <th className={TH}>Area</th>
                   <th className={TH}>Status</th>
+                  <th className={TH}>Area</th>
                   <th className={TH}>Orders</th>
                   <th className={TH}>Qty</th>
                   <th className={TH}>Value</th>
                   <th className={TH}>Last order</th>
                   <th className={TH}>Order ID</th>
-                  <th className={TH}>Authority Action</th>
+                  <th className={TH}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1439,12 +1472,6 @@ export function UserManagementUsersPage() {
                           {user.gstNumber ? <p className="text-xs text-slate-500">{user.gstNumber}</p> : null}
                         </td>
                       ) : null}
-                      <td className="px-3 py-3 text-sm text-slate-700">
-                        {user.lastArea || user.areas?.[0] || '—'}
-                        {user.areas?.length > 1 ? (
-                          <span className="ml-1 text-xs text-slate-400">+{user.areas.length - 1}</span>
-                        ) : null}
-                      </td>
                       <td className="px-3 py-3">
                         <UserStatusBadge
                           isActive={isUserActive}
@@ -1452,33 +1479,56 @@ export function UserManagementUsersPage() {
                           blockReason={user.blockReason}
                         />
                       </td>
+                      <td className="px-3 py-3 text-sm text-slate-700">
+                        {user.lastArea || user.areas?.[0] || '—'}
+                        {user.areas?.length > 1 ? (
+                          <span className="ml-1 text-xs text-slate-400">+{user.areas.length - 1}</span>
+                        ) : null}
+                      </td>
                       <td className="px-3 py-3 text-sm font-semibold text-slate-900">{user.orderCount}</td>
                       <td className="px-3 py-3 text-sm text-slate-800">{user.totalQuantity}</td>
                       <td className="px-3 py-3 text-sm font-medium text-slate-800">{money(user.totalAmount)}</td>
                       <td className="px-3 py-3 text-sm text-slate-700">{formatDateTime(user.lastOrderAt)}</td>
                       <td className="px-3 py-3 text-sm font-mono text-slate-700">{user.lastOrderNumber || '—'}</td>
                       <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setTargetUserForStatus(user)}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                            isUserActive
-                              ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                              : 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {isUserActive ? (
-                            <>
-                              <UserX className="h-3 w-3" />
-                              Deactivate / Block
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="h-3 w-3" />
-                              Activate / Unblock
-                            </>
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setTargetUserForStatus(user)}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                              isUserActive
+                                ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                : 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {isUserActive ? (
+                              <>
+                                <UserX className="h-3 w-3" />
+                                Deactivate / Block
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-3 w-3" />
+                                Activate / Unblock
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={togglingId === user.userId}
+                            onClick={() => toggleBlock(user)}
+                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                              user.isBlocked
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                            } disabled:opacity-50`}
+                          >
+                            {togglingId === user.userId ? (
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : null}
+                            {user.isBlocked ? 'Unblock' : 'Block'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

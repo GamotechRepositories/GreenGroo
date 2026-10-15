@@ -79,6 +79,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   String _selectedColor = '';
   String? _quantitySyncedKey;
   Timer? _recentlyViewedDebounce;
+  late final ScrollController _scrollController;
+  final ValueNotifier<double> _scrollProgress = ValueNotifier<double>(0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final offset = _scrollController.offset;
+    final progress = ((offset - 40) / 140.0).clamp(0.0, 1.0);
+    if ((progress - _scrollProgress.value).abs() > 0.005) {
+      _scrollProgress.value = progress;
+    }
+  }
 
   @override
   void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
@@ -88,6 +106,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       _selectedVariant = '';
       _selectedColor = '';
       _quantity = defaultSingleMoq;
+      _scrollProgress.value = 0.0;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
     }
   }
 
@@ -146,6 +168,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _scrollProgress.dispose();
     _recentlyViewedDebounce?.cancel();
     super.dispose();
   }
@@ -264,26 +289,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         body: Column(
           children: [
             Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  cacheExtent: AppScrollConfig.cacheExtent,
-                  children: [
-                    // Edge-to-edge product image gallery + top back/wishlist buttons + overlapping highlights
-                    _ProductImageGallery(
-                      images: images,
-                      product: product,
-                      videoUrl: product.videoUrl,
-                      onBack: () => _handleBackNavigation(context),
-                      highlightsRow: _buildHighlightsRow(
-                        context,
-                        product,
-                        activeVariantName,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
+              child: Stack(
+                children: [
+                  MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: EdgeInsets.zero,
+                      cacheExtent: AppScrollConfig.cacheExtent,
+                      children: [
+                        // Edge-to-edge product image gallery + overlapping highlights
+                        _ProductImageGallery(
+                          images: images,
+                          product: product,
+                          videoUrl: product.videoUrl,
+                          highlightsRow: _buildHighlightsRow(
+                            context,
+                            product,
+                            activeVariantName,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -668,7 +695,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ],
                 ),
               ),
-            ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildStickyTopBar(context, product),
+              ),
+            ],
+          ),
+        ),
 
               // Persistent Sticky Bottom Bar
               _ProductDetailBottomBar(
@@ -691,6 +726,92 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ),
         ),
       );
+  }
+
+  Widget _buildStickyTopBar(BuildContext context, Product product) {
+    final topPadding = MediaQuery.paddingOf(context).top;
+
+    return ValueListenableBuilder<double>(
+      valueListenable: _scrollProgress,
+      builder: (context, progress, _) {
+        final bgColor = Color.lerp(
+          Colors.transparent,
+          const Color(0xFFF8FAFC),
+          progress,
+        )!;
+        final borderColor = Color.lerp(
+          Colors.transparent,
+          const Color(0xFFE2E8F0),
+          progress,
+        )!;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border(
+              bottom: BorderSide(
+                color: borderColor,
+                width: 1,
+              ),
+            ),
+          ),
+          padding: EdgeInsets.only(
+            top: topPadding + 6,
+            bottom: 6,
+            left: 12,
+            right: 12,
+          ),
+          child: Row(
+            children: [
+              Material(
+                color: Color.lerp(
+                  Colors.white.withValues(alpha: 0.95),
+                  Colors.transparent,
+                  progress,
+                ),
+                shape: const CircleBorder(),
+                elevation: (1.0 - progress) * 2.0,
+                shadowColor: Colors.black26,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _handleBackNavigation(context),
+                  child: const SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: Icon(
+                      Icons.arrow_back,
+                      size: 20,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: IgnorePointer(
+                  ignoring: progress < 0.2,
+                  child: Opacity(
+                    opacity: progress,
+                    child: Text(
+                      product.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              WishlistButton(product: product, size: 38),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildHighlightsRow(
@@ -1903,14 +2024,12 @@ class _ProductImageGallery extends StatefulWidget {
     required this.images,
     required this.product,
     required this.videoUrl,
-    required this.onBack,
     required this.highlightsRow,
   });
 
   final List<String> images;
   final Product product;
   final String videoUrl;
-  final VoidCallback onBack;
   final Widget highlightsRow;
 
   @override
@@ -2011,38 +2130,6 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                       },
                     ),
             ),
-          ),
-
-          // Floating Circular Back Button (top-left) - shifted down comfortably below status bar
-          Positioned(
-            top: topPadding + 32,
-            left: 16,
-            child: Material(
-              color: Colors.white.withValues(alpha: 0.95),
-              shape: const CircleBorder(),
-              elevation: 2,
-              shadowColor: Colors.black26,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: widget.onBack,
-                child: const SizedBox(
-                  width: 38,
-                  height: 38,
-                  child: Icon(
-                    Icons.arrow_back,
-                    size: 20,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Floating Circular Wishlist Button (top-right) - shifted down comfortably below status bar
-          Positioned(
-            top: topPadding + 32,
-            right: 16,
-            child: WishlistButton(product: widget.product, size: 38),
           ),
 
           // Delivery Chip: "⏱ 10 MINS"

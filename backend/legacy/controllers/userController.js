@@ -15,12 +15,12 @@ import {
 
 export function isUserBlocked(user) {
   if (!user || user.role === "admin") return false;
-  return (
-    user.isActive === false ||
-    user.isBlocked === true ||
-    user.status === "blocked" ||
-    user.status === "inactive"
-  );
+  const raw = typeof user.toObject === "function" ? user.toObject() : user;
+  if (raw.isBlocked === true || raw.blocked === true) return true;
+  if (raw.isActive === false || raw.active === false) return true;
+  const status = String(raw.status || "").trim().toLowerCase();
+  if (status === "blocked" || status === "inactive") return true;
+  return false;
 }
 
 const signToken = (userId) => {
@@ -34,23 +34,26 @@ const signToken = (userId) => {
 
 const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
-const formatAuthUser = (user) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  phone: user.phone,
-  shopNo: user.shopNo || "",
-  shopName: user.shopName || "",
-  shopAddress: user.shopAddress || "",
-  gstNumber: user.gstNumber || "",
-  accountType: user.accountType || "retail",
-  ownerContact: user.ownerContact || "",
-  role: user.role,
-  rewardPoints: user.rewardPoints || 0,
-  isActive: user.isActive !== false && !user.isBlocked && user.status !== "blocked",
-  status: user.status || "active",
-  isBlocked: Boolean(user.isBlocked || user.isActive === false || user.status === "blocked"),
-});
+const formatAuthUser = (user) => {
+  const blocked = isUserBlocked(user);
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    shopNo: user.shopNo || "",
+    shopName: user.shopName || "",
+    shopAddress: user.shopAddress || "",
+    gstNumber: user.gstNumber || "",
+    accountType: user.accountType || "retail",
+    ownerContact: user.ownerContact || "",
+    role: user.role,
+    rewardPoints: user.rewardPoints || 0,
+    isBlocked: blocked,
+    isActive: !blocked,
+    status: blocked ? "blocked" : (user.status || "active"),
+  };
+};
 
 function normalizeAccountType(value) {
   const normalized = String(value || "retail").trim().toLowerCase();
@@ -344,6 +347,12 @@ export const sendOtpLogin = async (req, res) => {
 
     if (purpose === "signup") {
       if (user && user.role !== "admin") {
+        if (isUserBlocked(user)) {
+          return res.status(403).json({
+            success: false,
+            message: "Your account has been blocked by admin. Please contact support.",
+          });
+        }
         return res.status(400).json({
           success: false,
           message:
@@ -637,6 +646,13 @@ export const resetPasswordWithPhoneOtp = async (req, res) => {
 
 export const getMe = async (req, res) => {
   try {
+    const blocked = isUserBlocked(req.user);
+    if (req.user.role !== "admin" && blocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked by admin. Please contact support.",
+      });
+    }
     res.status(200).json({
       success: true,
       data: {
@@ -652,6 +668,9 @@ export const getMe = async (req, res) => {
         ownerContact: req.user.ownerContact || "",
         role: req.user.role,
         rewardPoints: req.user.rewardPoints || 0,
+        isBlocked: blocked,
+        isActive: !blocked,
+        status: blocked ? "blocked" : (req.user.status || "active"),
         createdAt: req.user.createdAt,
         updatedAt: req.user.updatedAt,
       },
@@ -1141,7 +1160,7 @@ export const getUserOrderStats = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, isBlocked, isActive, status } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -1179,10 +1198,11 @@ export const updateUser = async (req, res) => {
     if (name?.trim()) user.name = name.trim();
     if (password) user.password = password;
 
-    if (req.body.isActive !== undefined) {
-      user.isActive = Boolean(req.body.isActive);
-      user.isBlocked = !user.isActive;
-      user.status = user.isActive ? "active" : "blocked";
+    if (typeof isBlocked === "boolean" || req.body.isBlocked !== undefined) {
+      const blocked = typeof isBlocked === "boolean" ? isBlocked : Boolean(req.body.isBlocked);
+      user.isBlocked = blocked;
+      user.isActive = !blocked;
+      user.status = blocked ? "blocked" : "active";
       if (user.isBlocked) {
         user.blockReason = String(req.body.blockReason || req.body.reason || "Deactivated by admin").trim();
         user.blockedAt = new Date();
@@ -1190,10 +1210,11 @@ export const updateUser = async (req, res) => {
         user.blockReason = "";
         user.blockedAt = null;
       }
-    } else if (req.body.isBlocked !== undefined) {
-      user.isBlocked = Boolean(req.body.isBlocked);
-      user.isActive = !user.isBlocked;
-      user.status = user.isBlocked ? "blocked" : "active";
+    } else if (typeof isActive === "boolean" || req.body.isActive !== undefined) {
+      const active = typeof isActive === "boolean" ? isActive : Boolean(req.body.isActive);
+      user.isActive = active;
+      user.isBlocked = !active;
+      user.status = active ? "active" : "blocked";
       if (user.isBlocked) {
         user.blockReason = String(req.body.blockReason || req.body.reason || "Deactivated by admin").trim();
         user.blockedAt = new Date();
@@ -1201,17 +1222,17 @@ export const updateUser = async (req, res) => {
         user.blockReason = "";
         user.blockedAt = null;
       }
-    }
-
-    if (req.body.status) {
-      user.status = String(req.body.status).trim().toLowerCase();
-      if (user.status === "blocked" || user.status === "inactive") {
-        user.isActive = false;
+    } else if ((typeof status === "string" && status.trim()) || req.body.status) {
+      const s = String(status || req.body.status).trim().toLowerCase();
+      user.status = s;
+      if (s === "blocked" || s === "inactive") {
         user.isBlocked = true;
+        user.isActive = false;
         if (!user.blockedAt) user.blockedAt = new Date();
-      } else if (user.status === "active") {
-        user.isActive = true;
+        user.blockReason = String(req.body.blockReason || req.body.reason || "Deactivated by admin").trim();
+      } else if (s === "active") {
         user.isBlocked = false;
+        user.isActive = true;
         user.blockReason = "";
         user.blockedAt = null;
       }
@@ -1228,9 +1249,9 @@ export const updateUser = async (req, res) => {
         email: user.email,
         phone: user.phone,
         accountType: user.accountType,
-        isActive: user.isActive !== false && !user.isBlocked && user.status !== "blocked",
-        status: user.status || "active",
-        isBlocked: Boolean(user.isBlocked || user.isActive === false || user.status === "blocked"),
+        status: user.status || (isUserBlocked(user) ? "blocked" : "active"),
+        isActive: !isUserBlocked(user),
+        isBlocked: isUserBlocked(user),
         blockReason: user.blockReason || "",
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

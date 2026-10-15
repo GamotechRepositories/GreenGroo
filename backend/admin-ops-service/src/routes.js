@@ -131,6 +131,7 @@ import {
   listUserMgmtZones,
   listUserMgmtStores,
   listUserMgmtStoreUsers,
+  toggleUserMgmtBlock,
   updateUserStatus,
   listAllUsersDirectory,
   listUnblockRequests,
@@ -349,6 +350,7 @@ router.get("/user-management/stores/:storeId/users", listUserMgmtStoreUsers);
 router.get("/user-management/all-users", listAllUsersDirectory);
 router.patch("/user-management/users/:userId/status", updateUserStatus);
 router.put("/user-management/users/:userId/status", updateUserStatus);
+router.patch("/user-management/users/:userId/toggle-block", toggleUserMgmtBlock);
 router.get("/user-management/unblock-requests", listUnblockRequests);
 router.patch("/user-management/unblock-requests/:id/review", reviewUnblockRequest);
 router.put("/user-management/unblock-requests/:id/review", reviewUnblockRequest);

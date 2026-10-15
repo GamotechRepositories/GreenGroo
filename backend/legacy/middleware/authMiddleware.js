@@ -41,18 +41,25 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    if (
-      user.role !== "admin" &&
-      (user.isActive === false ||
+    if (user.role !== "admin") {
+      const isBlocked =
         user.isBlocked === true ||
-        user.status === "blocked" ||
-        user.status === "inactive")
-    ) {
-      return res.status(403).json({
-        success: false,
-        isBlocked: true,
-        message: "Your account is deactivated or blocked by admin. You can submit an unblock request.",
-      });
+        user.blocked === true ||
+        user.isActive === false ||
+        user.active === false ||
+        String(user.status || "").trim().toLowerCase() === "blocked" ||
+        String(user.status || "").trim().toLowerCase() === "inactive";
+
+      if (isBlocked) {
+        return res.status(403).json({
+          success: false,
+          isBlocked: true,
+          message:
+            user.blockReason
+              ? `Your account is deactivated or blocked by admin. Reason: ${user.blockReason}`
+              : "Your account is deactivated or blocked by admin. You can submit an unblock request.",
+        });
+      }
     }
 
     req.user = user;
