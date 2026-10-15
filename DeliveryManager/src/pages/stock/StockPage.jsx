@@ -374,7 +374,7 @@ export default function StockPage() {
             <div>
               <h3 className="text-base font-bold text-slate-900">Request inventory</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Sends a restock request to Product Manager for{" "}
+                Sends a restock request to your Vendor for approval:{" "}
                 <span className="font-semibold">{requestItem.name}</span>
               </p>
             </div>

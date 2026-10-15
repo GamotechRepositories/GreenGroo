@@ -193,6 +193,7 @@ export default function MandatoryLocationModal() {
                 </button>
               </div>
               <MapLocationPicker
+                initialLocation={location?.lat && location?.lng ? location : null}
                 onConfirm={handleMapConfirm}
                 onCancel={() => setIsMapOpen(false)}
               />

@@ -232,6 +232,11 @@ function AddressForm({
     return (
       <div className={plain ? "" : "rounded-xl border border-border-light bg-white p-4"}>
         <MapLocationPicker
+          initialLocation={
+            form.location?.lat && form.location?.lng
+              ? form.location
+              : null
+          }
           onConfirm={handleMapConfirm}
           onCancel={() => setIsMapOpen(false)}
         />

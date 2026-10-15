@@ -38,7 +38,7 @@ router.get(
 );
 router.patch(
   "/inventory-requests/:requestId",
-  requireRoles("product_manager", "vendor", "segregation_manager", "admin"),
+  requireRoles("vendor", "admin"),
   reviewInventoryRequest
 );
 

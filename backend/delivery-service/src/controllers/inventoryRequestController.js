@@ -3,11 +3,10 @@ import InventoryRequest from "../models/InventoryRequest.js";
 import StoreInventory from "../models/StoreInventory.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import Staff from "../../../staff-service/src/models/Staff.js";
+import { Vendor } from "../../../farmer-manager-service/src/models.js";
 
 const REVIEWER_ROLES = new Set([
-  "product_manager",
   "vendor",
-  "segregation_manager",
   "admin",
 ]);
 
@@ -23,8 +22,28 @@ const scopedManagerIds = async (req) => {
   if (!isVendorRole(req.user?.role)) return null;
   const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
   if (!vendorId) return [];
+
   const stores = await DeliveryManager.find({ vendorId }).select("_id").lean();
-  return stores.map((store) => store._id);
+  const storeIds = stores.map((store) => store._id);
+
+  // Also check approved DarkStoreRequest associated with this vendor
+  try {
+    const dsrList = await mongoose.connection.collection("darkstorerequests")
+      .find({ vendorId, status: "Approved" })
+      .project({ darkStoreId: 1 })
+      .toArray();
+    for (const d of dsrList) {
+      if (d.darkStoreId && mongoose.isValidObjectId(d.darkStoreId)) {
+        if (!storeIds.some((id) => String(id) === String(d.darkStoreId))) {
+          storeIds.push(new mongoose.Types.ObjectId(d.darkStoreId));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[scopedManagerIds] DSR lookup warning:", err?.message);
+  }
+
+  return storeIds;
 };
 
 const makeRequestNumber = () =>
@@ -49,6 +68,27 @@ export const createInventoryRequest = async (req, res, next) => {
         success: false,
         message: "Delivery manager not found",
       });
+    }
+
+    // Proactively resolve vendorId if missing on delivery manager
+    let vendorId = String(manager.vendorId || "").trim();
+    if (!vendorId) {
+      try {
+        const dsr = await mongoose.connection.collection("darkstorerequests").findOne({
+          $or: [
+            { darkStoreId: String(manager._id) },
+            { email: manager.email },
+            { phone: manager.phone },
+          ],
+        });
+        if (dsr?.vendorId) {
+          vendorId = String(dsr.vendorId).trim();
+          manager.vendorId = vendorId;
+          await manager.save();
+        }
+      } catch (err) {
+        console.warn("[createInventoryRequest] vendorId resolution warning:", err?.message);
+      }
     }
 
     const sku = String(req.body.sku || "").trim();
@@ -111,7 +151,7 @@ export const createInventoryRequest = async (req, res, next) => {
     const request = await InventoryRequest.create({
       requestNumber: makeRequestNumber(),
       managerId: manager._id,
-      vendorId: manager.vendorId || "",
+      vendorId: vendorId || manager.vendorId || "",
       storeName: manager.storeName || `${manager.area} Store`,
       managerName: manager.name || "",
       city: manager.city || "",
@@ -132,7 +172,7 @@ export const createInventoryRequest = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: `Inventory request ${request.requestNumber} sent to Product Manager`,
+      message: `Inventory request ${request.requestNumber} sent to Vendor for approval`,
       request: request.toSafeJSON(),
     });
   } catch (error) {
@@ -152,7 +192,7 @@ export const listMyInventoryRequests = async (req, res, next) => {
 
     const status = String(req.query.status || "").trim();
     const filter = { managerId: manager._id };
-    if (["pending", "approved", "rejected"].includes(status)) {
+    if (["pending", "approved", "rejected", "inprocessed", "packed", "completed"].includes(status)) {
       filter.status = status;
     }
 
@@ -169,16 +209,28 @@ export const listMyInventoryRequests = async (req, res, next) => {
 
 export const listAllInventoryRequests = async (req, res, next) => {
   try {
-    if (!isReviewerRole(req.user?.role)) {
+    const userRole = String(req.user?.role || "").trim().toLowerCase();
+
+    // Product managers are explicitly restricted: dark store requests go to vendors only
+    if (userRole === "product_manager") {
+      return res.json({
+        success: true,
+        count: 0,
+        requests: [],
+        message: "Dark store inventory requests are routed to the assigned vendor only for approval.",
+      });
+    }
+
+    if (!isReviewerRole(userRole)) {
       return res.status(403).json({
         success: false,
-        message: "Only product managers can review inventory requests",
+        message: "Only the assigned vendor (or admin) can review inventory requests",
       });
     }
 
     const status = String(req.query.status || "").trim();
     const filter = {};
-    if (["pending", "approved", "rejected"].includes(status)) {
+    if (["pending", "approved", "rejected", "inprocessed", "packed", "completed"].includes(status)) {
       filter.status = status;
     }
 
@@ -199,20 +251,26 @@ export const listAllInventoryRequests = async (req, res, next) => {
       }
     }
 
-    if (targetStoreId && mongoose.isValidObjectId(targetStoreId)) {
-      if (managerIds) {
-        const inScope = managerIds.some((id) => String(id) === targetStoreId);
+    if (isVendorRole(userRole)) {
+      const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
+      if (!vendorId && (!managerIds || managerIds.length === 0)) {
+        return res.json({ success: true, count: 0, requests: [] });
+      }
+
+      if (targetStoreId && mongoose.isValidObjectId(targetStoreId)) {
+        const inScope = (managerIds || []).some((id) => String(id) === targetStoreId);
         if (!inScope) {
           return res.json({ success: true, count: 0, requests: [] });
         }
+        filter.managerId = targetStoreId;
+      } else {
+        filter.$or = [
+          ...(vendorId ? [{ vendorId }] : []),
+          ...((managerIds && managerIds.length > 0) ? [{ managerId: { $in: managerIds } }] : []),
+        ];
       }
+    } else if (targetStoreId && mongoose.isValidObjectId(targetStoreId)) {
       filter.managerId = targetStoreId;
-    } else if (managerIds) {
-      const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
-      filter.$or = [
-        ...(vendorId ? [{ vendorId }] : []),
-        { managerId: { $in: managerIds } },
-      ];
     }
 
     const requests = await InventoryRequest.find(filter).sort({ createdAt: -1 });
@@ -228,10 +286,20 @@ export const listAllInventoryRequests = async (req, res, next) => {
 
 export const reviewInventoryRequest = async (req, res, next) => {
   try {
-    if (!isReviewerRole(req.user?.role)) {
+    const userRole = String(req.user?.role || "").trim().toLowerCase();
+
+    // Prevent product managers from approving dark store requests
+    if (userRole === "product_manager") {
       return res.status(403).json({
         success: false,
-        message: "Only product managers can review inventory requests",
+        message: "Dark store inventory requests must be approved by the assigned vendor, not product managers.",
+      });
+    }
+
+    if (!isReviewerRole(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the assigned vendor (or admin) can review inventory requests",
       });
     }
 
@@ -244,7 +312,7 @@ export const reviewInventoryRequest = async (req, res, next) => {
     if (!allowedStatuses.includes(decision)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid status decision',
+        message: "Invalid status decision",
       });
     }
 
@@ -256,22 +324,21 @@ export const reviewInventoryRequest = async (req, res, next) => {
       });
     }
 
-    if (isVendorRole(req.user?.role)) {
+    // Verify that this dark store belongs to THIS vendor only
+    if (isVendorRole(userRole)) {
       const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
       const managerIds = await scopedManagerIds(req);
       const isMine =
-        (request.vendorId && request.vendorId === vendorId) ||
+        (request.vendorId && String(request.vendorId) === vendorId) ||
         (managerIds && managerIds.some((id) => String(id) === String(request.managerId)));
       if (!isMine) {
         return res.status(403).json({
           success: false,
-          message: "You are not authorized to review this dark store's requests",
+          message: "You are not authorized to approve this dark store's request. Only the assigned vendor may approve it.",
         });
       }
     }
 
-    // Allow status transitions from any state to any state for flexibility, or just track changes.
-    // We will bypass the 'Request is already {status}' error if it's a valid transition.
     if (request.status === decision) {
       return res.status(400).json({
         success: false,
@@ -279,13 +346,17 @@ export const reviewInventoryRequest = async (req, res, next) => {
       });
     }
 
-    let reviewerName =
-      req.user?.name ||
-      req.user?.email ||
-      (req.user?.role === "vendor" ? "Vendor" : "Product Manager");
-    if (req.user?.role !== "admin" && mongoose.isValidObjectId(req.user?.id)) {
-      const staff = await Staff.findById(req.user.id).select("name email");
-      if (staff) reviewerName = staff.name || staff.email || reviewerName;
+    let reviewerName = "Vendor";
+    if (isVendorRole(userRole)) {
+      const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
+      try {
+        const vendorDoc = await Vendor.findOne({ id: vendorId }).select("vendorName ownerName").lean();
+        reviewerName = vendorDoc?.vendorName || vendorDoc?.ownerName || req.user?.name || "Vendor";
+      } catch {
+        reviewerName = req.user?.name || "Vendor";
+      }
+    } else if (userRole === "admin") {
+      reviewerName = req.user?.name || req.user?.email || "Admin";
     }
 
     if (decision === "approved" && request.status !== "approved") {
@@ -316,7 +387,9 @@ export const reviewInventoryRequest = async (req, res, next) => {
     await request.save();
 
     let successMessage = `Inventory request updated to ${decision}`;
-    if (decision === "approved") successMessage = `Approved — ${request.quantity} ${request.unit} added to ${request.storeName}`;
+    if (decision === "approved") {
+      successMessage = `Approved by ${reviewerName} — ${request.quantity} ${request.unit} added to ${request.storeName}`;
+    }
 
     return res.json({
       success: true,
@@ -324,7 +397,7 @@ export const reviewInventoryRequest = async (req, res, next) => {
       request: request.toSafeJSON(),
     });
   } catch (error) {
-    console.error('Error in reviewInventoryRequest:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    console.error("Error in reviewInventoryRequest:", error);
+    return res.status(500).json({ success: false, message: error.message || "Internal server error" });
   }
 };

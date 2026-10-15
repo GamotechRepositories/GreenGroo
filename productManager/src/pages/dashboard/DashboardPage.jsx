@@ -54,7 +54,7 @@ export default function DashboardPage() {
   return (
     <PageShell
       title="Product Manager Dashboard"
-      subtitle="Restock requests from dark stores appear here as soon as a Delivery Manager sends them"
+      subtitle="Overview of operations. Dark store restock requests are routed directly to Vendors for approval."
     >
       {toast ? (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
@@ -74,12 +74,12 @@ export default function DashboardPage() {
         >
           <p className="text-sm text-amber-800">Pending restock requests</p>
           <p className="mt-1 text-3xl font-bold text-amber-900">{loading ? "…" : pending.length}</p>
-          <p className="mt-1 text-xs text-amber-700">Waiting on Product Manager approval</p>
+          <p className="mt-1 text-xs text-amber-700">Routed to supplying Vendor</p>
         </Link>
         <Link to="/inventory-requests" className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">All requests</p>
           <p className="mt-1 text-3xl font-bold text-gray-900">{loading ? "…" : requests.length}</p>
-          <p className="mt-1 text-xs text-gray-400">From every dark store</p>
+          <p className="mt-1 text-xs text-gray-400">From dark stores</p>
         </Link>
         <Link
           to="/inventory-requests"
@@ -87,7 +87,7 @@ export default function DashboardPage() {
         >
           <p className="text-sm text-gray-500">Approved</p>
           <p className="mt-1 text-3xl font-bold text-[#217346]">{loading ? "…" : approvedToday}</p>
-          <p className="mt-1 text-xs text-gray-400">Stock added to the requesting store</p>
+          <p className="mt-1 text-xs text-gray-400">Stock added by vendor</p>
         </Link>
       </div>
 
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-base font-bold text-gray-900">Dark store restock requests</h2>
             <p className="text-sm text-gray-500">
-              Approve to add quantity to that store’s inventory
+              Approved directly by each store's supplying Vendor
             </p>
           </div>
           <Link
@@ -116,7 +116,7 @@ export default function DashboardPage() {
                 <th className="px-5 py-3 font-medium">Item</th>
                 <th className="px-5 py-3 font-medium">Qty</th>
                 <th className="px-5 py-3 font-medium">When</th>
-                <th className="px-5 py-3 font-medium">Action</th>
+                <th className="px-5 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -155,25 +155,8 @@ export default function DashboardPage() {
                       <p className="text-xs text-gray-400">had {request.currentStock}</p>
                     </td>
                     <td className="px-5 py-4 text-gray-500">{formatWhen(request.createdAt)}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(busyId)}
-                          onClick={() => review(request.id, "approved")}
-                          className="rounded-lg bg-[#217346] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1a5c38] disabled:opacity-50"
-                        >
-                          {busyId === `${request.id}-approved` ? "…" : "Approve"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(busyId)}
-                          onClick={() => review(request.id, "rejected")}
-                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          {busyId === `${request.id}-rejected` ? "…" : "Reject"}
-                        </button>
-                      </div>
+                    <td className="px-5 py-4 text-xs font-medium text-amber-700">
+                      Waiting on Vendor
                     </td>
                   </tr>
                 ))

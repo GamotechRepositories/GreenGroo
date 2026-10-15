@@ -63,8 +63,18 @@ export default function InventoryRequestsPage() {
   return (
     <PageShell
       title="Inventory Requests"
-      subtitle="Dark store restock requests appear here as soon as a Delivery Manager sends them"
+      subtitle="Dark store restock requests are routed directly to the designated Vendor for approval and fulfillment."
     >
+      <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-900 shadow-xs flex items-start gap-3">
+        <span className="text-base">ℹ️</span>
+        <div>
+          <p className="font-bold">Vendor-Direct Approval Workflow</p>
+          <p className="mt-0.5 text-blue-800">
+            Dark store inventory restock requests are dispatched directly to that dark store's supplying <strong>Vendor</strong> for review, crate packaging, and delivery dispatch. Product Managers do not approve dark store inventory requests.
+          </p>
+        </div>
+      </div>
+
       {toast ? (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           {toast}
@@ -118,7 +128,7 @@ export default function InventoryRequestsPage() {
                 <th className="px-5 py-3 font-medium">Quantity</th>
                 <th className="px-5 py-3 font-medium">Requested</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Actions</th>
+                <th className="px-5 py-3 font-medium">Approval</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -131,7 +141,7 @@ export default function InventoryRequestsPage() {
               ) : filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-gray-500">
-                    No dark-store restock requests in this tab yet. When a Delivery Manager taps Request Stock, it shows up here.
+                    No dark-store restock requests in this view. Dark store requests are handled directly by the supplying Vendor.
                   </td>
                 </tr>
               ) : (
@@ -167,30 +177,11 @@ export default function InventoryRequestsPage() {
                         {request.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 text-xs text-slate-500">
                       {request.status === "pending" ? (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => review(request.id, "approved")}
-                            className="rounded-lg bg-green-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-green-active disabled:opacity-50"
-                          >
-                            {busyId === `${request.id}-approved` ? "…" : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => review(request.id, "rejected")}
-                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            {busyId === `${request.id}-rejected` ? "…" : "Reject"}
-                          </button>
-                        </div>
+                        <span className="font-medium text-amber-700">Waiting on Vendor</span>
                       ) : (
-                        <span className="text-xs text-gray-400">
-                          {request.reviewNote || request.reviewedByName || "—"}
-                        </span>
+                        <span>{request.reviewedByName ? `Approved by ${request.reviewedByName}` : "Processed"}</span>
                       )}
                     </td>
                   </tr>
