@@ -47,7 +47,7 @@ class HomePromoBanner extends StatelessWidget {
                 child: AppNetworkImage(
                   imageUrl: AppConstants.promoBannerImage,
                   fit: BoxFit.contain,
-                  errorIcon: Icons.headphones_outlined,
+                  errorIcon: Icons.shopping_basket_outlined,
                 ),
               ),
             )
@@ -67,7 +67,7 @@ class HomePromoBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isSale ? 'BIG SALE' : 'WHOLESALE',
+                  _isSale ? 'BIG SALE' : 'DAILY SAVINGS',
                   style: TextStyle(
                     color: _isSale
                         ? Colors.white
@@ -79,7 +79,7 @@ class HomePromoBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _isSale ? 'Up to 50% Off' : 'Bulk Orders',
+                  _isSale ? 'Up to 50% Off' : 'Family Packs',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -90,8 +90,8 @@ class HomePromoBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   _isSale
-                      ? 'On Mobile Accessories'
-                      : 'MOQ ${AppConstants.moq} · Extra savings',
+                      ? 'On Fresh Essentials'
+                      : 'Everyday low prices on fresh food',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 13,
@@ -117,7 +117,7 @@ class HomePromoBanner extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    _isSale ? 'Shop Now' : 'Browse Catalog',
+                    _isSale ? 'Shop Now' : 'Explore Essentials',
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,

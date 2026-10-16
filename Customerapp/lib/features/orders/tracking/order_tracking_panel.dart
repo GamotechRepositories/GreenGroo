@@ -21,7 +21,7 @@ import 'road_route_service.dart';
 import 'tracking_timeline.dart';
 import 'widgets/modern_tracking_view.dart';
 
-const _green = Color(0xFF2E7D32);
+const _green = AppColors.primary;
 
 /// Order tracking section of the order details screen.
 ///
@@ -275,7 +275,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
         return Scaffold(
           backgroundColor: const Color(0xFFF6F8F6),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0F5A31),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
@@ -288,7 +288,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
             ),
           ),
           body: const Center(
-            child: CircularProgressIndicator(color: Color(0xFF0F5A31), strokeWidth: 3),
+            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
           ),
         );
       }
@@ -296,7 +296,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
         return Scaffold(
           backgroundColor: const Color(0xFFF6F8F6),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0F5A31),
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
@@ -324,7 +324,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _load,
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0F5A31)),
+                    style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
                     child: const Text('Retry'),
                   ),
                 ],

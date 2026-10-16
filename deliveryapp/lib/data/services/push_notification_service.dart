@@ -1,14 +1,26 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/routes/app_routes.dart';
 import '../../presentation/shell/shell_navigation.dart';
 import 'auth_service.dart';
 import 'notification_inbox_service.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationChannel highImportanceChannel =
+    AndroidNotificationChannel(
+  'high_importance_channel',
+  'High Importance Notifications',
+  description: 'Used for important delivery partner alerts.',
+  importance: Importance.high,
+);
 
 /// Global navigator key for FCM tap deep-links.
 final GlobalKey<NavigatorState> notificationNavigatorKey =
@@ -21,6 +33,41 @@ class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   bool _initialized = false;
   Map<String, dynamic>? _pendingTap;
+
+  Future<void> showLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        highImportanceChannel.id,
+        highImportanceChannel.name,
+        channelDescription: highImportanceChannel.description,
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
+      );
+      final details = NotificationDetails(android: androidDetails);
+      await flutterLocalNotificationsPlugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: data != null ? jsonEncode(data) : null,
+      );
+    } catch (e) {
+      debugPrint('showLocalNotification error: $e');
+    }
+  }
+
+  void handleNotificationTap(Map<String, dynamic> data) {
+    _queueNotificationTap(data);
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -44,10 +91,27 @@ class PushNotificationService {
         _syncTokenToBackend(newToken);
       });
 
-      // App open: NO system tray — inbox + apply verification instantly if needed
+      // App open: show heads-up banner with sound & vibration + apply verification instantly if needed
       FirebaseMessaging.onMessage.listen((message) async {
-        debugPrint('FCM foreground (no tray): ${message.messageId}');
+        debugPrint('FCM foreground message: ${message.messageId}');
         final type = message.data['type']?.toString() ?? '';
+        final title = message.notification?.title ??
+            message.data['title']?.toString() ??
+            'GreenGroc Delivery';
+        final body = message.notification?.body ??
+            message.data['body']?.toString() ??
+            message.data['message']?.toString() ??
+            '';
+
+        if (title.isNotEmpty || body.isNotEmpty) {
+          await showLocalNotification(
+            id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            title: title,
+            body: body,
+            data: message.data,
+          );
+        }
+
         if (type == 'VERIFICATION_COMPLETED') {
           await AuthService.instance.applyVerificationStatus('approved');
           await AuthService.instance.fetchMe();

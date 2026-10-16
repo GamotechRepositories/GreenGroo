@@ -290,6 +290,20 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       } catch (err) {
         console.warn("[deliveryDispatcher] socket emit failed:", err.message);
       }
+
+      // Auto-assign ready-to-cook and instant delivery orders (pre-orders remain manual)
+      if (!part.isPreOrder && fulfillmentType !== "pickup") {
+        try {
+          const { dispatchNextRider } = await import(
+            "../../delivery-service/src/services/dispatchService.js"
+          );
+          dispatchNextRider(storeOrder._id).catch((err) => {
+            console.warn("[deliveryDispatcher] auto-dispatch warning:", err.message);
+          });
+        } catch (err) {
+          console.warn("[deliveryDispatcher] auto-dispatch import warning:", err.message);
+        }
+      }
     }
 
     // Persist OTP on customer Order so frontend/userapp can show it to the customer

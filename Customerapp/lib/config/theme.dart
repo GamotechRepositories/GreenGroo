@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// GreenGrocc storefront theme — matches React frontend (`#0C831F` / Zepto-style greens).
+/// GreenGrocc storefront theme — matches React frontend (`#0C831F` / fresh organic green).
 class AppColors {
   AppColors._();
 
@@ -25,7 +25,7 @@ class AppColors {
   static const Color textMuted = Color(0xFF999999);
   static const Color borderLight = Color(0xFFE5E5E5);
 
-  /// Bottom nav — selected tab uses brand green (not Flipkart blue).
+  /// Bottom nav — selected tab uses brand green.
   static const Color navSelected = Color(0xFF0C831F);
   static const Color navUnselected = Color(0xFF878787);
   static const Color navBorder = Color(0xFFE0E0E0);

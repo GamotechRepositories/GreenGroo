@@ -1110,10 +1110,7 @@ export const completeDelivery = async (req, res, next) => {
       if (!stayOffline) rider.status = "online";
       rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
-      // Add only the configured delivery earning — NOT the customer's cash
-      rider.todayEarnings = (rider.todayEarnings || 0) + riderDeliveryEarning;
-      rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + riderDeliveryEarning;
-      rider.walletBalance = (rider.walletBalance || 0) + riderDeliveryEarning;
+      // Delayed 5-minute wallet credit: delivery earning credited after 5 minutes
       rider.lastOrderCompletedAt = now;
       rider.lastStatusAt = now;
       if (!stayOffline) rider.onlineSince = rider.onlineSince || now;
@@ -1127,14 +1124,15 @@ export const completeDelivery = async (req, res, next) => {
 
     if (riderDeliveryEarning > 0) {
       try {
-        const { notifyOrderCompleted } = await import("../services/RiderNotificationService.js");
-        await notifyOrderCompleted(riderId, {
+        const { scheduleWalletCredit } = await import("../services/WalletCreditService.js");
+        await scheduleWalletCredit({
           orderId: order._id,
-          orderNumber: order.orderNumber,
+          riderId,
           amount: riderDeliveryEarning,
+          orderNumber: order.orderNumber,
         });
       } catch (err) {
-        console.warn("[completeDelivery] wallet notification failed:", err.message);
+        console.warn("[completeDelivery] scheduleWalletCredit failed:", err.message);
       }
     }
 

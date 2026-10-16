@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/config/api_config.dart';
 import 'auth_service.dart';
+import 'push_notification_service.dart';
 import 'socket_service.dart';
 
 class RiderNotification {
@@ -120,6 +121,18 @@ class NotificationInboxService extends ChangeNotifier {
       try {
         final n = RiderNotification.fromJson(data);
         upsertLocal(n);
+        PushNotificationService.instance.showLocalNotification(
+          id: n.id.isNotEmpty ? n.id.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: n.title.isNotEmpty ? n.title : 'GreenGroc Alert',
+          body: n.body,
+          data: {
+            'id': n.id,
+            'type': n.type,
+            'screen': n.screen,
+            'orderId': n.orderId ?? '',
+            ...n.data,
+          },
+        );
       } catch (_) {}
     });
     SocketService.instance.onNotificationBadge.listen((data) {

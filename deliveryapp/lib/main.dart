@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -16,17 +17,6 @@ import 'data/services/push_notification_service.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 import 'presentation/screens/splash/splash_screen.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-const AndroidNotificationChannel highImportanceChannel =
-    AndroidNotificationChannel(
-  'high_importance_channel',
-  'High Importance Notifications',
-  description: 'Used for important delivery partner alerts.',
-  importance: Importance.high,
-);
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -56,12 +46,24 @@ Future<void> main() async {
 
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidInit);
-  await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
+  await flutterLocalNotificationsPlugin.initialize(
+    settings: initSettings,
+    onDidReceiveNotificationResponse: (response) {
+      final payload = response.payload;
+      if (payload != null && payload.isNotEmpty) {
+        try {
+          final data = jsonDecode(payload) as Map<String, dynamic>;
+          PushNotificationService.instance.handleNotificationTap(data);
+        } catch (_) {}
+      }
+    },
+  );
 
   debugPrint('GreenGroc API base URL: ${ApiConfig.baseUrl}');
   await LocaleController.instance.loadSavedLocale();
   await ThemeController.instance.loadSavedTheme();
   await AuthService.instance.loadSession();
+  await PushNotificationService.instance.init();
   runApp(const GreenGrocDeliveryApp());
 }
 

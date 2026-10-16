@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { useLive } from "../../realtime/useLive";
+import { subscribeToSocketEvent } from "../../services/socket";
 
 const EMPTY = { name: "", phone: "", password: "", employmentType: "PART_TIME" };
 
@@ -35,6 +36,13 @@ export default function DriversPage() {
 
   useLive(load, [load]);
 
+  useEffect(() => {
+    const unsub = subscribeToSocketEvent("rider_cash_updated", () => {
+      load({ silent: true });
+    });
+    return () => unsub?.();
+  }, [load]);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -56,6 +64,11 @@ export default function DriversPage() {
   const onlineCount = riders.filter((r) => r.status === "online").length;
   const offlineCount = Math.max(0, riders.length - onlineCount);
   const fullTimeCount = riders.filter((r) => r.employmentType === "FULL_TIME").length;
+  const driversWithPendingCash = riders.filter((r) => (Number(r.pendingCashAmount) || 0) > 0);
+  const totalRiderPendingCash = driversWithPendingCash.reduce(
+    (sum, r) => sum + (Number(r.pendingCashAmount) || 0),
+    0
+  );
   const typeTabs = [
     ["ALL", "All", riders.length],
     ["FULL_TIME", "🟢 Full-Time", fullTimeCount],
@@ -79,6 +92,38 @@ export default function DriversPage() {
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
           <span>{error}</span>
           <button type="button" onClick={() => setError("")} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+      )}
+
+      {/* CASH COLLECTION DUE WARNING BANNER */}
+      {driversWithPendingCash.length > 0 && (
+        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm animate-fade-in">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-950 font-black text-sm">
+                ⚠️
+              </span>
+              <div>
+                <h3 className="text-sm font-extrabold text-amber-950">
+                  Cash Collection Due: Collect ₹{totalRiderPendingCash.toLocaleString()} from {driversWithPendingCash.length} delivery partner{driversWithPendingCash.length > 1 ? "s" : ""} till end of the day
+                </h3>
+                <p className="mt-0.5 text-xs text-amber-900/80">
+                  Delivery partners have collected Cash on Delivery (COD) from customers. Ensure this cash is collected and settled before end of shift.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {driversWithPendingCash.map((d) => (
+                <span
+                  key={d.id || d._id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-bold text-slate-800 shadow-2xs"
+                >
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  {d.name || d.phone}: <strong className="text-amber-800">₹{(Number(d.pendingCashAmount) || 0).toLocaleString()}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -259,13 +304,14 @@ export default function DriversPage() {
                 <th className="py-2 px-5">Mobile Phone</th>
                 <th className="py-2 px-5">Vehicle Type</th>
                 <th className="py-2 px-5">Hub / Area</th>
+                <th className="py-2 px-5">Cash in Hand (COD)</th>
                 <th className="py-2 px-5">Online Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visibleRiders.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-xs font-semibold text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-xs font-semibold text-slate-400">
                     No drivers match this filter.
                   </td>
                 </tr>
@@ -300,6 +346,16 @@ export default function DriversPage() {
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-700">
                       {r.area || manager?.area || "Hub"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {(Number(r.pendingCashAmount) || 0) > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-900 shadow-2xs">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                          ₹{Number(r.pendingCashAmount).toLocaleString()} (Collect)
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">₹0</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span

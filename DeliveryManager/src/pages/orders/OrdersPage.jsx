@@ -271,6 +271,9 @@ export default function OrdersPage() {
         patchOrder(p.orderId, { status: "delivered", deliveredAt: p.deliveredAt });
         load({ silent: true });
       }),
+      subscribeToSocketEvent("rider_cash_updated", () => {
+        load({ silent: true });
+      }),
     ];
     return () => unsubs.forEach((u) => u());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -476,6 +479,34 @@ export default function OrdersPage() {
     }
   };
 
+  const onConfirmCashReceived = async (orderId, orderNumber) => {
+    const key = `confirm-cash-${orderId}`;
+    setBusyKey(key);
+    try {
+      const res = await managerApi.confirmOrderCash(orderId);
+      showToast(res.data?.message || `Cash received from delivery partner for Order #${orderNumber || ""}.`);
+      await load({ silent: true });
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not confirm cash receipt");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const pendingCodOrders = useMemo(
+    () => orders.filter((o) => Boolean(o.collectFromDriver)),
+    [orders]
+  );
+
+  const totalPendingCodAmount = useMemo(
+    () =>
+      pendingCodOrders.reduce(
+        (sum, o) => sum + (Number(o.collectFromDriver?.amount) || 0),
+        0
+      ),
+    [pendingCodOrders]
+  );
+
   const filteredOrders = orders.filter((o) => {
     const q = searchQuery.toLowerCase();
     const matchSearch =
@@ -550,6 +581,63 @@ export default function OrdersPage() {
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
           {error}
+        </div>
+      )}
+
+      {/* COD Cash Collection Warning for Dark Store Manager */}
+      {pendingCodOrders.length > 0 && (
+        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm animate-fade-in">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-200 text-amber-900 font-bold text-sm">
+                  ⚠️
+                </span>
+                <h3 className="text-sm font-extrabold text-amber-950">
+                  Cash Collection Due (COD): Collect {formatRupee(totalPendingCodAmount)} total from delivery partner(s)
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-amber-900/80">
+                Customers paid Cash on Delivery. Collect this cash from delivery boys before the end of the day and click &quot;✓ Received Cash&quot;.
+              </p>
+            </div>
+            <span className="rounded-full bg-amber-200/80 border border-amber-300 px-3 py-1 text-xs font-black text-amber-900">
+              {pendingCodOrders.length} {pendingCodOrders.length === 1 ? "order" : "orders"} pending settlement
+            </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {pendingCodOrders.map((o) => {
+              const oid = o.id || o._id;
+              const driverName =
+                o.collectFromDriver?.driverName || o.assignedRider?.name || "Delivery Partner";
+              const amount = o.collectFromDriver?.amount || o.totalAmount || 0;
+              return (
+                <div
+                  key={oid}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-white p-3 shadow-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      Collect <span className="text-amber-800 font-extrabold">{formatRupee(amount)}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-600 truncate">
+                      From: <span className="font-semibold text-slate-800">{driverName}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono">Order #{o.orderNumber}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busyKey === `confirm-cash-${oid}`}
+                    onClick={() => onConfirmCashReceived(oid, o.orderNumber)}
+                    className="shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-2 transition shadow-xs disabled:opacity-50"
+                  >
+                    {busyKey === `confirm-cash-${oid}` ? "Confirming…" : "✓ Received"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -873,8 +961,8 @@ export default function OrdersPage() {
                       </button>
                       <div className="text-slate-500 text-[11px]">{order.customerPhone || "N/A"}</div>
                       {order.status === "delivered" && isCodPayment(order.paymentMethod) && order.collectFromDriver && (
-                        <div className="mt-1 text-[10px] font-bold text-amber-700">
-                          Collect {formatRupee(order.collectFromDriver.amount)} from driver
+                        <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">
+                          <span>⚠️</span> Collect {formatRupee(order.collectFromDriver.amount)} from driver
                         </div>
                       )}
                     </td>
@@ -905,6 +993,18 @@ export default function OrdersPage() {
                           >
                             View Detail
                           </button>
+                          {order.collectFromDriver && (
+                            <button
+                              type="button"
+                              disabled={busyKey === `confirm-cash-${oid}`}
+                              onClick={() => onConfirmCashReceived(oid, order.orderNumber)}
+                              className="rounded-xl border border-amber-400 bg-amber-100 px-3 py-1.5 text-[11px] font-extrabold text-amber-900 hover:bg-amber-200 transition disabled:opacity-50 shadow-xs"
+                            >
+                              {busyKey === `confirm-cash-${oid}`
+                                ? "Confirming…"
+                                : `✓ Received Cash (${formatRupee(order.collectFromDriver.amount)})`}
+                            </button>
+                          )}
                           {isInitial && (
                             <button
                               type="button"

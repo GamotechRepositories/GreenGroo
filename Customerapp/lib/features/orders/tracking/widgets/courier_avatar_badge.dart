@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../config/theme.dart';
 
 /// Circular delivery courier avatar matching Card 2 of the UI mockup.
 class CourierAvatarBadge extends StatelessWidget {
@@ -12,9 +13,9 @@ class CourierAvatarBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
+        color: AppColors.headerFadeBg,
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF00C853), width: 2.2),
+        border: Border.all(color: AppColors.primaryLight, width: 2.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -34,7 +35,7 @@ class CourierAvatarBadge extends StatelessWidget {
                 width: size * 0.72,
                 height: size * 0.42,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF0F5A31),
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
               ),
@@ -117,7 +118,7 @@ class CourierAvatarBadge extends StatelessWidget {
                 width: size * 0.48,
                 height: size * 0.26,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF00C853),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(16),
                     bottom: Radius.circular(4),
@@ -132,7 +133,7 @@ class CourierAvatarBadge extends StatelessWidget {
                 width: size * 0.54,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F5A31),
+                  color: AppColors.primaryDark,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

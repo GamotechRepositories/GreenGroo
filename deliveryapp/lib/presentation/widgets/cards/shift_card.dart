@@ -51,14 +51,17 @@ class ShiftCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      shift.dateLabel,
+                      shift.dateLabel ?? shift.dateString,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontSize: compact ? 14 : 15,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
                     Text(
-                      shift.timeRange,
+                      shift.timeRange ??
+                          (shift.slots.isNotEmpty
+                              ? '${shift.slots.first.startTime} - ${shift.slots.first.endTime}'
+                              : ''),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -77,7 +80,7 @@ class ShiftCard extends StatelessWidget {
                 Icon(Icons.location_on_outlined,
                     size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: 4),
-                Text(shift.area, style: Theme.of(context).textTheme.bodyMedium),
+                Text(shift.area ?? '', style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
             if (shift.earningPotential != null) ...[
@@ -121,7 +124,7 @@ class ShiftCard extends StatelessWidget {
           ] else ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
-              shift.area,
+              shift.area ?? '',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

@@ -12,6 +12,7 @@ import 'package:customer_app/core/theme/store_chrome.dart';
 import 'package:customer_app/features/auth/auth_controller.dart';
 import 'package:customer_app/features/cart/cart_controller.dart';
 import 'package:customer_app/features/home/home_providers.dart';
+import 'package:customer_app/routes/route_paths.dart';
 import 'address/select_delivery_location_sheet.dart';
 import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
@@ -103,6 +104,23 @@ class _AppShellState extends ConsumerState<AppShell> {
     final currentVisual = _visualIndex(widget.navigationShell.currentIndex);
     final isCurrentTab = visualIndex == currentVisual;
 
+    final auth = ref.read(authControllerProvider);
+    final isOrderAgainTab = visualIndex == 1;
+    final isCartTab = visualIndex == 3;
+    final isAccountTab = visualIndex == 4;
+    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
+
+    if (isProtectedTab && !auth.isLoggedIn) {
+      final targetRoute = isAccountTab
+          ? RoutePaths.profile
+          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
+      ref.read(authControllerProvider.notifier).openAuthModal(
+            AuthModalMode.login,
+            targetRoute,
+          );
+      return;
+    }
+
     if (isCurrentTab) {
       await ref.read(tabScrollRegistryProvider).scrollToTop(shellIndex);
     }
@@ -112,17 +130,35 @@ class _AppShellState extends ConsumerState<AppShell> {
       shellIndex,
       initialLocation: isCurrentTab,
     );
-
-    final auth = ref.read(authControllerProvider);
-    final needsAuth = visualIndex == 1 || visualIndex == 4;
-
-    if (needsAuth && !auth.isLoggedIn) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (previous, next) {
+      if (previous?.isLoggedIn != true && next.isLoggedIn) {
+        final redirect = next.redirectRoute;
+        if (redirect != null && redirect.isNotEmpty) {
+          ref.read(authControllerProvider.notifier).clearRedirect();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              if (redirect == RoutePaths.profile) {
+                // Shell branch 4 corresponds to Account / Profile tab
+                widget.navigationShell.goBranch(4);
+              } else if (redirect == RoutePaths.orders) {
+                // Shell branch 2 corresponds to Order Again tab
+                widget.navigationShell.goBranch(2);
+              } else if (redirect == RoutePaths.cart) {
+                // Shell branch 3 corresponds to Cart tab
+                widget.navigationShell.goBranch(3);
+              } else {
+                context.go(redirect);
+              }
+            }
+          });
+        }
+      }
+    });
+
     final cartCount = ref.watch(
       cartControllerProvider.select((s) => s.cartCount),
     );
@@ -225,17 +261,7 @@ class _ShellSideEffectsState extends ConsumerState<_ShellSideEffects> {
   Future<void> _checkAndPromptFlow() async {
     if (!mounted || _promptActive) return;
 
-    final auth = ref.read(authControllerProvider);
-    if (auth.loading) return;
-
-    // 1. If not logged in, prompt user to log in first
-    if (!auth.isLoggedIn) {
-      _promptActive = true;
-      ref.read(authControllerProvider.notifier).openAuthModal();
-      return;
-    }
-
-    // 2. Once logged in, if delivery location is not set, prompt location bottom sheet
+    // Wait until delivery location is restored from persistent storage
     final locationNotifier = ref.read(deliveryLocationProvider.notifier);
     await locationNotifier.restored;
     if (!mounted) return;
@@ -243,6 +269,7 @@ class _ShellSideEffectsState extends ConsumerState<_ShellSideEffects> {
     final currentLoc = ref.read(deliveryLocationProvider);
     final hasLocation = currentLoc != null && currentLoc.hasLocation;
 
+    // If no delivery location is set (e.g. new user), show the select delivery location sheet
     if (!hasLocation && mounted) {
       _promptActive = true;
       await showSelectDeliveryLocationBottomSheet(context, ref);

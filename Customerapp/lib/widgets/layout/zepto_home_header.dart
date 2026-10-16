@@ -11,7 +11,7 @@ import '../../routes/route_paths.dart';
 import '../common/offers_badge_button.dart';
 import 'mobile_search_bar.dart';
 
-/// Zepto-style home header: delivery ETA + address + wallet + profile + search.
+/// Storefront home header: delivery ETA + address + wallet + profile + search.
 class ZeptoHomeHeader extends ConsumerWidget {
   const ZeptoHomeHeader({super.key});
 
@@ -127,7 +127,7 @@ class ZeptoHomeHeader extends ConsumerWidget {
                       } else {
                         ref
                             .read(authControllerProvider.notifier)
-                            .openAuthModal(AuthModalMode.login);
+                            .openAuthModal(AuthModalMode.login, RoutePaths.profile);
                       }
                     },
                     child: CircleAvatar(

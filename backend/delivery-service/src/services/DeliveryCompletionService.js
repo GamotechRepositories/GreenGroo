@@ -208,11 +208,7 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
       if (!stayOffline) rider.status = "online";
       rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
-      rider.todayOrderCount = (rider.todayOrderCount || 0) + 1;
-      // Only KM-based delivery earning goes here — Gig bonus is separate
-      rider.todayEarnings = (rider.todayEarnings || 0) + riderEarning;
-      rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + riderEarning;
-      rider.walletBalance = (rider.walletBalance || 0) + riderEarning;
+      // Delayed 5-minute wallet credit: earning is scheduled and credited after 5 minutes
       rider.lastOrderCompletedAt = now;
       rider.lastStatusAt = now;
       await rider.save({ session });
@@ -221,17 +217,18 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     await session.commitTransaction();
     committed = true;
 
-    // Wallet / earning credit notification
+    // 5-minute delayed wallet credit and notification
     if (riderEarning > 0) {
       try {
-        const { notifyOrderCompleted } = await import("./RiderNotificationService.js");
-        await notifyOrderCompleted(riderId, {
+        const { scheduleWalletCredit } = await import("./WalletCreditService.js");
+        await scheduleWalletCredit({
           orderId: order._id,
-          orderNumber: order.orderNumber,
+          riderId,
           amount: riderEarning,
+          orderNumber: order.orderNumber,
         });
       } catch (err) {
-        console.warn("[completion] wallet notification failed:", err.message);
+        console.warn("[completion] scheduleWalletCredit failed:", err.message);
       }
     }
 

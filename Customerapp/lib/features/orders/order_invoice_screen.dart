@@ -271,7 +271,7 @@ class _InvoiceDocument extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Mobile Invoice | ${ContactConfig.contactEmail}',
+                      'Digital Invoice | ${ContactConfig.contactEmail}',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                     ),

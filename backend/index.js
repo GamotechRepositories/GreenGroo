@@ -39,6 +39,7 @@ import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardCon
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
 import { initShiftEndOfflineCron } from "./delivery-service/src/services/shiftEndOfflineService.js";
 import { initShiftStartNotifyCron } from "./delivery-service/src/services/shiftStartNotifyService.js";
+import { initWalletCreditCron } from "./delivery-service/src/services/WalletCreditService.js";
 import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRoutes.js";
 import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
 import adminOpsRoutes from "./admin-ops-service/src/routes.js";
@@ -160,6 +161,7 @@ connectDB("server").then(async () => {
   initIncentiveCron();
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();
+  initWalletCreditCron();
   try {
     const { getFirebaseAdmin, getCustomerFirebaseAdmin } = await import(
       "./legacy/config/firebaseAdmin.js"

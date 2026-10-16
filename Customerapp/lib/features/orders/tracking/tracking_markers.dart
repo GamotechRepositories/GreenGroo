@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../config/theme.dart';
 
 /// Generates crisp vector custom markers matching the live tracking UI mockup.
 class TrackingMarkers {
@@ -48,7 +49,7 @@ class TrackingMarkers {
     // Badge background
     canvas.drawRRect(
       badgeRRect,
-      Paint()..color = const Color(0xFF0F5A31),
+      Paint()..color = AppColors.primary,
     );
 
     // Badge pointer arrow pointing down
@@ -57,7 +58,7 @@ class TrackingMarkers {
       ..lineTo(logicalW / 2, badgeTop + badgeH + 4.5)
       ..lineTo(logicalW / 2 + 5, badgeTop + badgeH - 0.5)
       ..close();
-    canvas.drawPath(pointer, Paint()..color = const Color(0xFF0F5A31));
+    canvas.drawPath(pointer, Paint()..color = AppColors.primary);
 
     // Badge text
     final textPainter = TextPainter(
@@ -106,7 +107,7 @@ class TrackingMarkers {
       const Offset(avatarCenterX, avatarCenterY),
       avatarRadius - 2.5,
       Paint()
-        ..color = const Color(0xFF00C853)
+        ..color = AppColors.primaryLight
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );
@@ -115,7 +116,7 @@ class TrackingMarkers {
     canvas.drawCircle(
       const Offset(avatarCenterX, avatarCenterY),
       avatarRadius - 4,
-      Paint()..color = const Color(0xFFE8F5E9),
+      Paint()..color = AppColors.headerFadeBg,
     );
 
     // Clip to inner circle to paint illustrated rider
@@ -128,7 +129,7 @@ class TrackingMarkers {
     canvas.clipPath(clipPath);
 
     // Courier shoulders / green polo
-    final shirtPaint = Paint()..color = const Color(0xFF0F5A31);
+    final shirtPaint = Paint()..color = AppColors.primary;
     canvas.drawOval(
       Rect.fromCenter(
         center: const Offset(avatarCenterX, avatarCenterY + 20),
@@ -184,7 +185,7 @@ class TrackingMarkers {
     );
 
     // Green helmet
-    final helmetPaint = Paint()..color = const Color(0xFF00C853);
+    final helmetPaint = Paint()..color = AppColors.primaryLight;
     canvas.drawArc(
       Rect.fromCenter(
         center: const Offset(avatarCenterX, avatarCenterY - 1),
@@ -207,7 +208,7 @@ class TrackingMarkers {
       math.pi,
       false,
       Paint()
-        ..color = const Color(0xFF1B5E20)
+        ..color = AppColors.primaryDark
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
@@ -222,7 +223,7 @@ class TrackingMarkers {
         ),
         const Radius.circular(3),
       ),
-      Paint()..color = const Color(0xFF2E7D32),
+      Paint()..color = AppColors.primary,
     );
     canvas.drawCircle(
       const Offset(avatarCenterX, avatarCenterY + 20),
@@ -286,7 +287,7 @@ class TrackingMarkers {
     canvas.drawCircle(center, 17, Paint()..color = Colors.white);
 
     // 4. Emerald green inner circle
-    canvas.drawCircle(center, 14, Paint()..color = const Color(0xFF0F5A31));
+    canvas.drawCircle(center, 14, Paint()..color = AppColors.primary);
 
     // 5. White house icon
     final housePath = Path()

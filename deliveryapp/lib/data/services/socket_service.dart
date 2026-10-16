@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../../core/config/api_config.dart';
 import 'auth_service.dart';
+import 'push_notification_service.dart';
 
 class SocketService {
   SocketService._();
@@ -131,22 +132,56 @@ class SocketService {
     _socket!.on('new_order_assigned', (data) {
       debugPrint('[Socket] Event new_order_assigned: $data');
       if (data is Map) {
-        _orderAssignedController.add(Map<String, dynamic>.from(data));
+        final map = Map<String, dynamic>.from(data);
+        _orderAssignedController.add(map);
+        final num = map['orderNumber']?.toString() ?? '';
+        final idStr = map['orderId']?.toString() ?? '';
+        PushNotificationService.instance.showLocalNotification(
+          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: 'New Order Assigned!',
+          body: num.isNotEmpty
+              ? 'Order #$num has been assigned to you. Tap to view.'
+              : 'You have a new order assigned. Tap to view.',
+          data: {
+            'screen': 'assigned_orders',
+            'type': 'ORDER_ASSIGNED',
+            'orderId': idStr,
+          },
+        );
       }
     });
 
+    void handleOrderOffer(dynamic data) {
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        _orderOfferController.add(map);
+        final num = map['orderNumber']?.toString() ?? '';
+        final earn = map['estimatedEarnings'] ?? map['earnUpTo'] ?? '';
+        final earnTxt = earn.toString().isNotEmpty ? ' · Earn ₹$earn' : '';
+        final idStr = map['orderId']?.toString() ?? '';
+        PushNotificationService.instance.showLocalNotification(
+          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: 'New Delivery Offer!$earnTxt',
+          body: num.isNotEmpty
+              ? 'New delivery offer for Order #$num. Tap to review and accept!'
+              : 'New delivery offer available. Tap to review and accept!',
+          data: {
+            'screen': 'home',
+            'type': 'ORDER_RECEIVED',
+            'orderId': idStr,
+          },
+        );
+      }
+    }
+
     _socket!.on('order_offer_received', (data) {
       debugPrint('[Socket] Event order_offer_received: $data');
-      if (data is Map) {
-        _orderOfferController.add(Map<String, dynamic>.from(data));
-      }
+      handleOrderOffer(data);
     });
 
     _socket!.on('driver_order_offer', (data) {
       debugPrint('[Socket] Event driver_order_offer: $data');
-      if (data is Map) {
-        _orderOfferController.add(Map<String, dynamic>.from(data));
-      }
+      handleOrderOffer(data);
     });
 
     _socket!.on('pickup_verified', (data) {
@@ -173,7 +208,27 @@ class SocketService {
     _socket!.on('document_review_update', (data) {
       debugPrint('[Socket] Event document_review_update: $data');
       if (data is Map) {
-        _documentReviewController.add(Map<String, dynamic>.from(data));
+        final map = Map<String, dynamic>.from(data);
+        _documentReviewController.add(map);
+        final status = (map['verificationStatus'] ?? '').toString().toLowerCase();
+        if (status == 'approved' || status == 'verified') {
+          AuthService.instance.applyVerificationStatus('approved');
+          AuthService.instance.fetchMe();
+          PushNotificationService.instance.showLocalNotification(
+            id: 2001,
+            title: "You're Verified!",
+            body: 'Your profile has been verified! You can now go online and receive orders.',
+            data: {'screen': 'home', 'type': 'VERIFICATION_COMPLETED'},
+          );
+        } else if (status == 'rejected') {
+          AuthService.instance.applyVerificationStatus('rejected');
+          PushNotificationService.instance.showLocalNotification(
+            id: 2002,
+            title: 'Verification Status Update',
+            body: map['remarks']?.toString() ?? 'Please review your verification details in the app.',
+            data: {'screen': 'home', 'type': 'DOCUMENT_REJECTED'},
+          );
+        }
       }
     });
 
@@ -187,8 +242,58 @@ class SocketService {
     _socket!.on('rider_notification', (data) {
       debugPrint('[Socket] Event rider_notification: $data');
       if (data is Map) {
-        _riderNotificationController.add(Map<String, dynamic>.from(data));
+        final map = Map<String, dynamic>.from(data);
+        _riderNotificationController.add(map);
+        final type = map['type']?.toString();
+        if (type == 'WALLET_CREDITED') {
+          AuthService.instance.fetchMe();
+          final amt = map['amount']?.toString() ?? '';
+          final orderNum = (map['data'] is Map ? map['data']['orderNumber'] : map['orderNumber'])?.toString() ?? '';
+          PushNotificationService.instance.showLocalNotification(
+            id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            title: map['title']?.toString() ?? '₹$amt Credited to Wallet!',
+            body: map['message']?.toString() ??
+                (orderNum.isNotEmpty
+                    ? '₹$amt credited to your wallet for Order #$orderNum'
+                    : '₹$amt has been credited to your wallet.'),
+            data: {
+              'screen': 'wallet',
+              'type': 'WALLET_CREDITED',
+            },
+          );
+        }
       }
+    });
+
+    void handleWalletCredit(dynamic data) {
+      debugPrint('[Socket] Event wallet credit: $data');
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        AuthService.instance.fetchMe();
+        final amt = map['amount']?.toString() ?? '';
+        final orderNum = map['orderNumber']?.toString() ?? '';
+        final idStr = map['orderId']?.toString() ?? '';
+        PushNotificationService.instance.showLocalNotification(
+          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: '₹$amt Credited to Wallet!',
+          body: orderNum.isNotEmpty
+              ? '₹$amt credited to your wallet for Order #$orderNum'
+              : '₹$amt has been credited to your wallet.',
+          data: {
+            'screen': 'wallet',
+            'type': 'WALLET_CREDITED',
+            'orderId': idStr,
+          },
+        );
+      }
+    }
+
+    _socket!.on('wallet_updated', handleWalletCredit);
+    _socket!.on('rider_wallet_credited', handleWalletCredit);
+
+    _socket!.on('rider_cash_updated', (data) {
+      debugPrint('[Socket] Event rider_cash_updated: $data');
+      AuthService.instance.fetchMe();
     });
 
     _socket!.on('notification_badge', (data) {

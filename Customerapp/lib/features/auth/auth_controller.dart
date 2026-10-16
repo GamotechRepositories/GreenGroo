@@ -6,6 +6,8 @@ import '../../models/user.dart';
 import '../../services/notification_service.dart';
 import 'auth_state.dart';
 
+export 'auth_state.dart';
+
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 
@@ -72,12 +74,25 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  void openAuthModal([AuthModalMode mode = AuthModalMode.login]) {
-    state = state.copyWith(authModal: mode);
+  void openAuthModal([
+    AuthModalMode mode = AuthModalMode.login,
+    String? redirectRoute,
+  ]) {
+    state = state.copyWith(
+      authModal: mode,
+      redirectRoute: redirectRoute,
+    );
   }
 
   void closeAuthModal() {
-    state = state.copyWith(clearAuthModal: true);
+    state = state.copyWith(
+      clearAuthModal: true,
+      clearRedirectRoute: true,
+    );
+  }
+
+  void clearRedirect() {
+    state = state.copyWith(clearRedirectRoute: true);
   }
 
   void setAuthModal(AuthModalMode mode) {

@@ -654,6 +654,7 @@ class OrderService extends ChangeNotifier {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode == 200) {
         await fetchActiveDelivery();
+        await AuthService.instance.fetchMe();
         notifyListeners();
         return (
           success: true,

@@ -7,6 +7,15 @@ import '../../routes/app_router.dart';
 import '../../routes/route_paths.dart';
 import 'auth_controller.dart';
 
+bool _isTopRoutePopup(NavigatorState navigator) {
+  var isPopup = false;
+  navigator.popUntil((route) {
+    isPopup = route is PopupRoute;
+    return true;
+  });
+  return isPopup;
+}
+
 /// Closes auth UI and lands on the home tab after sign-in / sign-up.
 void completeAuthAndGoHome({
   required WidgetRef ref,
@@ -14,15 +23,15 @@ void completeAuthAndGoHome({
   required User user,
   required bool isSignup,
 }) {
-  ref.read(authControllerProvider.notifier).closeAuthModal();
-
   if (sheetContext.mounted) {
     final nav = Navigator.maybeOf(sheetContext, rootNavigator: true) ??
         Navigator.maybeOf(sheetContext);
-    if (nav != null && nav.canPop()) {
+    if (nav != null && _isTopRoutePopup(nav)) {
       nav.pop();
     }
   }
+
+  ref.read(authControllerProvider.notifier).closeAuthModal();
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final ctx = rootNavigatorKey.currentContext;

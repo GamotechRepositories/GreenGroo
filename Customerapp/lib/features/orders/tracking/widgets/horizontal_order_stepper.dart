@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../config/theme.dart';
 import '../order_tracking_models.dart';
 
 /// 5-step horizontal stepper matching Card 3 of the UI mockup:
@@ -112,7 +113,7 @@ class HorizontalOrderStepper extends StatelessWidget {
                         margin: const EdgeInsets.only(top: 13),
                         height: 1.8,
                         color: i < activeIndex
-                            ? const Color(0xFF0F5A31)
+                            ? AppColors.primary
                             : const Color(0xFFE2E8F0),
                       ),
                   ],
@@ -148,7 +149,7 @@ class _StepNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool highlighted = isDone || isActive;
-    const activeGreen = Color(0xFF0F5A31);
+    const activeGreen = AppColors.primary;
     const inactiveGrey = Color(0xFFE2E8F0);
 
     return Column(

@@ -163,12 +163,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     if (_isOnline) {
       _startHeartbeat();
     }
+    AuthService.instance.boyNotifier.addListener(_onBoyChanged);
     _listenForOffers();
     _listenForVerification();
     _listenForForcedOffline();
     _listenForOfferRecovery();
     _listenForServerChanges();
     _bootstrapHome();
+  }
+
+  void _onBoyChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   /// No polling: offers, verification and trip changes arrive over the socket /
@@ -476,6 +482,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AuthService.instance.boyNotifier.removeListener(_onBoyChanged);
     _heartbeat?.cancel();
     _shiftEndOfflineTimer?.cancel();
     _connectionSub?.cancel();
@@ -780,6 +787,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                       ),
                     ),
                   ),
+                ],
+
+                // CASH ON DELIVERY WARNING BANNER
+                if ((AuthService.instance.deliveryBoy?.pendingCashAmount ?? 0) > 0) ...[
+                  _CodCashWarningCard(
+                    amount: AuthService.instance.deliveryBoy!.pendingCashAmount,
+                  ),
+                  const SizedBox(height: 14),
                 ],
 
                 if (_activePreOrders.isNotEmpty) ...[
@@ -2070,6 +2085,127 @@ class _ActiveDeliveryCard extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cash on Delivery Warning Banner
+/// Shown when the delivery boy has collected cash from customers that must be
+/// handed over to the dark store manager till the end of the day.
+class _CodCashWarningCard extends StatelessWidget {
+  const _CodCashWarningCard({
+    required this.amount,
+  });
+
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = ThemeController.instance.isDark;
+    final formattedAmount = amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF291B00) : const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD97706),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD97706).withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'CASH DEPOSIT DUE',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: const Color(0xFFB45309),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFD97706).withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        '₹$formattedAmount',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Hand over ₹$formattedAmount till end of the day to darkstore manager',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFFEF3C7) : const Color(0xFF78350F),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'COD cash collected from customer deliveries must be physically handed over to your dark store manager by the end of today.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

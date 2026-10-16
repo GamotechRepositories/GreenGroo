@@ -12,7 +12,7 @@ import '../../models/product_pricing_models.dart';
 import '../../routes/route_paths.dart';
 import '../common/app_network_image.dart';
 
-/// Shows a Blinkit/Zepto-style variant bottom sheet for products with multiple variants.
+/// Shows a modern product variant bottom sheet for products with multiple variants.
 Future<void> showVariantBottomSheet(BuildContext context, Product product) {
   return showModalBottomSheet<void>(
     context: context,

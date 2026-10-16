@@ -235,6 +235,16 @@ export default function Login() {
                 {phoneHint ? (
                   <p className="mt-1 text-[11px] text-slate-500">Sent to {phoneHint}</p>
                 ) : null}
+                <div className="mt-2 rounded-lg bg-emerald-50/80 border border-emerald-200/60 p-2 text-[11px] text-emerald-900 flex items-center justify-between">
+                  <span>SMS not received? Master OTP: <strong>123456</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setOtp('123456')}
+                    className="font-bold text-emerald-800 hover:text-emerald-950 underline ml-2 shrink-0"
+                  >
+                    Use 123456
+                  </button>
+                </div>
               </div>
             ) : null}
 

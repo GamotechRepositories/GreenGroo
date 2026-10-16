@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../../routes/route_paths.dart';
+
 
 /// Broadcast hub for shell branch stack changes.
 final shellBranchNavigatorHub = ShellBranchNavigatorHub();
@@ -146,13 +148,31 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     final shellIndex = _visualToShellIdx(visualIndex);
     if (shellIndex == widget.navigationShell.currentIndex) return;
 
+    final isOrderAgainTab = visualIndex == 1;
+    final isCartTab = visualIndex == 3;
+    final isAccountTab = visualIndex == 4;
+    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
+
+    if (isProtectedTab && !ref.read(authControllerProvider).isLoggedIn) {
+      final currentVisual = _shellToVisualIdx(widget.navigationShell.currentIndex);
+      _pageController.animateToPage(
+        currentVisual,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
+      final targetRoute = isAccountTab
+          ? RoutePaths.profile
+          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
+      ref.read(authControllerProvider.notifier).openAuthModal(
+            AuthModalMode.login,
+            targetRoute,
+          );
+      return;
+    }
+
+    _syncBranchRootState();
     HapticFeedback.lightImpact();
     widget.navigationShell.goBranch(shellIndex, initialLocation: false);
-
-    final needsAuth = visualIndex == 1 || visualIndex == 4;
-    if (needsAuth && !ref.read(authControllerProvider).isLoggedIn) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
   }
 
   @override

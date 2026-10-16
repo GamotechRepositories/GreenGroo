@@ -140,6 +140,7 @@ export const getRiderEarningsDetail = async (req, res, next) => {
           const orders = await StoreOrder.find({
             assignedRiderId: rider._id,
             status: "delivered",
+            walletCreditPending: { $ne: true },
             deliveredAt: { $gte: dayStart, $lte: end },
           }).sort({ deliveredAt: -1 });
 
@@ -175,6 +176,7 @@ export const getRiderEarningsDetail = async (req, res, next) => {
           $match: {
             assignedRiderId: rider._id,
             status: "delivered",
+            walletCreditPending: { $ne: true },
             deliveredAt: { $gte: verifiedSince },
           },
         },
@@ -210,6 +212,7 @@ export const getRiderEarningsDetail = async (req, res, next) => {
         : await StoreOrder.find({
             assignedRiderId: rider._id,
             status: "delivered",
+            walletCreditPending: { $ne: true },
             deliveredAt: { $gte: dayStart, $lte: end },
           }).sort({ deliveredAt: -1 });
 

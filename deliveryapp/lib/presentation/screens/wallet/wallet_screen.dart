@@ -38,11 +38,24 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _canWithdraw = false;
   bool _withdrawEnabled = false;
   Map<String, dynamic>? _fullTime;
+  VoidCallback? _boyListener;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _boyListener = () {
+      if (mounted) _load();
+    };
+    AuthService.instance.boyNotifier.addListener(_boyListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_boyListener != null) {
+      AuthService.instance.boyNotifier.removeListener(_boyListener!);
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
