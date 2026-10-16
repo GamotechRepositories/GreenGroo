@@ -659,3 +659,90 @@ const hrMeetingSchema = new mongoose.Schema(
 export const HrMeeting =
   mongoose.models.AdminHrMeeting ||
   mongoose.model("AdminHrMeeting", hrMeetingSchema);
+
+const omniInvoiceItemSchema = new mongoose.Schema(
+  {
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: "GreenGroccProduct" },
+    sku: { type: String, default: "", trim: true },
+    barcode: { type: String, default: "", trim: true },
+    name: { type: String, required: true, trim: true },
+    category: { type: String, default: "", trim: true },
+    price: { type: Number, required: true, min: 0 },
+    mrp: { type: Number, default: 0 },
+    qty: { type: Number, required: true, min: 1 },
+    unit: { type: String, default: "1 kg", trim: true },
+    image: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const omniInvoiceSchema = new mongoose.Schema(
+  {
+    invoiceNumber: { type: String, required: true, unique: true, index: true },
+    channel: {
+      type: String,
+      enum: ["physical_store", "mall_counter", "ecommerce"],
+      default: "physical_store",
+      index: true,
+    },
+    counterName: { type: String, default: "Main Register", trim: true },
+    cashierName: { type: String, default: "Admin", trim: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "UserBulkMart", default: null, index: true },
+    customerName: { type: String, default: "Walk-in Guest", trim: true },
+    customerPhone: { type: String, default: "", trim: true, index: true },
+    customerTier: { type: String, default: "Standard", trim: true },
+    items: [omniInvoiceItemSchema],
+    itemsCount: { type: Number, default: 0 },
+    subtotal: { type: Number, required: true, min: 0 },
+    discount: { type: Number, default: 0, min: 0 },
+    pointsRedeemed: { type: Number, default: 0, min: 0 },
+    pointsEarned: { type: Number, default: 0, min: 0 },
+    gstTax: { type: Number, default: 0, min: 0 },
+    grandTotal: { type: Number, required: true, min: 0 },
+    paymentMethod: {
+      type: String,
+      enum: ["UPI", "Cash", "Card", "Wallet", "NetBanking", "Other", "Split", "Credit"],
+      default: "UPI",
+    },
+    paymentStatus: { type: String, enum: ["paid", "pending", "refunded"], default: "paid" },
+    cashTendered: { type: Number, default: 0 },
+    changeReturned: { type: Number, default: 0 },
+    notes: { type: String, default: "" },
+    status: { type: String, enum: ["completed", "cancelled", "returned"], default: "completed" },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryManager", default: null, index: true },
+    storeName: { type: String, default: "", trim: true },
+    zone: { type: String, default: "", trim: true },
+    area: { type: String, default: "", trim: true },
+    vendorId: { type: String, default: "", trim: true, index: true },
+    vendorName: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+export const OmniInvoice =
+  mongoose.models.AdminOmniInvoice ||
+  mongoose.model("AdminOmniInvoice", omniInvoiceSchema);
+
+const posRegisterShiftSchema = new mongoose.Schema(
+  {
+    registerId: { type: String, required: true, index: true },
+    registerName: { type: String, required: true, trim: true },
+    channel: { type: String, enum: ["physical_store", "mall_counter", "ecommerce"], default: "physical_store" },
+    cashierName: { type: String, required: true, trim: true },
+    shiftDate: { type: String, default: () => new Date().toISOString().slice(0, 10), index: true },
+    openingCash: { type: Number, default: 2000, min: 0 },
+    cashSales: { type: Number, default: 0, min: 0 },
+    upiSales: { type: Number, default: 0, min: 0 },
+    cardSales: { type: Number, default: 0, min: 0 },
+    totalSales: { type: Number, default: 0, min: 0 },
+    billsCount: { type: Number, default: 0, min: 0 },
+    status: { type: String, enum: ["open", "closed"], default: "open" },
+    closedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+export const PosRegisterShift =
+  mongoose.models.AdminPosRegisterShift ||
+  mongoose.model("AdminPosRegisterShift", posRegisterShiftSchema);
+

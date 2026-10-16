@@ -152,7 +152,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, onClo
       ) : null}
 
       <aside
-        className={`sticky top-0 z-50 flex h-dvh shrink-0 flex-col border-r border-slate-200/80 bg-white shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-[width,transform] duration-200 ${
+        className={`sticky top-0 z-50 flex h-full h-screen h-[100dvh] shrink-0 flex-col border-r border-slate-200/80 bg-white shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-[width,transform] duration-200 ${
           compact ? 'w-[80px]' : 'w-[272px]'
         } max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:w-[min(272px,86vw)] ${
           mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'

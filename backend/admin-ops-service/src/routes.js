@@ -176,6 +176,15 @@ import {
   deleteMarketPrice,
 } from "./marketPriceControllers.js";
 import { getAnalytics } from "./analyticsControllers.js";
+import {
+  getBillingZonesAndStores,
+  getBillingCatalog,
+  getBillingCustomers,
+  createBillingCustomer,
+  createBillingInvoice,
+  getBillingInvoices,
+  getOmnichannelOverview,
+} from "./billingControllers.js";
 import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
 import { attachVendorHrScope } from "./hrScope.js";
 
@@ -195,6 +204,15 @@ router.post("/govt-schemes/apply", optionalAuth, applyGovtScheme);
 router.get("/govt-schemes/applications/mine", optionalAuth, listMyGovtSchemeApplications);
 router.get("/market-prices/live", optionalAuth, listLiveMarketPrices);
 router.get("/hr/meetings/mine", protect, listMyHrMeetings);
+
+// Omnichannel Billing & POS routes
+router.get("/billing/zones-and-stores", optionalAuth, getBillingZonesAndStores);
+router.get("/billing/catalog", optionalAuth, getBillingCatalog);
+router.get("/billing/customers", optionalAuth, getBillingCustomers);
+router.post("/billing/customers", optionalAuth, createBillingCustomer);
+router.post("/billing/invoices", optionalAuth, createBillingInvoice);
+router.get("/billing/invoices", optionalAuth, getBillingInvoices);
+router.get("/billing/channels-overview", optionalAuth, getOmnichannelOverview);
 
 router.use(protect, requireAdmin);
 

@@ -21,7 +21,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="admin-panel flex h-dvh overflow-hidden bg-[#f3f6f4] text-slate-900">
+    <div className="admin-panel flex h-screen h-[100dvh] h-full w-full overflow-hidden bg-[#f3f6f4] text-slate-900">
       <Sidebar
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
@@ -34,7 +34,11 @@ export default function AdminLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="admin-scrollbar min-h-0 flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6">
+        <main
+          className={`admin-scrollbar min-h-0 flex-1 overflow-y-auto ${
+            location.pathname.startsWith('/billing') ? 'p-3 sm:p-4 lg:p-5 lg:pb-2 pb-2' : 'p-3 sm:p-5 lg:p-6'
+          }`}
+        >
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

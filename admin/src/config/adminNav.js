@@ -38,6 +38,8 @@ import {
   TrendingUp,
   PlusCircle,
   ChartPie,
+  Zap,
+  Receipt,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -81,6 +83,56 @@ export const NAV_GROUPS = [
         icon: ChartPie,
         implemented: true,
         description: 'Sales, products, customers, delivery, supply chain and finance insights with filters.',
+      },
+    ],
+  },
+  {
+    id: 'pos_billing',
+    label: 'Retail & POS',
+    items: [
+      {
+        name: 'Omnichannel Billing',
+        href: '/billing',
+        icon: Zap,
+        implemented: true,
+        description: 'Lightning-fast billing, omni-channel selling (online, physical store, mall counters), and embedded loyalty CRM.',
+        capabilities: [
+          'Lightning-fast billing with barcode scanner and quick lookup',
+          'Omni-channel selling across e-commerce, physical store, and mall counters in one system',
+          'Loyalty and CRM built directly into the billing checkout flow',
+          'Instant thermal invoice printing, UPI QR stand, and WhatsApp bill dispatch',
+        ],
+        children: [
+          {
+            name: '⚡ Lightning Billing (POS)',
+            href: '/billing',
+            icon: Zap,
+            end: true,
+            implemented: true,
+            description: 'Fast barcode scan & quick checkout terminal.',
+          },
+          {
+            name: '🏬 Omni-Channel Hub',
+            href: '/billing/omnichannel',
+            icon: Store,
+            implemented: true,
+            description: 'Unified sales & inventory across store, mall counters, and e-com.',
+          },
+          {
+            name: '💎 Loyalty & CRM Flow',
+            href: '/billing/loyalty-crm',
+            icon: Users,
+            implemented: true,
+            description: 'Customer loyalty points, membership tiers, and CRM profiles.',
+          },
+          {
+            name: '🧾 Invoices & Register',
+            href: '/billing/invoices',
+            icon: Receipt,
+            implemented: true,
+            description: 'All past invoices, daily register drawer balance, and receipts.',
+          },
+        ],
       },
     ],
   },
