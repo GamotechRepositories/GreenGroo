@@ -10,6 +10,8 @@ import {
   me,
   ackSlotAlerts,
   register,
+  sendDeliveryPartnerOtpController,
+  verifyDeliveryPartnerOtpController,
   updateFcmToken,
   updateLocation,
   updateOnboarding,
@@ -42,6 +44,7 @@ import {
   submitPickupProofByDriver,
   uploadDeliveryProof,
   verifyCustomerOtp,
+  sendCustomerDeliveryOtp,
 } from "../controllers/riderOrderController.js";
 import {
   getRiderCashPending,
@@ -85,6 +88,8 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/otp/send", sendDeliveryPartnerOtpController);
+router.post("/otp/verify", verifyDeliveryPartnerOtpController);
 router.get("/me", protect, me);
 router.post("/slot-alerts/ack", protect, ackSlotAlerts);
 router.get("/home/progress", protect, getTodayProgress);
@@ -133,6 +138,8 @@ router.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
 // New delivery completion flow
 router.post("/orders/:orderId/delivery-proof", protect, uploadDeliveryProof);
 router.post("/orders/:orderId/verify-otp", protect, verifyCustomerOtp);
+router.post("/orders/:orderId/send-customer-otp", protect, sendCustomerDeliveryOtp);
+router.post("/orders/:orderId/resend-customer-otp", protect, sendCustomerDeliveryOtp);
 router.post("/orders/:orderId/confirm-cash", protect, confirmCashCollection);
 router.post("/orders/:orderId/collect-cash", protect, confirmCashCollection);
 router.post("/orders/:orderId/confirm-online-payment", protect, confirmOnlinePaymentForOrder);

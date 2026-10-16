@@ -624,15 +624,11 @@ export default function ManagerOrdersPage() {
         <div className="min-w-0">
           <h1 className="text-base font-bold text-[#1F2937] sm:text-xl">Order Management</h1>
           {tab === TAB_BY_PRODUCT ? (
-            <p className="text-[11px] text-[#6B7280] sm:text-sm">Create harvest orders from available products</p>
-          ) : null}
+            <p className="text-[11px] text-[#6B7280] sm:text-sm">Harvest orders placed by assigned vendors</p>
+          ) : (
+            <p className="text-[11px] text-[#6B7280]">Orders placed by assigned vendors for farmers</p>
+          )}
         </div>
-        <Link
-          to="/manager/orders/create"
-          className={`${EXCEL_BTN_PRIMARY} shrink-0 !min-h-9 px-3 py-1.5 text-[11px] sm:!min-h-10 sm:text-xs`}
-        >
-          + Order
-        </Link>
       </div>
 
       <OrdersNavRow

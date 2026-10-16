@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
-import '../main_shell.dart';
+import 'farmer_onboarding_flow_screen.dart';
 
 import '../../services/app_language.dart';
 class RegistrationSuccessScreen extends StatelessWidget {
@@ -15,7 +15,6 @@ class RegistrationSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final farmerId = farmer.id;
-    final farmerCode = farmer.id;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -53,8 +52,8 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 Text(
-                  AppLanguage().tr(mr: 'नोंदणी यशस्वी', en: 'REGISTRATION SUCCESS'),
-                  style: TextStyle(
+                  AppLanguage().tr(mr: 'टप्पा १ पूर्ण ✓ नोंदणी यशस्वी', en: 'STEP 1 COMPLETE ✓ REGISTRATION SUCCESS'),
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
@@ -66,7 +65,7 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 Text(
                   AppLanguage().tr(mr: 'शेतकरी खाते तयार झाले', en: 'Farmer account created'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryDark,
@@ -74,19 +73,22 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  AppLanguage().tr(mr: 'शेतकरी खाते यशस्वीरित्या तयार झाले!', en: 'Your account is ready to use!'),
+                  AppLanguage().tr(mr: 'नोंदणी फॉर्म यशस्वीरित्या सबमिट झाला!', en: 'Registration form submitted successfully!'),
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green.shade800),
                 ),
                 const SizedBox(height: 8),
 
                 Text(
-                  AppLanguage().tr(mr: 'स्वागत आहे, ${farmer.fullName}. पुढे तुमची शेतकरी प्रोफाईल, शेतीचा तपशील आणि शेताचे स्थान पूर्ण करा.', en: 'Welcome, ${farmer.fullName}. Next, complete your farmer profile, farm profile and farm location.'),
+                  AppLanguage().tr(
+                    mr: 'स्वागत आहे, ${farmer.fullName}. ॲपमध्ये प्रवेश करण्यासाठी पुढील ५ आवश्यक टप्पे (बँक, कागदपत्रे, थेट व्हिडिओ, शेती व स्थान) पूर्ण करा.',
+                    en: 'Welcome, ${farmer.fullName}. To enter the app, complete the remaining 5 mandatory steps (Bank, Documents, Live Video, Farm Profile & Location).',
+                  ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12, color: AppColors.muted, height: 1.4),
                 ),
                 const SizedBox(height: 16),
 
-                // Info Box (Excel Style matching web /farmer/register/success)
+                // Info Box
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
@@ -98,21 +100,19 @@ class RegistrationSuccessScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _summaryRow(AppLanguage().tr(mr: 'शेतकरी ओळख क्रमांक:', en: 'Farmer ID:'), farmerId),
-                      const SizedBox(height: 6),
-                      _summaryRow(AppLanguage().tr(mr: 'शेतकरी कोड:', en: 'Farmer Code:'), farmerCode),
+                      _summaryRow(AppLanguage().tr(mr: 'शेतकरी आयडी:', en: 'Farmer ID:'), farmerId),
                       const SizedBox(height: 6),
                       _summaryRow(AppLanguage().tr(mr: 'मोबाईल:', en: 'Mobile:'), '+91 ${farmer.mobile}'),
                       const SizedBox(height: 6),
-                      _summaryBadgeRow(AppLanguage().tr(mr: 'नोंदणी:', en: 'Registration:'), AppLanguage().tr(mr: 'नोंदणीकृत ✓', en: 'REGISTERED ✓'), isGreen: true),
+                      _summaryBadgeRow(AppLanguage().tr(mr: 'नोंदणी (टप्पा १):', en: 'Registration (Step 1):'), AppLanguage().tr(mr: 'पूर्ण ✓', en: 'COMPLETED ✓'), isGreen: true),
                       const SizedBox(height: 6),
-                      _summaryBadgeRow(AppLanguage().tr(mr: 'केवायसी स्थिती:', en: 'KYC Status:'), AppLanguage().tr(mr: 'प्रलंबित ⏳', en: 'PENDING ⏳'), isGreen: false),
+                      _summaryBadgeRow(AppLanguage().tr(mr: 'पुढील टप्पा:', en: 'Next Step:'), AppLanguage().tr(mr: '२. बँक व ओळख तपशील', en: '2. Bank & Identity'), isGreen: false),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Primary Button to Continue to Profile
+                // Primary Button to Continue to Step 2
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -125,14 +125,14 @@ class RegistrationSuccessScreen extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.arrow_forward, size: 16),
                     label: Text(
-                      AppLanguage().tr(mr: 'प्रोफाईलकडे जा', en: 'Continue to Farmer Profile'),
-                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                      AppLanguage().tr(mr: 'बँक व ओळख तपशील भरा (टप्पा २/६) →', en: 'Start Bank & Identity (Step 2/6) →'),
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MainShell(initialTab: 4), // 4 = Profile Tab
+                          builder: (_) => const FarmerOnboardingFlowScreen(initialStep: 2),
                         ),
                         (route) => false,
                       );

@@ -18,6 +18,7 @@ import {
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { getClearedShipment, mergeOrderShipment, mapShipmentTrackingToOrderStatus } from "../utils/shipmentHelpers.js";
+import { sendDeliveryVerificationOtp } from "../utils/msg91.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   calculateAdvanceAmount,
@@ -2076,6 +2077,34 @@ export const deleteOrder = async (req, res) => {
     await order.deleteOne();
 
     res.status(200).json({ success: true, message: "Order deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const resendCustomerDeliveryOtp = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate("user", "phone").lean();
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const customerPhone = order.deliveryAddress?.phone || order.user?.phone;
+    if (!customerPhone) {
+      return res.status(400).json({ success: false, message: "No customer phone number found on order" });
+    }
+
+    const otpCode = String(order.deliveryOtp || Math.floor(1000 + Math.random() * 9000)).trim();
+    if (!order.deliveryOtp) {
+      await Order.findByIdAndUpdate(order._id, { deliveryOtp: otpCode });
+    }
+
+    const result = await sendDeliveryVerificationOtp(customerPhone, otpCode);
+    return res.json({
+      success: true,
+      message: "Delivery verification OTP sent to customer via SMS",
+      devMock: result.devMock,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

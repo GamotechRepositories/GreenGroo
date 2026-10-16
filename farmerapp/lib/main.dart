@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_shell.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/farmer_onboarding_flow_screen.dart';
 import 'screens/documents/documents_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'models/farmer_models.dart';
@@ -177,11 +178,13 @@ class _SessionGate extends StatefulWidget {
 
 class _SessionGateState extends State<_SessionGate> {
   late bool _loggedIn;
+  late bool _onboardingDone;
 
   @override
   void initState() {
     super.initState();
     _loggedIn = FarmerState().isLoggedIn;
+    _onboardingDone = FarmerState().isOnboardingCompleted;
     FarmerState().addListener(_onFarmerState);
   }
 
@@ -192,17 +195,31 @@ class _SessionGateState extends State<_SessionGate> {
   }
 
   void _onFarmerState() {
-    final next = FarmerState().isLoggedIn;
-    if (next == _loggedIn || !mounted) return;
-    setState(() => _loggedIn = next);
+    final nextLoggedIn = FarmerState().isLoggedIn;
+    final nextOnboarding = FarmerState().isOnboardingCompleted;
+    if (nextLoggedIn == _loggedIn && nextOnboarding == _onboardingDone) return;
+    if (!mounted) return;
+    setState(() {
+      _loggedIn = nextLoggedIn;
+      _onboardingDone = nextOnboarding;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final loggedIn = _loggedIn;
+    final onboardingDone = _onboardingDone;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) PushNotificationService.instance.setShellReady(loggedIn);
+      if (mounted) PushNotificationService.instance.setShellReady(loggedIn && onboardingDone);
     });
-    return loggedIn ? const MainShell() : const LoginScreen();
+
+    if (!loggedIn) {
+      return const LoginScreen();
+    }
+    if (!onboardingDone) {
+      return const FarmerOnboardingFlowScreen();
+    }
+    return const MainShell();
   }
 }

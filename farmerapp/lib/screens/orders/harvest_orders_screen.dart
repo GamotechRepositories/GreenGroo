@@ -545,6 +545,47 @@ class _CompletedHarvestCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
+          // Vendor Details Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFDCFCE7)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.storefront_rounded, size: 13, color: Color(0xFF16A34A)),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    AppLanguage().tr(
+                      mr: 'व्हेंडर: ${order.vendorBusinessName.isNotEmpty ? order.vendorBusinessName : (order.vendorName.isNotEmpty ? order.vendorName : "अधिकृत व्हेंडर")}',
+                      en: 'Vendor: ${order.vendorBusinessName.isNotEmpty ? order.vendorBusinessName : (order.vendorName.isNotEmpty ? order.vendorName : "Assigned Vendor")}',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF166534),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (order.vendorPhone.isNotEmpty)
+                  Text(
+                    order.vendorPhone,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF15803D),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
           // Row 2: Schedule (Order Date, Pickup Date, Pickup Slot)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),

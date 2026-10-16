@@ -143,6 +143,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   if (allOrders.isEmpty && !FarmerState().ordersReady) {
                     return const OrderListSkeleton();
                   }
+                  final hasAssignedVendor = FarmerState().profile.vendorId.trim().isNotEmpty;
                   return PullToRefresh(
                     color: const Color(0xFF217346),
                     onRefresh: () => FarmerState().refreshOrders(),
@@ -155,20 +156,42 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE8F0EA),
+                              color: hasAssignedVendor ? const Color(0xFFE8F0EA) : const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(50),
                             ),
-                            child: const Icon(Icons.shopping_bag_outlined, size: 40, color: Color(0xFF217346)),
+                            child: Icon(
+                              hasAssignedVendor ? Icons.shopping_bag_outlined : Icons.store_mall_directory_outlined,
+                              size: 40,
+                              color: hasAssignedVendor ? const Color(0xFF217346) : const Color(0xFFD97706),
+                            ),
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            AppLanguage().tr(mr: '${tab['marathi']} ऑर्डर नाहीत', en: 'No ${tab['label']?.toLowerCase()}'),
+                            !hasAssignedVendor
+                                ? AppLanguage().tr(
+                                    mr: 'कोणताही व्हेंडर नियुक्त केलेला नाही',
+                                    en: 'No Vendor Assigned',
+                                  )
+                                : AppLanguage().tr(
+                                    mr: '${tab['marathi']} ऑर्डर नाहीत',
+                                    en: 'No ${tab['label']?.toLowerCase()}',
+                                  ),
+                            textAlign: TextAlign.center,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937)),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
-                            AppLanguage().tr(mr: 'या स्थितीतील ऑर्डर्स येथे दिसतील.', en: 'Orders in this status will appear here.'),
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                            !hasAssignedVendor
+                                ? AppLanguage().tr(
+                                    mr: 'शेतकऱ्याला फक्त त्याचा नियुक्त केलेला व्हेंडरच ऑर्डर पाठवू शकतो.',
+                                    en: 'Only your assigned vendor can send orders to you.',
+                                  )
+                                : AppLanguage().tr(
+                                    mr: 'या स्थितीतील ऑर्डर्स येथे दिसतील.',
+                                    en: 'Orders in this status will appear here.',
+                                  ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280), height: 1.4),
                           ),
                         ],
                       ),
@@ -623,6 +646,47 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
               // Right: Status Badge
               _buildStatusBadge(order.status),
             ],
+          ),
+          const SizedBox(height: 8),
+
+          // Vendor Details Row (Orders can only be sent by the farmer's assigned vendor)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFFDCFCE7)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.storefront_rounded, size: 13, color: Color(0xFF16A34A)),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    AppLanguage().tr(
+                      mr: 'व्हेंडर: ${order.vendorBusinessName.isNotEmpty ? order.vendorBusinessName : (order.vendorName.isNotEmpty ? order.vendorName : "अधिकृत व्हेंडर")}',
+                      en: 'Vendor: ${order.vendorBusinessName.isNotEmpty ? order.vendorBusinessName : (order.vendorName.isNotEmpty ? order.vendorName : "Assigned Vendor")}',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF166534),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (order.vendorPhone.isNotEmpty)
+                  Text(
+                    order.vendorPhone,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF15803D),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
 

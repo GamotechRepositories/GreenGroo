@@ -27,8 +27,8 @@ class MainShell extends StatefulWidget {
     context.findAncestorStateOfType<_MainShellState>()?.openDrawer();
   }
 
-  static void setTab(BuildContext context, int index) {
-    context.findAncestorStateOfType<_MainShellState>()?.setTab(index);
+  static void setTab(BuildContext context, int index, {int? subTab}) {
+    context.findAncestorStateOfType<_MainShellState>()?.setTab(index, subTab: subTab);
   }
 
   @override
@@ -38,6 +38,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<EarningsScreenState> _earningsKey = GlobalKey<EarningsScreenState>();
+  final GlobalKey<ProductsScreenState> _productsKey = GlobalKey<ProductsScreenState>();
   late int _currentIndex;
   final Set<int> _builtTabs = <int>{};
 
@@ -52,8 +53,13 @@ class _MainShellState extends State<MainShell> {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  void setTab(int index) {
+  void setTab(int index, {int? subTab}) {
     _showTab(index);
+    if (index == 1 && subTab != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _productsKey.currentState?.switchToTab(subTab);
+      });
+    }
   }
 
   void _showTab(int index) {
@@ -65,7 +71,7 @@ class _MainShellState extends State<MainShell> {
 
   late final List<Widget> _screens = <Widget>[
     const DashboardScreen(),
-    const ProductsScreen(),
+    ProductsScreen(key: _productsKey),
     const OrdersScreen(),
     EarningsScreen(key: _earningsKey, embeddedInShell: true),
     const ProfileScreen(),
@@ -80,9 +86,9 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  void _selectTab(int index) {
+  void _selectTab(int index, {int? subTab}) {
     _closeDrawer();
-    _showTab(index);
+    setTab(index, subTab: subTab);
   }
 
   @override
@@ -185,7 +191,7 @@ class _MainShellState extends State<MainShell> {
 
 class FarmerSidebarDrawer extends StatelessWidget {
   final int? currentTabIndex;
-  final ValueChanged<int>? onSelectTab;
+  final void Function(int index, {int? subTab})? onSelectTab;
 
   const FarmerSidebarDrawer({
     super.key,
@@ -193,12 +199,12 @@ class FarmerSidebarDrawer extends StatelessWidget {
     this.onSelectTab,
   });
 
-  void _handleSelectTab(BuildContext context, int index) {
+  void _handleSelectTab(BuildContext context, int index, {int? subTab}) {
     if (onSelectTab != null) {
-      onSelectTab!(index);
+      onSelectTab!(index, subTab: subTab);
     } else {
       Navigator.of(context).popUntil((route) => route.isFirst);
-      MainShell.setTab(context, index);
+      MainShell.setTab(context, index, subTab: subTab);
     }
   }
 
@@ -293,6 +299,70 @@ class FarmerSidebarDrawer extends StatelessWidget {
                   ),
                 ),
 
+                // Quick Navigation Tabs in Sidebar Drawer
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8FAFC),
+                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _quickTabChip(
+                          label: lang.tr(mr: 'डॅशबोर्ड', en: 'Dashboard'),
+                          icon: Icons.dashboard_outlined,
+                          isSelected: currentTabIndex == 0,
+                          onTap: () => _handleSelectTab(context, 0),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Catalogs'),
+                          icon: Icons.storefront_outlined,
+                          isSelected: currentTabIndex == 1,
+                          onTap: () => _handleSelectTab(context, 1, subTab: 0),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'सर्व उत्पादने', en: 'All Products'),
+                          icon: Icons.inventory_2_outlined,
+                          isSelected: currentTabIndex == 1,
+                          onTap: () => _handleSelectTab(context, 1, subTab: 1),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
+                          icon: Icons.eco_outlined,
+                          isSelected: currentTabIndex == 1,
+                          onTap: () => _handleSelectTab(context, 1, subTab: 2),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'ऑर्डर्स', en: 'Orders'),
+                          icon: Icons.shopping_bag_outlined,
+                          isSelected: currentTabIndex == 2,
+                          onTap: () => _handleSelectTab(context, 2),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'उत्पन्न', en: 'Earnings'),
+                          icon: Icons.account_balance_wallet_outlined,
+                          isSelected: currentTabIndex == 3,
+                          onTap: () => _handleSelectTab(context, 3),
+                        ),
+                        const SizedBox(width: 6),
+                        _quickTabChip(
+                          label: lang.tr(mr: 'प्रोफाईल', en: 'Profile'),
+                          icon: Icons.person_outline,
+                          isSelected: currentTabIndex == 4,
+                          onTap: () => _handleSelectTab(context, 4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
                 // Sidebar Menu Items matching D:\GreenGroo\farmer exactly
                 Expanded(
                   child: ListView(
@@ -345,23 +415,36 @@ class FarmerSidebarDrawer extends StatelessWidget {
                         leading: const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.primary),
                         title: Text(
                           lang.tr(mr: 'उत्पादने', en: 'Products'),
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: currentTabIndex == 1 ? AppColors.primary : AppColors.textPrimary,
+                          ),
                         ),
-                        childrenPadding: const EdgeInsets.only(left: 48),
+                        childrenPadding: const EdgeInsets.only(left: 36),
                         children: [
                           _subItem(
-                            label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
-                            onTap: () => _handleSelectTab(context, 1),
+                            icon: Icons.storefront_outlined,
+                            label: lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Products Catalogs'),
+                            onTap: () => _handleSelectTab(context, 1, subTab: 0),
                           ),
                           _subItem(
+                            icon: Icons.inventory_2_outlined,
+                            label: lang.tr(mr: 'सर्व उत्पादने', en: 'All Products'),
+                            onTap: () => _handleSelectTab(context, 1, subTab: 1),
+                          ),
+                          _subItem(
+                            icon: Icons.eco_outlined,
+                            label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
+                            onTap: () => _handleSelectTab(context, 1, subTab: 2),
+                          ),
+                          _subItem(
+                            icon: Icons.add_circle_outline,
                             label: lang.tr(mr: 'नवीन उत्पादन जोडा', en: 'Add Product'),
                             onTap: () => _handleNavigate(context, const AddProductScreen()),
                           ),
                           _subItem(
-                            label: lang.tr(mr: 'उत्पादन तपशील', en: 'Product Details'),
-                            onTap: () => _handleSelectTab(context, 1),
-                          ),
-                          _subItem(
+                            icon: Icons.warehouse_rounded,
                             label: lang.tr(mr: 'उपलब्ध साठा (Inventory)', en: 'Stock Inventory'),
                             onTap: () => _handleNavigate(context, const InventoryScreen()),
                           ),
@@ -509,12 +592,64 @@ class FarmerSidebarDrawer extends StatelessWidget {
     );
   }
 
-  Widget _subItem({required String label, required VoidCallback onTap}) {
+  Widget _subItem({required String label, IconData? icon, required VoidCallback onTap}) {
     return ListTile(
       dense: true,
       visualDensity: VisualDensity.compact,
+      leading: icon != null ? Icon(icon, size: 16, color: AppColors.muted) : null,
       title: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500)),
       onTap: onTap,
+    );
+  }
+
+  Widget _quickTabChip({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFCBD5E1),
+            width: 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? Colors.white : AppColors.textPrimary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

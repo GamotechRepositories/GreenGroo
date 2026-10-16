@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
-import { signup, login, loginWithPhone, sendOtpLogin, verifyOtpLogin, completeOtpSignup, resetPasswordWithPhoneOtp, createUnblockRequest, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, getUserOrderStats, updateUser, deleteUser } from "../controllers/userController.js";
+import { signup, login, loginWithPhone, sendOtpLogin, verifyOtpLogin, completeOtpSignup, resetPasswordWithPhoneOtp, createUnblockRequest, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, sendAdminLoginOtp, verifyAdminLoginOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, getUserOrderStats, updateUser, deleteUser } from "../controllers/userController.js";
 import { clearFcmToken, saveFcmToken } from "../controllers/fcmTokenController.js";
 import {
   addAddressForUser,
@@ -16,6 +16,8 @@ router.post("/login/phone", loginWithPhone);
 router.post("/unblock-request", createUnblockRequest);
 router.post("/admin/forgot-password", requestAdminPasswordReset);
 router.post("/admin/reset-password", resetAdminPassword);
+router.post("/admin/otp/send", sendAdminLoginOtp);
+router.post("/admin/otp/verify", verifyAdminLoginOtp);
 router.post("/otp/send", sendOtpLogin);
 router.post("/otp/verify", verifyOtpLogin);
 router.post("/otp/complete-signup", completeOtpSignup);

@@ -9,6 +9,8 @@ import {
   normalizeIndianPhone,
   sendLoginOtp as dispatchLoginOtp,
   verifyLoginOtp as validateLoginOtp,
+  sendOtp,
+  MSG91_TEMPLATES,
   markPhoneOtpVerified,
   consumeVerifiedPhone,
 } from "../utils/msg91.js";
@@ -387,7 +389,7 @@ export const sendOtpLogin = async (req, res) => {
       }
     }
 
-    const result = await dispatchLoginOtp(phone);
+    const result = await dispatchLoginOtp(phone, purpose);
 
     res.status(200).json({
       success: true,
@@ -789,7 +791,10 @@ export const sendAdminSecurityOtp = async (req, res) => {
       });
     }
 
-    await dispatchLoginOtp(user.phone);
+    await sendOtp({
+      phone: user.phone,
+      purpose: "GreenGrocc Admin Login OTP",
+    });
 
     res.status(200).json({
       success: true,
@@ -829,7 +834,10 @@ export const requestAdminPasswordReset = async (req, res) => {
       });
     }
 
-    await dispatchLoginOtp(user.phone);
+    await sendOtp({
+      phone: user.phone,
+      purpose: "GreenGrocc Admin Login OTP",
+    });
 
     res.status(200).json({
       success: true,
@@ -844,6 +852,112 @@ export const requestAdminPasswordReset = async (req, res) => {
       success: false,
       message: error.message || "Failed to send OTP",
     });
+  }
+};
+
+export const sendAdminLoginOtp = async (req, res) => {
+  try {
+    const rawInput = String(req.body.login || req.body.email || req.body.phone || "").trim();
+    if (!rawInput) {
+      return res.status(400).json({ success: false, message: "Admin email or phone is required" });
+    }
+
+    const normalizedPhone = normalizeIndianPhone(rawInput);
+    const normalizedEmail = rawInput.toLowerCase();
+
+    let user = null;
+    if (normalizedPhone) {
+      user =
+        (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
+        (await Admin.findOne({ phone: normalizedPhone }));
+    }
+    if (!user && normalizedEmail.includes("@")) {
+      user =
+        (await User.findOne({ email: normalizedEmail, role: "admin" })) ||
+        (await Admin.findOne({ email: normalizedEmail }));
+    }
+
+    if (!user || !user.phone) {
+      return res.status(404).json({
+        success: false,
+        message: "No admin account with registered phone found for these credentials",
+      });
+    }
+
+    if (isUserBlocked(user)) {
+      return res.status(403).json({
+        success: false,
+        message: "Your admin account is blocked. Contact system administrator.",
+      });
+    }
+
+    const result = await sendOtp({
+      phone: user.phone,
+      purpose: "GreenGrocc Admin Login OTP",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Admin login OTP sent to ${maskPhoneNumber(user.phone)}`,
+      data: {
+        phone: user.phone,
+        phoneHint: maskPhoneNumber(user.phone),
+        devMock: result.devMock,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to send admin login OTP" });
+  }
+};
+
+export const verifyAdminLoginOtp = async (req, res) => {
+  try {
+    const rawInput = String(req.body.login || req.body.email || req.body.phone || "").trim();
+    const otp = String(req.body.otp || "").trim();
+
+    if (!rawInput || !otp) {
+      return res.status(400).json({ success: false, message: "Admin identifier and OTP are required" });
+    }
+
+    const normalizedPhone = normalizeIndianPhone(rawInput);
+    const normalizedEmail = rawInput.toLowerCase();
+
+    let user = null;
+    if (normalizedPhone) {
+      user =
+        (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
+        (await Admin.findOne({ phone: normalizedPhone }));
+    }
+    if (!user && normalizedEmail.includes("@")) {
+      user =
+        (await User.findOne({ email: normalizedEmail, role: "admin" })) ||
+        (await Admin.findOne({ email: normalizedEmail }));
+    }
+
+    if (!user || !user.phone) {
+      return res.status(404).json({ success: false, message: "Admin account not found" });
+    }
+
+    if (isUserBlocked(user)) {
+      return res.status(403).json({ success: false, message: "Admin account is blocked" });
+    }
+
+    const verification = await validateLoginOtp(user.phone, otp);
+    if (!verification.ok) {
+      return res.status(400).json({ success: false, message: verification.message || "Invalid OTP" });
+    }
+
+    const token = signToken(user._id);
+    return res.status(200).json({
+      success: true,
+      message: "Admin login successful",
+      data: {
+        user: formatAuthUser(user),
+        token,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Admin OTP verification failed" });
   }
 };
 

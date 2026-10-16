@@ -87,20 +87,144 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     schemesReady = true;
   }
 
+  bool _onboardingCompletedLocally = false;
+
+  bool get isOnboardingCompleted {
+    if (!isLoggedIn) return false;
+    if (_onboardingCompletedLocally) return true;
+
+    final hasReg = profile.fullName.trim().isNotEmpty && profile.mobile.trim().isNotEmpty;
+    final hasBank = profile.bankAccountNumber.trim().isNotEmpty && profile.bankIfsc.trim().isNotEmpty;
+    final has712 = documents.any((d) => (d.type == 'land_712' || d.id == 'DOC-3') && d.isUploaded);
+    final hasAadhaar = documents.any((d) => (d.type == 'aadhaar' || d.id == 'DOC-1') && d.isUploaded);
+    final hasVideo = documents.any((d) => (d.type == 'video_kyc' || d.id == 'DOC-9') && d.isUploaded);
+    final hasFarm = profile.farmName.trim().isNotEmpty && profile.totalAcres > 0;
+    final hasLocation = profile.locationConfirmed && (profile.latitude != null && profile.latitude != 0);
+
+    final allDone = hasReg && hasBank && has712 && hasAadhaar && hasVideo && hasFarm && hasLocation;
+    if (allDone) {
+      _onboardingCompletedLocally = true;
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> completeOnboarding() async {
+    _onboardingCompletedLocally = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (profile.id.isNotEmpty) {
+        await prefs.setBool('farmer_onboarding_completed_${profile.id}', true);
+      }
+      await prefs.setBool('farmer_onboarding_completed', true);
+    } catch (_) {}
+    notifyListeners();
+  }
+
   void logout() {
     PushNotificationService.instance.unregister(authToken: ApiService().token);
     isLoggedIn = false;
+    _onboardingCompletedLocally = false;
     _syncDebounce?.cancel();
     _syncQueued = false;
     _syncDeferred = false;
     ApiService().setToken(null);
-    _persistProfile();
+    profile = FarmerProfile.empty();
+    documents = [];
+    crops = [];
+    products = [];
+    orders = [];
+    harvestOrders = [];
+    schemes = [];
+    schemeApplications = [];
+    _ensureDocumentChecklist();
+    _clearPersistedProfile();
     FarmerSocketService.instance.disconnect();
     notifyListeners();
   }
 
-  void login() {
+  Future<void> _clearPersistedProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('farmer_profile_data');
+      await prefs.remove('farmer_is_logged_in');
+      await prefs.remove('farmer_documents_data');
+      await prefs.remove('farmer_onboarding_completed');
+    } catch (_) {}
+  }
+
+  /// Returns the current onboarding step that the farmer needs to complete (2 to 6),
+  /// or 0 if onboarding is completely finished.
+  Future<int> checkOnboardingStep() async {
+    if (!isLoggedIn) return 2;
+    final fid = profile.id.trim();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (fid.isNotEmpty && prefs.getBool('farmer_onboarding_completed_$fid') == true) {
+        _onboardingCompletedLocally = true;
+        return 0;
+      }
+      if (prefs.getBool('farmer_onboarding_completed') == true) {
+        _onboardingCompletedLocally = true;
+        return 0;
+      }
+    } catch (_) {}
+
+    // Check if documents are already loaded, if not fetch from backend
+    if (documents.isEmpty) {
+      await fetchFromBackend();
+    }
+
+    // Step 2: Bank & Identity check
+    String bankAcc = profile.bankAccountNumber.trim();
+    String bankIfsc = profile.bankIfsc.trim();
+    if (bankAcc.isEmpty || bankIfsc.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
+        bankAcc = prefs.getString('${prefix}bank_acc_no') ?? '';
+        bankIfsc = prefs.getString('${prefix}bank_ifsc') ?? '';
+      } catch (_) {}
+    }
+    if (bankAcc.isEmpty || bankIfsc.isEmpty) {
+      return 2;
+    }
+
+    // Step 3: Mandatory Documents (7/12, Aadhaar, Bank Passbook)
+    final has712 = documents.any((d) => (d.type == 'land_712' || d.id == 'DOC-3') && (d.isUploaded || d.fileUrl.isNotEmpty));
+    final hasAadhaar = documents.any((d) => (d.type == 'aadhaar' || d.id == 'DOC-1') && (d.isUploaded || d.fileUrl.isNotEmpty));
+    final hasBankDoc = documents.any((d) => (d.type == 'bank' || d.id == 'DOC-5') && (d.isUploaded || d.fileUrl.isNotEmpty));
+    if (!has712 || !hasAadhaar || !hasBankDoc) {
+      return 3;
+    }
+
+    // Step 4: Live Video KYC
+    final hasVideo = documents.any((d) => (d.type == 'video_kyc' || d.id == 'DOC-9') && (d.isUploaded || d.fileUrl.isNotEmpty));
+    if (!hasVideo) {
+      return 4;
+    }
+
+    // Step 5: Farm Profile (farmName & totalAcres)
+    final hasFarm = profile.farmName.trim().isNotEmpty && profile.totalAcres > 0;
+    if (!hasFarm) {
+      return 5;
+    }
+
+    // Step 6: Farm Location
+    final hasLocation = profile.locationConfirmed && (profile.latitude != null && profile.latitude != 0);
+    if (!hasLocation) {
+      return 6;
+    }
+
+    // All are completed!
+    await completeOnboarding();
+    return 0;
+  }
+
+  void login({bool markCompleted = false}) {
     isLoggedIn = true;
+    _onboardingCompletedLocally = markCompleted;
     _persistProfile();
     fetchFromBackend();
     FarmerSocketService.instance.connect(profile.id);
@@ -781,6 +905,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       _loadNotificationPreferences(),
       _loadProfilePreferences(),
       _loadDocumentsPreferences(),
+      _loadSelfAddedProductPreferences(),
     ]);
     isPreferencesLoaded = true;
     notifyListeners();
@@ -802,6 +927,11 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       final savedLogin = prefs.getBool('farmer_is_logged_in');
       if (savedLogin != null) {
         isLoggedIn = savedLogin;
+      }
+      final pKey = profile.id.isNotEmpty ? 'farmer_onboarding_completed_${profile.id}' : 'farmer_onboarding_completed';
+      final savedOnboarding = prefs.getBool(pKey) ?? prefs.getBool('farmer_onboarding_completed');
+      if (savedOnboarding != null) {
+        _onboardingCompletedLocally = savedOnboarding;
       }
       notifyListeners();
     } catch (e) {
@@ -1073,7 +1203,40 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  final Set<String> selfAddedProductIds = <String>{};
+
+  Future<void> _loadSelfAddedProductPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ids = prefs.getStringList('farmer_self_added_product_ids');
+      if (ids != null) {
+        selfAddedProductIds.addAll(ids);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> recordSelfAddedProductId(String id) async {
+    final cleanId = id.trim();
+    if (cleanId.isEmpty) return;
+    selfAddedProductIds.add(cleanId);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('farmer_self_added_product_ids', selfAddedProductIds.toList());
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  bool isProductSelfAdded(ProductItem product) {
+    if (product.isSelfAdded) return true;
+    if (selfAddedProductIds.contains(product.id) || selfAddedProductIds.contains(product.productId)) return true;
+    if (product.id.startsWith('PROD-') || product.productId.startsWith('PROD-')) return true;
+    if (product.cropLinked.isNotEmpty) return true;
+    return false;
+  }
+
   void addProduct(ProductItem product) {
+    if (product.id.isNotEmpty) recordSelfAddedProductId(product.id);
+    if (product.productId.isNotEmpty) recordSelfAddedProductId(product.productId);
     products.insert(0, product);
     notifyListeners();
     ApiService().createProduct(profile.id, {

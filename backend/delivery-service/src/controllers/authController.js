@@ -3,6 +3,11 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreOrder from "../models/StoreOrder.js";
 import Shift from "../models/Shift.js";
+import {
+  sendDeliveryPartnerOtp,
+  verifyOtp,
+  normalizeIndianPhone,
+} from "@greengrocc/shared";
 import { dispatchNextRider } from "../services/dispatchService.js";
 import { getIO } from "../../../socket.js";
 import {
@@ -312,6 +317,111 @@ export const login = async (req, res, next) => {
     if (ALLOWED_LANGUAGES.includes(language)) {
       deliveryBoy.language = language;
       await deliveryBoy.save();
+    }
+
+    const token = signToken(deliveryBoy);
+    return res.json(authResponse(deliveryBoy, token));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const sendDeliveryPartnerOtpController = async (req, res, next) => {
+  try {
+    const rawPhone = req.body.phone || req.body.mobile;
+    const phone = normalizeIndianPhone(rawPhone);
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid 10-digit phone number is required",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    const existing = await DeliveryBoy.findOne({ phone });
+
+    if (isRegister) {
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: "A delivery partner account with this phone already exists. Please log in.",
+        });
+      }
+    } else {
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: "No delivery partner account found with this phone. Please register first.",
+        });
+      }
+      if (!existing.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Account is deactivated. Contact support.",
+        });
+      }
+    }
+
+    const result = await sendDeliveryPartnerOtp(phone, isRegister ? "register" : "login");
+    return res.json({
+      success: true,
+      message: result.message || "OTP sent successfully",
+      phone,
+      purpose: isRegister ? "register" : "login",
+      devMock: result.devMock,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
+  try {
+    const rawPhone = req.body.phone || req.body.mobile;
+    const phone = normalizeIndianPhone(rawPhone);
+    const otp = String(req.body.otp || "").trim();
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number and OTP are required",
+      });
+    }
+
+    const verification = await verifyOtp({ phone, otp, purpose });
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message || "Invalid OTP",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    if (isRegister) {
+      return res.json({
+        success: true,
+        verified: true,
+        phone,
+        message: "Phone number verified successfully. You can complete registration.",
+      });
+    }
+
+    const deliveryBoy = await DeliveryBoy.findOne({ phone });
+    if (!deliveryBoy) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner account not found. Please register.",
+      });
+    }
+
+    if (!deliveryBoy.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Account is deactivated. Contact support.",
+      });
     }
 
     const token = signToken(deliveryBoy);

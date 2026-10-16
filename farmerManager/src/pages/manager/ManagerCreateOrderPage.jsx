@@ -438,6 +438,18 @@ export default function ManagerCreateOrderPage() {
         </button>
       </div>
 
+      {!isEdit && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 shadow-sm">
+          <div className="flex items-center gap-2 font-semibold">
+            <span className="text-base">⚠️</span>
+            <span>ऑर्डर पाठवण्याचा अधिकार फक्त नियुक्त व्हेंडरला आहे (Vendor Only)</span>
+          </div>
+          <p className="mt-1 text-[11px] text-amber-800">
+            शेतकरी ॲपमध्ये शेतकर्‍याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. इतर कोणालाही शेतकर्‍याला ऑर्डर पाठवण्याची परवानगी नाही.
+          </p>
+        </div>
+      )}
+
       {loadingFarmers ? (
         <div className="rounded border border-[#D4D4D4] bg-white p-6 text-center text-[#6B7280]">Loading…</div>
       ) : (
@@ -723,10 +735,11 @@ export default function ManagerCreateOrderPage() {
             </button>
             <button
               type="submit"
-              disabled={submitting || farmerProducts.length === 0}
-              className={`${EXCEL_BTN_PRIMARY} !min-h-10 w-full sm:w-auto`}
+              disabled={submitting || farmerProducts.length === 0 || !isEdit}
+              className={`${EXCEL_BTN_PRIMARY} !min-h-10 w-full sm:w-auto ${!isEdit ? "!opacity-50 !cursor-not-allowed" : ""}`}
+              title={!isEdit ? "Only assigned vendor can create orders" : ""}
             >
-              {submitting ? "Saving…" : isEdit ? "Save Changes" : isCopy ? "Save Copy" : "Save Order"}
+              {submitting ? "Saving…" : isEdit ? "Save Changes" : "Vendor Only — Cannot Create Order"}
             </button>
           </div>
         </form>

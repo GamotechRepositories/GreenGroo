@@ -324,7 +324,7 @@ class AuthService {
           if (name.isNotEmpty) 'name': name,
         }),
       );
-      return _parseAuthResponse(res);
+      return await _parseAuthResponse(res);
     } on AuthApiException {
       rethrow;
     } catch (e) {
@@ -346,11 +346,61 @@ class AuthService {
           'language': _currentLanguage,
         }),
       );
-      return _parseAuthResponse(res);
+      return await _parseAuthResponse(res);
     } on AuthApiException {
       rethrow;
     } catch (e) {
       // Surface the friendly message from api_config (includes URL + fix hint)
+      throw AuthApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<Map<String, dynamic>> sendOtp({
+    required String phone,
+    String purpose = 'login',
+  }) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.otpSend,
+        body: jsonEncode({
+          'phone': phone,
+          'purpose': purpose,
+        }),
+      );
+      if (res.statusCode != 200) {
+        String msg = 'Failed to send OTP (${res.statusCode})';
+        try {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          msg = data['message']?.toString() ?? msg;
+        } catch (_) {}
+        throw AuthApiException(msg);
+      }
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } on AuthApiException {
+      rethrow;
+    } catch (e) {
+      throw AuthApiException(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<AuthResult> verifyOtp({
+    required String phone,
+    required String otp,
+    String purpose = 'login',
+  }) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.otpVerify,
+        body: jsonEncode({
+          'phone': phone,
+          'otp': otp,
+          'purpose': purpose,
+        }),
+      );
+      return await _parseAuthResponse(res);
+    } on AuthApiException {
+      rethrow;
+    } catch (e) {
       throw AuthApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -395,14 +445,16 @@ class AuthService {
     if (!isLoggedIn) {
       throw AuthApiException('Please login again to continue onboarding');
     }
+    final Map<String, dynamic> payload = {
+      ...?data,
+    };
+    if (step != null) payload['onboardingStep'] = step;
+    if (complete != null) payload['onboardingComplete'] = complete;
+
     final res = await apiPatch(
       ApiConfig.onboarding,
       headers: _authHeaders,
-      body: jsonEncode({
-        if (step != null) 'onboardingStep': step,
-        if (complete != null) 'onboardingComplete': complete,
-        ...?data,
-      }),
+      body: jsonEncode(payload),
       timeout: timeout,
     );
     if (res.statusCode != 200) {

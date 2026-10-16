@@ -525,6 +525,120 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Assigned Vendor Card (Only the assigned vendor can place orders to farmer)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                          ),
+                          child: const Icon(
+                            Icons.storefront_rounded,
+                            color: Color(0xFF16A34A),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      order.vendorBusinessName.isNotEmpty
+                                          ? order.vendorBusinessName
+                                          : (order.vendorName.isNotEmpty
+                                              ? order.vendorName
+                                              : (profile.vendorName.isNotEmpty
+                                                  ? profile.vendorName
+                                                  : AppLanguage().tr(mr: 'अधिकृत व्हेंडर', en: 'Assigned Vendor'))),
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1F2937),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFF86EFAC)),
+                                    ),
+                                    child: Text(
+                                      AppLanguage().tr(mr: 'व्हेंडर', en: 'Vendor'),
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF15803D),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                order.vendorName.isNotEmpty && order.vendorBusinessName.isNotEmpty
+                                    ? '${order.vendorName} • ${order.vendorPhone.isNotEmpty ? order.vendorPhone : AppLanguage().tr(mr: 'अधिकृत खरेदीदार', en: 'Authorized Buyer')}'
+                                    : (order.vendorPhone.isNotEmpty
+                                        ? order.vendorPhone
+                                        : AppLanguage().tr(mr: 'या शेतकऱ्याचे अधिकृत व्हेंडर', en: 'Assigned vendor for this farmer')),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF6B7280),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (order.vendorPhone.trim().isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF16A34A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.all(8),
+                            ),
+                            icon: const Icon(Icons.phone_rounded, size: 16),
+                            tooltip: AppLanguage().tr(mr: 'व्हेंडरला कॉल करा', en: 'Call Vendor'),
+                            onPressed: () {
+                              final clean = order.vendorPhone.replaceAll(RegExp(r'\D'), '');
+                              if (clean.isNotEmpty) {
+                                launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
+                              }
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   // Assigned Driver Card
                   if (order.isDriverAssigned) ...[
                     Container(

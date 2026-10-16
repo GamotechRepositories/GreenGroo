@@ -39,6 +39,10 @@ class FarmerProfile {
   final String farmPhoto;
   final List<String>? _farmPhotos;
   final List<String>? _farmVideos;
+  final String vendorId;
+  final String vendorName;
+  final String managerId;
+  final String managerName;
 
   String get totalFarmAreaUnit => _totalFarmAreaUnit ?? 'Acre';
   double get cultivatedArea => _cultivatedArea ?? totalAcres;
@@ -49,7 +53,7 @@ class FarmerProfile {
   bool get locationConfirmed => _locationConfirmed ?? false;
   String get kycStatus => _kycStatus ?? 'PENDING';
   String get bankVerificationStatus => _bankVerificationStatus ?? 'PENDING';
-  String get bankAccountHolder => (_bankAccountHolder != null && _bankAccountHolder!.isNotEmpty) ? _bankAccountHolder! : fullName;
+  String get bankAccountHolder => (_bankAccountHolder != null && _bankAccountHolder.isNotEmpty) ? _bankAccountHolder : fullName;
   String get bankName => _bankName ?? '';
   String get bankAccountNumber => _bankAccountNumber ?? '';
   String get bankIfsc => _bankIfsc ?? '';
@@ -98,6 +102,10 @@ class FarmerProfile {
     this.farmPhoto = '',
     List<String>? farmPhotos,
     List<String>? farmVideos,
+    this.vendorId = '',
+    this.vendorName = '',
+    this.managerId = '',
+    this.managerName = '',
   })  : _totalFarmAreaUnit = totalFarmAreaUnit ?? 'Acre',
         _cultivatedArea = cultivatedArea ?? totalAcres,
         _cultivatedAreaUnit = cultivatedAreaUnit ?? 'Acre',
@@ -114,7 +122,8 @@ class FarmerProfile {
         _bankBranch = bankBranch ?? '',
         _bankAccountType = bankAccountType ?? 'Savings (बचत खाते)',
         _bankUpiId = bankUpiId ?? '',
-        _farmPhotos = farmPhotos ?? const [];
+        _farmPhotos = farmPhotos ?? const [],
+        _farmVideos = farmVideos ?? const [];
 
   FarmerProfile copyWith({
     String? id,
@@ -198,10 +207,32 @@ class FarmerProfile {
     );
   }
 
+  factory FarmerProfile.empty() => FarmerProfile(
+        id: '',
+        fullName: '',
+        mobile: '',
+        farmName: '',
+        totalAcres: 0,
+        village: '',
+        taluka: '',
+        district: '',
+        state: '',
+        pincode: '',
+        kycStatus: 'PENDING',
+        bankVerificationStatus: 'PENDING',
+        locationConfirmed: false,
+      );
+
   factory FarmerProfile.fromJson(Map<String, dynamic> json) {
     final addr = json['address'] is Map ? json['address'] as Map<String, dynamic> : <String, dynamic>{};
     final farm = json['farm'] is Map ? json['farm'] as Map<String, dynamic> : <String, dynamic>{};
-    final loc = json['farmLocation'] is Map ? json['farmLocation'] as Map<String, dynamic> : <String, dynamic>{};
+    final farmGeo = json['farmGeo'] is Map ? json['farmGeo'] as Map<String, dynamic> : <String, dynamic>{};
+    final loc = json['farmLocation'] is Map
+        ? json['farmLocation'] as Map<String, dynamic>
+        : (farmGeo.isNotEmpty ? farmGeo : <String, dynamic>{});
+    final bank = json['bank'] is Map
+        ? json['bank'] as Map<String, dynamic>
+        : (json['bankDetails'] is Map ? json['bankDetails'] as Map<String, dynamic> : <String, dynamic>{});
 
     double acres = 0;
     if (json['farmArea'] != null) {
@@ -232,8 +263,18 @@ class FarmerProfile {
       }
     }
 
-    double? lat = loc['latitude'] != null ? double.tryParse(loc['latitude'].toString()) : null;
-    double? lng = loc['longitude'] != null ? double.tryParse(loc['longitude'].toString()) : null;
+    double? lat = loc['latitude'] != null
+        ? double.tryParse(loc['latitude'].toString())
+        : (farmGeo['latitude'] != null ? double.tryParse(farmGeo['latitude'].toString()) : null);
+    double? lng = loc['longitude'] != null
+        ? double.tryParse(loc['longitude'].toString())
+        : (farmGeo['longitude'] != null ? double.tryParse(farmGeo['longitude'].toString()) : null);
+
+    final bool isLocationConfirmed = loc['confirmed'] == true ||
+        loc['confirmed'] == 'true' ||
+        farmGeo['confirmed'] == true ||
+        farmGeo['confirmed'] == 'true' ||
+        (lat != null && lat != 0 && lng != null && lng != 0);
 
     return FarmerProfile(
       id: str(json['id'] ?? json['farmerId'] ?? json['farmerCode'], ''),
@@ -252,15 +293,15 @@ class FarmerProfile {
       farmingMethod: str(farm['farmingMethod'] ?? json['farmType'], ''),
       farmingType: str(farm['farmingType'], ''),
       mainCrops: str(farm['mainCrops'], ''),
-      village: str(loc['village'] ?? addr['village'] ?? json['village'], ''),
-      taluka: str(loc['taluka'] ?? addr['taluka'] ?? json['taluka'], ''),
-      district: str(loc['district'] ?? addr['district'] ?? json['district'], ''),
-      state: str(loc['state'] ?? addr['state'] ?? json['state'], ''),
-      pincode: str(loc['pincode'] ?? addr['pincode'] ?? json['pincode'], ''),
-      farmAddress: str(loc['farmAddress'] ?? json['farmAddress'], ''),
+      village: str(loc['village'] ?? farmGeo['village'] ?? addr['village'] ?? json['village'], ''),
+      taluka: str(loc['taluka'] ?? farmGeo['taluka'] ?? addr['taluka'] ?? json['taluka'], ''),
+      district: str(loc['district'] ?? farmGeo['district'] ?? addr['district'] ?? json['district'], ''),
+      state: str(loc['state'] ?? farmGeo['state'] ?? addr['state'] ?? json['state'], ''),
+      pincode: str(loc['pincode'] ?? farmGeo['pincode'] ?? addr['pincode'] ?? json['pincode'], ''),
+      farmAddress: str(loc['farmAddress'] ?? farmGeo['farmAddress'] ?? json['farmAddress'], ''),
       latitude: lat,
       longitude: lng,
-      locationConfirmed: loc['confirmed'] == true || loc['confirmed'] == 'true',
+      locationConfirmed: isLocationConfirmed,
       kycStatus: str(json['verificationStatus'] ?? json['kycStatus'], 'PENDING').toUpperCase(),
       bankVerificationStatus: str(json['bankVerificationStatus'], 'PENDING').toUpperCase(),
       bankAccountHolder: str(bank['accountHolder'] ?? json['bankHolder'], ''),
@@ -274,11 +315,19 @@ class FarmerProfile {
       farmPhoto: str(farm['farmPhoto'], ''),
       farmPhotos: (farm['farmPhotos'] is List) ? List<String>.from(farm['farmPhotos'].map((e) => e.toString())) : [],
       farmVideos: (farm['farmVideos'] is List) ? List<String>.from(farm['farmVideos'].map((e) => e.toString())) : [],
+      vendorId: str(json['vendorId'], ''),
+      vendorName: str(json['vendorName'] ?? (json['vendor'] is Map ? json['vendor']['name'] : null), ''),
+      managerId: str(json['managerId'], ''),
+      managerName: str(json['managerName'] ?? (json['manager'] is Map ? json['manager']['name'] : null), ''),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'vendorId': vendorId,
+    'vendorName': vendorName,
+    'managerId': managerId,
+    'managerName': managerName,
     'fullName': fullName,
     'name': fullName,
     'mobile': mobile,
@@ -453,6 +502,7 @@ class ProductItem {
   double gradeBQty;
   double gradeCPrice;
   double gradeCQty;
+  final bool isSelfAdded;
 
   ProductItem({
     String? id,
@@ -482,6 +532,7 @@ class ProductItem {
     double? gradeBQty,
     double? gradeCPrice,
     double? gradeCQty,
+    bool? isSelfAdded,
   })  : id = id ?? '',
         productId = (productId != null && productId.isNotEmpty) ? productId : (id ?? ''),
         productName = productName ?? '',
@@ -508,7 +559,8 @@ class ProductItem {
         gradeBPrice = gradeBPrice ?? 0,
         gradeBQty = gradeBQty ?? 0,
         gradeCPrice = gradeCPrice ?? 0,
-        gradeCQty = gradeCQty ?? 0;
+        gradeCQty = gradeCQty ?? 0,
+        isSelfAdded = isSelfAdded ?? false;
 
   String get displayBusinessId {
     if (productId.isNotEmpty) return productId;
@@ -683,6 +735,12 @@ class ProductItem {
       gradeBQty: gradeBQty,
       gradeCPrice: gradeCPrice,
       gradeCQty: gradeCQty,
+      isSelfAdded: json['isSelfAdded'] == true ||
+          json['isCustom'] == true ||
+          json['source'] == 'farmer' ||
+          rawId.startsWith('PROD-') ||
+          pId.startsWith('PROD-') ||
+          (json['cropLinked'] != null && json['cropLinked'].toString().isNotEmpty),
     );
   }
 }
@@ -753,6 +811,10 @@ class FarmerOrderItem {
   final String driverStatus;
   final String day;
   final bool hasDriverAssigned;
+  final String vendorId;
+  final String vendorName;
+  final String vendorPhone;
+  final String vendorBusinessName;
 
   bool get isDriverAssigned =>
       hasDriverAssigned ||
@@ -808,6 +870,10 @@ class FarmerOrderItem {
     this.driverStatus = '',
     this.day = '',
     this.hasDriverAssigned = false,
+    this.vendorId = '',
+    this.vendorName = '',
+    this.vendorPhone = '',
+    this.vendorBusinessName = '',
   })  : _productId = productId ?? '',
         _collectionCentre = collectionCentre ?? '',
         _collectionCentreId = collectionCentreId ?? '',
@@ -1075,6 +1141,10 @@ class FarmerOrderItem {
       hasDriverAssigned: json['hasDriverAssigned'] == true ||
           (json['driverName'] != null && json['driverName'].toString().trim().isNotEmpty) ||
           (json['pickup'] is Map && json['pickup']['driverName'] != null && json['pickup']['driverName'].toString().trim().isNotEmpty),
+      vendorId: firstText([json['vendorId'], (json['vendor'] is Map ? json['vendor']['id'] : null), (json['vendor'] is Map ? json['vendor']['vendorId'] : null)]),
+      vendorName: firstText([json['vendorName'], (json['vendor'] is Map ? json['vendor']['vendorName'] : null), (json['vendor'] is Map ? json['vendor']['businessName'] : null), (json['vendor'] is Map ? json['vendor']['name'] : null)]),
+      vendorPhone: firstText([json['vendorPhone'], json['vendorMobile'], (json['vendor'] is Map ? json['vendor']['mobile'] : null), (json['vendor'] is Map ? json['vendor']['phone'] : null)]),
+      vendorBusinessName: firstText([json['vendorBusinessName'], (json['vendor'] is Map ? json['vendor']['businessName'] : null)]),
     );
   }
 }

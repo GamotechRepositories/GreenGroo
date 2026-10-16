@@ -11,28 +11,43 @@ import '../main_shell.dart';
 import '../../services/app_language.dart';
 
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({super.key});
+  final int initialTabIndex;
+  const ProductsScreen({super.key, this.initialTabIndex = 0});
 
   @override
-  State<ProductsScreen> createState() => _ProductsScreenState();
+  State<ProductsScreen> createState() => ProductsScreenState();
 }
 
-class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProviderStateMixin {
+class ProductsScreenState extends State<ProductsScreen> with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late TabController _tabController;
 
-  // Filter & Search for My Products (Tab 1)
+  void switchToTab(int index) {
+    if (index >= 0 && index < _tabController.length) {
+      _tabController.animateTo(index);
+    }
+  }
+
+  // Filter & Search for All Products / Farmer Products (Tab 1)
   String _selectedStatusFilter = 'All';
   String _searchQuery = '';
 
-  // Filter & Search for All/Vendor Products (Tab 0)
+  // Filter & Search for Products Catalogs / Vendor Products (Tab 0)
   String _vendorSearchQuery = '';
   String _selectedVendorFilter = 'All'; // 'All', 'Available', 'Pending', 'Added'
+
+  // Filter & Search for My Products / Self-Added Products (Tab 2)
+  String _myAddedStatusFilter = 'All';
+  String _myAddedSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FarmerState().fetchVendorAvailableProducts();
     });
@@ -136,6 +151,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
 
         final vendorProducts = state.vendorAvailableProducts;
         final myProducts = state.products;
+        final myAddedProducts = state.products.where((p) => state.isProductSelfAdded(p)).toList();
 
         return Scaffold(
           key: _scaffoldKey,
@@ -170,30 +186,42 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
             ],
             bottom: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: const Color(0xFF217346),
               unselectedLabelColor: const Color(0xFF64748B),
               indicatorColor: const Color(0xFF217346),
               indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               tabs: [
                 Tab(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.storefront_outlined, size: 17),
-                      const SizedBox(width: 6),
-                      Text('${lang.tr(mr: 'सर्व उत्पादने', en: 'All Products')} (${vendorProducts.length})'),
+                      const Icon(Icons.storefront_outlined, size: 16),
+                      const SizedBox(width: 5),
+                      Text('${lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Products Catalogs')} (${vendorProducts.length})'),
                     ],
                   ),
                 ),
                 Tab(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 17),
-                      const SizedBox(width: 6),
-                      Text('${lang.tr(mr: 'माझी उत्पादने', en: 'My Products')} (${myProducts.length})'),
+                      const Icon(Icons.inventory_2_outlined, size: 16),
+                      const SizedBox(width: 5),
+                      Text('${lang.tr(mr: 'सर्व उत्पादने', en: 'All Products')} (${myProducts.length})'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.eco_outlined, size: 16),
+                      const SizedBox(width: 5),
+                      Text('${lang.tr(mr: 'माझी उत्पादने', en: 'My Products')} (${myAddedProducts.length})'),
                     ],
                   ),
                 ),
@@ -206,6 +234,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
               children: [
                 _buildAllProductsTab(context, state, lang),
                 _buildMyProductsTab(context, state, lang),
+                _buildMyAddedProductsTab(context, state, lang),
               ],
             ),
           ),
@@ -223,7 +252,6 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
     final filteredVendorProds = allVendorProds.where((p) {
       final isAdded = p['isAdded'] == true;
       final isPending = p['isPending'] == true;
-      final isRejected = p['isRejected'] == true;
 
       // Status chip filter
       if (_selectedVendorFilter == 'Available' && (isAdded || isPending)) return false;
@@ -318,8 +346,8 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                   const SizedBox(height: 4),
                   Text(
                     lang.tr(
-                      mr: 'तुमच्या जोडलेल्या व्हेंडरकडील उत्पादने निवडून विक्रीसाठी विनंती करा. मंजुरीनंतर ही उत्पादने तुमच्या "माझी उत्पादने" मध्ये सक्रिय होतील.',
-                      en: 'Select products from your assigned vendor and request to sell with your price and stock. Approved items appear in "My Products".',
+                      mr: 'तुमच्या जोडलेल्या व्हेंडरकडील उत्पादने निवडून विक्रीसाठी विनंती करा. मंजुरीनंतर ही उत्पादने तुमच्या "सर्व उत्पादने" मध्ये सक्रिय होतील.',
+                      en: 'Select products from your assigned vendor and request to sell with your price and stock. Approved items appear in "All Products".',
                     ),
                     style: const TextStyle(
                       fontSize: 11,
@@ -492,15 +520,11 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
     final pName = (item['productName'] ?? item['name'] ?? lang.tr(mr: 'उत्पादन', en: 'Product')).toString();
     final pCategory = (item['category'] ?? '').toString();
     final pVariety = (item['variety'] ?? '').toString();
-    final pUnit = (item['unit'] ?? 'Kg').toString();
     final pImage = (item['image'] ?? item['imageUrl'] ?? '').toString();
 
     final isAdded = item['isAdded'] == true;
     final isPending = item['isPending'] == true;
     final isRejected = item['isRejected'] == true;
-
-    final num? refPrice = item['price'] != null ? num.tryParse(item['price'].toString()) : null;
-    final num? refMrp = item['mrp'] != null ? num.tryParse(item['mrp'].toString()) : null;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -570,36 +594,6 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    if (refPrice != null && refPrice > 0)
-                      Row(
-                        children: [
-                          Text(
-                            '₹${refPrice.toStringAsFixed(0)} / $pUnit',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF059669),
-                            ),
-                          ),
-                          if (refMrp != null && refMrp > refPrice) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              '₹${refMrp.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF94A3B8),
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
-                          ],
-                        ],
-                      )
-                    else
-                      Text(
-                        'युनिट: $pUnit',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                      ),
                   ],
                 ),
               ),
@@ -625,7 +619,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                       const Icon(Icons.check_circle, size: 14, color: Color(0xFF16A34A)),
                       const SizedBox(width: 5),
                       Text(
-                        lang.tr(mr: '✓ माझ्या उत्पादनात समाविष्ट', en: '✓ In My Products'),
+                        lang.tr(mr: '✓ सर्व उत्पादनात समाविष्ट', en: '✓ In All Products'),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -638,11 +632,11 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                 const Spacer(),
                 TextButton(
                   onPressed: () {
-                    // Switch to My Products tab
+                    // Switch to All Products tab
                     _tabController.animateTo(1);
                   },
                   child: Text(
-                    lang.tr(mr: 'माझ्या यादीत पहा →', en: 'View in My List →'),
+                    lang.tr(mr: 'सर्व उत्पादनांमध्ये पहा →', en: 'View in All Products →'),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF217346), fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -867,7 +861,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            lang.tr(mr: 'माझी उत्पादने, थेट बाजारपेठ', en: 'My Products, Direct Market'),
+                            lang.tr(mr: 'सर्व उत्पादने, थेट बाजारपेठ', en: 'All Products, Direct Market'),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -1006,8 +1000,8 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                     const SizedBox(height: 3),
                     Text(
                       AppLanguage().tr(
-                        mr: 'सर्व उत्पादने (व्हेंडर) टॅबमधून उत्पादन निवडून विनंती पाठवा किंवा नवीन जोडा.',
-                        en: 'Request products from All Products tab or add a new product.',
+                        mr: 'प्रॉडक्ट कॅटलॉग टॅबमधून उत्पादन निवडून विनंती पाठवा किंवा नवीन जोडा.',
+                        en: 'Request products from Products Catalogs tab or add a new product.',
                       ),
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
@@ -1024,7 +1018,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.storefront, size: 15),
-                          label: Text(lang.tr(mr: 'व्हेंडर कॅटलॉग पहा', en: 'Browse Vendor Catalog'),
+                          label: Text(lang.tr(mr: 'प्रॉडक्ट कॅटलॉग पहा', en: 'Browse Products Catalogs'),
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () => _tabController.animateTo(0),
                         ),
@@ -1076,9 +1070,7 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
     final pImage = (vProd['image'] ?? vProd['imageUrl'] ?? '').toString();
     final defaultUnit = (vProd['unit'] ?? 'Kg').toString();
 
-    final num? refPrice = vProd['price'] != null ? num.tryParse(vProd['price'].toString()) : null;
-
-    final priceCtrl = TextEditingController(text: refPrice != null && refPrice > 0 ? refPrice.toStringAsFixed(0) : '40');
+    final priceCtrl = TextEditingController();
     final stockCtrl = TextEditingController(text: '50');
     String selectedUnit = defaultUnit.isNotEmpty ? defaultUnit : 'Kg';
     String selectedGrade = 'Grade A';
@@ -1285,8 +1277,8 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                           Expanded(
                             child: Text(
                               lang.tr(
-                                mr: 'ही विनंती व्हेंडर / व्यवस्थापकाकडे मंजुरीसाठी पाठवली जाईल. त्यांनी मंजूर करताच हे उत्पादन तुमच्या "माझी उत्पादने" मध्ये सक्रिय होईल.',
-                                en: 'This request will be sent to the vendor / manager for approval. Once approved, it will automatically activate in "My Products".',
+                                mr: 'ही विनंती व्हेंडर / व्यवस्थापकाकडे मंजुरीसाठी पाठवली जाईल. त्यांनी मंजूर करताच हे उत्पादन तुमच्या "सर्व उत्पादने" मध्ये सक्रिय होईल.',
+                                en: 'This request will be sent to the vendor / manager for approval. Once approved, it will automatically activate in "All Products".',
                               ),
                               style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E), height: 1.3),
                             ),
@@ -1371,8 +1363,8 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
                                           SnackBar(
                                             content: Text(
                                               lang.tr(
-                                                mr: 'उत्पादन जोडण्याची विनंती यशस्वीरित्या पाठवली! व्हेंडरच्या मंजुरीनंतर ते "माझी उत्पादने" मध्ये सक्रिय होईल.',
-                                                en: 'Product add request submitted! It will appear in "My Products" once approved by vendor.',
+                                                mr: 'उत्पादन जोडण्याची विनंती यशस्वीरित्या पाठवली! व्हेंडरच्या मंजुरीनंतर ते "सर्व उत्पादने" मध्ये सक्रिय होईल.',
+                                                en: 'Product add request submitted! It will appear in "All Products" once approved by vendor.',
                                               ),
                                             ),
                                             backgroundColor: const Color(0xFF217346),
@@ -1705,6 +1697,289 @@ class _ProductsScreenState extends State<ProductsScreen> with SingleTickerProvid
             fontWeight: FontWeight.w600,
             color: textColor,
           ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // TAB 2: MY PRODUCTS (स्वतः जोडलेली उत्पादने)
+  // ==========================================
+  Widget _buildMyAddedProductsTab(BuildContext context, FarmerState state, AppLanguage lang) {
+    List<ProductItem> addedProducts = [];
+    try {
+      final allProducts = state.products;
+      addedProducts = allProducts.where((p) {
+        if (!state.isProductSelfAdded(p)) return false;
+
+        final pStatus = (p.status.isNotEmpty ? p.status : 'Active').toLowerCase();
+        final isOos = pStatus.contains('out of stock') || p.stockQuantity <= 0;
+
+        bool matchesStatus = false;
+        if (_myAddedStatusFilter == 'All') {
+          matchesStatus = true;
+        } else if (_myAddedStatusFilter == 'Out of Stock') {
+          matchesStatus = isOos;
+        } else if (_myAddedStatusFilter == 'Active') {
+          matchesStatus = !isOos && (pStatus == 'active' || pStatus == 'published' || pStatus == 'approved');
+        } else if (_myAddedStatusFilter == 'Pending') {
+          matchesStatus = pStatus.contains('pending');
+        } else if (_myAddedStatusFilter == 'Draft') {
+          matchesStatus = pStatus == 'draft';
+        } else {
+          matchesStatus = pStatus == _myAddedStatusFilter.toLowerCase();
+        }
+
+        final q = _myAddedSearchQuery.toLowerCase().trim();
+        final pName = (p.productName.isNotEmpty ? p.productName : '').toLowerCase();
+        final pVar = (p.variety.isNotEmpty ? p.variety : '').toLowerCase();
+        final pCrop = (p.cropLinked.isNotEmpty ? p.cropLinked : '').toLowerCase();
+        final pBid = (p.displayBusinessId).toLowerCase();
+        final matchesSearch = q.isEmpty ||
+            pName.contains(q) ||
+            pVar.contains(q) ||
+            pCrop.contains(q) ||
+            pBid.contains(q);
+        return matchesStatus && matchesSearch;
+      }).toList();
+    } catch (_) {
+      addedProducts = [];
+    }
+
+    return RefreshIndicator(
+      color: const Color(0xFF217346),
+      onRefresh: () => state.refreshProducts(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Hero Banner for My Added Products
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF3B82F6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.eco, size: 12, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Text(
+                              lang.tr(mr: 'शेतकऱ्याचे थेट उत्पादन', en: 'Farmer Direct Produce'),
+                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        lang.tr(
+                          mr: '${addedProducts.length} उत्पादने जोडली',
+                          en: '${addedProducts.length} Products Added',
+                        ),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    lang.tr(mr: 'माझी उत्पादने (स्वतः जोडलेली)', en: 'My Products (Custom Added)'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    lang.tr(
+                      mr: 'तुम्ही "उत्पादन जोडा" द्वारे समाविष्ट केलेली पिके आणि उत्पादने येथे दिसतात.',
+                      en: 'Produce and custom products added by you via "Add Product" appear here.',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFFE2E8F0),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Search Bar + Add Product Button
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: lang.tr(mr: 'स्वतःचे उत्पादन किंवा वाण शोधा...', en: 'Search your added product...'),
+                        hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+                      ),
+                      onChanged: (val) => setState(() => _myAddedSearchQuery = val),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF217346),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Status Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: ['All', 'Active', 'Pending', 'Draft', 'Out of Stock'].map((status) {
+                  final isSelected = _myAddedStatusFilter == status;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(
+                        _translateStatus(status),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isSelected ? Colors.white : const Color(0xFF334155),
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF217346),
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: isSelected ? const Color(0xFF217346) : const Color(0xFFCBD5E1),
+                      ),
+                      onSelected: (selected) {
+                        if (selected) setState(() => _myAddedStatusFilter = status);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Empty state or list
+            if (addedProducts.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEFF6FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add_business_outlined, size: 28, color: Color(0xFF2563EB)),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      lang.tr(mr: 'अजून स्वतःचे उत्पादन जोडलेले नाही', en: 'No products added yet'),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lang.tr(
+                        mr: 'आपल्या शेतातील पिके थेट विक्रीसाठी जोडण्यासाठी "उत्पादन जोडा" बटण वापरा.',
+                        en: 'Use the "Add Product" button to add your farm produce directly for sale.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF217346),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.add_circle_outline, size: 16),
+                      label: Text(lang.tr(mr: 'नवीन उत्पादन जोडा', en: 'Add New Product'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
+                      },
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: addedProducts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final product = addedProducts[index];
+                  return _buildProductCard(context, product);
+                },
+              ),
+            const SizedBox(height: 80),
+          ],
         ),
       ),
     );

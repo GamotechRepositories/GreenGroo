@@ -590,6 +590,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             AppLanguage().tr(mr: 'ऑर्डर #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}', en: 'Order #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}'),
                                             style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600),
                                           ),
+                                          if (currentPickup.vendorName.isNotEmpty || currentPickup.vendorBusinessName.isNotEmpty) ...[
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              AppLanguage().tr(
+                                                mr: 'व्हेंडर: ${currentPickup.vendorBusinessName.isNotEmpty ? currentPickup.vendorBusinessName : currentPickup.vendorName}',
+                                                en: 'Vendor: ${currentPickup.vendorBusinessName.isNotEmpty ? currentPickup.vendorBusinessName : currentPickup.vendorName}',
+                                              ),
+                                              style: const TextStyle(fontSize: 10, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),

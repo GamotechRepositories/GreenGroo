@@ -22,8 +22,8 @@ import { calculateRiderEarning, applyEarningSnapshot, estimateOfferEarning } fro
 import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
-import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 import { resolveStoreOrderType, isStoreOrderTrackable } from "../services/orderTrackingService.js";
+import { sendDeliveryVerificationOtp } from "@greengrocc/shared";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -814,6 +814,67 @@ export const verifyCustomerOtp = async (req, res, next) => {
       message: "OTP verified successfully. You can now complete the delivery.",
       customerOtpVerified: true,
       customerOtpVerifiedAt: order.customerOtpVerifiedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Send / Resend Delivery Verification OTP to customer via MSG91 (Template: Delivery_verification_OTP)
+ */
+export const sendCustomerDeliveryOtp = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+
+    const order = await StoreOrder.findOne({
+      _id: orderId,
+      assignedRiderId: riderId,
+      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Active order not found" });
+    }
+
+    if (order.customerOtpVerified) {
+      return res.json({ success: true, alreadyVerified: true, message: "OTP already verified" });
+    }
+
+    // Get customer phone from source Ecommerce Order
+    let customerPhone = "";
+    if (order.sourceOrderId) {
+      try {
+        const { default: EcommerceOrder } = await import("../../../legacy/models/order/Order.js");
+        const ecomOrder = await EcommerceOrder.findById(order.sourceOrderId).populate("user", "phone").lean();
+        customerPhone = ecomOrder?.deliveryAddress?.phone || ecomOrder?.user?.phone || "";
+      } catch (err) {
+        console.warn("[sendCustomerDeliveryOtp] could not fetch customer phone from Order:", err.message);
+      }
+    }
+
+    if (!customerPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer phone number not available for this order",
+      });
+    }
+
+    const otpCode = String(order.otpCode || order.deliveryOtp || Math.floor(1000 + Math.random() * 9000)).trim();
+    if (!order.otpCode || order.otpCode !== otpCode) {
+      order.otpCode = otpCode;
+      order.deliveryOtp = otpCode;
+      await order.save();
+    }
+
+    const result = await sendDeliveryVerificationOtp(customerPhone, otpCode);
+
+    return res.json({
+      success: true,
+      message: "Delivery verification OTP sent to customer via SMS",
+      customerPhoneHint: customerPhone.slice(-4),
+      devMock: result.devMock,
     });
   } catch (error) {
     next(error);

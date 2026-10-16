@@ -22,6 +22,7 @@ import {
   getGiftHamperOrders,
   updateGiftHamperStatus,
   deleteOrder,
+  resendCustomerDeliveryOtp,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -48,6 +49,7 @@ router.get("/", getMyOrders);
 router.patch("/:id/cancel", cancelOrder);
 router.patch("/:id/preorder-slot", reschedulePreOrder);
 router.post("/:id/return-claim", createReturnClaim);
+router.post("/:id/resend-delivery-otp", resendCustomerDeliveryOtp);
 router.get("/:id", getOrderById);
 
 export default router;

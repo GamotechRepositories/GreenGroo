@@ -33,6 +33,8 @@ abstract final class ApiConfig {
 
   static const register = '/api/delivery-boys/register';
   static const login = '/api/delivery-boys/login';
+  static const otpSend = '/api/delivery-boys/otp/send';
+  static const otpVerify = '/api/delivery-boys/otp/verify';
   static const me = '/api/delivery-boys/me';
   static const slotAlertsAck = '/api/delivery-boys/slot-alerts/ack';
   static const onboarding = '/api/delivery-boys/onboarding';

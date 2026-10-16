@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -67,12 +68,59 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  void _verifyOtp() {
-    // Successfully verified OTP -> proceed to Select State / Profile Details
-    if (_isRegister) {
-      Navigator.pushNamed(context, AppRoutes.selectState);
-    } else {
-      Navigator.pushReplacementNamed(context, AppRoutes.home);
+  bool _verifying = false;
+
+  Future<void> _verifyOtp() async {
+    if (_verifying) return;
+    setState(() => _verifying = true);
+    try {
+      await AuthService.instance.verifyOtp(
+        phone: _phone,
+        otp: _otp,
+        purpose: _isRegister ? 'register' : 'login',
+      );
+      if (!mounted) return;
+      if (_isRegister) {
+        Navigator.pushNamed(context, AppRoutes.selectState);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.home);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      setState(() => _otp = '');
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+  Future<void> _resendOtp() async {
+    _startTimer();
+    try {
+      await AuthService.instance.sendOtp(
+        phone: _phone,
+        purpose: _isRegister ? 'register' : 'login',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('OTP resent successfully'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -153,7 +201,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     const SizedBox(height: 24),
                     Center(
                       child: GestureDetector(
-                        onTap: _resendSeconds == 0 ? _startTimer : null,
+                        onTap: _resendSeconds == 0 ? _resendOtp : null,
                         child: RichText(
                           text: TextSpan(
                             style: GoogleFonts.inter(fontSize: 13),

@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../services/farmer_state.dart';
 import '../../services/api_service.dart';
 import '../../models/farmer_models.dart';
+import '../../core/widgets/six_box_otp_input.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../../core/utils/search_picker_sheet.dart';
 import '../../services/location_directory.dart';
@@ -38,6 +39,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   String? _imageError;
 
+  bool _isMobileVerified = false;
+  String _verifiedMobile = '';
+  bool _isSendingOtp = false;
+
   final List<String> _genderOptions = ['Male', 'Female', 'Other'];
 
   LocState? _state;
@@ -53,7 +58,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _mobileController.addListener(_onMobileChanged);
+  }
+
+  void _onMobileChanged() {
+    final current = _mobileController.text.trim();
+    if (_isMobileVerified && current != _verifiedMobile) {
+      setState(() {
+        _isMobileVerified = false;
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _mobileController.removeListener(_onMobileChanged);
     _nameController.dispose();
     _dobController.dispose();
     _mobileController.dispose();
@@ -268,6 +291,306 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _pincodeController.clear();
   }
 
+  Future<bool> _startOtpVerification({bool fromSubmit = false}) async {
+    final lang = AppLanguage();
+    final mobile = _mobileController.text.trim();
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang.tr(
+              mr: 'कृपया आधी वैध १०-अंकी मोबाईल नंबर टाका',
+              en: 'Please enter a valid 10-digit mobile number first',
+            ),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return false;
+    }
+
+    setState(() => _isSendingOtp = true);
+    String? devCode;
+    try {
+      final res = await ApiService().sendFarmerOtp(mobile, purpose: 'register');
+      devCode = res['code']?.toString();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSendingOtp = false);
+        final err = e.toString().replaceAll('Exception:', '').trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              lang.tr(mr: 'त्रुटी: $err', en: 'Error: $err'),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _isSendingOtp = false);
+    }
+
+    if (!mounted) return false;
+    final verified = await _showOtpBottomSheet(mobile, initialDevCode: devCode);
+    return verified;
+  }
+
+  Future<bool> _showOtpBottomSheet(String mobile, {String? initialDevCode}) async {
+    final lang = AppLanguage();
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final otpController = TextEditingController();
+        bool verifying = false;
+        bool resending = false;
+        String? errorText;
+        String? devCode = initialDevCode;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.mark_email_read_outlined,
+                        color: AppColors.primary,
+                        size: 30,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      lang.tr(mr: 'मोबाईल नंबर पडताळणी', en: 'Mobile Number Verification'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      lang.tr(
+                        mr: 'आम्ही +91 $mobile वर हरितसेतू नोंदणी OTP पाठवला आहे.',
+                        en: 'We sent a Haritsetu registration OTP to +91 $mobile.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                    ),
+                    if (devCode != null && devCode!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Text(
+                          lang.tr(
+                            mr: 'डेव्हलपमेंट कोड: $devCode',
+                            en: 'Development Code: $devCode',
+                          ),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    SixBoxOtpInput(controller: otpController),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          lang.tr(mr: 'ओटीपी मिळाला नाही? ', en: 'Did not receive OTP? '),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                        TextButton(
+                          onPressed: resending
+                              ? null
+                              : () async {
+                                  setSheetState(() {
+                                    resending = true;
+                                    errorText = null;
+                                  });
+                                  try {
+                                    final res = await ApiService().sendFarmerOtp(mobile, purpose: 'register');
+                                    setSheetState(() {
+                                      devCode = res['code']?.toString();
+                                    });
+                                    if (sheetContext.mounted) {
+                                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            lang.tr(mr: 'ओटीपी पुन्हा पाठवला आहे!', en: 'OTP resent successfully!'),
+                                          ),
+                                          backgroundColor: AppColors.primary,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    setSheetState(() {
+                                      errorText = e.toString().replaceAll('Exception:', '').trim();
+                                    });
+                                  } finally {
+                                    setSheetState(() => resending = false);
+                                  }
+                                },
+                          child: resending
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                )
+                              : Text(
+                                  lang.tr(mr: 'पुन्हा पाठवा', en: 'Resend OTP'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: verifying
+                            ? null
+                            : () async {
+                                final otp = otpController.text.trim();
+                                if (otp.length < 4) {
+                                  setSheetState(() {
+                                    errorText = lang.tr(
+                                      mr: 'कृपया वैध ६ अंकी ओटीपी टाका',
+                                      en: 'Please enter a valid 6-digit OTP',
+                                    );
+                                  });
+                                  return;
+                                }
+
+                                setSheetState(() {
+                                  verifying = true;
+                                  errorText = null;
+                                });
+
+                                try {
+                                  final res = await ApiService().verifyFarmerOtp(mobile, otp, purpose: 'register');
+                                  if (res['verified'] == true || res['success'] == true) {
+                                    if (sheetContext.mounted) {
+                                      Navigator.pop(sheetContext, true);
+                                    }
+                                  } else {
+                                    setSheetState(() {
+                                      errorText = res['message']?.toString() ??
+                                          lang.tr(mr: 'अवैध ओटीपी', en: 'Invalid OTP');
+                                    });
+                                  }
+                                } catch (e) {
+                                  setSheetState(() {
+                                    errorText = e.toString().replaceAll('Exception:', '').trim();
+                                  });
+                                } finally {
+                                  setSheetState(() => verifying = false);
+                                }
+                              },
+                        child: verifying
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : Text(
+                                lang.tr(mr: 'ओटीपी तपासा आणि पुढे जा', en: 'Verify OTP & Continue'),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      if (mounted) {
+        setState(() {
+          _isMobileVerified = true;
+          _verifiedMobile = mobile;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              lang.tr(
+                mr: 'मोबाईल नंबर यशस्वीरित्या सत्यापित झाला!',
+                en: 'Mobile number verified successfully!',
+              ),
+            ),
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _register() async {
     setState(() => _imageError = null);
 
@@ -294,6 +617,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
       return;
+    }
+
+    // Require OTP verification of mobile number
+    final mobile = _mobileController.text.trim();
+    if (!_isMobileVerified || _verifiedMobile != mobile) {
+      final verified = await _startOtpVerification(fromSubmit: true);
+      if (!verified) {
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
@@ -500,23 +832,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 14),
 
                 // 3. Mobile Number *
-                _fieldLabel(AppLanguage().tr(mr: 'मोबाईल नंबर *', en: 'Mobile Number *')),
-                TextFormField(
-                  controller: _mobileController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  style: const TextStyle(fontSize: 13.5, color: AppColors.text),
-                  decoration: _inputDecoration(
-                    hint: AppLanguage().tr(mr: '१०-अंकी मोबाईल नंबर', en: '10-digit mobile number'),
-                    prefixText: '+91 ',
-                  ),
-                  validator: (v) {
-                    if (v == null || !RegExp(r'^[6-9]\d{9}$').hasMatch(v.trim())) {
-                      return AppLanguage().tr(mr: 'वैध १०-अंकी मोबाईल नंबर लिहा', en: 'Enter a valid 10-digit mobile number');
-                    }
-                    return null;
-                  },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _fieldLabel(AppLanguage().tr(mr: 'मोबाईल नंबर *', en: 'Mobile Number *')),
+                    if (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle, size: 12, color: Colors.green.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              AppLanguage().tr(mr: 'सत्यापित (Verified)', en: 'Verified'),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _mobileController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        style: const TextStyle(fontSize: 13.5, color: AppColors.text),
+                        decoration: _inputDecoration(
+                          hint: AppLanguage().tr(mr: '१०-अंकी मोबाईल नंबर', en: '10-digit mobile number'),
+                          prefixText: '+91 ',
+                          suffixIcon: _isMobileVerified && _mobileController.text.trim() == _verifiedMobile
+                              ? const Icon(Icons.verified, color: Colors.green, size: 20)
+                              : null,
+                        ),
+                        validator: (v) {
+                          if (v == null || !RegExp(r'^[6-9]\d{9}$').hasMatch(v.trim())) {
+                            return AppLanguage().tr(mr: 'वैध १०-अंकी मोबाईल नंबर लिहा', en: 'Enter a valid 10-digit mobile number');
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 46,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                              ? const Color(0xFFDCFCE7)
+                              : AppColors.primary,
+                          foregroundColor: (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                              ? const Color(0xFF16A34A)
+                              : Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                            ? null
+                            : (_mobileController.text.trim().length == 10 && !_isSendingOtp
+                                ? () => _startOtpVerification(fromSubmit: false)
+                                : null),
+                        icon: _isSendingOtp
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Icon(
+                                (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                                    ? Icons.check_circle_rounded
+                                    : Icons.sms_outlined,
+                                size: 16,
+                              ),
+                        label: Text(
+                          (_isMobileVerified && _mobileController.text.trim() == _verifiedMobile)
+                              ? AppLanguage().tr(mr: 'सत्यापित', en: 'Verified')
+                              : AppLanguage().tr(mr: 'OTP मिळवा', en: 'Get OTP'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!_isMobileVerified && _mobileController.text.trim().length == 10)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 12, color: Colors.orange.shade800),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            AppLanguage().tr(
+                              mr: 'नोंदणीसाठी मोबाईल नंबर OTP ने सत्यापित करा (वरील "OTP मिळवा" दाबा)',
+                              en: 'Verify mobile with OTP for registration (Tap "Verify OTP")',
+                            ),
+                            style: TextStyle(fontSize: 11, color: Colors.orange.shade800, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 6),
 
                 // 4. Password * & Confirm Password *

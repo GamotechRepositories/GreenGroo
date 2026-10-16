@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../../core/utils/photo_picker_sheet.dart';
-import '../crops/add_crop_screen.dart';
 
 class GradeRow {
   String grade; // 'A', 'B', 'C', 'D'
@@ -13,6 +12,30 @@ class GradeRow {
   String price;
 
   GradeRow({required this.grade, this.quantity = '', this.price = ''});
+}
+
+class AvailableProductOption {
+  final String key;
+  final String displayName;
+  final String cleanName;
+  final String? variety;
+  final String? unit;
+  final String? category;
+  final String? imageUrl;
+  final double? suggestedPrice;
+  final String source; // 'Catalog' | 'All Products' | 'Produce' | 'Crop'
+
+  const AvailableProductOption({
+    required this.key,
+    required this.displayName,
+    required this.cleanName,
+    this.variety,
+    this.unit,
+    this.category,
+    this.imageUrl,
+    this.suggestedPrice,
+    this.source = 'Produce',
+  });
 }
 
 class AddProductScreen extends StatefulWidget {
@@ -33,9 +56,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
   static const List<String> _farmingTypes = ['Conventional', 'Organic', 'Natural', 'IPM', 'Hydroponic', 'Other'];
   static const List<String> _allGradeOptions = ['A', 'B', 'C', 'D'];
 
-  String? _selectedCropId;
+  String? _selectedProductOptionKey;
   String _cropName = '';
   String _productName = '';
+  final _productNameController = TextEditingController();
   final _varietyController = TextEditingController();
   String _farmingType = 'Conventional';
   final _customFarmingTypeController = TextEditingController();
@@ -96,11 +120,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   void initState() {
     super.initState();
     final p = widget.editingProduct;
-    final crops = FarmerState().crops;
+    final options = _getProductOptions();
 
     if (p != null) {
       _productName = p.productName;
-      _cropName = p.cropLinked;
+      _productNameController.text = p.productName;
+      _cropName = p.cropLinked.isNotEmpty ? p.cropLinked : p.productName;
       _varietyController.text = p.variety;
       _farmingType = _farmingTypes.contains(p.farmingType) ? p.farmingType : (_farmingTypes.firstWhere((t) => p.farmingType.toLowerCase().contains(t.toLowerCase()), orElse: () => 'Conventional'));
       _availableQtyController.text = p.stockQuantity > 0 ? p.stockQuantity.toStringAsFixed(0) : '';
@@ -145,71 +170,130 @@ class _AddProductScreenState extends State<AddProductScreen> {
         _harvestPhoto = p.photos[3];
       }
 
-      // Match crop ID if possible
-      final matched = crops.firstWhere(
-        (c) => c.cropName.toLowerCase() == p.cropLinked.toLowerCase(),
-        orElse: () => crops.isNotEmpty ? crops.first : CropItem(id: '', cropName: p.cropLinked, variety: p.variety, acreage: 1, sowingDate: '', estHarvestDate: '', status: '', progress: 0, stageIndex: 0),
-      );
-      _selectedCropId = matched.id.isNotEmpty ? matched.id : null;
+      // Match option key
+      for (final opt in options) {
+        if (opt.cleanName.toLowerCase() == p.productName.toLowerCase() ||
+            (p.cropLinked.isNotEmpty && opt.cleanName.toLowerCase() == p.cropLinked.toLowerCase())) {
+          _selectedProductOptionKey = opt.key;
+          break;
+        }
+      }
     } else {
       // New Product
       _grades.add(GradeRow(grade: 'A', quantity: '', price: ''));
 
       // If prefilled crop given or available
       if (widget.prefilledCrop != null && widget.prefilledCrop!.isNotEmpty) {
-        final match = crops.firstWhere(
-          (c) => c.cropName.toLowerCase().contains(widget.prefilledCrop!.toLowerCase()),
-          orElse: () => crops.isNotEmpty ? crops.first : CropItem(id: '', cropName: widget.prefilledCrop!, variety: 'Standard', acreage: 1, sowingDate: '', estHarvestDate: '', status: '', progress: 0, stageIndex: 0),
-        );
-        if (match.id.isNotEmpty) {
-          _selectCrop(match);
+        final pref = widget.prefilledCrop!.toLowerCase();
+        AvailableProductOption? match;
+        for (final opt in options) {
+          if (opt.cleanName.toLowerCase().contains(pref) || pref.contains(opt.cleanName.toLowerCase())) {
+            match = opt;
+            break;
+          }
         }
-      } else if (crops.isNotEmpty) {
-        _selectCrop(crops.first);
+        if (match != null) {
+          _selectProductOption(match);
+        } else {
+          _productName = widget.prefilledCrop!;
+          _productNameController.text = widget.prefilledCrop!;
+          _cropName = widget.prefilledCrop!;
+        }
       }
     }
   }
 
-  void _selectCrop(CropItem crop) {
+  List<AvailableProductOption> _getProductOptions() {
+    final List<AvailableProductOption> list = [];
+    final Set<String> seen = {};
+
+    // Only from All Products (FarmerState().products)
+    for (final p in FarmerState().products) {
+      final name = p.productName.trim();
+      final key = 'product_${p.id.isNotEmpty ? p.id : name}';
+      if (name.isNotEmpty && !seen.contains(key)) {
+        seen.add(key);
+        final displayName = p.variety.isNotEmpty ? '$name (${p.variety})' : name;
+        list.add(AvailableProductOption(
+          key: key,
+          displayName: displayName,
+          cleanName: name,
+          variety: p.variety.isNotEmpty ? p.variety : null,
+          unit: p.unit.isNotEmpty ? p.unit : 'Kg',
+          category: p.category,
+          imageUrl: p.imageUrl.isNotEmpty ? p.imageUrl : (p.photos.isNotEmpty ? p.photos.first : null),
+          suggestedPrice: p.pricePerUnit > 0 ? p.pricePerUnit : null,
+          source: 'All Products',
+        ));
+      }
+    }
+
+    return list;
+  }
+
+  void _selectProductOption(AvailableProductOption opt) {
     setState(() {
-      _selectedCropId = crop.id;
-      _cropName = crop.cropName;
-      _productName = crop.cropName.split('(')[0].trim();
-      _varietyController.text = crop.variety.isNotEmpty ? crop.variety : 'Standard';
-      _unit = _cropUnits.contains(crop.unit) ? crop.unit : 'Kg';
+      _selectedProductOptionKey = opt.key;
 
-      try {
-        if (crop.sowingDate.contains('-')) {
-          _sowingDate = DateTime.tryParse(crop.sowingDate);
+      // Find original ProductItem from All Products
+      ProductItem? orig;
+      for (final p in FarmerState().products) {
+        if ('product_${p.id.isNotEmpty ? p.id : p.productName}' == opt.key || p.productName.toLowerCase() == opt.cleanName.toLowerCase()) {
+          orig = p;
+          break;
         }
-      } catch (_) {}
-      try {
-        if (crop.estHarvestDate.contains('-')) {
-          _harvestDate = DateTime.tryParse(crop.estHarvestDate);
-        }
-      } catch (_) {}
+      }
 
-      if (_harvestDate != null) {
+      final pName = orig != null ? orig.productName : opt.cleanName;
+      _productName = pName;
+      _productNameController.text = pName;
+      _cropName = (orig != null && orig.cropLinked.isNotEmpty) ? orig.cropLinked : pName;
+
+      final pVariety = orig != null && orig.variety.isNotEmpty ? orig.variety : (opt.variety ?? 'Standard');
+      _varietyController.text = pVariety;
+
+      final pUnit = orig != null && orig.unit.isNotEmpty ? orig.unit : (opt.unit ?? 'Kg');
+      if (_cropUnits.contains(pUnit)) {
+        _unit = pUnit;
+      }
+
+      if (orig != null && _farmingTypes.contains(orig.farmingType)) {
+        _farmingType = orig.farmingType;
+      }
+
+      final img = orig != null && orig.imageUrl.isNotEmpty ? orig.imageUrl : (opt.imageUrl ?? '');
+      if (img.isNotEmpty) {
+        _mainPhoto = img;
+      }
+      if (orig != null && orig.photos.length > 1 && _farmPhoto.isEmpty) {
+        _farmPhoto = orig.photos[1];
+      }
+      if (orig != null && orig.photos.length > 2 && _cropPhoto.isEmpty) {
+        _cropPhoto = orig.photos[2];
+      }
+      if (orig != null && orig.photos.length > 3 && _harvestPhoto.isEmpty) {
+        _harvestPhoto = orig.photos[3];
+      }
+
+      if (orig != null && (orig.pricePerUnit > 0 || orig.gradeAPrice > 0)) {
+        final pPrice = orig.gradeAPrice > 0 ? orig.gradeAPrice : orig.pricePerUnit;
+        if (_grades.isNotEmpty) {
+          _grades[0].price = pPrice.toStringAsFixed(0);
+        }
+      } else if (opt.suggestedPrice != null && opt.suggestedPrice! > 0) {
+        if (_grades.isNotEmpty) {
+          _grades[0].price = opt.suggestedPrice!.toStringAsFixed(0);
+        }
+      }
+
+      if (_harvestDate == null) {
+        _harvestDate = DateTime.now().add(const Duration(days: 30));
         _availableFrom = _harvestDate;
         _availableUntil = _harvestDate!.add(const Duration(days: 60));
       }
 
-      if (_availableQtyController.text.isEmpty && crop.estimatedQuantity > 0) {
-        _availableQtyController.text = crop.estimatedQuantity.toStringAsFixed(0);
-        if (_grades.isNotEmpty && _grades[0].quantity.isEmpty) {
-          _grades[0].quantity = crop.estimatedQuantity.toStringAsFixed(0);
-        }
-      }
-
-      if (crop.photos.isNotEmpty && _mainPhoto.isEmpty) {
-        _mainPhoto = crop.photos.first;
-      }
-      if (crop.photos.length > 1 && _cropPhoto.isEmpty) {
-        _cropPhoto = crop.photos[1];
-      }
-
-      _errors.remove('cropId');
       _errors.remove('productName');
+      _errors.remove('cropId');
       _errors.remove('variety');
     });
   }
@@ -342,8 +426,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _validate(bool isPublish) {
     final next = <String, String>{};
 
-    if (_productName.trim().isEmpty) next['productName'] = AppLanguage().tr(mr: 'उत्पादनाचे नाव आवश्यक आहे', en: 'Product name is required');
-    if (_selectedCropId == null && _cropName.isEmpty) next['cropId'] = AppLanguage().tr(mr: 'पीक आवश्यक आहे', en: 'Crop is required');
+    final pName = _productNameController.text.trim().isNotEmpty ? _productNameController.text.trim() : _productName.trim();
+    if (pName.isEmpty) next['productName'] = AppLanguage().tr(mr: 'उत्पादनाचे नाव आवश्यक आहे', en: 'Product name is required');
 
     if (isPublish) {
       if (_varietyController.text.trim().isEmpty) next['variety'] = AppLanguage().tr(mr: 'वाण आवश्यक आहे', en: 'Variety is required');
@@ -372,6 +456,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
       final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + (double.tryParse(g.quantity) ?? 0.0));
       final resolvedQty = totalQty > 0 ? totalQty : (double.tryParse(_availableQtyController.text) ?? 0);
       final resolvedFarmingType = _farmingType == 'Other' ? _customFarmingTypeController.text.trim() : _farmingType;
+      final resolvedName = _productNameController.text.trim().isNotEmpty ? _productNameController.text.trim() : _productName.trim();
+      final resolvedCrop = _cropName.isNotEmpty ? _cropName : resolvedName;
 
       final allPhotos = <String>[];
       if (_mainPhoto.isNotEmpty) allPhotos.add(_mainPhoto);
@@ -401,10 +487,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
         final updated = ProductItem(
           id: existing.id,
           productId: existing.productId,
-          productName: _productName,
+          productName: resolvedName,
           variety: _varietyController.text.trim(),
           category: 'Vegetables',
-          cropLinked: _cropName,
+          cropLinked: resolvedCrop,
           grade: 'Grade ${_grades.isNotEmpty ? _grades.first.grade : 'A'}',
           unit: _unit,
           pricePerUnit: grAPrice,
@@ -447,10 +533,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
         final newProduct = ProductItem(
           id: prodId,
           productId: businessId,
-          productName: _productName,
+          productName: resolvedName,
           variety: _varietyController.text.trim(),
           category: 'Vegetables',
-          cropLinked: _cropName,
+          cropLinked: resolvedCrop,
           grade: 'Grade ${_grades.isNotEmpty ? _grades.first.grade : 'A'}',
           unit: _unit,
           pricePerUnit: grAPrice,
@@ -476,6 +562,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           gradeBQty: grBQty,
           gradeCPrice: grCPrice,
           gradeCQty: grCQty,
+          isSelfAdded: true,
         );
 
         FarmerState().addProduct(newProduct);
@@ -497,6 +584,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   void dispose() {
+    _productNameController.dispose();
     _varietyController.dispose();
     _customFarmingTypeController.dispose();
     _availableQtyController.dispose();
@@ -505,7 +593,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final crops = FarmerState().crops;
+    final productOptions = _getProductOptions();
     final unused = _unusedGrades;
 
     return Scaffold(
@@ -536,32 +624,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Subtitle & Warning
+                // Top Subtitle
                 Text(
-                  AppLanguage().tr(mr: 'हे उत्पादन पिकाशी लिंक करा, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.', en: 'Link this product to a crop, then save as draft or publish for approval.'),
+                  AppLanguage().tr(
+                    mr: 'सर्व उत्पादनांमधून उत्पादन निवडा किंवा नवीन नाव प्रविष्ट करा, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.',
+                    en: 'Select a product from all products or enter a new name, then save as draft or publish.',
+                  ),
                   style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                 ),
-                if (crops.isEmpty) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(AppLanguage().tr(mr: 'आधी पीक जोडा, नंतर उत्पादन तयार करा.', en: 'Add a crop first, then create a product.'), style: const TextStyle(fontSize: 11, color: Color(0xFFB45309))),
-                        GestureDetector(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen())),
-                          child: Text(AppLanguage().tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 10),
 
                 // Main Excel Card Container (Matching EXCEL_PANEL)
@@ -612,31 +682,90 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन माहिती', en: 'PRODUCT DETAILS')),
                       const SizedBox(height: 6),
 
-                      // Select Crop (Full Width)
-                      _buildLabel(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select Crop'), required: true),
+                      // Select Product from All Products (Full Width)
+                      _buildLabel(AppLanguage().tr(mr: 'सर्व उत्पादनांमधून उत्पादन निवडा', en: 'Select Product from All Products'), required: true),
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedCropId != null && crops.any((c) => c.id == _selectedCropId) ? _selectedCropId : null,
-                        hint: Text(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select crop'), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                        initialValue: _selectedProductOptionKey != null && productOptions.any((o) => o.key == _selectedProductOptionKey)
+                            ? _selectedProductOptionKey
+                            : null,
+                        hint: Row(
+                          children: [
+                            const Icon(Icons.inventory_2_outlined, size: 15, color: Color(0xFF64748B)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                productOptions.isEmpty
+                                    ? AppLanguage().tr(mr: 'सर्व उत्पादनांमध्ये कोणतीही उत्पादने नाहीत (खाली नाव टाईप करा)', en: 'No products in All Products (Type name below)')
+                                    : AppLanguage().tr(mr: 'सर्व उत्पादनांमधून उत्पादन निवडा', en: 'Select Product from All Products'),
+                                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                         isExpanded: true,
-                        decoration: _inputDecoration(error: _errors['cropId']),
-                        items: crops.map((c) {
+                        decoration: _inputDecoration(error: _errors['productName']),
+                        items: productOptions.map((opt) {
                           return DropdownMenuItem<String>(
-                            value: c.id,
-                            child: Text(
-                              '${c.cropName} ${c.variety.isNotEmpty ? '(${c.variety})' : ''} — ${c.businessId}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                              overflow: TextOverflow.ellipsis,
+                            value: opt.key,
+                            child: Row(
+                              children: [
+                                if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: AppImageWidget(imageStr: opt.imageUrl!, fit: BoxFit.cover),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ] else ...[
+                                  Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFECFDF5),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(Icons.inventory_2_outlined, size: 12, color: Color(0xFF047857)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    opt.displayName,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (opt.unit != null && opt.unit!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    margin: const EdgeInsets.only(left: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      opt.unit!,
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                              ],
                             ),
                           );
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) {
-                            final c = crops.firstWhere((item) => item.id == val);
-                            _selectCrop(c);
+                            final opt = productOptions.firstWhere((o) => o.key == val);
+                            _selectProductOption(opt);
                           }
                         },
                       ),
-                      if (_errors['cropId'] != null) _buildErrorText(_errors['cropId']!),
                       const SizedBox(height: 10),
 
                       // 2-Column Row 1: Product Name & Variety
@@ -648,25 +777,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
-                                Container(
+                                SizedBox(
                                   height: 38,
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  alignment: Alignment.centerLeft,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  ),
-                                  child: Text(
-                                    _productName.isNotEmpty ? _productName : AppLanguage().tr(mr: 'आधी पीक निवडा', en: 'Select crop first'),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _productName.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                                  child: TextFormField(
+                                    controller: _productNameController,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                    decoration: _inputDecoration(
+                                      hint: AppLanguage().tr(mr: 'उत्पादनाचे नाव प्रविष्ट करा', en: 'Enter product name'),
+                                      error: _errors['productName'],
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    onChanged: (val) {
+                                      _productName = val.trim();
+                                      if (_cropName.isEmpty) _cropName = val.trim();
+                                      setState(() => _errors.remove('productName'));
+                                    },
                                   ),
                                 ),
                                 if (_errors['productName'] != null) _buildErrorText(_errors['productName']!),

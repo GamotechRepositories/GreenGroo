@@ -8,6 +8,8 @@ import {
   setFarmerStatus,
   farmerLogin,
   registerFarmer,
+  sendFarmerOtpController,
+  verifyFarmerOtpController,
   submitFarmerKyc,
   getFarmerMe,
   updateFarmerSelfProfile,
@@ -250,6 +252,8 @@ const qualityRouter = express.Router();
 farmerRouter.use(attachAuth);
 farmerRouter.post("/login", farmerLogin);
 farmerRouter.post("/register", registerFarmer);
+farmerRouter.post("/otp/send", sendFarmerOtpController);
+farmerRouter.post("/otp/verify", verifyFarmerOtpController);
 farmerRouter.get("/me", requireFarmer, getFarmerMe);
 farmerRouter.put("/me/profile", requireFarmer, updateFarmerSelfProfile);
 farmerRouter.put("/me/farm", requireFarmer, updateFarmerFarmProfile);

@@ -250,6 +250,38 @@ class ApiService {
     throw Exception('Registration response invalid');
   }
 
+  Future<Map<String, dynamic>> sendFarmerOtp(String mobile, {String purpose = 'login'}) async {
+    final res = await post('/api/farmers/otp/send', {
+      'mobile': mobile,
+      'purpose': purpose,
+    });
+    if (res is Map<String, dynamic>) {
+      return res;
+    }
+    throw Exception('Failed to send OTP');
+  }
+
+  Future<Map<String, dynamic>> verifyFarmerOtp(String mobile, String otp, {String purpose = 'login'}) async {
+    final res = await post('/api/farmers/otp/verify', {
+      'mobile': mobile,
+      'otp': otp,
+      'purpose': purpose,
+    });
+    if (res is Map<String, dynamic>) {
+      String? token;
+      if (res['token'] != null) {
+        token = res['token'].toString();
+      } else if (res['data'] is Map && res['data']['token'] != null) {
+        token = res['data']['token'].toString();
+      }
+      if (token != null) {
+        setToken(token);
+      }
+      return res;
+    }
+    throw Exception('OTP verification failed');
+  }
+
   // Data endpoints matching backend farmer-manager-service
   Future<dynamic> fetchFarmerProfile(String farmerId) async {
     try {

@@ -3,6 +3,11 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
+  sendFarmerOtp,
+  verifyOtp,
+  normalizeIndianPhone,
+} from "@greengrocc/shared";
+import {
   Vendor,
   Farmer,
   FarmerManager,
@@ -534,8 +539,13 @@ async function enrichFarmerDoc(farmerDoc) {
   const f = toPlain(farmerDoc);
   const farmerId = f.id;
 
-  const [manager, stats] = await Promise.all([
+  const [manager, vendor, stats] = await Promise.all([
     f.managerId ? FarmerManager.findOne({ id: f.managerId }).select("name").lean() : null,
+    f.vendorId
+      ? Vendor.findOne({ $or: [{ id: f.vendorId }, { vendorId: f.vendorId }] })
+          .select("id vendorId vendorName ownerName mobile phone businessName")
+          .lean()
+      : null,
     aggFarmerStats([farmerId]),
   ]);
 
@@ -547,6 +557,9 @@ async function enrichFarmerDoc(farmerDoc) {
     farmerId: f.farmerId || f.id,
     loginEnabled: f.loginEnabled !== false,
     managerName: manager?.name || "—",
+    vendorName: vendor?.vendorName || vendor?.businessName || vendor?.ownerName || "—",
+    vendorMobile: vendor?.mobile || vendor?.phone || "",
+    vendorBusinessName: vendor?.businessName || "",
     initials: initials(f.name),
     totalProducts: pStat.count,
     totalStock: pStat.stock,
@@ -556,29 +569,44 @@ async function enrichFarmerDoc(farmerDoc) {
   };
 }
 
-// Batch helper: 3 aggregations + 1 manager lookup instead of loading every related document
+// Batch helper: 3 aggregations + 1 manager lookup + 1 vendor lookup instead of loading every related document
 async function enrichFarmerDocsBatch(farmerDocs) {
   if (!farmerDocs || !farmerDocs.length) return [];
 
   const rawFarmers = farmerDocs.map(toPlain);
   const farmerIds = rawFarmers.map((f) => f.id).filter(Boolean);
   const managerIds = Array.from(new Set(rawFarmers.map((f) => f.managerId).filter(Boolean)));
+  const vendorIds = Array.from(new Set(rawFarmers.map((f) => f.vendorId).filter(Boolean)));
 
-  const [managers, stats] = await Promise.all([
+  const [managers, vendors, stats] = await Promise.all([
     managerIds.length ? FarmerManager.find({ id: { $in: managerIds } }).select("id name").lean() : [],
+    vendorIds.length
+      ? Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
+          .select("id vendorId vendorName ownerName mobile phone businessName")
+          .lean()
+      : [],
     aggFarmerStats(farmerIds),
   ]);
 
   const managerMap = new Map(managers.map((m) => [m.id, m.name]));
+  const vendorMap = new Map();
+  vendors.forEach((v) => {
+    if (v.id) vendorMap.set(String(v.id), v);
+    if (v.vendorId) vendorMap.set(String(v.vendorId), v);
+  });
 
   return rawFarmers.map((f) => {
     delete f.password;
     const pStat = stats.productStats.get(f.id) || { count: 0, stock: 0 };
+    const v = f.vendorId ? vendorMap.get(String(f.vendorId)) : null;
     return {
       ...f,
       farmerId: f.farmerId || f.id,
       loginEnabled: f.loginEnabled !== false,
       managerName: managerMap.get(f.managerId) || "—",
+      vendorName: v?.vendorName || v?.businessName || v?.ownerName || "—",
+      vendorMobile: v?.mobile || v?.phone || "",
+      vendorBusinessName: v?.businessName || "",
       initials: initials(f.name),
       totalProducts: pStat.count,
       totalStock: pStat.stock,
@@ -858,7 +886,211 @@ export async function setFarmerStatus(req, res) {
   }
 }
 
+export async function sendFarmerOtpController(req, res) {
+  try {
+    const rawMobile = req.body.mobile || req.body.phone;
+    const mobile = normalizeIndianPhone(rawMobile);
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid 10-digit mobile number is required",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    const farmer = await Farmer.findOne({ mobile });
+
+    if (isRegister) {
+      if (farmer) {
+        return res.status(400).json({
+          success: false,
+          message: "A farmer account already exists with this mobile number. Please log in.",
+        });
+      }
+    } else {
+      if (!farmer) {
+        return res.status(404).json({
+          success: false,
+          message: "No farmer account found with this mobile number. Please register first.",
+        });
+      }
+      if (farmer.loginEnabled === false) {
+        return res.status(403).json({
+          success: false,
+          message: "Farmer login is currently disabled. Please contact your manager.",
+        });
+      }
+      if (farmer.status !== "Active") {
+        return res.status(403).json({
+          success: false,
+          message: `Farmer account is currently ${farmer.status.toLowerCase()}. Please contact your manager.`,
+        });
+      }
+    }
+
+    const result = await sendFarmerOtp(mobile, isRegister ? "register" : "login");
+    return res.json({
+      success: true,
+      message: result.message || "OTP sent successfully",
+      mobile,
+      purpose: isRegister ? "register" : "login",
+      devMock: result.devMock,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to send farmer OTP" });
+  }
+}
+
+export async function verifyFarmerOtpController(req, res) {
+  try {
+    const rawMobile = req.body.mobile || req.body.phone;
+    const mobile = normalizeIndianPhone(rawMobile);
+    const otp = String(req.body.otp || "").trim();
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!mobile || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and OTP are required",
+      });
+    }
+
+    const verification = await verifyOtp({ phone: mobile, otp, purpose });
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message || "Invalid OTP",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    if (isRegister) {
+      return res.json({
+        success: true,
+        verified: true,
+        mobile,
+        message: "Mobile number verified successfully. You can complete registration.",
+      });
+    }
+
+    const farmer = await Farmer.findOne({ mobile });
+    if (!farmer) {
+      return res.status(404).json({
+        success: false,
+        message: "Farmer account not found. Please register.",
+      });
+    }
+
+    if (farmer.loginEnabled === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Farmer login is currently disabled. Please contact your manager.",
+      });
+    }
+
+    if (farmer.status !== "Active") {
+      return res.status(403).json({
+        success: false,
+        message: `Farmer account is currently ${farmer.status.toLowerCase()}. Please contact your manager.`,
+      });
+    }
+
+    const token = signToken({
+      id: farmer.id,
+      farmerId: farmer.id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId || "",
+      role: "FARMER",
+      name: farmer.name,
+    });
+
+    const enriched = await enrichFarmerDoc(farmer);
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      farmer: enriched,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to verify farmer OTP" });
+  }
+}
+
 export async function farmerLogin(req, res) {
+  try {
+    const { mobile, password, otp } = req.body;
+    if (!mobile || (!password && !otp)) {
+      return res.status(400).json({ success: false, message: "Mobile number and password or OTP are required" });
+    }
+
+    const cleanMobile = String(mobile).trim();
+    const farmer = await Farmer.findOne({ mobile: cleanMobile });
+    if (!farmer) {
+      return res.status(401).json({ success: false, message: "Invalid mobile number or credentials" });
+    }
+
+    if (farmer.loginEnabled === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Farmer login is currently disabled. Please contact your manager.",
+      });
+    }
+
+    if (farmer.status !== "Active") {
+      return res.status(403).json({
+        success: false,
+        message: `Farmer account is currently ${farmer.status.toLowerCase()}. Please contact your manager.`,
+      });
+    }
+
+    if (otp) {
+      const verification = await verifyOtp({ phone: cleanMobile, otp, purpose: "login" });
+      if (!verification.ok) {
+        return res.status(401).json({ success: false, message: verification.message || "Invalid OTP" });
+      }
+    } else {
+      let isMatch = false;
+      if (farmer.password && (farmer.password.startsWith("$2a$") || farmer.password.startsWith("$2b$"))) {
+        isMatch = await bcrypt.compare(password, farmer.password);
+      } else {
+        isMatch = farmer.password === password;
+        if (isMatch) {
+          farmer.password = await bcrypt.hash(password, 10);
+          await farmer.save();
+        }
+      }
+
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Invalid mobile number or password" });
+      }
+    }
+
+    const token = signToken({
+      id: farmer.id,
+      farmerId: farmer.id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId || "",
+      role: "FARMER",
+      name: farmer.name,
+    });
+
+    const enriched = await enrichFarmerDoc(farmer);
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      farmer: enriched,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Login failed" });
+  }
+}
+
+async function _legacyFarmerLoginOriginal(req, res) {
   try {
     const { mobile, password } = req.body;
     if (!mobile || !password) {
@@ -3097,8 +3329,16 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
     farmer?.address?.taluka,
     farmer?.address?.district,
     farmer?.address?.state,
-    farmer?.address?.pincode,
   ].filter(Boolean).join(", ") || farmer?.farmLocation || "";
+  const vendorId = order.vendorId || farmer?.vendorId || "";
+  const vendor = preloaded?.vendors
+    ? (vendorId ? preloaded.vendors.get(String(vendorId)) || null : null)
+    : vendorId
+      ? await Vendor.findOne({ $or: [{ id: vendorId }, { vendorId }] })
+          .select("id vendorId vendorName ownerName mobile phone businessName")
+          .lean()
+      : null;
+
   return publicMyOrder(order, {
     farmerId: farmer?.id || order.farmerId || "",
     farmerCode,
@@ -3116,6 +3356,11 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
     farmerFarmType: farmer?.farmType || "",
     farmerLocation: farmer?.farmLocation || farmerAddress || farmerVillage,
     farmerBank: farmer?.bank || null,
+    vendorId,
+    vendorName: vendor?.vendorName || vendor?.businessName || vendor?.ownerName || (vendorId ? "Assigned Vendor" : ""),
+    vendorMobile: vendor?.mobile || vendor?.phone || "",
+    vendorPhone: vendor?.mobile || vendor?.phone || "",
+    vendorBusinessName: vendor?.businessName || "",
     harvestDate: order.harvestDate || product?.harvestDate || "",
     availableStock: sellable,
     productStock: product
@@ -3150,9 +3395,9 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
               RECEIVED_AT_COLLECTION_CENTRE: "Received",
             }[pickup.status] || String(pickup.status || "").replace(/_/g, " "),
           driverId: pickup.driverId || "",
-          driverName: driver?.name || pickup.driverName || "",
-          driverMobile: driver?.mobile || pickup.driverMobile || "",
-          vehicleNumber: driver?.vehicleNumber || pickup.vehicleNumber || "",
+          driverName: driver?.name || pickup?.driverName || "",
+          driverMobile: driver?.mobile || pickup?.driverMobile || "",
+          vehicleNumber: driver?.vehicleNumber || pickup?.vehicleNumber || "",
           vehicleType: driver?.vehicleType || "",
           licenseNumber: driver?.licenseNumber || "",
           assignedArea: driver?.assignedArea || "",
@@ -3210,10 +3455,26 @@ export async function listMyOrders(req, res) {
       ids = resolved.ids;
     }
 
-    const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 }).lean();
+    const orderQuery = { farmerId: { $in: ids }, isDeleted: { $ne: true } };
+
+    // Farmer App rule: Only the farmer's assigned vendor can send orders to the farmer.
+    // If the requester is a farmer (or farmer app), only return orders from their assigned vendor.
+    if (req.user?.role === "FARMER" || (!req.user?.role && ids.length)) {
+      const farmerDoc = farmers[0];
+      const assignedVendorId = String(farmerDoc?.vendorId || "").trim();
+      if (!assignedVendorId) {
+        // Farmer has no assigned vendor; no one can send orders to this farmer.
+        return res.json([]);
+      }
+      orderQuery.vendorId = assignedVendorId;
+    }
+
+    const orders = await FarmerOrder.find(orderQuery).sort({ createdAt: -1, orderDate: -1 }).lean();
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId].filter(Boolean)).map(String))];
     const productIds = [...new Set(orders.map((o) => flattenOrderFields(o).productId).filter(Boolean))];
-    const [inspections, pickups, products] = await Promise.all([
+    const vendorIds = [...new Set(orders.map((o) => o.vendorId).filter(Boolean).map(String))];
+
+    const [inspections, pickups, products, vendors] = await Promise.all([
       orderIds.length ? QualityInspection.find({ orderId: { $in: orderIds } }).select(INSPECTION_LIST_EXCLUDE).lean() : [],
       orderIds.length ? Pickup.find({ orderId: { $in: orderIds } }).select(PICKUP_LIST_EXCLUDE).lean() : [],
       productIds.length
@@ -3222,6 +3483,11 @@ export async function listMyOrders(req, res) {
             $or: [{ id: { $in: productIds } }, { productId: { $in: productIds } }],
           })
             .select("id productId farmerId productName name availableQuantity stock reservedQuantity unit harvestDate")
+            .lean()
+        : [],
+      vendorIds.length
+        ? Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
+            .select("id vendorId vendorName ownerName mobile phone businessName")
             .lean()
         : [],
     ]);
@@ -3234,6 +3500,12 @@ export async function listMyOrders(req, res) {
       if (item?.orderId) pickupByOrder.set(String(item.orderId), item);
     });
     const driverIds = [...new Set(pickups.map((item) => item.driverId).filter(Boolean).map(String))];
+
+    const vendorMap = new Map();
+    vendors.forEach((v) => {
+      if (v.id) vendorMap.set(String(v.id), v);
+      if (v.vendorId) vendorMap.set(String(v.vendorId), v);
+    });
 
     const farmerMap = new Map();
     farmers.forEach((f) => {
@@ -3261,7 +3533,7 @@ export async function listMyOrders(req, res) {
       if (f.id) farmerMap.set(String(f.id), f);
       if (f.farmerId) farmerMap.set(String(f.farmerId), f);
     });
-    const preloaded = { products, pickups: pickupByOrder, drivers: driverById };
+    const preloaded = { products, pickups: pickupByOrder, drivers: driverById, vendors: vendorMap };
 
     let rows = [];
     for (const order of orders) {
@@ -4263,16 +4535,35 @@ export async function updateFarmerInventoryItem(req, res) {
 export async function getFarmerOrders(req, res) {
   try {
     const { farmerId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    }
-    const { status, q } = req.query;
     const { ids } = await resolveFarmerIdentity(farmerId);
+    const farmer = await Farmer.findOne({
+      isDeleted: { $ne: true },
+      $or: [{ id: farmerId }, { farmerId }, { id: { $in: ids } }, { farmerId: { $in: ids } }],
+    });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const { status, q } = req.query;
     const query = {
       farmerId: { $in: ids.length ? ids : [farmerId] },
       isDeleted: { $ne: true },
     };
+
+    // Farmer App rule: In farmer app, only orders from the farmer's assigned vendor can be received/viewed.
+    const isFarmerRequest = req.user?.role === "FARMER" || !req.user?.role || req.user?.role === "USER";
+    if (isFarmerRequest) {
+      const assignedVendorId = String(farmer.vendorId || "").trim();
+      if (!assignedVendorId) {
+        // Farmer has no assigned vendor; return empty list since no one can send them orders.
+        return res.json(isPaginationRequested(req.query) ? paginatedResponse([], 0, 1, 10) : []);
+      }
+      query.vendorId = assignedVendorId;
+    } else if (req.user?.role === "VENDOR") {
+      const callerVendorId = String(req.user.vendorId || req.user.id || "").trim();
+      if (callerVendorId) {
+        query.vendorId = callerVendorId;
+      }
+    }
+
     if (status) {
       const wanted = normalizeOrderStatus(status);
       query.status = { $in: [...new Set([status, wanted])] };
@@ -4284,7 +4575,6 @@ export async function getFarmerOrders(req, res) {
     let paged = null;
     if (isPaginationRequested(req.query)) {
       paged = getPageParams(req.query, PAGE_LIMITS.orders);
-      // Same exclusions as isOrderDeleted(), pushed into the query so every page is full.
       const conditions = [{ deleted: { $ne: true } }, { status: { $not: DELETED_ORDER_STATUS_RX } }];
       if (q) {
         const rx = containsRegex(q);
@@ -4310,12 +4600,28 @@ export async function getFarmerOrders(req, res) {
     }
 
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId]).filter(Boolean).map(String))];
-    const pickups = orderIds.length
-      ? await Pickup.find({ orderId: { $in: orderIds } }).select(PICKUP_LIST_EXCLUDE).lean()
-      : [];
+    const vendorIds = [...new Set(orders.map((o) => o.vendorId).filter(Boolean).map(String))];
+
+    const [pickups, vendors] = await Promise.all([
+      orderIds.length
+        ? Pickup.find({ orderId: { $in: orderIds } }).select(PICKUP_LIST_EXCLUDE).lean()
+        : [],
+      vendorIds.length
+        ? Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
+            .select("id vendorId vendorName ownerName mobile phone businessName")
+            .lean()
+        : [],
+    ]);
+
     const pickupByOrder = new Map();
     pickups.forEach((p) => {
       if (p.orderId) pickupByOrder.set(String(p.orderId), p);
+    });
+
+    const vendorMap = new Map();
+    vendors.forEach((v) => {
+      if (v.id) vendorMap.set(String(v.id), v);
+      if (v.vendorId) vendorMap.set(String(v.vendorId), v);
     });
 
     const driverIds = [...new Set(pickups.map((p) => p.driverId).filter(Boolean).map(String))];
@@ -4328,14 +4634,24 @@ export async function getFarmerOrders(req, res) {
       const canonical = withCanonicalOrderStatus(o);
       const p = pickupByOrder.get(String(o.id)) || pickupByOrder.get(String(o.orderId || ""));
       const d = p?.driverId ? driverById.get(String(p.driverId)) : null;
+      const v = o.vendorId ? vendorMap.get(String(o.vendorId)) : null;
 
       const driverName = d?.name || p?.driverName || o.driverName || "";
       const driverMobile = d?.mobile || p?.driverMobile || o.driverMobile || o.driverPhone || "";
       const vehicleNumber = d?.vehicleNumber || p?.vehicleNumber || o.vehicleNumber || "";
       const driverStatus = p?.driverStatus || p?.status || o.driverStatus || "";
 
+      const vendorName = v?.vendorName || v?.businessName || v?.ownerName || (o.vendorId ? "Assigned Vendor" : "");
+      const vendorPhone = v?.mobile || v?.phone || "";
+      const vendorBusinessName = v?.businessName || "";
+
       return {
         ...canonical,
+        vendorId: o.vendorId || "",
+        vendorName,
+        vendorPhone,
+        vendorMobile: vendorPhone,
+        vendorBusinessName,
         pickupDate: p?.pickupDate || p?.scheduledDate || o.pickupDate || "",
         pickupTime: p?.pickupTime || p?.scheduledTime || o.pickupTime || "",
         pickupSlot: p?.pickupTime || p?.scheduledTime || o.pickupSlot || o.pickupTime || "",
@@ -4369,7 +4685,10 @@ export async function getFarmerOrders(req, res) {
 export async function getFarmerOrderById(req, res) {
   try {
     const { farmerId, orderId } = req.params;
-    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] })
+    const { ids } = await resolveFarmerIdentity(farmerId);
+    const farmer = await Farmer.findOne({
+      $or: [{ id: farmerId }, { farmerId }, { id: { $in: ids } }, { farmerId: { $in: ids } }],
+    })
       .select("name farmerId id vendorId mobile state district taluka village farmAddress farmLocation farmGeo address")
       .lean();
     const farmerName = farmer?.name || "";
@@ -4387,11 +4706,19 @@ export async function getFarmerOrderById(req, res) {
       let collectionCentreId = plain.collectionCentreId || "";
       let collectionCentre = plain.collectionCentre || "";
 
-      const pickup = await Pickup.findOne({
-        $or: [{ orderId: plain.id }, { orderId: plain.orderId }, { id: plain.pickupId }],
-      })
-        .lean()
-        .catch(() => null);
+      const [pickup, vendorDoc] = await Promise.all([
+        Pickup.findOne({
+          $or: [{ orderId: plain.id }, { orderId: plain.orderId }, { id: plain.pickupId }],
+        })
+          .lean()
+          .catch(() => null),
+        vendorId
+          ? Vendor.findOne({ $or: [{ id: vendorId }, { vendorId }] })
+              .select("id vendorId vendorName ownerName mobile phone businessName")
+              .lean()
+              .catch(() => null)
+          : null,
+      ]);
 
       if (pickup?.collectionCentreId) collectionCentreId = collectionCentreId || pickup.collectionCentreId;
 
@@ -4422,6 +4749,10 @@ export async function getFarmerOrderById(req, res) {
         longitude: geo.longitude ?? null,
         mapsUrl,
         vendorId: vendorId || centre?.vendorId || pickup?.vendorId || "",
+        vendorName: vendorDoc?.vendorName || vendorDoc?.businessName || vendorDoc?.ownerName || (vendorId ? "Assigned Vendor" : ""),
+        vendorPhone: vendorDoc?.mobile || vendorDoc?.phone || "",
+        vendorMobile: vendorDoc?.mobile || vendorDoc?.phone || "",
+        vendorBusinessName: vendorDoc?.businessName || "",
         collectionCentreId: centre?.id || collectionCentreId || "",
         collectionCentre: centre?.name || collectionCentre || (vendorId ? "Main Collection Centre" : ""),
         packingDetails: plain.packingDetails || {},
@@ -4444,10 +4775,17 @@ export async function getFarmerOrderById(req, res) {
       };
     };
 
-    const order = await FarmerOrder.findOne({
-      farmerId,
+    const orderQuery = {
+      farmerId: { $in: ids.length ? ids : [farmerId] },
       $or: [{ id: orderId }, { orderId }],
-    });
+    };
+
+    const isFarmerRequest = req.user?.role === "FARMER" || !req.user?.role || req.user?.role === "USER";
+    if (isFarmerRequest && farmer?.vendorId) {
+      orderQuery.vendorId = farmer.vendorId;
+    }
+
+    const order = await FarmerOrder.findOne(orderQuery);
     if (order) {
       const plain = order.toObject ? order.toObject() : order;
       return res.json(await attachCentreVendor(plain));
@@ -4603,8 +4941,45 @@ export async function createFarmerOrder(req, res) {
       pickupTime = "",
     } = req.body;
 
-    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] });
-    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const { ids } = await resolveFarmerIdentity(farmerId);
+    const farmer = await Farmer.findOne({
+      isDeleted: { $ne: true },
+      $or: [{ id: farmerId }, { farmerId }, { id: { $in: ids } }, { farmerId: { $in: ids } }],
+    });
+    if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
+
+    // Strict Rule: In farmer app, only the farmer's assigned vendor can send orders to the farmer.
+    const assignedVendorId = String(farmer.vendorId || "").trim();
+    if (!assignedVendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "या शेतकऱ्याला कोणताही व्हेंडर नियुक्त (assigned) केलेला नाही. फक्त शेतकऱ्याचा नियुक्त व्हेंडरच ऑर्डर पाठवू शकतो.",
+      });
+    }
+
+    const callerRole = String(req.user?.role || "").toUpperCase();
+    const callerVendorId = String(req.user?.vendorId || (callerRole === "VENDOR" ? (req.user?.id || req.user?.vendorId) : "") || "").trim();
+
+    if (callerRole === "FARMER_MANAGER") {
+      return res.status(403).json({
+        success: false,
+        message: "शेतकऱ्याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. फार्मर मॅनेजर किंवा इतर कोणालाही ऑर्डर पाठवण्याची परवानगी नाही.",
+      });
+    }
+
+    if (callerRole !== "VENDOR" && callerRole !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "शेतकऱ्याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. इतर कोणालाही ऑर्डर पाठवण्याची परवानगी नाही.",
+      });
+    }
+
+    if (callerRole === "VENDOR" && callerVendorId !== assignedVendorId) {
+      return res.status(403).json({
+        success: false,
+        message: "तुम्ही या शेतकऱ्याचे नियुक्त व्हेंडर नाही आहात. फक्त या शेतकऱ्याचा नियुक्त व्हेंडरच ऑर्डर पाठवू शकतो.",
+      });
+    }
 
     const lineItems = products || [];
     const totalQuantity = lineItems.reduce((sum, p) => sum + Number(p.quantity || 0), 0);
@@ -4660,7 +5035,7 @@ export async function createFarmerOrder(req, res) {
     const order = new FarmerOrder({
       id,
       orderId: id,
-      vendorId: farmer.vendorId || req.user?.vendorId || "",
+      vendorId: assignedVendorId,
       farmerId: farmer.id,
       productId,
       productName,
@@ -4705,7 +5080,7 @@ export async function createFarmerOrder(req, res) {
         {
           status: orderStatus,
           at: new Date(),
-          note: `Order created by ${req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor"}`,
+          note: "Order created by assigned Vendor",
         },
       ],
     });
@@ -6644,15 +7019,47 @@ export async function getHarvestOrders(req, res) {
 export async function createHarvestOrder(req, res) {
   try {
     const payload = req.body;
-    let vendorId = payload.vendorId || "";
-    if (req.user?.role === "VENDOR") {
-      vendorId = req.user.vendorId || req.user.id || "";
+    const targetFarmerId = payload.farmerId || req.params.farmerId;
+    const { ids, farmer } = await resolveFarmerIdentity(targetFarmerId);
+    const farmerDoc = farmer || await Farmer.findOne({
+      isDeleted: { $ne: true },
+      $or: [{ id: targetFarmerId }, { farmerId: targetFarmerId }, { id: { $in: ids } }],
+    });
+    if (!farmerDoc) return res.status(404).json({ message: "Farmer not found" });
+
+    const assignedVendorId = String(farmerDoc.vendorId || "").trim();
+    if (!assignedVendorId) {
+      return res.status(400).json({
+        message: "या शेतकऱ्याला कोणताही व्हेंडर नियुक्त (assigned) केलेला नाही. फक्त शेतकऱ्याचा नियुक्त व्हेंडरच ऑर्डर पाठवू शकतो.",
+      });
     }
+
+    const callerRole = String(req.user?.role || "").toUpperCase();
+    const callerVendorId = String(req.user?.vendorId || (callerRole === "VENDOR" ? (req.user?.id || req.user?.vendorId) : "") || "").trim();
+
+    if (callerRole === "FARMER_MANAGER") {
+      return res.status(403).json({
+        message: "शेतकऱ्याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. मॅनेजर ऑर्डर पाठवू शकत नाही.",
+      });
+    }
+
+    if (callerRole !== "VENDOR" && callerRole !== "ADMIN") {
+      return res.status(403).json({
+        message: "शेतकऱ्याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. इतर कोणालाही ऑर्डर पाठवण्याची परवानगी नाही.",
+      });
+    }
+
+    if (callerRole === "VENDOR" && callerVendorId !== assignedVendorId) {
+      return res.status(403).json({
+        message: "तुम्ही या शेतकऱ्याचे नियुक्त व्हेंडर नाही आहात. फक्त या शेतकऱ्याचा नियुक्त व्हेंडरच ऑर्डर पाठवू शकतो.",
+      });
+    }
+
     const id = `ho-${Date.now()}`;
     const order = new FarmerHarvestOrder({
       id,
-      vendorId,
-      farmerId: payload.farmerId,
+      vendorId: assignedVendorId,
+      farmerId: farmerDoc.id,
       productId: payload.productId,
       productName: payload.productName,
       category: payload.category || "Vegetables",

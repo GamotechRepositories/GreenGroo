@@ -7,7 +7,7 @@ const [emailArg, passwordArg, nameArg, phoneArg] = process.argv.slice(2);
 const email = (emailArg || "admin@greengrocc.com").trim().toLowerCase();
 const password = passwordArg || "admin123";
 const name = (nameArg || "Super Admin").trim();
-let phone = (phoneArg || "9999999999").trim();
+let phone = (phoneArg || "7499972072").trim();
 
 if (!email || !password) {
   console.error(

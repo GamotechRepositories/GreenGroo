@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
@@ -124,6 +125,7 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _initCameraAndDetector();
   }
 
@@ -171,6 +173,12 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
         return;
       }
 
+      try {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } catch (e) {
+        debugPrint('Could not lock capture orientation: $e');
+      }
+
       _recordedVideoBase64 = null;
       _isSessionRecording = false;
       setState(() {
@@ -189,6 +197,9 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
       // Devices that cannot record and analyse at once fall back to detection only, with a
       // short clip recorded after the last step.
       try {
+        try {
+          await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+        } catch (_) {}
         await controller.startVideoRecording(onAvailable: _onCameraFrame);
         if (mounted) setState(() => _isSessionRecording = true);
       } catch (e) {
@@ -363,6 +374,9 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
 
       if (mounted && camera != null && camera.value.isInitialized) {
         try {
+          try {
+            await camera.lockCaptureOrientation(DeviceOrientation.portraitUp);
+          } catch (_) {}
           await camera.startVideoRecording();
           // Record ~2.5 seconds verified video KYC clip
           await Future.delayed(const Duration(milliseconds: 2500));
@@ -460,6 +474,12 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _recordTimer?.cancel();
     _faceDetector?.close();
     unawaited(_stopCamera());
@@ -943,20 +963,29 @@ class _CameraPreview extends StatelessWidget {
                     ? const Icon(Icons.videocam_off_rounded, size: 56, color: AppColors.error)
                     : !isCameraValid
                         ? const Center(child: CircularProgressIndicator())
-                        : Stack(
-                            fit: StackFit.expand,
-                            alignment: Alignment.center,
-                            children: [
-                              ClipOval(
-                                child: FittedBox(
-                                  fit: BoxFit.cover,
-                                  child: SizedBox(
-                                    width: camera!.value.previewSize?.height ?? size,
-                                    height: camera!.value.previewSize?.width ?? size,
-                                    child: CameraPreview(camera!),
+                        : Builder(
+                            builder: (context) {
+                              final rawRatio = camera!.value.aspectRatio;
+                              final ratio = rawRatio > 1.0 ? rawRatio : (rawRatio > 0 ? (1.0 / rawRatio) : (16.0 / 9.0));
+
+                              return Stack(
+                                fit: StackFit.expand,
+                                alignment: Alignment.center,
+                                children: [
+                                  ClipOval(
+                                    child: SizedBox(
+                                      width: size,
+                                      height: size,
+                                      child: FittedBox(
+                                        fit: BoxFit.cover,
+                                        child: SizedBox(
+                                          width: size,
+                                          height: size * ratio,
+                                          child: CameraPreview(camera!),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
 
                               // Top Live Face Tracking badge
                               Positioned(
@@ -1074,7 +1103,9 @@ class _CameraPreview extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
