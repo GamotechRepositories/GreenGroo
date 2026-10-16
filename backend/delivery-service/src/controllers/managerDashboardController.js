@@ -168,6 +168,7 @@ export const serializeRider = (r) => ({
   vehicleType: r.vehicleType,
   employmentType: r.employmentType || 'PART_TIME',
   status: r.status,
+  pendingCashAmount: Number(r.pendingCashAmount) || 0,
   city: r.city,
   cityId: r.cityId,
   area: r.area,
@@ -954,6 +955,11 @@ export const verifyDriver = async (req, res, next) => {
           updatedAt: new Date().toISOString(),
         });
         getIO().to(`rider_${rider._id}`).emit("document_review_update", {
+          documentType: "verification",
+          verificationStatus: rider.verificationStatus,
+          remarks: note,
+        });
+        getIO().to(`rider:${rider._id}`).emit("document_review_update", {
           documentType: "verification",
           verificationStatus: rider.verificationStatus,
           remarks: note,

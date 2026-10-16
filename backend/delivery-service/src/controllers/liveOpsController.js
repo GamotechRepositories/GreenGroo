@@ -60,17 +60,39 @@ export const updateRiderDocumentStatus = async (req, res, next) => {
 
     await rider.save();
 
+    const allVerified = DOC_KEYS.every((k) => rider.documents?.[k]?.status === "verified");
+    if (allVerified && rider.selfie?.status === "verified") {
+      rider.verificationStatus = "approved";
+      rider.isActive = true;
+      rider.verifiedAt = new Date();
+      await rider.save();
+      try {
+        const { notifyVerificationCompleted } = await import(
+          "../services/RiderNotificationService.js"
+        );
+        await notifyVerificationCompleted(rider._id);
+      } catch (err) {
+        console.warn("[liveOps] notifyVerificationCompleted error:", err.message);
+      }
+    }
+
     const storeId = manager._id.toString();
     try {
-      getIO().to(`store_${storeId}`).emit("rider_document_updated", {
+      const io = getIO();
+      io.to(`store_${storeId}`).emit("rider_document_updated", {
         riderId: rider._id.toString(),
         documentType,
-        verificationStatus,
+        verificationStatus: rider.verificationStatus || verificationStatus,
         updatedAt: new Date().toISOString(),
       });
-      getIO().to(`rider_${rider._id}`).emit("document_review_update", {
+      io.to(`rider_${rider._id}`).emit("document_review_update", {
         documentType,
-        verificationStatus,
+        verificationStatus: rider.verificationStatus || verificationStatus,
+        remarks,
+      });
+      io.to(`rider:${rider._id}`).emit("document_review_update", {
+        documentType,
+        verificationStatus: rider.verificationStatus || verificationStatus,
         remarks,
       });
     } catch (err) {
@@ -81,7 +103,7 @@ export const updateRiderDocumentStatus = async (req, res, next) => {
       success: true,
       riderId: rider._id.toString(),
       documentType,
-      verificationStatus,
+      verificationStatus: rider.verificationStatus || verificationStatus,
       remarks,
     });
   } catch (error) {
@@ -128,7 +150,6 @@ export const manualAssignOrder = async (req, res, next) => {
     rider.lastStatusAt = new Date();
     await rider.save();
 
-    const storeId = manager._id.toString();
     const orderPayload = {
       orderId: order._id.toString(),
       orderNumber: order.orderNumber,
@@ -142,9 +163,31 @@ export const manualAssignOrder = async (req, res, next) => {
     };
 
     try {
-      getIO().to(`rider_${rider._id}`).emit("new_order_assigned", orderPayload);
+      const io = getIO();
+      io.to(`rider_${rider._id}`).emit("new_order_assigned", orderPayload);
+      io.to(`rider:${rider._id}`).emit("new_order_assigned", orderPayload);
+      io.to(`rider_${rider._id}`).emit("active_delivery_updated", {
+        reason: "order_assigned",
+        orderId: order._id.toString(),
+      });
+      io.to(`rider:${rider._id}`).emit("active_delivery_updated", {
+        reason: "order_assigned",
+        orderId: order._id.toString(),
+      });
     } catch (err) {
       console.warn("[socket] new_order_assigned emit failed:", err.message);
+    }
+
+    try {
+      const { notifyOrdersAssigned } = await import(
+        "../services/RiderNotificationService.js"
+      );
+      await notifyOrdersAssigned(rider._id, {
+        orders: [order],
+        storeName: manager.storeName || `${manager.area || "Store"} Dark Store`,
+      });
+    } catch (err) {
+      console.warn("[liveOps] notifyOrdersAssigned error:", err.message);
     }
 
     return res.json({

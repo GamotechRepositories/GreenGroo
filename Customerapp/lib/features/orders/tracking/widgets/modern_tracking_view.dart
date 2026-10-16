@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../config/theme.dart';
 import '../../../../models/order.dart';
 import '../live_tracking_map.dart';
 import '../order_tracking_models.dart';
@@ -118,7 +119,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.support_agent_rounded, color: Color(0xFF0F5A31), size: 28),
+                  const Icon(Icons.support_agent_rounded, color: AppColors.primary, size: 28),
                   const SizedBox(width: 12),
                   const Text(
                     'GreenGrocc Support',
@@ -139,8 +140,8 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
               const SizedBox(height: 20),
               ListTile(
                 leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE8F5E9),
-                  child: Icon(Icons.chat_bubble_outline, color: Color(0xFF0F5A31)),
+                  backgroundColor: AppColors.headerFadeBg,
+                  child: Icon(Icons.chat_bubble_outline, color: AppColors.primary),
                 ),
                 title: const Text('Chat with us on WhatsApp', style: TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: const Text('Instant answers & order updates'),
@@ -152,8 +153,8 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
               ),
               ListTile(
                 leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE8F5E9),
-                  child: Icon(Icons.phone_outlined, color: Color(0xFF0F5A31)),
+                  backgroundColor: AppColors.headerFadeBg,
+                  child: Icon(Icons.phone_outlined, color: AppColors.primary),
                 ),
                 title: const Text('Call Customer Care', style: TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: const Text('Speak directly to an agent'),
@@ -197,9 +198,18 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
       backgroundColor: const Color(0xFFF6F8F6),
       body: Column(
         children: [
-          // 1. Top Forest Green App Bar (Header)
+          // 1. Top Brand Theme Green App Bar (Header)
           Container(
-            color: const Color(0xFF0F5A31),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  Color(0xFF15803D),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -232,7 +242,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                           Text(
                             _headerSubtitle(tracking),
                             style: const TextStyle(
-                              color: Color(0xFFE2F3E7),
+                              color: Color(0xFFD1FAE5),
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
@@ -244,9 +254,9 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0A4222),
+                        color: Colors.black.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -254,7 +264,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                           const Text(
                             'Order ID',
                             style: TextStyle(
-                              color: Color(0xFFA5D6A7),
+                              color: Color(0xFFD1FAE5),
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                             ),
@@ -351,7 +361,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFE8F5E9),
+                                      color: AppColors.headerFadeBg,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Row(
@@ -361,7 +371,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                           width: 5,
                                           height: 5,
                                           decoration: const BoxDecoration(
-                                            color: Color(0xFF00C853),
+                                            color: AppColors.primaryLight,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -369,7 +379,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                         Text(
                                           statusLabel,
                                           style: const TextStyle(
-                                            color: Color(0xFF0F5A31),
+                                            color: AppColors.primary,
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -406,7 +416,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF0F5A31),
+                                    color: AppColors.primary,
                                     letterSpacing: -0.5,
                                   ),
                                 ),
@@ -414,7 +424,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                 const Icon(
                                   Icons.access_time_rounded,
                                   size: 13.5,
-                                  color: Color(0xFF0F5A31),
+                                  color: AppColors.primary,
                                 ),
                               ],
                             ),
@@ -479,13 +489,13 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                       Container(
                                         padding: const EdgeInsets.all(2.5),
                                         decoration: const BoxDecoration(
-                                          color: Color(0xFFE8F5E9),
+                                          color: AppColors.headerFadeBg,
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Icon(
                                           Icons.two_wheeler_rounded,
                                           size: 11,
-                                          color: Color(0xFF0F5A31),
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                       const SizedBox(width: 5),
@@ -512,7 +522,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                             ),
                             // Circular Call Button
                             Material(
-                              color: const Color(0xFF0F5A31),
+                              color: AppColors.primary,
                               shape: const CircleBorder(),
                               elevation: 2,
                               child: InkWell(
@@ -546,9 +556,9 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEAF7EE),
+                          color: AppColors.headerFadeBg,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFC8E6C9)),
+                          border: Border.all(color: AppColors.headerSearchBg),
                         ),
                         child: Row(
                           children: [
@@ -556,7 +566,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                               width: 28,
                               height: 28,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF0F5A31),
+                                color: AppColors.primary,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -600,7 +610,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFF0F5A31)),
+                                    border: Border.all(color: AppColors.primary),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -610,14 +620,14 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.w800,
-                                          color: Color(0xFF0F5A31),
+                                          color: AppColors.primary,
                                         ),
                                       ),
                                       SizedBox(width: 2),
                                       Icon(
                                         Icons.chevron_right_rounded,
                                         size: 13,
-                                        color: Color(0xFF0F5A31),
+                                        color: AppColors.primary,
                                       ),
                                     ],
                                   ),
@@ -636,11 +646,11 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF00C853), width: 1.5),
+                            border: Border.all(color: AppColors.primaryLight, width: 1.5),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.lock_outline_rounded, color: Color(0xFF0F5A31), size: 17),
+                              const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 17),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,7 +664,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                                     style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w900,
-                                      color: Color(0xFF0F5A31),
+                                      color: AppColors.primary,
                                       letterSpacing: 2,
                                     ),
                                   ),
@@ -663,8 +673,8 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                               const Spacer(),
                               TextButton.icon(
                                 onPressed: () => _copyOtp(order.deliveryOtp),
-                                icon: const Icon(Icons.copy_rounded, size: 13.5, color: Color(0xFF0F5A31)),
-                                label: const Text('Copy OTP', style: TextStyle(color: Color(0xFF0F5A31), fontWeight: FontWeight.w700, fontSize: 11.5)),
+                                icon: const Icon(Icons.copy_rounded, size: 13.5, color: AppColors.primary),
+                                label: const Text('Copy OTP', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11.5)),
                               ),
                             ],
                           ),
@@ -748,7 +758,7 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                           icon: const Icon(Icons.repeat_rounded, size: 16),
                           label: const Text('Repeat Order', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F5A31),
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 11),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

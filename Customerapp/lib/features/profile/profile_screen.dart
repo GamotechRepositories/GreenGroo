@@ -252,54 +252,142 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final addressesLoading =
         ref.watch(addressControllerProvider.select((s) => s.loading));
 
+    final topInset = MediaQuery.paddingOf(context).top;
+
     if (!isLoggedIn) {
-      return RefreshableBody(
-        onRefresh: _refreshProfile,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: AppColors.headerFadeBg,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: const Icon(Icons.account_circle_outlined, size: 54, color: AppColors.primary),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Account Access Required',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Sign in to manage your account details, saved addresses & quick checkout.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => ref.read(authControllerProvider.notifier).openAuthModal(),
-                    icon: const Icon(Icons.login_rounded),
-                    label: const Text('Login / Sign Up', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: AppColors.pageBackground,
+            padding: EdgeInsets.fromLTRB(16, topInset > 0 ? topInset + 12 : 20, 16, 12),
+            child: const Text(
+              'My Account',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
-        ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshProfile,
+              child: ListView(
+                controller: _scrollController,
+                physics: AppScrollConfig.listPhysics,
+                cacheExtent: AppScrollConfig.cacheExtent,
+                padding: ShellBottomInsets.listPadding(context, top: 4),
+                children: [
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderLight),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: AppColors.headerFadeBg,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                          ),
+                          child: const Icon(Icons.account_circle_outlined, size: 38, color: AppColors.primary),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Welcome to GreenGroo',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Sign in to manage your account details, saved addresses & quick checkout.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () => ref.read(authControllerProvider.notifier).openAuthModal(
+                                  AuthModalMode.login,
+                                  RoutePaths.profile,
+                                ),
+                            icon: const Icon(Icons.login_rounded, size: 20),
+                            label: const Text('Login / Sign Up', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _QuickActionsGrid(
+                    onAddresses: () => ref.read(authControllerProvider.notifier).openAuthModal(
+                          AuthModalMode.login,
+                          RoutePaths.profile,
+                        ),
+                    onWishlist: () => context.push(RoutePaths.wishlist),
+                    onSupport: () => context.push(RoutePaths.support),
+                  ),
+                  const SizedBox(height: 16),
+                  _MenuSection(
+                    onSupport: () => context.push(RoutePaths.support),
+                    onPrivacy: () => context.push(RoutePaths.privacyPolicy),
+                    onTerms: () => context.push(RoutePaths.terms),
+                    onContact: () => context.push(RoutePaths.contact),
+                    onAbout: () => context.push(RoutePaths.about),
+                    onShare: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await shareWebsite();
+                      } catch (_) {
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Could not share website. Try again.')),
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ref.watch(packageInfoProvider).when(
+                          loading: () => Text(
+                            '${AppInfo.name} v${AppInfo.version}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                          error: (_, _) => Text(
+                            '${AppInfo.name} v${AppInfo.version}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          ),
+                          data: (info) => Text(
+                            '${AppInfo.name} v${info.version}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -309,8 +397,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: const Center(child: CircularProgressIndicator()),
       );
     }
-
-    final topInset = MediaQuery.paddingOf(context).top;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

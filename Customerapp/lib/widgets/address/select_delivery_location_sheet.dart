@@ -32,23 +32,21 @@ class SelectDeliveryLocationSheetContent extends ConsumerStatefulWidget {
 
 class _SelectDeliveryLocationSheetContentState
     extends ConsumerState<SelectDeliveryLocationSheetContent> {
-  final _searchController = TextEditingController();
   bool _isDetectingLocation = false;
-  String _searchQuery = '';
-  List<String> _searchResults = [];
   PhoneLocation? _detected;
+  bool _isAddAddressExpanded = false;
+  bool _savingAddress = false;
+  String? _addressFormError;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _detectLiveLocation(closeAfterSave: false);
-    });
+    // Do NOT automatically detect location or request GPS permissions on open.
+    // Permissions are only requested when the user taps "Use current location".
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -69,6 +67,25 @@ class _SelectDeliveryLocationSheetContentState
 
       if (!closeAfterSave) return;
 
+      final user = ref.read(authControllerProvider).user;
+      if (user == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Delivery location set to ${detected.area.isNotEmpty ? detected.area : (detected.city.isNotEmpty ? detected.city : 'Current location')}',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13),
+            ),
+            backgroundColor: const Color(0xFF047857),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.of(context).pop();
+        return;
+      }
+
       final addressId = await _saveDetectedAddress(detected);
       if (!mounted) return;
       if (addressId != null) {
@@ -76,14 +93,13 @@ class _SelectDeliveryLocationSheetContentState
         return;
       }
 
-      final user = ref.read(authControllerProvider).user;
       final savedId = await showDeliveryAddressFormSheet(
         context,
         initial: addressFormFromPhoneLocation(
           detected,
-          name: user?.name ?? '',
-          phone: user?.phone ?? '',
-          email: user?.email ?? '',
+          name: user.name,
+          phone: user.phone,
+          email: user.email,
         ),
       );
       if (!mounted) return;
@@ -171,19 +187,56 @@ class _SelectDeliveryLocationSheetContentState
     }
   }
 
-  void _onSearchChanged(String val) async {
-    setState(() => _searchQuery = val.trim());
-    if (_searchQuery.isEmpty) {
-      setState(() => _searchResults = []);
+  Future<void> _handleSaveAddressFromSheet(Map<String, String> form) async {
+    setState(() {
+      _savingAddress = true;
+      _addressFormError = null;
+    });
+
+    final error = await ref.read(addressControllerProvider.notifier).saveAddress(
+          form,
+          makeDefault: ref.read(addressControllerProvider).addresses.isEmpty,
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _savingAddress = false;
+        _addressFormError = error;
+      });
       return;
     }
-    final api = ref.read(apiServiceProvider);
-    try {
-      final res = await api.fetchLocationPincodes(state: 'Maharashtra', city: 'Pune', q: _searchQuery);
-      if (mounted) {
-        setState(() => _searchResults = res);
-      }
-    } catch (_) {}
+
+    setState(() {
+      _savingAddress = false;
+      _isAddAddressExpanded = false;
+    });
+
+    final addresses = ref.read(addressControllerProvider).addresses;
+    final created = addresses.isNotEmpty ? addresses.first : null;
+
+    if (created != null) {
+      await _selectAddress(
+        DeliveryLocation(
+          latitude: created.location?['lat'] is num
+              ? (created.location!['lat'] as num).toDouble()
+              : null,
+          longitude: created.location?['lng'] is num
+              ? (created.location!['lng'] as num).toDouble()
+              : null,
+          pincode: created.pincode,
+          city: created.city,
+          state: created.state,
+          area: created.area.isNotEmpty ? created.area : created.fullAddress,
+          address:
+              '${created.shopNo} ${created.shopName}, ${created.fullAddress}, ${created.city}, ${created.state} - ${created.pincode}',
+          label:
+              '${created.shopName.isNotEmpty ? created.shopName : created.fullAddress}, ${created.city}',
+        ),
+        addressId: created.id,
+      );
+    }
   }
 
   @override
@@ -262,89 +315,12 @@ class _SelectDeliveryLocationSheetContentState
                 ),
               ),
 
-              // Search Area Input Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    decoration: InputDecoration(
-                      hintText: 'Search for area, street name...',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 13.5,
-                        color: const Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFF64748B),
-                        size: 21,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
               // Scrollable Options & Saved Addresses List
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   children: [
-                    if (_searchQuery.isNotEmpty && _searchResults.isNotEmpty) ...[
-                      Text(
-                        'Search Results',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                        ),
-                        child: Column(
-                          children: _searchResults.map((pin) {
-                            return ListTile(
-                              leading: const Icon(Icons.location_on_outlined, color: Color(0xFF047857)),
-                              title: Text('Pincode $pin', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13.5)),
-                              onTap: () {
-                                _selectAddress(DeliveryLocation(
-                                  pincode: pin,
-                                  city: 'Pune',
-                                  area: 'Area $pin',
-                                  address: 'Area $pin, Pune - $pin',
-                                ));
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Top Action Options Card
+                    // 1. Use Current Location Card
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -358,27 +334,136 @@ class _SelectDeliveryLocationSheetContentState
                           ),
                         ],
                       ),
+                      child: InkWell(
+                        onTap: _isDetectingLocation
+                            ? null
+                            : () => _detectLiveLocation(closeAfterSave: true),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF0FDF4),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.my_location_rounded,
+                                  color: Color(0xFF047857),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Use current location',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF047857),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _isDetectingLocation
+                                          ? 'Detecting your phone location...'
+                                          : (_detected?.displayLine ??
+                                              currentLocation?.displayAddress ??
+                                              'Tap to detect and deliver to current location'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11.5,
+                                        color: const Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_isDetectingLocation)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF047857),
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Color(0xFF94A3B8),
+                                  size: 22,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 2. Add New Address Card with Expandable Dropdown Form
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _isAddAddressExpanded
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF1F5F9),
+                          width: _isAddAddressExpanded ? 1.5 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // 1. Use Current Location
                           InkWell(
-                            onTap: _isDetectingLocation
-                                ? null
-                                : () => _detectLiveLocation(closeAfterSave: true),
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                            onTap: () {
+                              final auth = ref.read(authControllerProvider);
+                              if (!auth.isLoggedIn) {
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .openAuthModal(AuthModalMode.login);
+                                return;
+                              }
+                              setState(() {
+                                _isAddAddressExpanded = !_isAddAddressExpanded;
+                                _addressFormError = null;
+                              });
+                            },
+                            borderRadius: BorderRadius.vertical(
+                              top: const Radius.circular(16),
+                              bottom: Radius.circular(_isAddAddressExpanded ? 0 : 16),
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               child: Row(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF0FDF4),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
-                                      Icons.my_location_rounded,
-                                      color: Color(0xFF047857),
+                                    child: Icon(
+                                      _isAddAddressExpanded
+                                          ? Icons.location_on_outlined
+                                          : Icons.add_rounded,
+                                      color: const Color(0xFF047857),
                                       size: 20,
                                     ),
                                   ),
@@ -388,7 +473,7 @@ class _SelectDeliveryLocationSheetContentState
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Use current location',
+                                          'Add new address',
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 14.5,
                                             fontWeight: FontWeight.w800,
@@ -397,13 +482,9 @@ class _SelectDeliveryLocationSheetContentState
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          _isDetectingLocation
-                                              ? 'Detecting your phone location...'
-                                              : (_detected?.displayLine ??
-                                                  currentLocation?.displayAddress ??
-                                                  'Tap to detect and save your current location'),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
+                                          _isAddAddressExpanded
+                                              ? 'Fill in the details below to save'
+                                              : 'Enter house, street & area details',
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 11.5,
                                             color: const Color(0xFF64748B),
@@ -413,83 +494,68 @@ class _SelectDeliveryLocationSheetContentState
                                       ],
                                     ),
                                   ),
-                                  if (_isDetectingLocation)
-                                    const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFF047857),
-                                      ),
-                                    )
-                                  else
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: Color(0xFF94A3B8),
-                                      size: 22,
-                                    ),
+                                  Icon(
+                                    _isAddAddressExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    color: const Color(0xFF047857),
+                                    size: 24,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                          // 2. Add New Address
-                          InkWell(
-                            onTap: () async {
-                              final user = ref.read(authControllerProvider).user;
-                              final detected = _detected;
-                              final savedId = await showDeliveryAddressFormSheet(
-                                context,
-                                initial: detected == null
-                                    ? null
-                                    : addressFormFromPhoneLocation(
-                                        detected,
-                                        name: user?.name ?? '',
-                                        phone: user?.phone ?? '',
-                                        email: user?.email ?? '',
-                                      ),
-                              );
-                              if (!context.mounted) return;
-                              if (savedId != null) Navigator.of(context).pop(savedId);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                              child: Row(
+                          if (_isAddAddressExpanded) ...[
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.add_rounded,
-                                      color: Color(0xFF047857),
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Add new address',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF047857),
+                                  if (_addressFormError != null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                                      ),
+                                      child: Text(
+                                        _addressFormError!,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 12.5,
+                                          color: const Color(0xFFB91C1C),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: Color(0xFF94A3B8),
-                                    size: 22,
+                                  ],
+                                  AddressForm(
+                                    plain: true,
+                                    initial: _detected == null
+                                        ? (ref.read(authControllerProvider).user != null
+                                            ? {
+                                                'fullName': ref.read(authControllerProvider).user!.name,
+                                                'number': ref.read(authControllerProvider).user!.phone,
+                                                'email': ref.read(authControllerProvider).user!.email,
+                                              }
+                                            : null)
+                                        : addressFormFromPhoneLocation(
+                                            _detected!,
+                                            name: ref.read(authControllerProvider).user?.name ?? '',
+                                            phone: ref.read(authControllerProvider).user?.phone ?? '',
+                                            email: ref.read(authControllerProvider).user?.email ?? '',
+                                          ),
+                                    submitting: _savingAddress,
+                                    onCancel: () =>
+                                        setState(() => _isAddAddressExpanded = false),
+                                    onSubmit: _handleSaveAddressFromSheet,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -560,13 +626,11 @@ class _SavedAddressCardItem extends StatelessWidget {
     required this.address,
     required this.onSelect,
     this.isCurrent = false,
-    this.distanceText,
   });
 
   final Address address;
   final VoidCallback onSelect;
   final bool isCurrent;
-  final String? distanceText;
 
   @override
   Widget build(BuildContext context) {
@@ -640,16 +704,6 @@ class _SavedAddressCardItem extends StatelessWidget {
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                        ] else if (distanceText != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            distanceText!,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF64748B),
                             ),
                           ),
                         ],

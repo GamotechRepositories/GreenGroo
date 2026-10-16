@@ -138,6 +138,8 @@ class Shift {
   final int? ordersExpected;
 
   bool get hasEarningSlabs => deliveryEarningSlabs.isNotEmpty;
+  bool get isAvailable =>
+      status == ShiftStatus.available || slots.any((s) => s.isAvailable);
 
   /// Find the earning for a given delivery distance
   DeliveryEarningSlab? slabForDistance(double distanceKm) {

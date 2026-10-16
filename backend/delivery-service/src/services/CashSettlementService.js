@@ -13,6 +13,7 @@ import mongoose from "mongoose";
 import CashSettlement from "../models/CashSettlement.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import StoreOrder from "../models/StoreOrder.js";
+import { getIO } from "../../../socket.js";
 
 /**
  * Create a cash settlement record when a rider collects cash.
@@ -55,6 +56,21 @@ export async function createCashLiability({ darkStoreId, riderId, orderId, order
     );
 
     await session.commitTransaction();
+
+    try {
+      const io = getIO();
+      const updatedRider = await DeliveryBoy.findById(riderId).select("pendingCashAmount");
+      const payload = {
+        riderId: String(riderId),
+        pendingCashAmount: updatedRider?.pendingCashAmount || 0,
+        addedAmount: amount,
+        message: `Cash collected: ₹${amount}. Hand over to darkstore manager till end of the day.`,
+      };
+      io.to(`rider_${riderId}`).emit("rider_cash_updated", payload);
+      io.to(`rider:${riderId}`).emit("rider_cash_updated", payload);
+      io.to(`store_${darkStoreId}`).emit("store_cash_updated", payload);
+    } catch (_) {}
+
     return settlement;
   } catch (err) {
     await session.abortTransaction();
@@ -134,6 +150,20 @@ export async function confirmCashReceipt({ darkStoreId, riderId, managerId, sett
     }
 
     await session.commitTransaction();
+
+    try {
+      const io = getIO();
+      const payload = {
+        riderId: String(riderId),
+        pendingCashAmount: rider?.pendingCashAmount || 0,
+        confirmedAmount: totalAmount,
+        message: `Dark store manager confirmed cash deposit of ₹${totalAmount}.`,
+      };
+      io.to(`rider_${riderId}`).emit("rider_cash_updated", payload);
+      io.to(`rider:${riderId}`).emit("rider_cash_updated", payload);
+      io.to(`store_${darkStoreId}`).emit("store_cash_updated", payload);
+    } catch (_) {}
+
     return { confirmed: settlements.length, totalAmount };
   } catch (err) {
     await session.abortTransaction();

@@ -28,18 +28,20 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  late AuthModalMode _currentMode;
   String _accountType = 'retail';
   bool _showPassword = false;
   bool _showConfirmPassword = false;
   bool _submitting = false;
   String? _error;
 
-  bool get _isSignup => widget.mode == AuthModalMode.signup;
+  bool get _isSignup => _currentMode == AuthModalMode.signup;
   bool get _isBulk => _accountType == 'bulk';
 
   @override
   void initState() {
     super.initState();
+    _currentMode = widget.mode;
     _phoneController.addListener(_clearError);
     _nameController.addListener(_clearError);
     _shopNameController.addListener(_clearError);
@@ -55,6 +57,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mode != widget.mode) {
       _resetForm();
+      setState(() => _currentMode = widget.mode);
     }
   }
 
@@ -196,11 +199,10 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
 
   void _switchMode(AuthModalMode nextMode) {
     _resetForm();
-    ref.read(authControllerProvider.notifier).setAuthModal(nextMode);
-    Navigator.of(context, rootNavigator: true).pop();
-    Future.microtask(() {
-      ref.read(authControllerProvider.notifier).openAuthModal(nextMode);
+    setState(() {
+      _currentMode = nextMode;
     });
+    ref.read(authControllerProvider.notifier).setAuthModal(nextMode);
   }
 
   @override
@@ -222,8 +224,9 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                 Expanded(child: _buildHeader()),
                 IconButton(
                   onPressed: () {
-                    ref.read(authControllerProvider.notifier).closeAuthModal();
-                    Navigator.of(context, rootNavigator: true).pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
                   },
                   icon: const Icon(Icons.close),
                 ),
@@ -608,7 +611,7 @@ class _AccountTypeToggle extends StatelessWidget {
             child: _buildOption(
               id: 'bulk',
               title: 'Bulk / Business',
-              subtitle: 'Wholesale grades',
+              subtitle: 'Pantry & large packs',
             ),
           ),
         ],

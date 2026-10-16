@@ -76,12 +76,12 @@ const privacyPolicyPage = StaticPageContent(
     InfoSection(
       title: 'Information We Collect',
       body:
-          'When you register, request a bulk quote, or contact us, we may collect your name, email, phone number, business details, and order-related information necessary to process your requests.',
+          'When you register, place an order, or contact us, we may collect your name, email, phone number, address details, and order-related information necessary to process your deliveries.',
     ),
     InfoSection(
       title: 'How We Use Your Information',
       body:
-          'We use your data to process orders, send quotes, provide customer support, improve our services, and share relevant updates about bulk deals and new arrivals if you subscribe to our newsletter.',
+          'We use your data to process orders, provide customer support, improve our services, and share relevant updates about fresh deals and seasonal arrivals if you subscribe to our updates.',
     ),
     InfoSection(
       title: 'Data Security',
@@ -91,7 +91,7 @@ const privacyPolicyPage = StaticPageContent(
     InfoSection(
       title: 'Sharing of Information',
       body:
-          'We do not sell your personal information. We may share data with trusted service providers (such as payment processors and courier partners) only as needed to fulfill your orders.',
+          'We do not sell your personal information. We may share data with trusted service providers (such as payment processors and delivery partners) only as needed to fulfill your orders.',
     ),
     InfoSection(
       title: 'Contact Us',
@@ -111,24 +111,24 @@ const termsPage = StaticPageContent(
           'By using GreenGrocc, you agree to these terms. Our platform is for customers ordering groceries and daily essentials for personal or household use.',
     ),
     InfoSection(
-      title: 'Orders & Minimum Quantity',
+      title: 'Orders & Product Availability',
       body:
-          'Minimum order quantity is 10 units unless otherwise stated. All orders are subject to stock availability and confirmation by our sales team. Prices quoted are valid for the period specified in your bulk quote.',
+          'All orders are subject to stock availability and confirmation. Fresh produce weights and counts may vary slightly within standard trade margins.',
     ),
     InfoSection(
       title: 'Payment & Invoicing',
       body:
-          'Payment terms will be communicated at the time of order confirmation. GST-compliant invoices are provided for all eligible business purchases.',
+          'Payment terms will be communicated at the time of order confirmation. Digital invoices are provided for all purchases.',
     ),
     InfoSection(
       title: 'Delivery',
       body:
-          'We ship pan-India through trusted courier partners. Delivery timelines vary by location and order size. Risk of loss passes to the buyer upon successful delivery.',
+          'We deliver through our dedicated dark stores and delivery partners. Delivery timelines vary by location. Risk of loss passes to the buyer upon successful delivery.',
     ),
     InfoSection(
       title: 'Returns & Refunds',
       body:
-          'Return eligibility depends on product category and condition. Contact support for return requests within the applicable window shown on your order or product page.',
+          'Return eligibility depends on product category and freshness standards. Contact support for return requests within the applicable window shown on your order page.',
     ),
     InfoSection(
       title: 'Contact',
@@ -145,63 +145,63 @@ const shippingDetailsPage = StaticPageContent(
     InfoSection(
       title: 'Delivery Coverage',
       body:
-          'GreenGrocc ships across India through trusted courier and logistics partners. We deliver to most pin codes; remote or restricted areas may require additional time or confirmation before dispatch.',
+          'GreenGrocc delivers fresh groceries and essentials fast through our network of local dark stores. We deliver to serviceable pin codes within our store delivery radius.',
     ),
     InfoSection(
-      title: 'Processing Time',
+      title: 'Fast Delivery',
       body:
-          'Orders are typically processed within 1–2 business days after confirmation. You will receive order status updates via email and can track progress from your account under My Orders.',
+          'Instant and ready-to-cook orders are packed and dispatched in minutes. Pre-orders are delivered in your chosen delivery time slot.',
     ),
     InfoSection(
       title: 'Delivery Charges',
       body:
-          'Standard delivery charges apply on orders below ₹999. Orders of ₹999 and above qualify for free delivery on eligible products. Final shipping cost is shown at checkout before you place your order.',
+          'Standard delivery charges apply on small orders. Orders meeting the free delivery threshold qualify for free doorstep delivery.',
     ),
     InfoSection(
       title: 'Estimated Delivery',
       body: '',
       bullets: [
-        'Metro cities: 3–5 business days after dispatch',
-        'Tier 2 & 3 cities: 5–8 business days after dispatch',
-        'Bulk or high-value orders may require scheduled delivery',
+        'Instant orders: Delivered in minutes from your local dark store',
+        'Pre-orders: Delivered in your selected scheduled slot',
+        'Special festive slots available during peak holiday seasons',
       ],
     ),
     InfoSection(
       title: 'Cash on Delivery (COD)',
       body:
-          'COD is available on eligible orders. A 10% advance payment is required at checkout; the balance is collected at delivery. Please ensure someone is available at the delivery address.',
+          'COD is available on eligible orders. Cash is collected at your doorstep upon delivery. Please ensure exact change when possible.',
     ),
     InfoSection(
       title: 'Contact for Shipping Help',
       body:
-          'For shipping queries, email ${ContactConfig.contactEmail} or call ${ContactConfig.contactPhoneDisplay}. Our office is at ${ContactConfig.contactAddress}.',
+          'For delivery queries, email ${ContactConfig.contactEmail} or call ${ContactConfig.contactPhoneDisplay}. Our store hub is at ${ContactConfig.contactAddress}.',
     ),
   ],
 );
 
 const blogPosts = <BlogPost>[
   BlogPost(
-    title: 'How to Start a Mobile Retail Business in India',
+    title: 'How to Choose Fresh Fruits & Vegetables Daily',
     date: 'May 28, 2026',
     excerpt:
-        'A practical guide for new retailers — licensing, sourcing, margins, and choosing the right wholesale partner.',
+        'A practical guide for home cooks — ripeness indicators, storage tips, and choosing the freshest seasonal produce.',
   ),
   BlogPost(
-    title: 'Bulk Smartphone Buying: 5 Mistakes to Avoid',
+    title: '5 Smart Ways to Save on Your Weekly Grocery Bill',
     date: 'May 15, 2026',
     excerpt:
-        'Learn how to verify IMEI, avoid grey-market stock, and negotiate better bulk pricing for your store.',
+        'Learn how meal planning, seasonal produce, and everyday value packs keep your household grocery budget healthy.',
   ),
   BlogPost(
-    title: 'GST Invoices & Compliance for Mobile Distributors',
+    title: 'Farm to Doorstep: Understanding Produce Freshness',
     date: 'May 2, 2026',
     excerpt:
-        'Why proper GST billing matters for B2B mobile trade and how GreenGrocc keeps your records clean.',
+        'How GreenGrocc darkstores ensure harvest-fresh fruits and vegetables are inspected, packed, and delivered in minutes.',
   ),
   BlogPost(
-    title: 'Top Selling Smartphone Brands for Q2 2026',
+    title: 'Top Seasonal Fruits & Veggies for Summer 2026',
     date: 'Apr 20, 2026',
     excerpt:
-        'Market trends, fast-moving models, and which brands retailers are stocking in bulk this quarter.',
+        'Stay healthy and hydrated with nutrient-rich seasonal produce available at your nearest GreenGrocc store.',
   ),
 ];

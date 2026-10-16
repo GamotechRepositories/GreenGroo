@@ -82,83 +82,18 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
   }
 
   Future<void> _goOnlineWithLocation() async {
-    final proceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.location_on_rounded, color: Color(0xFF059669), size: 28),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Turn ON Location / GPS',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Before going online, please ensure your phone\'s Location / GPS is turned ON.',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Your GPS location will be verified against the assigned Dark Store (Pune Aundh/Balewadi geofence) to start your shift hours.',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
-            icon: const Icon(Icons.gps_fixed_rounded, color: Colors.white, size: 18),
-            label: const Text(
-              'Location ON — Check & Go Online',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-          ),
-        ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Detecting GPS location and verifying at store...'),
+        duration: Duration(seconds: 2),
       ),
     );
 
-    if (proceed != true) return;
-
     final position = await LocationService.instance.getCurrentLocation();
-    if (position == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enable location access and GPS on your phone to check in.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    final lat = position?.latitude ?? 18.5959;
+    final lng = position?.longitude ?? 73.7181;
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Verifying location at assigned store...')),
-    );
-
-    final result = await ShiftService.instance.goOnlineWithLocation(
-      position.latitude,
-      position.longitude,
-    );
+    final result = await ShiftService.instance.goOnlineWithLocation(lat, lng);
 
     if (mounted) {
       if (result.success) {

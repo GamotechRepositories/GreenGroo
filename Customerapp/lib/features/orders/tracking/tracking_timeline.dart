@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../config/theme.dart';
 import 'order_tracking_models.dart';
 
-const _green = Color(0xFF2E7D32);
+const _green = AppColors.primary;
 
 /// Vertical status timeline used for every order type.
 class TrackingTimeline extends StatelessWidget {

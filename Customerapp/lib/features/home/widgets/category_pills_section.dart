@@ -466,7 +466,7 @@ class __InstantOrderProductsSectionState
 }
 
 // =========================================================
-// Image 1 Style Product Tile (Uses Blinkit DealProductCard)
+// Image 1 Style Product Tile (Uses DealProductCard)
 // =========================================================
 class _Image1ProductTile extends ConsumerWidget {
   const _Image1ProductTile({required this.product});
@@ -617,7 +617,7 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
 }
 
 // =========================================================
-// Image 2 Style Product Tile (Uses Blinkit DealProductCard)
+// Image 2 Style Product Tile (Uses DealProductCard)
 // =========================================================
 class _Image2ProductTile extends ConsumerWidget {
   const _Image2ProductTile({required this.product});

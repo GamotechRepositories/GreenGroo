@@ -148,7 +148,11 @@ export async function notifyRiders({
 
     try {
       io?.to(`rider_${riderId}`).emit("rider_notification", payload);
+      io?.to(`rider:${riderId}`).emit("rider_notification", payload);
       io?.to(`rider_${riderId}`).emit("notification_badge", {
+        unreadDelta: 1,
+      });
+      io?.to(`rider:${riderId}`).emit("notification_badge", {
         unreadDelta: 1,
       });
     } catch (_) {}
@@ -240,13 +244,14 @@ export async function notifyStoreRiders({
 /** Typed helpers — short professional copy */
 export async function notifyVerificationCompleted(riderId) {
   try {
-    getIO()
-      .to(`rider_${riderId}`)
-      .emit("document_review_update", {
-        documentType: "verification",
-        verificationStatus: "approved",
-        remarks: "Verified by delivery manager",
-      });
+    const io = getIO();
+    const updatePayload = {
+      documentType: "verification",
+      verificationStatus: "approved",
+      remarks: "Verified by delivery manager",
+    };
+    io.to(`rider_${riderId}`).emit("document_review_update", updatePayload);
+    io.to(`rider:${riderId}`).emit("document_review_update", updatePayload);
   } catch (_) {}
 
   return notifyRiders({

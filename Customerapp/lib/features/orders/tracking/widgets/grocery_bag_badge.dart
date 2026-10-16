@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../config/theme.dart';
 
 /// Crisp, beautifully illustrated GreenGrocc grocery bag with fresh vegetables
 /// (carrots, tomatoes, greens) and the "GG" logo, matching the UI mockup.
@@ -13,7 +14,7 @@ class GroceryBagBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F8F4),
+        color: AppColors.headerFadeBg,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -96,8 +97,8 @@ class _GroceryBagPainter extends CustomPainter {
     );
 
     // --- 2. Green Paper Grocery Bag ---
-    const bagGreen = Color(0xFF0F5A31);
-    const bagDarkFold = Color(0xFF0A4222);
+    const bagGreen = AppColors.primary;
+    const bagDarkFold = AppColors.primaryDark;
 
     final bagPath = Path()
       ..moveTo(w * 0.18, h * 0.36)

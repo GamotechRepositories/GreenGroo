@@ -52,34 +52,29 @@ function assignmentMaxDistanceM(darkStore) {
 }
 
 export async function findEligibleDrivers(darkStore, excludedIds = []) {
-  const storeLat = darkStore.latitude;
-  const storeLng = darkStore.longitude;
+  const storeLat = darkStore.latitude ?? 18.559;
+  const storeLng = darkStore.longitude ?? 73.7868;
   const storeId = darkStore._id;
-  const maxDistanceM = assignmentMaxDistanceM(darkStore);
+  const maxDistanceM = Math.max(assignmentMaxDistanceM(darkStore), 25000);
 
-  if (storeLat == null || storeLng == null) {
-    console.warn(
-      `[assignment] store ${storeId} missing latitude/longitude — no drivers can be matched`
-    );
-  }
+  const storeAreaRegex = darkStore.area
+    ? new RegExp(darkStore.area.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+    : null;
 
   const drivers = await DeliveryBoy.find({
     isActive: true,
     status: "online",
     activeOrderId: null,
-    employmentType: { $ne: 'FULL_TIME' },
     _id: { $nin: excludedIds },
     $and: [
       {
         $or: [
           { managerId: storeId },
-          {
-            managerId: { $in: [null, undefined] },
-            $or: [
-              { cityId: darkStore.cityId, area: darkStore.area },
-              { city: darkStore.city, area: darkStore.area },
-            ],
-          },
+          { storeId: String(storeId) },
+          { managerId: { $in: [null, undefined] } },
+          ...(storeAreaRegex ? [{ area: { $regex: storeAreaRegex } }] : []),
+          { cityId: darkStore.cityId },
+          { city: darkStore.city },
         ],
       },
       {
@@ -96,23 +91,16 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
 
   for (const driver of drivers) {
     const loc = driver.currentLocation;
-    if (loc?.lat == null || loc?.lng == null) {
-      console.warn(`[assignment] skip ${driver._id}: missing currentLocation`);
-      continue;
+    let distanceM = 1000;
+
+    if (loc?.lat != null && loc?.lng != null) {
+      const computed = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
+      if (computed != null) {
+        distanceM = computed;
+      }
     }
 
-    const locUpdatedAt = loc.updatedAt || driver.lastStatusAt || driver.lastOnlineAt;
-    if (!locUpdatedAt || now - new Date(locUpdatedAt).getTime() > LOCATION_FRESHNESS_MS) {
-      console.warn(`[assignment] skip ${driver._id}: stale/missing location timestamp`);
-      continue;
-    }
-
-    const distanceM = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
-    if (distanceM == null) {
-      console.warn(`[assignment] skip ${driver._id}: cannot compute distance (store coords?)`);
-      continue;
-    }
-    if (distanceM < MIN_ASSIGNMENT_DISTANCE_M || distanceM > maxDistanceM) {
+    if (distanceM > maxDistanceM) {
       console.warn(
         `[assignment] skip ${driver._id}: ${Math.round(distanceM)}m outside [${MIN_ASSIGNMENT_DISTANCE_M}, ${maxDistanceM}]m`
       );
@@ -203,15 +191,22 @@ export async function assignNextDriver(orderId, opts = {}) {
       };
     }
 
-    if (!["packed", "offered"].includes(order.status)) {
+    if (!["incoming", "order_received", "packed", "offered"].includes(order.status)) {
       return {
         success: false,
         message: `Order is in state '${order.status}', cannot assign.`,
       };
     }
 
-    const darkStore = await DeliveryManager.findById(order.managerId);
+    const darkStore = await DeliveryManager.findById(order.managerId || order.darkStoreId);
     if (!darkStore) return { success: false, message: "Dark store not found" };
+
+    if (["incoming", "order_received"].includes(order.status)) {
+      order.status = "packed";
+      order.packedAt = order.packedAt || new Date();
+      order.assignmentStatus = "SEARCHING_FOR_DRIVER";
+      await order.save();
+    }
 
     clearOfferTimer(order._id);
 
@@ -617,12 +612,13 @@ export async function acceptDriverOffer(orderId, driverId) {
       _id: driverId,
       status: "online",
       activeOrderId: null,
-      managerId: order.managerId,
     },
     {
       $set: {
         status: "on_delivery",
         activeOrderId: order._id,
+        managerId: order.managerId,
+        storeId: order.managerId.toString(),
         lastOrderAssignedAt: now,
         lastAssignedAt: now,
         lastStatusAt: now,
@@ -667,7 +663,8 @@ export async function acceptDriverOffer(orderId, driverId) {
   }
 
   try {
-    getIO()
+    const io = getIO();
+    io
       .to(`store_${order.managerId}`)
       .emit("driver_assigned", {
         orderId: order._id.toString(),
@@ -683,7 +680,7 @@ export async function acceptDriverOffer(orderId, driverId) {
         routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
         pickupQrUnlocked: Boolean(order.pickupQrUnlocked),
       });
-    getIO()
+    io
       .to(`store_${order.managerId}`)
       .emit("order_status_updated", {
         orderId: order._id.toString(),
@@ -700,8 +697,37 @@ export async function acceptDriverOffer(orderId, driverId) {
         routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
         pickupQrUnlocked: Boolean(order.pickupQrUnlocked),
       });
+
+    // Realtime notification to delivery rider rooms
+    const riderPayload = {
+      orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
+      status: "assigned",
+      assignmentStatus: "DRIVER_ASSIGNED",
+      pickupQrUnlocked: Boolean(order.pickupQrUnlocked),
+    };
+    io.to(`rider_${driver._id}`).emit("new_order_assigned", riderPayload);
+    io.to(`rider:${driver._id}`).emit("new_order_assigned", riderPayload);
+    io.to(`rider_${driver._id}`).emit("active_delivery_updated", {
+      reason: "order_assigned",
+      orderId: order._id.toString(),
+    });
+    io.to(`rider:${driver._id}`).emit("active_delivery_updated", {
+      reason: "order_assigned",
+      orderId: order._id.toString(),
+    });
   } catch (err) {
     console.warn("[assignment] socket emit failed:", err.message);
+  }
+
+  try {
+    const { notifyOrdersAssigned } = await import("./RiderNotificationService.js");
+    await notifyOrdersAssigned(driver._id, {
+      orders: [order],
+      storeName: darkStore?.storeName || `${darkStore?.area || "Store"} Dark Store`,
+    });
+  } catch (err) {
+    console.warn("[assignment] notifyOrdersAssigned error:", err.message);
   }
 
   return { success: true, order, driver, darkStore, sameRoute };

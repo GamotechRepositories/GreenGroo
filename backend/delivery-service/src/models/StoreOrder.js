@@ -352,6 +352,12 @@ const storeOrderSchema = new mongoose.Schema(
       riderEarning: { type: Number, default: 0 },
       calculatedAt: { type: Date },
     },
+
+    // ── Delayed Wallet Credit (5 minutes after delivery) ─────────────
+    walletCreditPending: { type: Boolean, default: false },
+    walletCreditAmount: { type: Number, default: 0 },
+    walletCreditAt: { type: Date },
+    walletCreditedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -564,6 +570,10 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
           calculatedAt: this.earningSnapshot.calculatedAt,
         }
       : null,
+    walletCreditPending: Boolean(this.walletCreditPending),
+    walletCreditAmount: this.walletCreditAmount || 0,
+    walletCreditAt: this.walletCreditAt || null,
+    walletCreditedAt: this.walletCreditedAt || null,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

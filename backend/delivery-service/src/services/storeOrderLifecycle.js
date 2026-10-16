@@ -81,7 +81,27 @@ export async function applyStoreOrderStatus({
         result.order.customerOtpVerifiedAt = result.order.customerOtpVerifiedAt || new Date();
         result.order.paymentStatus =
           result.order.paymentMethod === "COD" ? "collected" : result.order.paymentStatus || "paid_online";
+        if (result.order.paymentMethod === "COD" && !result.order.amountCollected) {
+          result.order.amountCollected = result.order.amountToCollect || 0;
+        }
         await result.order.save();
+
+        if (result.order.paymentMethod === "COD" && result.order.assignedRiderId) {
+          try {
+            const { createCashLiability } = await import("./CashSettlementService.js");
+            const CashSettlement = (await import("../models/CashSettlement.js")).default;
+            const existing = await CashSettlement.findOne({ orderId: result.order._id });
+            if (!existing) {
+              await createCashLiability({
+                darkStoreId: result.order.darkStoreId || result.order.managerId,
+                riderId: result.order.assignedRiderId,
+                orderId: result.order._id,
+                orderNumber: result.order.orderNumber,
+                amount: result.order.amountCollected || result.order.amountToCollect || 0,
+              });
+            }
+          } catch (_) {}
+        }
       }
       await syncCustomerOrderFromStore(result.order, "delivered");
       return { success: true, message: "Order marked delivered and completed", order: result.order };

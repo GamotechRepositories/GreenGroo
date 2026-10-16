@@ -24,7 +24,7 @@ class BlogScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           const Text(
-            'Tips, trends, and insights for mobile retailers, distributors, and bulk buyers across India.',
+            'Tips, trends, and fresh recipes for home cooking and daily grocery essentials across India.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 16),
@@ -66,7 +66,7 @@ class ContactScreen extends StatefulWidget {
 
 class _ContactScreenState extends State<ContactScreen> {
   final _nameController = TextEditingController();
-  final _businessController = TextEditingController();
+  final _noteController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _messageController = TextEditingController();
@@ -74,7 +74,7 @@ class _ContactScreenState extends State<ContactScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _businessController.dispose();
+    _noteController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _messageController.dispose();
@@ -84,11 +84,11 @@ class _ContactScreenState extends State<ContactScreen> {
   void _submit() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Thank you! Our sales team will contact you shortly with a bulk quote.'),
+        content: Text('Thank you! Our support team will get in touch with you shortly.'),
       ),
     );
     _nameController.clear();
-    _businessController.clear();
+    _noteController.clear();
     _phoneController.clear();
     _emailController.clear();
     _messageController.clear();
@@ -112,7 +112,7 @@ class _ContactScreenState extends State<ContactScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           const Text(
-            'Tell us the brands, models, and quantity you need. We respond to bulk enquiries within one business day.',
+            'Have questions or need assistance with your order? We respond within minutes.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 16),
@@ -120,9 +120,9 @@ class _ContactScreenState extends State<ContactScreen> {
           const SizedBox(height: 10),
           _contactInfo(Icons.email_outlined, 'Email', ContactConfig.contactEmail, 'mailto:${ContactConfig.contactEmail}'),
           const SizedBox(height: 10),
-          const _ContactInfoStatic(Icons.schedule, 'Office Hours', 'Mon – Sat · 10:00 AM – 7:00 PM IST'),
+          const _ContactInfoStatic(Icons.schedule, 'Support Hours', 'Mon – Sun · 6:00 AM – 11:00 PM IST'),
           const SizedBox(height: 10),
-          const _ContactInfoStatic(Icons.home_work_outlined, 'Address', ContactConfig.contactAddress),
+          const _ContactInfoStatic(Icons.home_work_outlined, 'Store Hub', ContactConfig.contactAddress),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
@@ -135,15 +135,15 @@ class _ContactScreenState extends State<ContactScreen> {
               children: [
                 TextField(controller: _nameController, decoration: const InputDecoration(labelText: 'Name *')),
                 const SizedBox(height: 10),
-                TextField(controller: _businessController, decoration: const InputDecoration(labelText: 'Business Name')),
-                const SizedBox(height: 10),
                 TextField(controller: _phoneController, decoration: const InputDecoration(labelText: 'Phone *'), keyboardType: TextInputType.phone),
                 const SizedBox(height: 10),
-                TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email *'), keyboardType: TextInputType.emailAddress),
+                TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
+                const SizedBox(height: 10),
+                TextField(controller: _noteController, decoration: const InputDecoration(labelText: 'Order # or Landmark (optional)')),
                 const SizedBox(height: 10),
                 TextField(controller: _messageController, decoration: const InputDecoration(labelText: 'Message *'), maxLines: 4),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _submit, child: const Text('Request Bulk Quote')),
+                FilledButton(onPressed: _submit, child: const Text('Send Message')),
               ],
             ),
           ),

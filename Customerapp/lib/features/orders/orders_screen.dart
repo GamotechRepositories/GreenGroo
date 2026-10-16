@@ -113,7 +113,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return RefreshableBody(
         onRefresh: _loadOrders,
         child: _LoginPrompt(
-          onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(),
+          onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(
+                AuthModalMode.login,
+                RoutePaths.orders,
+              ),
         ),
       );
     }

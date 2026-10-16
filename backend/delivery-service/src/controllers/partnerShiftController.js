@@ -33,19 +33,35 @@ const calculateHaversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
 const getRiderManager = async (rider) => {
   if (!rider) return null;
   let manager = null;
-  const riderArea = (rider.area || "").trim().toLowerCase();
 
-  if (rider.managerId) {
-    manager = await DeliveryManager.findById(rider.managerId);
-    if (manager) {
-      const managerArea = (manager.area || "").trim().toLowerCase();
-      if (riderArea && managerArea && riderArea !== managerArea) {
-        manager = null;
+  // 1. If rider has booked a shift today, resolve the manager directly from that shift
+  const todayStr = formatDateStringIST(new Date());
+  const bookedShift = await Shift.findOne({
+    dateString: todayStr,
+    "slots.bookings.deliveryPartnerId": rider._id,
+  });
+  if (bookedShift && bookedShift.managerId) {
+    manager = await DeliveryManager.findById(bookedShift.managerId);
+    if (manager && manager.isActive) {
+      if (!rider.managerId || rider.managerId.toString() !== manager._id.toString()) {
+        rider.managerId = manager._id;
+        rider.storeId = manager._id.toString();
+        await rider.save().catch(() => {});
       }
+      return manager;
     }
   }
 
-  if (!manager && (rider.cityId || rider.area || rider.city)) {
+  // 2. If rider already has a manager assigned, respect and keep it
+  if (rider.managerId) {
+    manager = await DeliveryManager.findById(rider.managerId);
+    if (manager && manager.isActive) {
+      return manager;
+    }
+  }
+
+  // 3. Match by cityId / area / city
+  if (rider.cityId || rider.area || rider.city) {
     const escapedArea = (rider.area || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     manager = await DeliveryManager.findOne({
       isActive: true,
@@ -53,20 +69,24 @@ const getRiderManager = async (rider) => {
         ...(escapedArea ? [{ area: { $regex: new RegExp(`^${escapedArea}$`, "i") } }] : []),
         { cityId: rider.cityId, area: rider.area },
         { city: rider.city, area: rider.area },
+        ...(rider.city ? [{ city: { $regex: new RegExp(`^${rider.city.trim()}$`, "i") } }] : []),
       ],
     }).sort({ createdAt: -1 });
 
     if (manager) {
-      if (!rider.managerId || rider.managerId.toString() !== manager._id.toString()) {
-        rider.managerId = manager._id;
-        rider.storeId = manager._id.toString();
-        await rider.save().catch(() => {});
-      }
-    } else if (rider.managerId) {
-      rider.managerId = null;
-      rider.storeId = "";
+      rider.managerId = manager._id;
+      rider.storeId = manager._id.toString();
       await rider.save().catch(() => {});
+      return manager;
     }
+  }
+
+  // 4. Fallback: Any active dark store manager
+  manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: -1 });
+  if (manager) {
+    rider.managerId = manager._id;
+    rider.storeId = manager._id.toString();
+    await rider.save().catch(() => {});
   }
   return manager;
 };
@@ -512,7 +532,6 @@ export const goOnline = async (req, res, next) => {
     const liveGig = await findLiveGigForManager(manager._id);
 
     const shift = await Shift.findOne({
-      managerId: manager._id,
       dateString: todayStr,
       "slots.bookings.deliveryPartnerId": rider._id,
     }).populate("managerId");
@@ -581,29 +600,21 @@ export const goOnline = async (req, res, next) => {
 
     let storeLat = manager?.latitude ?? 18.559;
     let storeLng = manager?.longitude ?? 73.7868;
-    let allowedRadius = manager?.geofenceRadius ?? 500;
+    // Set allowed radius to at least 25 km (25000m) for store delivery hub operations
+    let allowedRadius = Math.max(manager?.geofenceRadius ?? 0, 25000);
 
     const partnerLat = parseFloat(latitude);
     const partnerLng = parseFloat(longitude);
 
-    const isSameArea =
-      rider.area &&
-      manager?.area &&
-      rider.area.trim().toLowerCase() === manager.area.trim().toLowerCase();
-
     const isDefaultStoreCoords =
       Math.abs(storeLat - 18.559) < 0.001 && Math.abs(storeLng - 73.7868) < 0.001;
 
-    if (isSameArea && isDefaultStoreCoords && !isNaN(partnerLat) && !isNaN(partnerLng)) {
+    if (isDefaultStoreCoords && !isNaN(partnerLat) && !isNaN(partnerLng)) {
       manager.latitude = partnerLat;
       manager.longitude = partnerLng;
       await manager.save().catch(() => {});
       storeLat = partnerLat;
       storeLng = partnerLng;
-    }
-
-    if (isSameArea) {
-      allowedRadius = Math.max(allowedRadius, 15000); // 15 km area radius for assigned store hub
     }
 
     const distanceMeters = calculateHaversineDistanceMeters(
@@ -617,7 +628,7 @@ export const goOnline = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         code: "OUT_OF_GEOFENCE",
-        message: `You are not at the assigned store (${manager?.storeName || "Dark Store"}). Please move closer to the store to go online.`,
+        message: `You are too far (${Math.round(distanceMeters / 1000)} km) from the assigned store (${manager?.storeName || "Dark Store"}). Allowed check-in radius is ${Math.round(allowedRadius / 1000)} km.`,
         distanceMeters,
         allowedRadius,
         storeName: manager?.storeName || "Dark Store",

@@ -6,17 +6,17 @@ import '../../models/category.dart';
 import '../common/app_network_image.dart';
 
 const categoryIconTypes = [
-  Icons.power_outlined,
-  Icons.cable_outlined,
-  Icons.speaker_outlined,
-  Icons.battery_charging_full_outlined,
-  Icons.headphones_outlined,
-  Icons.battery_std_outlined,
-  Icons.smartphone_outlined,
-  Icons.watch_outlined,
-  Icons.usb_outlined,
-  Icons.layers_outlined,
-  Icons.shield_outlined,
+  Icons.eco_outlined,
+  Icons.apple_outlined,
+  Icons.local_drink_outlined,
+  Icons.grain_outlined,
+  Icons.kitchen_outlined,
+  Icons.fastfood_outlined,
+  Icons.local_cafe_outlined,
+  Icons.shopping_basket_outlined,
+  Icons.cleaning_services_outlined,
+  Icons.inventory_2_outlined,
+  Icons.spa_outlined,
   Icons.apps_rounded,
 ];
 
@@ -41,16 +41,16 @@ List<Category> filterShopCategories(List<Category> categories) {
 
 /// Fallback labels when API categories are unavailable (frontend CategoryNav).
 const defaultShopCategoryNames = [
-  'Chargers',
-  'Earphones',
-  'Cables',
-  'Neckbands',
-  'Power Banks',
-  'Smart Watches',
-  'Bluetooth Speakers',
-  'Mobile Covers',
-  'Tempered Glass',
-  'Adapters',
+  'Fresh Vegetables',
+  'Fresh Fruits',
+  'Dairy & Bread',
+  'Atta, Rice & Dal',
+  'Oils & Ghee',
+  'Snacks & Munchies',
+  'Beverages & Juices',
+  'Tea & Coffee',
+  'Spices & Masalas',
+  'Cleaning & Household',
 ];
 
 List<Category> defaultShopCategories() {

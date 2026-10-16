@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../config/theme.dart';
 import 'road_route_service.dart';
 import 'tracking_markers.dart';
 
@@ -310,8 +311,8 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
                       circleId: const CircleId('dest_halo'),
                       center: destPos,
                       radius: 35,
-                      fillColor: const Color(0x2200C853),
-                      strokeColor: const Color(0xFF00C853),
+                      fillColor: AppColors.primary.withValues(alpha: 0.15),
+                      strokeColor: AppColors.primaryLight,
                       strokeWidth: 2,
                     ),
                 },
@@ -321,27 +322,27 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
                     Polyline(
                       polylineId: const PolylineId('route_glow'),
                       points: activeRoute,
-                      color: const Color(0x3800E676),
+                      color: AppColors.primaryLight.withValues(alpha: 0.25),
                       width: 14,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,
                     ),
-                    // Layer 2: Deep Dark Green casing
+                    // Layer 2: Primary dark casing
                     Polyline(
                       polylineId: const PolylineId('route_dark_casing'),
                       points: activeRoute,
-                      color: const Color(0xFF1B5E20), // Rich Dark Green
+                      color: AppColors.primaryDark,
                       width: 8,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,
                     ),
-                    // Layer 3: Vibrant Highlight Green road core
+                    // Layer 3: Primary light road core
                     Polyline(
                       polylineId: const PolylineId('route_core'),
                       points: activeRoute,
-                      color: const Color(0xFF00E676), // Bright Green
+                      color: AppColors.primaryLight,
                       width: 4,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
@@ -389,7 +390,7 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
                   children: [
                     const Icon(
                       Icons.location_on_rounded,
-                      color: Color(0xFF0F5A31),
+                      color: AppColors.primary,
                       size: 13.5,
                     ),
                     const SizedBox(width: 4),

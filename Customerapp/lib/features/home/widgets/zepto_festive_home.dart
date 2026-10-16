@@ -62,7 +62,7 @@ const _heroTiles = <_HeroTile>[
   ),
 ];
 
-/// Cream festive hero matching Zepto-style home reference.
+/// Cream festive hero section with warm ambient tones.
 class ZeptoFestiveHeroSection extends StatelessWidget {
   const ZeptoFestiveHeroSection({super.key});
 
@@ -255,7 +255,7 @@ class _FestiveCard extends StatelessWidget {
   }
 }
 
-/// Horizontal "Festive Top Picks!" category chips (Zepto-style).
+/// Horizontal "Festive Top Picks!" category chips.
 class FestiveTopPicksSection extends ConsumerStatefulWidget {
   const FestiveTopPicksSection({super.key});
 

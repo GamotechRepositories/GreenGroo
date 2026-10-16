@@ -304,6 +304,7 @@ export const getWalletSummary = async (req, res, next) => {
         $match: {
           assignedRiderId: rider._id,
           status: "delivered",
+          walletCreditPending: { $ne: true },
           deliveredAt: { $gte: since },
         },
       },
@@ -321,6 +322,7 @@ export const getWalletSummary = async (req, res, next) => {
         $match: {
           assignedRiderId: rider._id,
           status: "delivered",
+          walletCreditPending: { $ne: true },
           deliveredAt: { $gte: todayStart > since ? todayStart : since, $lte: todayEnd },
         },
       },
@@ -347,6 +349,7 @@ export const getWalletSummary = async (req, res, next) => {
         const rows = await StoreOrder.find({
           assignedRiderId: rider._id,
           status: "delivered",
+          walletCreditPending: { $ne: true },
           deliveredAt: { $gte: dayStart, $lte: end },
         }).select("riderDeliveryEarning");
         dayTotal = rows.reduce((s, o) => s + Number(o.riderDeliveryEarning || 0), 0);
@@ -375,6 +378,7 @@ export const getWalletSummary = async (req, res, next) => {
         $match: {
           assignedRiderId: rider._id,
           status: "delivered",
+          walletCreditPending: { $ne: true },
           deliveredAt: { $gte: since },
         },
       },

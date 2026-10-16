@@ -23,18 +23,18 @@ Product _fallbackProduct({
 /// Placeholder catalog when the home deals API is unavailable (matches web).
 List<Product> fallbackHomeProducts() {
   return [
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c001', name: 'Fast Charger', sub: '20W', price: 165),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c002', name: 'Bass Edition', sub: 'Neckband', price: 299),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c003', name: 'Type-C Cable', sub: '1M', price: 89),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c004', name: 'Power Bank', sub: '10000mAh', price: 799),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c005', name: 'Earbuds Pro', sub: 'Wireless', price: 499),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c006', name: 'Car Charger', sub: 'Dual Port', price: 249),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c007', name: 'Data Cable', sub: '3A Fast', price: 129),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c008', name: 'Neckband Pro', sub: 'BT 5.0', price: 349),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c009', name: 'Wall Adapter', sub: '18W', price: 199),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c010', name: 'Tempered Glass', sub: '9H', price: 99),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c011', name: 'BT Speaker', sub: 'Mini', price: 599),
-    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c012', name: 'Mobile Cover', sub: 'Silicone', price: 149),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c001', name: 'Fresh Farm Potatoes', sub: '1 kg', price: 35),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c002', name: 'Fresh Hybrid Tomatoes', sub: '1 kg', price: 40),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c003', name: 'Fresh Red Onions', sub: '1 kg', price: 45),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c004', name: 'Fresh Spinach (Palak)', sub: '250 g', price: 20),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c005', name: 'Fresh Farm Bananas', sub: '1 kg', price: 55),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c006', name: 'Crisp Shimla Apples', sub: '1 kg', price: 160),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c007', name: 'Toned Fresh Milk', sub: '500 ml', price: 32),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c008', name: 'Farm Fresh Eggs', sub: 'Pack of 6', price: 65),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c009', name: 'Chakki Fresh Atta', sub: '5 kg', price: 220),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c010', name: 'Pure Cow Ghee', sub: '500 ml', price: 320),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c011', name: 'Premium Basmati Rice', sub: '1 kg', price: 110),
+    _fallbackProduct(id: '65f1a2b3c4d5e6f7a8b9c012', name: 'Organic Green Peas', sub: '500 g', price: 45),
   ];
 }
 

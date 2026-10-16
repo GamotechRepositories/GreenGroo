@@ -48,6 +48,7 @@ export function initSocket(server) {
         const room = `${prefix}_${id}`;
         if (ownsRoom(room) || (!identity && legacy && allowLegacyJoins())) {
           socket.join(room);
+          socket.join(`${prefix}:${id}`);
         }
       });
     };

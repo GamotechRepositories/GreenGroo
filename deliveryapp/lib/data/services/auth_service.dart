@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,7 @@ class DeliveryBoy {
     this.documents = const {},
     this.bankDetails = const {},
     this.employmentType = 'PART_TIME',
+    this.pendingCashAmount = 0.0,
   });
 
   final String id;
@@ -68,6 +70,7 @@ class DeliveryBoy {
   final Map<String, dynamic> documents;
   final Map<String, dynamic> bankDetails;
   final String employmentType;
+  final double pendingCashAmount;
 
   bool get hasProfilePhoto =>
       selfieUrl.isNotEmpty || selfieBase64.isNotEmpty;
@@ -136,6 +139,7 @@ class DeliveryBoy {
       documents: docs,
       bankDetails: bank,
       employmentType: json['employmentType']?.toString() ?? 'PART_TIME',
+      pendingCashAmount: (json['pendingCashAmount'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -157,6 +161,7 @@ class DeliveryBoy {
         'walletBalance': walletBalance,
         'totalLifetimeEarnings': totalLifetimeEarnings,
         'todayEarnings': todayEarnings,
+        'pendingCashAmount': pendingCashAmount,
         'fcmToken': fcmToken,
         'activeOrderId': activeOrderId,
         'verifiedAt': verifiedAt?.toIso8601String(),
@@ -233,6 +238,7 @@ class AuthService {
 
   String? _token;
   DeliveryBoy? _deliveryBoy;
+  final ValueNotifier<DeliveryBoy?> boyNotifier = ValueNotifier<DeliveryBoy?>(null);
 
   String? get token => _token;
   DeliveryBoy? get deliveryBoy => _deliveryBoy;
@@ -250,11 +256,14 @@ class AuthService {
         _deliveryBoy = DeliveryBoy.fromJson(
           jsonDecode(raw) as Map<String, dynamic>,
         );
+        boyNotifier.value = _deliveryBoy;
         if (_deliveryBoy != null && _deliveryBoy!.id.isNotEmpty) {
           SocketService.instance.connect(_deliveryBoy!.id);
+          PushNotificationService.instance.syncTokenNow();
         }
       } catch (_) {
         _deliveryBoy = null;
+        boyNotifier.value = null;
       }
     }
   }
@@ -275,6 +284,7 @@ class AuthService {
   Future<void> _persist(String token, DeliveryBoy boy) async {
     _token = token;
     _deliveryBoy = boy;
+    boyNotifier.value = boy;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_boyKey, jsonEncode(boy.toJson()));
@@ -303,6 +313,7 @@ class AuthService {
     NotificationInboxService.instance.clear();
     _token = null;
     _deliveryBoy = null;
+    boyNotifier.value = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_boyKey);

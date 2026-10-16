@@ -18,6 +18,15 @@ class AuthHost extends ConsumerStatefulWidget {
 class _AuthHostState extends ConsumerState<AuthHost> {
   AuthModalMode? _visibleMode;
 
+  bool _isTopRoutePopup(NavigatorState navigator) {
+    var isPopup = false;
+    navigator.popUntil((route) {
+      isPopup = route is PopupRoute;
+      return true;
+    });
+    return isPopup;
+  }
+
   void _showAuthSheet(AuthModalMode mode) {
     final sheetContext = rootNavigatorKey.currentContext;
     if (sheetContext == null || !sheetContext.mounted) return;
@@ -45,16 +54,21 @@ class _AuthHostState extends ConsumerState<AuthHost> {
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
       final mode = next.authModal;
-      if (mode != null && mode != _visibleMode) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showAuthSheet(mode);
-        });
+      if (mode != null) {
+        if (_visibleMode == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _showAuthSheet(mode);
+          });
+        } else {
+          _visibleMode = mode;
+        }
       } else if (mode == null && _visibleMode != null) {
+        _visibleMode = null;
         final navContext = rootNavigatorKey.currentContext;
         if (navContext != null && navContext.mounted) {
           final navigator = Navigator.maybeOf(navContext, rootNavigator: true);
-          if (navigator != null && navigator.canPop()) {
+          if (navigator != null && _isTopRoutePopup(navigator)) {
             navigator.pop();
           }
         }
