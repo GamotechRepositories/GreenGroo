@@ -19,7 +19,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _otpController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _isOtpMode = false;
@@ -41,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _mobileController.dispose();
     _passwordController.dispose();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -80,51 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       final res = await ApiService().loginFarmer(mobile, pass);
-
-      Map<String, dynamic>? farmerData;
-      if (res['farmer'] is Map) {
-        farmerData = res['farmer'] as Map<String, dynamic>;
-      } else if (res['data'] is Map && res['data']['farmer'] is Map) {
-        farmerData = res['data']['farmer'] as Map<String, dynamic>;
-      }
-
-      if (farmerData != null) {
-        final profile = FarmerProfile.fromJson(farmerData);
-        FarmerState().updateProfile(profile);
-      }
-      FarmerState().login();
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              lang.tr(
-                mr: 'लॉगिन यशस्वी! स्वागत आहे ${FarmerState().profile.fullName}',
-                en: 'Login successful! Welcome ${FarmerState().profile.fullName}',
-              ),
-            ),
-            backgroundColor: AppColors.primary,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        final resumeStep = await FarmerState().checkOnboardingStep();
-        if (mounted) {
-          if (resumeStep > 0) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FarmerOnboardingFlowScreen(initialStep: resumeStep),
-              ),
-              (route) => false,
-            );
-          } else {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const MainShell()),
-              (route) => false,
-            );
-          }
-        }
+        await _handleSuccessfulLogin(res);
       }
     } catch (err) {
       if (mounted) {
@@ -149,6 +104,73 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleSuccessfulLogin(Map<String, dynamic> res) async {
+    final lang = AppLanguage();
+    Map<String, dynamic>? farmerData;
+    if (res['farmer'] is Map) {
+      farmerData = res['farmer'] as Map<String, dynamic>;
+    } else if (res['data'] is Map && res['data']['farmer'] is Map) {
+      farmerData = res['data']['farmer'] as Map<String, dynamic>;
+    }
+
+    if (farmerData != null) {
+      final profile = FarmerProfile.fromJson(farmerData);
+      FarmerState().updateProfile(profile);
+    }
+
+    final resumeStep = await FarmerState().checkOnboardingStep();
+    if (!mounted) return;
+
+    if (resumeStep > 0) {
+      // Incomplete onboarding: do not mark completed.
+      FarmerState().currentPendingStep = resumeStep;
+      FarmerState().login(markCompleted: false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang.tr(
+              mr: 'नोंदणीचे पुढील टप्पे अपूर्ण आहेत. कृपया टप्पा $resumeStep पूर्ण करा.',
+              en: 'Registration incomplete. Please complete step $resumeStep.',
+            ),
+          ),
+          backgroundColor: Colors.orange.shade800,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FarmerOnboardingFlowScreen(initialStep: resumeStep),
+        ),
+        (route) => false,
+      );
+    } else {
+      // Complete: allowed to enter main app!
+      FarmerState().login(markCompleted: true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang.tr(
+              mr: 'लॉगिन यशस्वी! स्वागत आहे ${FarmerState().profile.fullName}',
+              en: 'Login successful! Welcome ${FarmerState().profile.fullName}',
+            ),
+          ),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _sendOtp() async {
     final lang = AppLanguage();
     final mobile = _mobileController.text.trim();
@@ -161,23 +183,26 @@ class _LoginScreenState extends State<LoginScreen> {
               en: 'Please enter a valid 10-digit mobile number',
             ),
           ),
+          backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
     setState(() => _isLoading = true);
+    String? devCode;
     try {
       final res = await ApiService().sendFarmerOtp(mobile, purpose: 'login');
+      devCode = res['code']?.toString();
       if (mounted) {
         setState(() => _otpSent = true);
-        final devCode = res['code'] != null ? ' (OTP: ${res['code']})' : '';
+        final devCodeMsg = devCode != null ? ' (OTP: $devCode)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               lang.tr(
-                mr: 'हरितसेतू ओटीपी पाठवला आहे!$devCode',
-                en: 'Haritsetu OTP sent successfully!$devCode',
+                mr: 'हरितसेतू ओटीपी पाठवला आहे!$devCodeMsg',
+                en: 'Haritsetu OTP sent successfully!$devCodeMsg',
               ),
             ),
             backgroundColor: AppColors.primary,
@@ -199,110 +224,278 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
+      return;
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+
+    if (!mounted) return;
+    await _showLoginOtpCenterDialog(mobile, initialDevCode: devCode);
   }
 
-  Future<void> _verifyOtpAndLogin() async {
+  Future<void> _showLoginOtpCenterDialog(String mobile, {String? initialDevCode}) async {
     final lang = AppLanguage();
-    final mobile = _mobileController.text.trim();
-    final otp = _otpController.text.trim();
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final otpController = TextEditingController();
+        bool verifying = false;
+        bool resending = false;
+        String? errorText;
+        String? devCode = initialDevCode;
 
-    if (mobile.length != 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            lang.tr(
-              mr: 'कृपया वैध १०-अंकी मोबाईल नंबर टाका',
-              en: 'Please enter a valid 10-digit mobile number',
-            ),
-          ),
-        ),
-      );
-      return;
-    }
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              elevation: 10,
+              backgroundColor: Colors.white,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 58,
+                            height: 58,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primaryLight,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.mark_email_read_outlined,
+                              color: AppColors.primary,
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            lang.tr(mr: 'लॉगिन पडताळणी', en: 'Login Verification'),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.text,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            lang.tr(
+                              mr: 'आम्ही +91 $mobile वर हरितसेतू लॉगिन OTP पाठवला आहे.',
+                              en: 'We sent a Haritsetu login OTP to +91 $mobile.',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                          ),
+                          if (devCode != null && devCode!.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  otpController.text = devCode!;
+                                  errorText = null;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.amber.shade300),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.touch_app_outlined, size: 15, color: Colors.amber.shade900),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      lang.tr(
+                                        mr: 'डेव्हलपमेंट कोड: $devCode (भरण्यासाठी टॅप करा)',
+                                        en: 'Dev OTP: $devCode (Tap to fill)',
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.amber.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          SixBoxOtpInput(
+                            controller: otpController,
+                            autofocus: true,
+                          ),
+                          if (errorText != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.red.shade200),
+                              ),
+                              child: Text(
+                                errorText!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                lang.tr(mr: 'ओटीपी मिळाला नाही? ', en: 'Did not receive OTP? '),
+                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                              ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: resending
+                                    ? null
+                                    : () async {
+                                        setDialogState(() {
+                                          resending = true;
+                                          errorText = null;
+                                          otpController.clear();
+                                        });
+                                        try {
+                                          final res = await ApiService().sendFarmerOtp(mobile, purpose: 'login');
+                                          setDialogState(() {
+                                            devCode = res['code']?.toString();
+                                          });
+                                          if (dialogContext.mounted) {
+                                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  lang.tr(mr: 'ओटीपी पुन्हा पाठवला आहे!', en: 'OTP resent successfully!'),
+                                                ),
+                                                backgroundColor: AppColors.primary,
+                                                duration: const Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          setDialogState(() {
+                                            errorText = e.toString().replaceAll('Exception:', '').trim();
+                                          });
+                                        } finally {
+                                          setDialogState(() => resending = false);
+                                        }
+                                      },
+                                child: resending
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                      )
+                                    : Text(
+                                        lang.tr(mr: 'पुन्हा पाठवा', en: 'Resend OTP'),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              onPressed: verifying
+                                  ? null
+                                  : () async {
+                                      final otp = otpController.text.trim();
+                                      if (otp.length < 4) {
+                                        setDialogState(() {
+                                          errorText = lang.tr(
+                                            mr: 'कृपया वैध ६ अंकी ओटीपी टाका',
+                                            en: 'Please enter a valid 6-digit OTP',
+                                          );
+                                        });
+                                        return;
+                                      }
 
-    if (otp.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            lang.tr(
-              mr: 'कृपया वैध ओटीपी टाका',
-              en: 'Please enter a valid OTP',
-            ),
-          ),
-        ),
-      );
-      return;
-    }
+                                      setDialogState(() {
+                                        verifying = true;
+                                        errorText = null;
+                                      });
 
-    setState(() => _isLoading = true);
-    try {
-      final res = await ApiService().verifyFarmerOtp(mobile, otp, purpose: 'login');
-      Map<String, dynamic>? farmerData;
-      if (res['farmer'] is Map) {
-        farmerData = res['farmer'] as Map<String, dynamic>;
-      } else if (res['data'] is Map && res['data']['farmer'] is Map) {
-        farmerData = res['data']['farmer'] as Map<String, dynamic>;
-      }
-
-      if (farmerData != null) {
-        final profile = FarmerProfile.fromJson(farmerData);
-        FarmerState().updateProfile(profile);
-      }
-      FarmerState().login();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              lang.tr(
-                mr: 'लॉगिन यशस्वी! स्वागत आहे ${FarmerState().profile.fullName}',
-                en: 'Login successful! Welcome ${FarmerState().profile.fullName}',
+                                      try {
+                                        final res = await ApiService().verifyFarmerOtp(mobile, otp, purpose: 'login');
+                                        if (dialogContext.mounted) {
+                                          Navigator.pop(dialogContext, true);
+                                        }
+                                        if (mounted) {
+                                          await _handleSuccessfulLogin(res);
+                                        }
+                                      } catch (e) {
+                                        setDialogState(() {
+                                          errorText = e.toString().replaceAll('Exception:', '').trim();
+                                        });
+                                      } finally {
+                                        setDialogState(() => verifying = false);
+                                      }
+                                    },
+                              child: verifying
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : Text(
+                                      lang.tr(mr: 'ओटीपी तपासा आणि लॉगिन करा', en: 'Verify OTP & Sign In'),
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 22),
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            backgroundColor: AppColors.primary,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        final resumeStep = await FarmerState().checkOnboardingStep();
-        if (mounted) {
-          if (resumeStep > 0) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FarmerOnboardingFlowScreen(initialStep: resumeStep),
-              ),
-              (route) => false,
             );
-          } else {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const MainShell()),
-              (route) => false,
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        final errText = e.toString().replaceAll('Exception:', '').trim();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              lang.tr(
-                mr: 'ओटीपी त्रुटी: $errText',
-                en: 'OTP error: $errText',
-              ),
-            ),
-            backgroundColor: Colors.red.shade700,
-          ),
+          },
         );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      },
+    );
   }
 
   @override
@@ -603,54 +796,66 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ] else ...[
                             if (_otpSent) ...[
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    lang.tr(mr: '६ अंकी ओटीपी टाका', en: 'Enter 6-digit OTP'),
-                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                                  ),
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed: _isLoading ? null : _sendOtp,
-                                    child: Text(
-                                      lang.tr(mr: 'पुन्हा पाठवा', en: 'Resend OTP'),
-                                      style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SixBoxOtpInput(
-                                controller: _otpController,
-                                onCompleted: (_) => _verifyOtpAndLogin(),
-                              ),
-                              const SizedBox(height: 22),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  onPressed: _isLoading ? null : _verifyOtpAndLogin,
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                        )
-                                      : Text(
-                                          lang.tr(mr: 'ओटीपी पडताळा आणि लॉगिन करा', en: 'Verify OTP & Sign In'),
-                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            lang.tr(
+                                              mr: 'ओटीपी +91 ${_mobileController.text.trim()} वर पाठवला आहे',
+                                              en: 'OTP sent to +91 ${_mobileController.text.trim()}',
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF166534),
+                                            ),
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 13),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          elevation: 0,
+                                        ),
+                                        onPressed: () => _showLoginOtpCenterDialog(_mobileController.text.trim()),
+                                        icon: const Icon(Icons.pin, size: 20),
+                                        label: Text(
+                                          lang.tr(mr: 'ओटीपी प्रविष्ट करा (OTP Popup)', en: 'Enter OTP (Center Popup)'),
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextButton(
+                                      onPressed: _isLoading ? null : _sendOtp,
+                                      child: Text(
+                                        lang.tr(mr: 'नवीन ओटीपी पाठवा (Resend OTP)', en: 'Resend OTP'),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ] else ...[
@@ -673,7 +878,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                         )
                                       : Text(
-                                          lang.tr(mr: 'ओटीपी पाठवा', en: 'Send Haritsetu OTP'),
+                                          lang.tr(mr: 'ओटीपी पाठवा आणि लॉगिन करा', en: 'Send Haritsetu OTP & Sign In'),
                                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                                         ),
                                 ),

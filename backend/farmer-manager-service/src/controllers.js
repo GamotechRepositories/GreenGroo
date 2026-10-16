@@ -209,13 +209,17 @@ async function aggFarmerStats(farmerIds) {
 }
 
 function assignedFarmerQuery(req) {
-  const managerId = req.user?.managerId || req.user?.id || "__NONE__";
-  const vendorId = req.user?.vendorId || "__NONE__";
-  return {
-    isDeleted: { $ne: true },
-    managerId,
-    vendorId,
-  };
+  const query = { isDeleted: { $ne: true } };
+  if (req.user?.role === "VENDOR") {
+    query.vendorId = req.user.vendorId || req.user.id || "__NONE__";
+  } else if (req.user?.role === "FARMER_MANAGER") {
+    query.managerId = req.user.managerId || req.user.id || "__NONE__";
+    if (req.user.vendorId) query.vendorId = req.user.vendorId;
+  } else {
+    query.managerId = req.user?.managerId || req.user?.id || "__NONE__";
+    query.vendorId = req.user?.vendorId || "__NONE__";
+  }
+  return query;
 }
 
 function indexFarmersByIdentity(farmers) {
@@ -824,6 +828,7 @@ export async function updateFarmer(req, res) {
     if (payload.farmType !== undefined) farmer.farmType = payload.farmType;
     if (payload.status) farmer.status = payload.status;
     if (payload.verificationStatus) farmer.verificationStatus = payload.verificationStatus;
+    if (payload.vendorId !== undefined) farmer.vendorId = payload.vendorId;
     if (payload.managerId !== undefined) farmer.managerId = payload.managerId;
     if (payload.profileImage !== undefined) farmer.profileImage = payload.profileImage;
 
@@ -836,9 +841,16 @@ export async function updateFarmer(req, res) {
 
     await farmer.save();
 
-    if (payload.managerId !== undefined) {
-      await FarmerProduct.updateMany({ farmerId: farmer.id }, { managerId: payload.managerId });
-      await FarmerDocument.updateMany({ farmerId: farmer.id }, { managerId: payload.managerId });
+    const updateFields = {};
+    if (payload.managerId !== undefined) updateFields.managerId = payload.managerId;
+    if (payload.vendorId !== undefined) updateFields.vendorId = payload.vendorId;
+
+    if (Object.keys(updateFields).length > 0) {
+      const ownerKeys = [farmer.id, farmer.farmerId, farmer.farmerCode].filter(Boolean);
+      await Promise.all([
+        FarmerProduct.updateMany({ farmerId: { $in: ownerKeys } }, { $set: updateFields }).catch(() => {}),
+        FarmerDocument.updateMany({ farmerId: { $in: ownerKeys } }, { $set: updateFields }).catch(() => {}),
+      ]);
     }
 
     const enriched = await enrichFarmerDoc(farmer);
@@ -1431,6 +1443,10 @@ export async function updateFarmerSelfProfile(req, res) {
         farmer.bankVerificationStatus = farmer.bankVerificationStatus === "VERIFIED" ? "VERIFIED" : "PENDING";
       }
     }
+    if (payload.aadhaarNumber !== undefined) farmer.aadhaarNumber = String(payload.aadhaarNumber).trim();
+    if (payload.panNumber !== undefined) farmer.panNumber = String(payload.panNumber).trim().toUpperCase();
+    if (payload.aadhaar !== undefined && !farmer.aadhaarNumber) farmer.aadhaarNumber = String(payload.aadhaar).trim();
+    if (payload.pan !== undefined && !farmer.panNumber) farmer.panNumber = String(payload.pan).trim().toUpperCase();
 
     await farmer.save();
     res.json(await buildSelfFarmerPayload(farmer));
@@ -3335,7 +3351,7 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
     ? (vendorId ? preloaded.vendors.get(String(vendorId)) || null : null)
     : vendorId
       ? await Vendor.findOne({ $or: [{ id: vendorId }, { vendorId }] })
-          .select("id vendorId vendorName ownerName mobile phone businessName")
+          .select("id vendorId vendorCode vendorName ownerName mobile phone businessName businessAddress city state pincode email gstNumber")
           .lean()
       : null;
 
@@ -3357,10 +3373,22 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
     farmerLocation: farmer?.farmLocation || farmerAddress || farmerVillage,
     farmerBank: farmer?.bank || null,
     vendorId,
+    vendorCode: vendor?.vendorCode || vendor?.vendorId || vendorId || "",
     vendorName: vendor?.vendorName || vendor?.businessName || vendor?.ownerName || (vendorId ? "Assigned Vendor" : ""),
+    vendorOwnerName: vendor?.ownerName || vendor?.vendorName || "",
     vendorMobile: vendor?.mobile || vendor?.phone || "",
     vendorPhone: vendor?.mobile || vendor?.phone || "",
+    vendorEmail: vendor?.email || "",
     vendorBusinessName: vendor?.businessName || "",
+    vendorAddress: vendor?.businessAddress || [vendor?.city, vendor?.state, vendor?.pincode].filter(Boolean).join(", ") || "",
+    vendorCity: vendor?.city || "",
+    vendorState: vendor?.state || "",
+    vendorPincode: vendor?.pincode || "",
+    vendorGstNumber: vendor?.gstNumber || "",
+    timeline: order.timeline || [],
+    customerName: order.customer?.name || "Customer",
+    customerPhone: order.customer?.phone || "",
+    customerAddress: order.customer?.address || order.customerDeliveryArea || "",
     harvestDate: order.harvestDate || product?.harvestDate || "",
     availableStock: sellable,
     productStock: product
@@ -3487,7 +3515,7 @@ export async function listMyOrders(req, res) {
         : [],
       vendorIds.length
         ? Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
-            .select("id vendorId vendorName ownerName mobile phone businessName")
+            .select("id vendorId vendorCode vendorName ownerName mobile phone businessName businessAddress city state pincode email gstNumber")
             .lean()
         : [],
     ]);
@@ -4608,7 +4636,7 @@ export async function getFarmerOrders(req, res) {
         : [],
       vendorIds.length
         ? Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
-            .select("id vendorId vendorName ownerName mobile phone businessName")
+            .select("id vendorId vendorCode vendorName ownerName mobile phone businessName businessAddress city state pincode email gstNumber")
             .lean()
         : [],
     ]);
@@ -4644,14 +4672,27 @@ export async function getFarmerOrders(req, res) {
       const vendorName = v?.vendorName || v?.businessName || v?.ownerName || (o.vendorId ? "Assigned Vendor" : "");
       const vendorPhone = v?.mobile || v?.phone || "";
       const vendorBusinessName = v?.businessName || "";
+      const vendorAddress = v?.businessAddress || [v?.city, v?.state, v?.pincode].filter(Boolean).join(", ") || "";
 
       return {
         ...canonical,
         vendorId: o.vendorId || "",
+        vendorCode: v?.vendorCode || v?.vendorId || o.vendorId || "",
         vendorName,
+        vendorOwnerName: v?.ownerName || v?.vendorName || "",
         vendorPhone,
         vendorMobile: vendorPhone,
+        vendorEmail: v?.email || "",
         vendorBusinessName,
+        vendorAddress,
+        vendorCity: v?.city || "",
+        vendorState: v?.state || "",
+        vendorPincode: v?.pincode || "",
+        vendorGstNumber: v?.gstNumber || "",
+        timeline: o.timeline || [],
+        customerName: o.customer?.name || "Customer",
+        customerPhone: o.customer?.phone || "",
+        customerAddress: o.customer?.address || o.customerDeliveryArea || "",
         pickupDate: p?.pickupDate || p?.scheduledDate || o.pickupDate || "",
         pickupTime: p?.pickupTime || p?.scheduledTime || o.pickupTime || "",
         pickupSlot: p?.pickupTime || p?.scheduledTime || o.pickupSlot || o.pickupTime || "",
@@ -4714,7 +4755,7 @@ export async function getFarmerOrderById(req, res) {
           .catch(() => null),
         vendorId
           ? Vendor.findOne({ $or: [{ id: vendorId }, { vendorId }] })
-              .select("id vendorId vendorName ownerName mobile phone businessName")
+              .select("id vendorId vendorCode vendorName ownerName mobile phone businessName businessAddress city state pincode email gstNumber")
               .lean()
               .catch(() => null)
           : null,
@@ -4749,10 +4790,22 @@ export async function getFarmerOrderById(req, res) {
         longitude: geo.longitude ?? null,
         mapsUrl,
         vendorId: vendorId || centre?.vendorId || pickup?.vendorId || "",
+        vendorCode: vendorDoc?.vendorCode || vendorDoc?.vendorId || vendorId || "",
         vendorName: vendorDoc?.vendorName || vendorDoc?.businessName || vendorDoc?.ownerName || (vendorId ? "Assigned Vendor" : ""),
+        vendorOwnerName: vendorDoc?.ownerName || vendorDoc?.vendorName || "",
         vendorPhone: vendorDoc?.mobile || vendorDoc?.phone || "",
         vendorMobile: vendorDoc?.mobile || vendorDoc?.phone || "",
+        vendorEmail: vendorDoc?.email || "",
         vendorBusinessName: vendorDoc?.businessName || "",
+        vendorAddress: vendorDoc?.businessAddress || [vendorDoc?.city, vendorDoc?.state, vendorDoc?.pincode].filter(Boolean).join(", ") || "",
+        vendorCity: vendorDoc?.city || "",
+        vendorState: vendorDoc?.state || "",
+        vendorPincode: vendorDoc?.pincode || "",
+        vendorGstNumber: vendorDoc?.gstNumber || "",
+        timeline: plain.timeline || [],
+        customerName: plain.customer?.name || "Customer",
+        customerPhone: plain.customer?.phone || "",
+        customerAddress: plain.customer?.address || plain.customerDeliveryArea || "",
         collectionCentreId: centre?.id || collectionCentreId || "",
         collectionCentre: centre?.name || collectionCentre || (vendorId ? "Main Collection Centre" : ""),
         packingDetails: plain.packingDetails || {},
@@ -5318,6 +5371,18 @@ export async function getFarmerDocuments(req, res) {
       }
     }
     const keys = documentOwnerKeys(farmer, farmerId);
+    if (farmer.vendorId || farmer.managerId) {
+      const syncFields = {};
+      if (farmer.vendorId) syncFields.vendorId = farmer.vendorId;
+      if (farmer.managerId) syncFields.managerId = farmer.managerId;
+      await FarmerDocument.updateMany(
+        {
+          farmerId: { $in: keys },
+          $or: [{ vendorId: "" }, { vendorId: { $exists: false } }, { managerId: "" }, { managerId: { $exists: false } }],
+        },
+        { $set: syncFields }
+      ).catch(() => {});
+    }
     const docs = await FarmerDocument.find({ farmerId: { $in: keys } }).sort({ uploadedAt: -1, createdAt: -1 }).lean();
     res.json(docs.filter(isRealFarmerDocument));
   } catch (err) {
@@ -5396,6 +5461,8 @@ export async function uploadFarmerDocument(req, res) {
       });
     }
     doc.farmerId = canonicalId;
+    if (vendorId) doc.vendorId = vendorId;
+    if (managerId) doc.managerId = managerId;
 
     doc.name = name || doc.name || names[docType] || docType.toUpperCase();
     doc.fileName = fileName || doc.fileName || `${docType}_document`;
@@ -6905,6 +6972,11 @@ export async function assignFarmerManager(req, res) {
     }
     farmer.managerId = managerId || "";
     await farmer.save();
+    const ownerKeys = [farmer.id, farmer.farmerId, farmer.farmerCode].filter(Boolean);
+    await Promise.all([
+      FarmerProduct.updateMany({ farmerId: { $in: ownerKeys } }, { $set: { managerId: farmer.managerId } }).catch(() => {}),
+      FarmerDocument.updateMany({ farmerId: { $in: ownerKeys } }, { $set: { managerId: farmer.managerId } }).catch(() => {}),
+    ]);
     res.json({ success: true, farmer });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to assign manager" });

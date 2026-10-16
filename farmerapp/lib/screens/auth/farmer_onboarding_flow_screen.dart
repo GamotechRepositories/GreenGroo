@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,8 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../../models/farmer_models.dart';
+import '../../services/api_service.dart';
 import '../../services/app_language.dart';
 import '../../services/farmer_state.dart';
+import '../../services/location_service.dart';
+import '../../services/location_directory.dart';
 import '../main_shell.dart';
 import 'login_screen.dart';
 import '../profile/farm_location_map_view.dart';
@@ -37,6 +41,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
   late int _activeStep;
   bool _isLoading = false;
   bool _allCompletedCelebration = false;
+  final Map<String, bool> _uploadingDocs = {};
 
   // Step 2: Bank & Identity Controllers
   final _bankFormKey = GlobalKey<FormState>();
@@ -128,6 +133,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     _locTalukaController = TextEditingController(text: p.taluka);
     _locDistrictController = TextEditingController(text: p.district);
     _locPincodeController = TextEditingController(text: p.pincode);
+    _locPincodeController.addListener(_onPincodeAutoEnrich);
     _farmAddressController = TextEditingController(text: p.farmAddress.isNotEmpty ? p.farmAddress : '${p.village}, Taluka: ${p.taluka}');
     _latitude = p.latitude ?? 0;
     _longitude = p.longitude ?? 0;
@@ -137,41 +143,125 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     _loadStoredDetails();
   }
 
+  void _onPincodeAutoEnrich() async {
+    final pin = _locPincodeController.text.trim().replaceAll(' ', '');
+    if (pin.length == 6) {
+      final match = await LocationDirectory.findLocationByPincode(pin);
+      if (match != null && mounted) {
+        setState(() {
+          if (_locDistrictController.text.trim().isEmpty && match['district'] != null) {
+            _locDistrictController.text = (AppLanguage().isMarathi ? match['districtMr'] : match['district']) ?? match['district']!;
+          }
+          if (_locTalukaController.text.trim().isEmpty && match['taluka'] != null) {
+            _locTalukaController.text = (AppLanguage().isMarathi ? match['talukaMr'] : match['taluka']) ?? match['taluka']!;
+          }
+          if (_locVillageController.text.trim().isEmpty && match['village'] != null) {
+            _locVillageController.text = match['village']!;
+          }
+        });
+      }
+    }
+  }
+
   Future<void> _loadStoredDetails() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Purge old un-scoped global keys that leak across different farmers
+      await prefs.remove('farmer_bank_holder');
+      await prefs.remove('farmer_bank_name');
+      await prefs.remove('farmer_bank_acc_no');
+      await prefs.remove('farmer_bank_ifsc');
+      await prefs.remove('farmer_bank_branch');
+      await prefs.remove('farmer_bank_acc_type');
+      await prefs.remove('farmer_aadhaar');
+      await prefs.remove('farmer_pan');
+      await prefs.remove('farmer_upi_id');
+
       final p = FarmerState().profile;
       final fid = p.id.trim();
-      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
-      final prefs = await SharedPreferences.getInstance();
-      final holder = prefs.getString('${prefix}bank_holder') ?? p.bankAccountHolder;
-      final name = prefs.getString('${prefix}bank_name') ?? p.bankName;
-      final accNo = prefs.getString('${prefix}bank_acc_no') ?? p.bankAccountNumber;
-      final ifsc = prefs.getString('${prefix}bank_ifsc') ?? p.bankIfsc;
-      final branch = prefs.getString('${prefix}bank_branch') ?? p.bankBranch;
-      final accType = prefs.getString('${prefix}bank_acc_type') ?? p.bankAccountType;
-      final aadhaar = prefs.getString('${prefix}aadhaar');
-      final pan = prefs.getString('${prefix}pan');
-      final upi = prefs.getString('${prefix}upi_id') ?? p.bankUpiId;
+      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : null;
+
+      final holder = p.bankAccountHolder.isNotEmpty
+          ? p.bankAccountHolder
+          : (prefix != null ? (prefs.getString('${prefix}bank_holder') ?? '') : '');
+      final name = p.bankName.isNotEmpty
+          ? p.bankName
+          : (prefix != null ? (prefs.getString('${prefix}bank_name') ?? '') : '');
+      final accNo = p.bankAccountNumber.isNotEmpty
+          ? p.bankAccountNumber
+          : (prefix != null ? (prefs.getString('${prefix}bank_acc_no') ?? '') : '');
+      final ifsc = p.bankIfsc.isNotEmpty
+          ? p.bankIfsc
+          : (prefix != null ? (prefs.getString('${prefix}bank_ifsc') ?? '') : '');
+      final branch = p.bankBranch.isNotEmpty
+          ? p.bankBranch
+          : (prefix != null ? (prefs.getString('${prefix}bank_branch') ?? '') : '');
+      final accType = p.bankAccountType.isNotEmpty
+          ? p.bankAccountType
+          : (prefix != null ? (prefs.getString('${prefix}bank_acc_type') ?? 'Savings (बचत खाते)') : 'Savings (बचत खाते)');
+      final aadhaar = p.aadhaarNumber.isNotEmpty
+          ? p.aadhaarNumber
+          : (prefix != null ? (prefs.getString('${prefix}aadhaar') ?? '') : '');
+      final pan = p.panNumber.isNotEmpty
+          ? p.panNumber
+          : (prefix != null ? (prefs.getString('${prefix}pan') ?? '') : '');
+      final upi = p.bankUpiId.isNotEmpty
+          ? p.bankUpiId
+          : (prefix != null ? (prefs.getString('${prefix}upi_id') ?? '') : '');
+
+      final savedVillage = prefix != null ? (prefs.getString('${prefix}village') ?? p.village) : p.village;
+      final savedTaluka = prefix != null ? (prefs.getString('${prefix}taluka') ?? p.taluka) : p.taluka;
+      final savedDistrict = prefix != null ? (prefs.getString('${prefix}district') ?? p.district) : p.district;
+      final savedPincode = prefix != null ? (prefs.getString('${prefix}pincode') ?? p.pincode) : p.pincode;
+      final savedFarmAddress = prefix != null ? (prefs.getString('${prefix}farm_address') ?? p.farmAddress) : p.farmAddress;
+      final savedLat = prefix != null ? (prefs.getDouble('${prefix}latitude') ?? p.latitude ?? 0.0) : (p.latitude ?? 0.0);
+      final savedLng = prefix != null ? (prefs.getDouble('${prefix}longitude') ?? p.longitude ?? 0.0) : (p.longitude ?? 0.0);
 
       if (mounted) {
         setState(() {
-          if (holder.isNotEmpty) _bankHolderController.text = holder;
-          if (name.isNotEmpty) _bankNameController.text = name;
+          _bankHolderController.text = holder.isNotEmpty ? holder : p.fullName;
+          _bankNameController.text = name;
           if (accNo.isNotEmpty) {
             _bankAccountNoController.text = accNo;
             _confirmAccountNoController.text = accNo;
           }
-          if (ifsc.isNotEmpty) _bankIfscController.text = ifsc;
-          if (branch.isNotEmpty) _bankBranchController.text = branch;
-          if (accType.isNotEmpty) _bankAccountType = accType;
-          if (aadhaar != null && aadhaar.isNotEmpty) _aadhaarController.text = aadhaar;
-          if (pan != null && pan.isNotEmpty) _panCardController.text = pan;
-          if (upi.isNotEmpty) _upiIdController.text = upi;
-          final savedStep = prefs.getInt('farmer_onboarding_step_$fid');
-          if (savedStep != null && savedStep >= 2 && savedStep <= 6 && widget.initialStep == 2) {
-            _activeStep = savedStep;
+          _bankIfscController.text = ifsc;
+          _bankBranchController.text = branch;
+          _bankAccountType = accType;
+          _aadhaarController.text = aadhaar;
+          _panCardController.text = pan;
+          _upiIdController.text = upi;
+
+          if (savedVillage.isNotEmpty) _locVillageController.text = savedVillage;
+          if (savedTaluka.isNotEmpty) _locTalukaController.text = savedTaluka;
+          if (savedDistrict.isNotEmpty) _locDistrictController.text = savedDistrict;
+          if (savedPincode.isNotEmpty) _locPincodeController.text = savedPincode;
+          if (savedFarmAddress.isNotEmpty) _farmAddressController.text = savedFarmAddress;
+          if (savedLat != 0.0 && savedLng != 0.0) {
+            _latitude = savedLat;
+            _longitude = savedLng;
+            _locationConfirmed = true;
           }
         });
+
+        int pending = widget.initialStep;
+        if (pending == 2) {
+          final calculated = await FarmerState().checkOnboardingStep();
+          if (calculated >= 2 && calculated <= 6) {
+            pending = calculated;
+          } else {
+            final savedStep = prefs.getInt('farmer_onboarding_step_$fid');
+            if (savedStep != null && savedStep >= 2 && savedStep <= 6) {
+              pending = savedStep;
+            }
+          }
+        }
+        if (mounted && pending >= 2 && pending <= 6) {
+          setState(() {
+            _activeStep = pending;
+          });
+        }
       }
     } catch (_) {}
   }
@@ -193,6 +283,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     _cultivatedAreaController.dispose();
     _mainCropsController.dispose();
 
+    _locPincodeController.removeListener(_onPincodeAutoEnrich);
     _locVillageController.dispose();
     _locTalukaController.dispose();
     _locDistrictController.dispose();
@@ -244,18 +335,21 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
 
     setState(() => _isLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
       final fid = FarmerState().profile.id.trim();
-      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
-      await prefs.setString('${prefix}bank_holder', _bankHolderController.text.trim());
-      await prefs.setString('${prefix}bank_name', _bankNameController.text.trim());
-      await prefs.setString('${prefix}bank_acc_no', _bankAccountNoController.text.trim());
-      await prefs.setString('${prefix}bank_ifsc', _bankIfscController.text.trim().toUpperCase());
-      await prefs.setString('${prefix}bank_branch', _bankBranchController.text.trim());
-      await prefs.setString('${prefix}bank_acc_type', _bankAccountType);
-      await prefs.setString('${prefix}aadhaar', _aadhaarController.text.trim());
-      await prefs.setString('${prefix}pan', _panCardController.text.trim().toUpperCase());
-      await prefs.setString('${prefix}upi_id', _upiIdController.text.trim());
+      if (fid.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final prefix = 'farmer_${fid}_';
+        await prefs.setString('${prefix}bank_holder', _bankHolderController.text.trim());
+        await prefs.setString('${prefix}bank_name', _bankNameController.text.trim());
+        await prefs.setString('${prefix}bank_acc_no', _bankAccountNoController.text.trim());
+        await prefs.setString('${prefix}bank_ifsc', _bankIfscController.text.trim().toUpperCase());
+        await prefs.setString('${prefix}bank_branch', _bankBranchController.text.trim());
+        await prefs.setString('${prefix}bank_acc_type', _bankAccountType);
+        await prefs.setString('${prefix}aadhaar', _aadhaarController.text.trim());
+        await prefs.setString('${prefix}pan', _panCardController.text.trim().toUpperCase());
+        await prefs.setString('${prefix}upi_id', _upiIdController.text.trim());
+        await prefs.setInt('farmer_onboarding_step_$fid', 3);
+      }
 
       final current = FarmerState().profile;
       final updated = current.copyWith(
@@ -266,12 +360,10 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
         bankBranch: _bankBranchController.text.trim(),
         bankAccountType: _bankAccountType,
         bankUpiId: _upiIdController.text.trim(),
+        aadhaarNumber: _aadhaarController.text.trim(),
+        panNumber: _panCardController.text.trim().toUpperCase(),
       );
       FarmerState().updateProfile(updated);
-
-      if (fid.isNotEmpty) {
-        await prefs.setInt('farmer_onboarding_step_$fid', 3);
-      }
 
       _showToast(AppLanguage().tr(mr: 'बँक व ओळख तपशील जतन झाले! ✓', en: 'Bank & Identity details saved! ✓'));
       setState(() {
@@ -289,33 +381,59 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
   // ---------------------------------------------------------------------------
   Future<void> _submitStep3Documents() async {
     final docs = FarmerState().documents;
+    final hasFarmerId = docs.any((d) => (d.type == 'farmer_id' || d.id == 'DOC-2') && (d.isUploaded || d.fileUrl.isNotEmpty));
     final has712 = docs.any((d) => (d.type == 'land_712' || d.id == 'DOC-3') && (d.isUploaded || d.fileUrl.isNotEmpty));
     final hasAadhaar = docs.any((d) => (d.type == 'aadhaar' || d.id == 'DOC-1') && (d.isUploaded || d.fileUrl.isNotEmpty));
     final hasBank = docs.any((d) => (d.type == 'bank' || d.id == 'DOC-5') && (d.isUploaded || d.fileUrl.isNotEmpty));
 
-    if (!has712 || !hasAadhaar || !hasBank) {
+    if (!hasFarmerId || !has712 || !hasAadhaar || !hasBank) {
       _showToast(
         AppLanguage().tr(
-          mr: 'कृपया किमान आवश्यक कागदपत्रे (७/१२ उतारा, आधार कार्ड, बँक पासबुक) अपलोड करा.',
-          en: 'Please upload essential documents (7/12 Extract, Aadhaar Card, Bank Passbook).',
+          mr: 'कृपया सर्व आवश्यक कागदपत्रे (शेतकरी ओळखपत्र, ७/१२ उतारा, आधार कार्ड, बँक पासबुक) अपलोड करा.',
+          en: 'Please upload all mandatory documents (Farmer ID Card, 7/12 Extract, Aadhaar Card, Bank Passbook).',
         ),
         isError: true,
       );
       return;
     }
 
+    setState(() => _isLoading = true);
     try {
       final fid = FarmerState().profile.id.trim();
       final prefs = await SharedPreferences.getInstance();
-      if (fid.isNotEmpty) {
-        await prefs.setInt('farmer_onboarding_step_$fid', 4);
-      }
-    } catch (_) {}
 
-    _showToast(AppLanguage().tr(mr: 'कागदपत्रे सबमिट झाली! ✓', en: 'Documents submitted successfully! ✓'));
-    setState(() {
-      _activeStep = 4; // Advance to Step 4 (Live Video KYC)
-    });
+      // Persist documents in shared preferences (both global and farmer-scoped)
+      final listJson = docs.map((d) => d.toJson()).toList();
+      final jsonStr = jsonEncode(listJson);
+      await prefs.setString('farmer_documents_data', jsonStr);
+
+      if (fid.isNotEmpty) {
+        await prefs.setString('farmer_${fid}_documents_data', jsonStr);
+        await prefs.setInt('farmer_onboarding_step_$fid', 4);
+        await prefs.setBool('farmer_step3_completed_$fid', true);
+
+        // Sync KYC status to backend
+        try {
+          await ApiService().updateFarmerProfile(fid, {
+            'kycStatus': 'SUBMITTED',
+          });
+        } catch (_) {}
+      }
+
+      _showToast(AppLanguage().tr(
+        mr: 'सर्व कागदपत्रे व माहिती सुरक्षितपणे जतन झाली! ✓',
+        en: 'All documents & information saved successfully! ✓',
+      ));
+      if (mounted) {
+        setState(() {
+          _activeStep = 4; // Advance to Step 4 (Live Video KYC)
+        });
+      }
+    } catch (e) {
+      _showToast('Error saving documents: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -431,13 +549,66 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
         ),
       );
 
+      // Reverse geocode via GPS to resolve village, taluka, district, and pincode
+      final geo = await FarmLocationService.reverseGeocode(pos.latitude, pos.longitude);
+
+      String village = geo?.village.trim() ?? '';
+      String taluka = geo?.taluka.trim() ?? '';
+      String district = geo?.district.trim() ?? '';
+      String pincode = geo?.pincode.trim() ?? '';
+      String address = geo?.formattedAddress.trim() ?? '';
+
+      // Enrich with India Post directory if pincode is present and taluka or district is missing
+      if (pincode.length == 6 && (taluka.isEmpty || district.isEmpty)) {
+        final dir = await LocationDirectory.findLocationByPincode(pincode);
+        if (dir != null) {
+          if (taluka.isEmpty) {
+            taluka = (AppLanguage().isMarathi ? dir['talukaMr'] : dir['taluka']) ?? dir['taluka'] ?? '';
+          }
+          if (district.isEmpty) {
+            district = (AppLanguage().isMarathi ? dir['districtMr'] : dir['district']) ?? dir['district'] ?? '';
+          }
+        }
+      }
+
+      if (address.isEmpty) {
+        final parts = [village, taluka, district, pincode].where((s) => s.isNotEmpty).toList();
+        if (parts.isNotEmpty) address = parts.join(', ');
+      }
+
       if (mounted) {
         setState(() {
           _latitude = pos.latitude;
           _longitude = pos.longitude;
           _locationConfirmed = true;
+          if (village.isNotEmpty) _locVillageController.text = village;
+          if (taluka.isNotEmpty) _locTalukaController.text = taluka;
+          if (district.isNotEmpty) _locDistrictController.text = district;
+          if (pincode.isNotEmpty) _locPincodeController.text = pincode;
+          if (address.isNotEmpty) _farmAddressController.text = address;
         });
-        _showToast(AppLanguage().tr(mr: 'GPS शेताचे स्थान यशस्वीरित्या मिळाले! ✓', en: 'Farm GPS location fetched! ✓'));
+
+        // Persist to local storage
+        try {
+          final p = FarmerState().profile;
+          final fid = p.id.trim();
+          final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setDouble('${prefix}latitude', pos.latitude);
+          await prefs.setDouble('${prefix}longitude', pos.longitude);
+          if (village.isNotEmpty) await prefs.setString('${prefix}village', village);
+          if (taluka.isNotEmpty) await prefs.setString('${prefix}taluka', taluka);
+          if (district.isNotEmpty) await prefs.setString('${prefix}district', district);
+          if (pincode.isNotEmpty) await prefs.setString('${prefix}pincode', pincode);
+          if (address.isNotEmpty) await prefs.setString('${prefix}farm_address', address);
+        } catch (_) {}
+
+        final summary = [village, taluka, district].where((s) => s.isNotEmpty).join(', ');
+        _showToast(
+          summary.isNotEmpty
+              ? AppLanguage().tr(mr: 'GPS स्थान मिळाले: $summary ✓', en: 'Farm GPS location fetched: $summary ✓')
+              : AppLanguage().tr(mr: 'GPS शेताचे स्थान यशस्वीरित्या मिळाले! ✓', en: 'Farm GPS location fetched! ✓'),
+        );
       }
     } catch (e) {
       _showToast(AppLanguage().tr(mr: 'GPS स्थान मिळवण्यात अडचण: $e', en: 'Could not fetch GPS: $e'), isError: true);
@@ -460,21 +631,127 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     );
 
     if (result != null && mounted) {
+      String village = result.village.trim();
+      String taluka = result.taluka.trim();
+      String district = result.district.trim();
+      String pincode = result.pincode.trim();
+      String address = result.formattedAddress.trim();
+
+      // If map result didn't have all details, attempt reverse geocode
+      if (village.isEmpty || taluka.isEmpty || district.isEmpty || pincode.isEmpty) {
+        final enriched = await FarmLocationService.reverseGeocode(result.latitude, result.longitude);
+        if (enriched != null) {
+          if (village.isEmpty) village = enriched.village.trim();
+          if (taluka.isEmpty) taluka = enriched.taluka.trim();
+          if (district.isEmpty) district = enriched.district.trim();
+          if (pincode.isEmpty) pincode = enriched.pincode.trim();
+          if (address.isEmpty) address = enriched.formattedAddress.trim();
+        }
+      }
+
+      // Enrich via local directory by pincode if taluka or district is missing
+      if (pincode.length == 6 && (taluka.isEmpty || district.isEmpty)) {
+        final dir = await LocationDirectory.findLocationByPincode(pincode);
+        if (dir != null) {
+          if (taluka.isEmpty) {
+            taluka = (AppLanguage().isMarathi ? dir['talukaMr'] : dir['taluka']) ?? dir['taluka'] ?? '';
+          }
+          if (district.isEmpty) {
+            district = (AppLanguage().isMarathi ? dir['districtMr'] : dir['district']) ?? dir['district'] ?? '';
+          }
+        }
+      }
+
+      if (address.isEmpty) {
+        final parts = [village, taluka, district, pincode].where((s) => s.isNotEmpty).toList();
+        if (parts.isNotEmpty) address = parts.join(', ');
+      }
+
       setState(() {
         _latitude = result.latitude;
         _longitude = result.longitude;
         _locationConfirmed = true;
-        if (result.formattedAddress.isNotEmpty) {
-          _farmAddressController.text = result.formattedAddress;
+        if (village.isNotEmpty) _locVillageController.text = village;
+        if (taluka.isNotEmpty) _locTalukaController.text = taluka;
+        if (district.isNotEmpty) _locDistrictController.text = district;
+        if (pincode.isNotEmpty) _locPincodeController.text = pincode;
+        if (address.isNotEmpty) _farmAddressController.text = address;
+      });
+
+      // Persist to local storage
+      try {
+        final p = FarmerState().profile;
+        final fid = p.id.trim();
+        final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('${prefix}latitude', result.latitude);
+        await prefs.setDouble('${prefix}longitude', result.longitude);
+        if (village.isNotEmpty) await prefs.setString('${prefix}village', village);
+        if (taluka.isNotEmpty) await prefs.setString('${prefix}taluka', taluka);
+        if (district.isNotEmpty) await prefs.setString('${prefix}district', district);
+        if (pincode.isNotEmpty) await prefs.setString('${prefix}pincode', pincode);
+        if (address.isNotEmpty) await prefs.setString('${prefix}farm_address', address);
+      } catch (_) {}
+
+      final summary = [village, taluka, district].where((s) => s.isNotEmpty).join(', ');
+      _showToast(
+        summary.isNotEmpty
+            ? AppLanguage().tr(mr: 'नकाशावरून शेताचे स्थान निवडले: $summary ✓', en: 'Farm location picked: $summary ✓')
+            : AppLanguage().tr(mr: 'नकाशावरून शेताचे स्थान निवडले! ✓', en: 'Farm location picked from map! ✓'),
+      );
+    }
+  }
+
+  Future<void> _openVillagePickerForForm() async {
+    final result = await FarmVillagePickerModal.show(
+      context,
+      taluka: _locTalukaController.text.trim(),
+      district: _locDistrictController.text.trim(),
+      currentVillage: _locVillageController.text.trim(),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _locVillageController.text = result.name;
+        if (result.pincode.isNotEmpty) {
+          _locPincodeController.text = result.pincode;
         }
       });
-      _showToast(AppLanguage().tr(mr: 'नकाशावरून शेताचे स्थान निवडले! ✓', en: 'Farm location picked from map! ✓'));
+      _persistFarmLocationLocally();
+      _showToast(AppLanguage().tr(mr: 'गाव निश्चित केले: ${result.name} (${result.pincode}) ✓', en: 'Village selected: ${result.name} (${result.pincode}) ✓'));
     }
+  }
+
+  Future<void> _persistFarmLocationLocally() async {
+    try {
+      final p = FarmerState().profile;
+      final fid = p.id.trim();
+      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
+      final prefs = await SharedPreferences.getInstance();
+      if (_latitude != 0 && _longitude != 0) {
+        await prefs.setDouble('${prefix}latitude', _latitude);
+        await prefs.setDouble('${prefix}longitude', _longitude);
+      }
+      final v = _locVillageController.text.trim();
+      final t = _locTalukaController.text.trim();
+      final d = _locDistrictController.text.trim();
+      final pin = _locPincodeController.text.trim();
+      final addr = _farmAddressController.text.trim();
+      if (v.isNotEmpty) await prefs.setString('${prefix}village', v);
+      if (t.isNotEmpty) await prefs.setString('${prefix}taluka', t);
+      if (d.isNotEmpty) await prefs.setString('${prefix}district', d);
+      if (pin.isNotEmpty) await prefs.setString('${prefix}pincode', pin);
+      if (addr.isNotEmpty) await prefs.setString('${prefix}farm_address', addr);
+    } catch (_) {}
   }
 
   Future<void> _submitStep6LocationAndFinish() async {
     if (_latitude == 0 && _longitude == 0) {
       _showToast(AppLanguage().tr(mr: 'कृपया प्रथम GPS किंवा नकाशावरून शेताचे स्थान निवडा', en: 'Please pick farm location on map or via GPS'), isError: true);
+      return;
+    }
+    if (_locVillageController.text.trim().isEmpty) {
+      _showToast(AppLanguage().tr(mr: 'कृपया शेताचे गाव निवडा', en: 'Please select farm village'), isError: true);
+      _openVillagePickerForForm();
       return;
     }
     if (_farmAddressController.text.trim().isEmpty) {
@@ -485,12 +762,30 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     setState(() => _isLoading = true);
     try {
       final current = FarmerState().profile;
+      final village = _locVillageController.text.trim();
+      final taluka = _locTalukaController.text.trim();
+      final district = _locDistrictController.text.trim();
+      final pincode = _locPincodeController.text.trim();
+      final farmAddress = _farmAddressController.text.trim();
+
+      // Persist to local SharedPreferences
+      final fid = current.id.trim();
+      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : 'farmer_';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('${prefix}latitude', _latitude);
+      await prefs.setDouble('${prefix}longitude', _longitude);
+      await prefs.setString('${prefix}village', village);
+      await prefs.setString('${prefix}taluka', taluka);
+      await prefs.setString('${prefix}district', district);
+      await prefs.setString('${prefix}pincode', pincode);
+      await prefs.setString('${prefix}farm_address', farmAddress);
+
       final updated = current.copyWith(
-        village: _locVillageController.text.trim(),
-        taluka: _locTalukaController.text.trim(),
-        district: _locDistrictController.text.trim(),
-        pincode: _locPincodeController.text.trim(),
-        farmAddress: _farmAddressController.text.trim(),
+        village: village,
+        taluka: taluka,
+        district: district,
+        pincode: pincode,
+        farmAddress: farmAddress,
         latitude: _latitude,
         longitude: _longitude,
         locationConfirmed: true,
@@ -949,6 +1244,225 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     );
   }
 
+  void _pickAndUploadDoc(String docId, String title) {
+    showAppPhotoPicker(
+      context,
+      title: title,
+      subtitle: AppLanguage().tr(mr: 'कॅमेरा किंवा गॅलरी मधून निवडा', en: 'Select from camera or gallery'),
+      allowPdf: true,
+      onPhotoSelected: (photoStr) async {
+        setState(() {
+          _uploadingDocs[docId] = true;
+        });
+        try {
+          await FarmerState().uploadDocument(docId, fileUrl: photoStr, status: 'pending');
+          if (!mounted) return;
+          _showToast(AppLanguage().tr(mr: '$title यशस्वीपणे अपलोड झाले! ✓', en: '$title uploaded! ✓'));
+        } catch (e) {
+          if (mounted) {
+            _showToast('Upload failed: $e', isError: true);
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              _uploadingDocs[docId] = false;
+            });
+          }
+        }
+      },
+    );
+  }
+
+  void _viewDocumentModal(DocumentItem doc, String title) {
+    final isPdf = doc.fileUrl.startsWith('data:application/pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.file_present_rounded, color: Color(0xFF16A34A), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 12),
+                                const SizedBox(width: 4),
+                                Text(
+                                  AppLanguage().tr(mr: 'कागदपत्र पूर्वावलोकन (Preview)', en: 'Document Preview'),
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        tooltip: AppLanguage().tr(mr: 'बंद करा', en: 'Close'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Preview Content
+                Flexible(
+                  child: Container(
+                    color: isPdf ? Colors.white : const Color(0xFF0F172A),
+                    child: isPdf
+                        ? Container(
+                            padding: const EdgeInsets.all(32),
+                            color: Colors.white,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFEF2F2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 64),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '$title.pdf',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  AppLanguage().tr(
+                                    mr: 'PDF दस्तऐवज सुरक्षितपणे सेव्ह झाला आहे.',
+                                    en: 'PDF document has been securely uploaded.',
+                                  ),
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          )
+                        : InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.8,
+                            maxScale: 5.0,
+                            child: Center(
+                              child: AppImageWidget(
+                                imageStr: doc.fileUrl,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+
+                // Footer
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF475569),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          label: Text(
+                            AppLanguage().tr(mr: 'बंद करा', en: 'Close'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: Text(
+                            AppLanguage().tr(mr: 'बदला', en: 'Change'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(dialogCtx);
+                            _pickAndUploadDoc(doc.id, title);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // STEP 3 VIEW: DOCUMENTATION KYC
   // ---------------------------------------------------------------------------
@@ -959,11 +1473,12 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     }
 
     final docList = [
-      ('DOC-3', 'land_712', AppLanguage().tr(mr: '७/१२ उतारा', en: '7/12 Extract'), true, Icons.description_outlined),
+      ('DOC-2', 'farmer_id', AppLanguage().tr(mr: 'शेतकरी ओळखपत्र (Farmer ID Card) *', en: 'Farmer ID Card *'), true, Icons.badge_rounded),
+      ('DOC-3', 'land_712', AppLanguage().tr(mr: '७/१२ उतारा *', en: '7/12 Extract *'), true, Icons.description_outlined),
       ('DOC-4', 'land_8a', AppLanguage().tr(mr: '८-अ उतारा', en: '8A Extract'), false, Icons.article_outlined),
-      ('DOC-1', 'aadhaar', AppLanguage().tr(mr: 'आधार कार्ड', en: 'Aadhaar Card'), true, Icons.badge_outlined),
+      ('DOC-1', 'aadhaar', AppLanguage().tr(mr: 'आधार कार्ड *', en: 'Aadhaar Card *'), true, Icons.badge_outlined),
       ('DOC-8', 'pan', AppLanguage().tr(mr: 'पॅन कार्ड', en: 'PAN Card'), false, Icons.credit_card_rounded),
-      ('DOC-5', 'bank', AppLanguage().tr(mr: 'बँक पासबुक / चेक', en: 'Bank Passbook / Cheque'), true, Icons.account_balance_wallet_outlined),
+      ('DOC-5', 'bank', AppLanguage().tr(mr: 'बँक पासबुक / चेक *', en: 'Bank Passbook / Cheque *'), true, Icons.account_balance_wallet_outlined),
     ];
 
     return Column(
@@ -993,8 +1508,8 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
               Expanded(
                 child: Text(
                   AppLanguage().tr(
-                    mr: 'आवश्यक कागदपत्रे: ७/१२ उतारा, आधार कार्ड आणि बँक पासबुक अपलोड करणे बंधनकारक आहे.',
-                    en: 'Mandatory documents: 7/12 Extract, Aadhaar Card, and Bank Passbook.',
+                    mr: 'आवश्यक कागदपत्रे: शेतकरी ओळखपत्र (Farmer ID), ७/१२ उतारा, आधार कार्ड आणि बँक पासबुक अपलोड करणे बंधनकारक आहे.',
+                    en: 'Mandatory documents: Farmer ID Card, 7/12 Extract, Aadhaar Card, and Bank Passbook.',
                   ),
                   style: const TextStyle(fontSize: 11.5, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600),
                 ),
@@ -1012,6 +1527,8 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
           );
 
           final isDone = uploadedDoc.isUploaded && uploadedDoc.fileUrl.isNotEmpty;
+          final isUploading = _uploadingDocs[docId] == true;
+          final isPdf = uploadedDoc.fileUrl.startsWith('data:application/pdf') || uploadedDoc.fileUrl.toLowerCase().endsWith('.pdf');
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -1019,7 +1536,12 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDone ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+              border: Border.all(
+                color: isUploading
+                    ? const Color(0xFF60A5FA)
+                    : (isDone ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+                width: isUploading ? 1.5 : 1.0,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.03),
@@ -1028,101 +1550,206 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: isDone ? const Color(0xFF16A34A) : const Color(0xFF64748B), size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-                            ),
-                          ),
-                          if (isRequired)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEE2E2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                AppLanguage().tr(mr: 'आवश्यक', en: 'Required'),
-                                style: const TextStyle(fontSize: 9.5, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                        ],
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: isDone ? () => _viewDocumentModal(uploadedDoc, title) : null,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: isDone ? Border.all(color: const Color(0xFF86EFAC)) : null,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: isDone
+                            ? (isPdf
+                                ? const Center(child: Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 24))
+                                : AppImageWidget(imageStr: uploadedDoc.fileUrl, fit: BoxFit.cover))
+                            : Icon(icon, color: const Color(0xFF64748B), size: 22),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            isDone ? Icons.check_circle_rounded : Icons.pending_outlined,
-                            size: 13,
-                            color: isDone ? const Color(0xFF16A34A) : const Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isDone
-                                ? AppLanguage().tr(mr: 'अपलोड पूर्ण ✓', en: 'Uploaded ✓')
-                                : AppLanguage().tr(mr: 'अपलोड बाकी ⏳', en: 'Pending ⏳'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isDone ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: isDone ? () => _viewDocumentModal(uploadedDoc, title) : null,
+                        behavior: HitTestBehavior.opaque,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                  ),
+                                ),
+                                if (isRequired)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEE2E2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      AppLanguage().tr(mr: 'आवश्यक', en: 'Required'),
+                                      style: const TextStyle(fontSize: 9.5, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  isUploading
+                                      ? Icons.cloud_upload_outlined
+                                      : (isDone ? Icons.check_circle_rounded : Icons.pending_outlined),
+                                  size: 13,
+                                  color: isUploading
+                                      ? const Color(0xFF2563EB)
+                                      : (isDone ? const Color(0xFF16A34A) : const Color(0xFFF59E0B)),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isUploading
+                                      ? AppLanguage().tr(mr: 'अपलोड होत आहे... ⏳', en: 'Uploading... ⏳')
+                                      : (isDone
+                                          ? AppLanguage().tr(mr: 'अपलोड पूर्ण ✓', en: 'Uploaded ✓')
+                                          : AppLanguage().tr(mr: 'अपलोड बाकी ⏳', en: 'Pending ⏳')),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: isUploading
+                                        ? const Color(0xFF2563EB)
+                                        : (isDone ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (isDone) ...[
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0F766E),
+                          side: const BorderSide(color: Color(0xFF0F766E)),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.visibility_outlined, size: 14),
+                        label: Text(
+                          AppLanguage().tr(mr: 'पहा', en: 'View'),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () => _viewDocumentModal(uploadedDoc, title),
+                      ),
+                      const SizedBox(width: 6),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF8FAFC),
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded, size: 14),
+                        label: Text(
+                          AppLanguage().tr(mr: 'बदला', en: 'Change'),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: isUploading ? null : () => _pickAndUploadDoc(docId, title),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: isUploading
+                            ? const SizedBox(
+                                width: 13,
+                                height: 13,
+                                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                              )
+                            : const Icon(Icons.upload_file_rounded, size: 14),
+                        label: Text(
+                          isUploading
+                              ? AppLanguage().tr(mr: 'थांबा...', en: 'Wait...')
+                              : AppLanguage().tr(mr: 'अपलोड', en: 'Upload'),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: isUploading ? null : () => _pickAndUploadDoc(docId, title),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDone ? const Color(0xFFF8FAFC) : AppColors.primary,
-                    foregroundColor: isDone ? AppColors.primary : Colors.white,
-                    side: isDone ? const BorderSide(color: AppColors.primary) : null,
+
+                // Uploading progress indicator line directly below the document row
+                if (isUploading) ...[
+                  const SizedBox(height: 12),
+                  Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 13,
+                              height: 13,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                AppLanguage().tr(
+                                  mr: '$title अपलोड होत आहे... कृपया थांबा',
+                                  en: 'Uploading $title... Please wait',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF15803D),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 7),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: const LinearProgressIndicator(
+                            minHeight: 5,
+                            backgroundColor: Color(0xFFDCFCE7),
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  icon: Icon(isDone ? Icons.refresh_rounded : Icons.upload_file_rounded, size: 14),
-                  label: Text(
-                    isDone ? AppLanguage().tr(mr: 'बदला', en: 'Change') : AppLanguage().tr(mr: 'अपलोड', en: 'Upload'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  onPressed: () {
-                    showAppPhotoPicker(
-                      context,
-                      title: title,
-                      subtitle: AppLanguage().tr(mr: 'कॅमेरा किंवा गॅलरी मधून निवडा', en: 'Select from camera or gallery'),
-                      allowPdf: true,
-                      onPhotoSelected: (photoStr) async {
-                        try {
-                          await FarmerState().uploadDocument(docId, fileUrl: photoStr, status: 'pending');
-                          if (!mounted) return;
-                          setState(() {});
-                          _showToast(AppLanguage().tr(mr: '$title यशस्वीपणे अपलोड झाले! ✓', en: '$title uploaded! ✓'));
-                        } catch (e) {
-                          _showToast('Upload failed: $e', isError: true);
-                        }
-                      },
-                    );
-                  },
-                ),
+                ],
               ],
             ),
           );
@@ -1620,14 +2247,39 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
                 if (hasCoords) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
                     ),
-                    child: Text(
-                      'Latitude: ${_latitude.toStringAsFixed(6)}, Longitude: ${_longitude.toStringAsFixed(6)}',
-                      style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace', fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              'GPS: ${_latitude.toStringAsFixed(6)}°, ${_longitude.toStringAsFixed(6)}°',
+                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                            ),
+                          ],
+                        ),
+                        if (_locVillageController.text.isNotEmpty || _locTalukaController.text.isNotEmpty || _locDistrictController.text.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            [
+                              if (_locVillageController.text.isNotEmpty) 'गाव: ${_locVillageController.text}',
+                              if (_locTalukaController.text.isNotEmpty) 'तालुका: ${_locTalukaController.text}',
+                              if (_locDistrictController.text.isNotEmpty) 'जिल्हा: ${_locDistrictController.text}',
+                              if (_locPincodeController.text.isNotEmpty) 'पिन: ${_locPincodeController.text}',
+                            ].join(' | '),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -1703,8 +2355,15 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
               Expanded(
                 child: _buildTextField(
                   controller: _locVillageController,
-                  label: AppLanguage().tr(mr: 'गाव', en: 'Village'),
-                  icon: Icons.location_city,
+                  label: AppLanguage().tr(mr: 'गाव *', en: 'Village *'),
+                  icon: Icons.holiday_village_rounded,
+                  suffixIcon: Tooltip(
+                    message: AppLanguage().tr(mr: 'गावाची यादी पहा', en: 'Browse village list'),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_drop_down_circle_outlined, color: AppColors.primary, size: 20),
+                      onPressed: _openVillagePickerForForm,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1716,6 +2375,31 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
                 ),
               ),
             ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _openVillagePickerForForm,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.touch_app_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          AppLanguage().tr(mr: 'अधिकृत यादीतून शेताचे गाव निवडा ▾', en: 'Select village from official list ▾'),
+                          style: const TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -1942,6 +2626,9 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     int? maxLength,
     int maxLines = 1,
     String? Function(String?)? validator,
+    Widget? suffixIcon,
+    VoidCallback? onTap,
+    bool readOnly = false,
   }) {
     return TextFormField(
       controller: controller,
@@ -1950,11 +2637,14 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
       maxLength: maxLength,
       maxLines: maxLines,
       validator: validator,
+      readOnly: readOnly,
+      onTap: onTap,
       style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         prefixIcon: Icon(icon, size: 18, color: AppColors.primary),
+        suffixIcon: suffixIcon,
         counterText: '',
         filled: true,
         fillColor: Colors.white,

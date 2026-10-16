@@ -19,6 +19,12 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _isBusy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    FarmerState().refreshOrders();
+  }
+
   String _shortDate(String? raw) {
     if (raw == null || raw.isEmpty) return '—';
     final s = raw.trim();
@@ -120,6 +126,713 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Text(
         label,
         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: text),
+      ),
+    );
+  }
+
+  Widget _buildVendorDetailsCard(FarmerOrderItem order, FarmerProfile profile) {
+    final vBusiness = order.vendorBusinessName.isNotEmpty
+        ? order.vendorBusinessName
+        : (profile.vendorName.isNotEmpty ? profile.vendorName : order.vendorName);
+    final vName = order.vendorOwnerName.isNotEmpty
+        ? order.vendorOwnerName
+        : (order.vendorName.isNotEmpty ? order.vendorName : vBusiness);
+    final vCode = order.vendorCode.isNotEmpty
+        ? order.vendorCode
+        : (order.vendorId.isNotEmpty ? order.vendorId : profile.vendorId);
+    final vPhone = order.vendorPhone.isNotEmpty ? order.vendorPhone : '';
+    final vAddress = order.vendorAddress.isNotEmpty ? order.vendorAddress : '';
+    final vEmail = order.vendorEmail.isNotEmpty ? order.vendorEmail : '';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF86EFAC)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            color: const Color(0xFFF0FDF4),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF16A34A)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    AppLanguage().tr(
+                      mr: 'ऑर्डर पाठवणारा अधिकृत व्हेंडर (Vendor)',
+                      en: 'Order Placed by Assigned Vendor',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF166534),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Text(
+                    AppLanguage().tr(mr: 'अधिकृत', en: 'Verified'),
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFDCFCE7)),
+
+          // Body Content
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: const Icon(
+                        Icons.storefront_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            vBusiness.isNotEmpty ? vBusiness : AppLanguage().tr(mr: 'अधिकृत व्हेंडर', en: 'Assigned Vendor'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
+                          if (vName.isNotEmpty && vName != vBusiness) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              AppLanguage().tr(mr: 'मालक / संपर्क: $vName', en: 'Owner / Contact: $vName'),
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                          if (vCode.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            InkWell(
+                              onTap: () => _copyToClipboard(vCode, AppLanguage().tr(mr: 'व्हेंडर कोड', en: 'Vendor Code')),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'ID: $vCode',
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.copy_rounded, size: 11, color: Color(0xFF059669)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (vPhone.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.phone_rounded, size: 15, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            vPhone,
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            final clean = vPhone.replaceAll(RegExp(r'\D'), '');
+                            if (clean.isNotEmpty) {
+                              launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF16A34A),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.call, size: 12, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  AppLanguage().tr(mr: 'कॉल करा', en: 'Call'),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (vAddress.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF6B7280)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          vAddress,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF4B5563)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                if (vEmail.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.email_outlined, size: 14, color: Color(0xFF6B7280)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          vEmail,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF4B5563)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF15803D)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          AppLanguage().tr(
+                            mr: 'शेतकऱ्याला ऑर्डर फक्त त्याचा नियुक्त व्हेंडरच पाठवू शकतो. ही ऑर्डर या अधिकृत व्हेंडरकडून पाठवण्यात आली आहे.',
+                            en: 'Only your assigned vendor can send orders to you. This order was sent by this verified vendor.',
+                          ),
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF166534), fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRejectionNotice(FarmerOrderItem order) {
+    if (order.rejectedQuantity <= 0 && order.rejectionReason.isEmpty && order.rejectionNote.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 22, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppLanguage().tr(mr: 'नाकारलेला तपशील', en: 'Rejection Details'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                ),
+                if (order.rejectedQuantity > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    AppLanguage().tr(
+                      mr: 'नाकारलेले प्रमाण: ${order.rejectedQuantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}',
+                      en: 'Rejected Qty: ${order.rejectedQuantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}',
+                    ),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C)),
+                  ),
+                ],
+                if (order.rejectionReason.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    AppLanguage().tr(mr: 'कारण: ${order.rejectionReason}', en: 'Reason: ${order.rejectionReason}'),
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D)),
+                  ),
+                ],
+                if (order.rejectionNote.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    AppLanguage().tr(mr: 'टीप: ${order.rejectionNote}', en: 'Note: ${order.rejectionNote}'),
+                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogisticsCard(FarmerOrderItem order) {
+    if (order.isDriverAssigned) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: const Icon(
+                    Icons.sports_motorsports_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            order.driverName.isNotEmpty
+                                ? order.driverName
+                                : AppLanguage().tr(mr: 'असाइन केलेला ड्रायव्हर', en: 'Assigned Driver'),
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF14532D),
+                            ),
+                          ),
+                          if (order.driverStatus.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF86EFAC)),
+                              ),
+                              child: Text(
+                                order.driverStatus,
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF15803D),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        order.vehicleNumber.isNotEmpty
+                            ? AppLanguage().tr(mr: 'वाहन: ${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "ड्रायव्हर"}', en: 'Vehicle: ${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "Driver"}')
+                            : (order.driverPhone.isNotEmpty ? '📞 ${order.driverPhone}' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF166534),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (order.driverPhone.trim().isNotEmpty)
+                  IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.all(8),
+                    ),
+                    icon: const Icon(Icons.phone_rounded, size: 16),
+                    tooltip: AppLanguage().tr(mr: 'ड्रायव्हरला कॉल करा', en: 'Call Driver'),
+                    onPressed: () {
+                      final clean = order.driverPhone.replaceAll(RegExp(r'\D'), '');
+                      if (clean.isNotEmpty) {
+                        launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
+                      }
+                    },
+                  ),
+              ],
+            ),
+            if (order.collectionCentre.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDCFCE7)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.hub_outlined, size: 14, color: Color(0xFF166534)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        AppLanguage().tr(mr: 'संकलन केंद्र: ${order.collectionCentre}', en: 'Collection Centre: ${order.collectionCentre}'),
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF14532D)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF9CA3AF)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLanguage().tr(mr: 'वाहन व वाहतूक (Logistics)', en: 'Logistics & Transport'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    AppLanguage().tr(mr: 'पिकअपसाठी वाहन व ड्रायव्हर लवकरच नियुक्त केला जाईल.', en: 'Driver will be assigned soon for pickup.'),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildTimelineCard(FarmerOrderItem order) {
+    final s = order.status.toUpperCase();
+    final steps = [
+      {
+        'title': AppLanguage().tr(mr: 'ऑर्डर पाठवली (व्हेंडर)', en: 'Order Placed (Vendor)'),
+        'desc': AppLanguage().tr(
+          mr: order.vendorBusinessName.isNotEmpty
+              ? '${order.vendorBusinessName} कडून नवीन ऑर्डर आली'
+              : (order.vendorName.isNotEmpty ? '${order.vendorName} कडून ऑर्डर आली' : 'अधिकृत व्हेंडरकडून ऑर्डर पाठवण्यात आली'),
+          en: 'Order sent by assigned vendor',
+        ),
+        'time': order.createdAt,
+        'done': true,
+        'current': s.contains('NEW') || s.contains('CONFIRMED'),
+      },
+      {
+        'title': AppLanguage().tr(mr: 'ऑर्डर स्वीकारली', en: 'Order Accepted'),
+        'desc': AppLanguage().tr(mr: 'शेतकऱ्याने ऑर्डर स्वीकारली आहे', en: 'Order accepted by farmer'),
+        'time': order.acceptedAt,
+        'done': !s.contains('NEW') && !s.contains('CONFIRMED') && !s.contains('REJECT') && !s.contains('CANCEL'),
+        'current': s.contains('ACCEPT'),
+      },
+      {
+        'title': AppLanguage().tr(mr: 'काढणी व पॅकिंग', en: 'Harvest & Packing'),
+        'desc': AppLanguage().tr(mr: 'शेतमालाची पॅकिंग व प्रतवारी तयारी', en: 'Preparing and grading produce'),
+        'time': order.preparedAt,
+        'done': s.contains('PREPAR') || s.contains('PACK') || s.contains('READY') || s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID'),
+        'current': s.contains('PREPAR') || s.contains('PACK'),
+      },
+      {
+        'title': AppLanguage().tr(mr: 'पिकअपसाठी तयार', en: 'Ready for Pickup'),
+        'desc': AppLanguage().tr(mr: 'वाहन उचलीसाठी माल शेतावर तयार आहे', en: 'Produce ready for vehicle pickup'),
+        'time': order.readyForPickupAt,
+        'done': s.contains('READY') || s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID'),
+        'current': s.contains('READY'),
+      },
+      {
+        'title': AppLanguage().tr(mr: 'पूर्ण / पोहोचले', en: 'Completed'),
+        'desc': AppLanguage().tr(mr: 'संकलन केंद्रात माल जमा व हिशेब पूर्ण', en: 'Received and settled at centre'),
+        'time': '',
+        'done': s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID'),
+        'current': s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID'),
+      },
+    ];
+
+    final isRejected = s.contains('REJECT') || s.contains('CANCEL');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 18, color: Color(0xFF217346)),
+              const SizedBox(width: 8),
+              Text(
+                AppLanguage().tr(mr: 'ऑर्डर स्थिती व इतिहास', en: 'Order Status & History'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          if (isRejected) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLanguage().tr(mr: 'ऑर्डर नाकारली गेली आहे', en: 'Order Rejected'),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                        ),
+                        if (order.rejectionReason.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLanguage().tr(mr: 'कारण: ${order.rejectionReason}', en: 'Reason: ${order.rejectionReason}'),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                        if (order.rejectionNote.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLanguage().tr(mr: 'टीप: ${order.rejectionNote}', en: 'Note: ${order.rejectionNote}'),
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D)),
+                          ),
+                        ],
+                        if (order.rejectedBy.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLanguage().tr(mr: 'कोणी नाकारले: ${order.rejectedBy}', en: 'Rejected by: ${order.rejectedBy}'),
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: steps.length,
+              itemBuilder: (context, i) {
+                final step = steps[i];
+                final isDone = step['done'] as bool;
+                final isCurr = step['current'] as bool;
+                final isLast = i == steps.length - 1;
+
+                Color iconColor = isDone ? const Color(0xFF16A34A) : const Color(0xFFD1D5DB);
+                Color iconBg = isDone ? const Color(0xFFDCFCE7) : const Color(0xFFF3F4F6);
+                Color lineCol = isDone ? const Color(0xFF86EFAC) : const Color(0xFFE5E7EB);
+
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: iconBg,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: iconColor, width: 2),
+                            ),
+                            child: Center(
+                              child: isDone
+                                  ? Icon(Icons.check, size: 12, color: iconColor)
+                                  : Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: iconColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                width: 2,
+                                color: lineCol,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    step['title'] as String,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: isCurr || isDone ? FontWeight.bold : FontWeight.w500,
+                                      color: isDone ? const Color(0xFF1F2937) : const Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                                  if ((step['time'] as String).isNotEmpty)
+                                    Text(
+                                      _shortDate(step['time'] as String),
+                                      style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                step['desc'] as String,
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -437,7 +1150,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Card 1: Product Card
+                  // Card 1: Assigned Vendor Card (Order Sender Info)
+                  _buildVendorDetailsCard(order, profile),
+                  const SizedBox(height: 12),
+
+                  // Card 2: Product Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -508,7 +1225,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 4-Fact Grid (Order date, Pickup date, Pickup time, Total qty)
+                  // Card 3: 6-Fact Schedule Grid (Order date, Pickup date, Pickup time, Total qty, Payment, Delivery)
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
@@ -518,233 +1235,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     childAspectRatio: 2.1,
                     children: [
                       _FactBox(label: AppLanguage().tr(mr: 'ऑर्डर तारीख', en: 'Order date'), value: _shortDate(order.createdAt)),
-                      _FactBox(label: AppLanguage().tr(mr: 'पिकअप तारीख', en: 'Pickup date'), value: _shortDate(order.pickupDate)),
+                      _FactBox(label: AppLanguage().tr(mr: 'पिकअप तारीख', en: 'Pickup date'), value: '${_shortDate(order.pickupDate)}${order.day.isNotEmpty ? " (${order.day})" : ""}'),
                       _FactBox(label: AppLanguage().tr(mr: 'पिकअप वेळ', en: 'Pickup time'), value: _formatTime12h(order.pickupSlot)),
                       _FactBox(label: AppLanguage().tr(mr: 'एकूण प्रमाण', en: 'Total qty'), value: '${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}'),
+                      _FactBox(label: AppLanguage().tr(mr: 'पेमेंट स्थिती', en: 'Payment'), value: order.paymentStatus.isNotEmpty ? order.paymentStatus : 'Pending'),
+                      _FactBox(label: AppLanguage().tr(mr: 'डिलिव्हरी स्थिती', en: 'Delivery'), value: order.deliveryStatus.isNotEmpty ? order.deliveryStatus : 'Pending'),
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Assigned Vendor Card (Only the assigned vendor can place orders to farmer)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFBBF7D0)),
-                          ),
-                          child: const Icon(
-                            Icons.storefront_rounded,
-                            color: Color(0xFF16A34A),
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      order.vendorBusinessName.isNotEmpty
-                                          ? order.vendorBusinessName
-                                          : (order.vendorName.isNotEmpty
-                                              ? order.vendorName
-                                              : (profile.vendorName.isNotEmpty
-                                                  ? profile.vendorName
-                                                  : AppLanguage().tr(mr: 'अधिकृत व्हेंडर', en: 'Assigned Vendor'))),
-                                      style: const TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1F2937),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: const Color(0xFF86EFAC)),
-                                    ),
-                                    child: Text(
-                                      AppLanguage().tr(mr: 'व्हेंडर', en: 'Vendor'),
-                                      style: const TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF15803D),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                order.vendorName.isNotEmpty && order.vendorBusinessName.isNotEmpty
-                                    ? '${order.vendorName} • ${order.vendorPhone.isNotEmpty ? order.vendorPhone : AppLanguage().tr(mr: 'अधिकृत खरेदीदार', en: 'Authorized Buyer')}'
-                                    : (order.vendorPhone.isNotEmpty
-                                        ? order.vendorPhone
-                                        : AppLanguage().tr(mr: 'या शेतकऱ्याचे अधिकृत व्हेंडर', en: 'Assigned vendor for this farmer')),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF6B7280),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (order.vendorPhone.trim().isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.all(8),
-                            ),
-                            icon: const Icon(Icons.phone_rounded, size: 16),
-                            tooltip: AppLanguage().tr(mr: 'व्हेंडरला कॉल करा', en: 'Call Vendor'),
-                            onPressed: () {
-                              final clean = order.vendorPhone.replaceAll(RegExp(r'\D'), '');
-                              if (clean.isNotEmpty) {
-                                launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
-                              }
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Assigned Driver Card
-                  if (order.isDriverAssigned) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFF86EFAC)),
-                            ),
-                            child: const Icon(
-                              Icons.sports_motorsports_rounded,
-                              color: Color(0xFF16A34A),
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      order.driverName.isNotEmpty
-                                          ? order.driverName
-                                          : AppLanguage().tr(mr: 'असाइन केलेला ड्रायव्हर', en: 'Assigned Driver'),
-                                      style: const TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF14532D),
-                                      ),
-                                    ),
-                                    if (order.driverStatus.isNotEmpty) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFDCFCE7),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: const Color(0xFF86EFAC)),
-                                        ),
-                                        child: Text(
-                                          order.driverStatus,
-                                          style: const TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF15803D),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  order.vehicleNumber.isNotEmpty
-                                      ? AppLanguage().tr(mr: '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "ड्रायव्हर"}', en: '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "Driver"}')
-                                      : (order.driverPhone.isNotEmpty ? '📞 ${order.driverPhone}' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF166534),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (order.driverPhone.trim().isNotEmpty)
-                            IconButton(
-                              style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                              icon: const Icon(Icons.phone_rounded, size: 16),
-                              tooltip: AppLanguage().tr(mr: 'ड्रायव्हरला कॉल करा', en: 'Call Driver'),
-                              onPressed: () {
-                                final clean = order.driverPhone.replaceAll(RegExp(r'\D'), '');
-                                if (clean.isNotEmpty) {
-                                  launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
-                                }
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
 
                   // Card 2: Grades Table Card
                   Container(
@@ -864,7 +1362,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Card 3: Order QR Card (Matching Screenshot 2)
+                  // Rejection Notice (if any)
+                  _buildRejectionNotice(order),
+
+                  // Card 5: Logistics & Driver Card
+                  _buildLogisticsCard(order),
+                  const SizedBox(height: 12),
+
+                  // Card 6: Order Lifecycle Timeline
+                  _buildTimelineCard(order),
+                  const SizedBox(height: 14),
+
+                  // Card 7: Order QR Card (Matching Screenshot 2)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),

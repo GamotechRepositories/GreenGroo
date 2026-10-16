@@ -980,32 +980,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  liveOrders.isNotEmpty
-                                      ? AppLanguage().tr(
-                                          mr: 'ऑर्डर #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} अपडेट: ${liveOrders.first.status}',
-                                          en: 'Order #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} update: ${liveOrders.first.status}',
-                                        )
-                                      : (kycVerified
+                                  state.notifications.isNotEmpty
+                                      ? state.notifications.first.title
+                                      : (liveOrders.isNotEmpty
                                           ? AppLanguage().tr(
-                                              mr: 'आपले शेतकरी खाते व केवायसी पडताळणी पूर्ण झाली आहे.',
-                                              en: 'Your farmer account & KYC verification is complete.',
+                                              mr: 'ऑर्डर #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} अपडेट: ${liveOrders.first.status}',
+                                              en: 'Order #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} update: ${liveOrders.first.status}',
                                             )
-                                          : AppLanguage().tr(
-                                              mr: 'केवायसी व बँक पडताळणीसाठी कागदपत्रे अपलोड करा.',
-                                              en: 'Upload documents for KYC & bank verification.',
-                                            )),
+                                          : (kycVerified
+                                              ? AppLanguage().tr(
+                                                  mr: 'आपले शेतकरी खाते व केवायसी पडताळणी पूर्ण झाली आहे.',
+                                                  en: 'Your farmer account & KYC verification is complete.',
+                                                )
+                                              : AppLanguage().tr(
+                                                  mr: 'केवायसी व बँक पडताळणीसाठी कागदपत्रे अपलोड करा.',
+                                                  en: 'Upload documents for KYC & bank verification.',
+                                                ))),
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  liveOrders.isNotEmpty
-                                      ? '${liveOrders.first.productName} • ${AppLanguage().tr(mr: "एकूण", en: "Total")} ₹ ${_formatRupees(liveOrders.first.totalAmount)}'
-                                      : AppLanguage().tr(
-                                          mr: 'नवीन ऑर्डर्स, हवामान आणि पेमेंट सूचनांसाठी येथे टॅप करा.',
-                                          en: 'Tap here for new orders, weather & payment alerts.',
-                                        ),
+                                  state.notifications.isNotEmpty
+                                      ? state.notifications.first.body
+                                      : (liveOrders.isNotEmpty
+                                          ? '${liveOrders.first.productName} • ${AppLanguage().tr(mr: "एकूण", en: "Total")} ₹ ${_formatRupees(liveOrders.first.totalAmount)}'
+                                          : AppLanguage().tr(
+                                              mr: 'नवीन ऑर्डर्स, हवामान आणि पेमेंट सूचनांसाठी येथे टॅप करा.',
+                                              en: 'Tap here for new orders, weather & payment alerts.',
+                                            )),
                                   style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

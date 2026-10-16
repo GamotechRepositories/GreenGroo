@@ -35,6 +35,8 @@ class FarmerProfile {
   final String? _bankBranch;
   final String? _bankAccountType;
   final String? _bankUpiId;
+  final String? _aadhaarNumber;
+  final String? _panNumber;
   final String profilePhoto;
   final String farmPhoto;
   final List<String>? _farmPhotos;
@@ -60,6 +62,8 @@ class FarmerProfile {
   String get bankBranch => _bankBranch ?? '';
   String get bankAccountType => _bankAccountType ?? 'Savings (बचत खाते)';
   String get bankUpiId => _bankUpiId ?? '';
+  String get aadhaarNumber => _aadhaarNumber ?? '';
+  String get panNumber => _panNumber ?? '';
   List<String> get farmPhotos => _farmPhotos ?? const [];
   List<String> get farmVideos => _farmVideos ?? const [];
 
@@ -98,6 +102,8 @@ class FarmerProfile {
     String? bankBranch,
     String? bankAccountType,
     String? bankUpiId,
+    String? aadhaarNumber,
+    String? panNumber,
     this.profilePhoto = '',
     this.farmPhoto = '',
     List<String>? farmPhotos,
@@ -122,6 +128,8 @@ class FarmerProfile {
         _bankBranch = bankBranch ?? '',
         _bankAccountType = bankAccountType ?? 'Savings (बचत खाते)',
         _bankUpiId = bankUpiId ?? '',
+        _aadhaarNumber = aadhaarNumber ?? '',
+        _panNumber = panNumber ?? '',
         _farmPhotos = farmPhotos ?? const [],
         _farmVideos = farmVideos ?? const [];
 
@@ -160,6 +168,8 @@ class FarmerProfile {
     String? bankBranch,
     String? bankAccountType,
     String? bankUpiId,
+    String? aadhaarNumber,
+    String? panNumber,
     String? profilePhoto,
     String? farmPhoto,
     List<String>? farmPhotos,
@@ -200,6 +210,8 @@ class FarmerProfile {
       bankBranch: bankBranch ?? this.bankBranch,
       bankAccountType: bankAccountType ?? this.bankAccountType,
       bankUpiId: bankUpiId ?? this.bankUpiId,
+      aadhaarNumber: aadhaarNumber ?? this.aadhaarNumber,
+      panNumber: panNumber ?? this.panNumber,
       profilePhoto: profilePhoto ?? this.profilePhoto,
       farmPhoto: farmPhoto ?? this.farmPhoto,
       farmPhotos: farmPhotos ?? this.farmPhotos,
@@ -218,6 +230,8 @@ class FarmerProfile {
         district: '',
         state: '',
         pincode: '',
+        aadhaarNumber: '',
+        panNumber: '',
         kycStatus: 'PENDING',
         bankVerificationStatus: 'PENDING',
         locationConfirmed: false,
@@ -311,6 +325,8 @@ class FarmerProfile {
       bankBranch: str(bank['branch'] ?? json['bankBranch'], ''),
       bankAccountType: str(bank['accountType'] ?? json['bankAccountType'], 'Savings (बचत खाते)'),
       bankUpiId: str(bank['upiId'] ?? json['upiId'], ''),
+      aadhaarNumber: str(json['aadhaarNumber'] ?? json['aadhaar'] ?? (json['identity'] is Map ? json['identity']['aadhaar'] : null), ''),
+      panNumber: str(json['panNumber'] ?? json['pan'] ?? (json['identity'] is Map ? json['identity']['pan'] : null), ''),
       profilePhoto: str(json['profileImage'] ?? json['profilePhoto'], ''),
       farmPhoto: str(farm['farmPhoto'], ''),
       farmPhotos: (farm['farmPhotos'] is List) ? List<String>.from(farm['farmPhotos'].map((e) => e.toString())) : [],
@@ -366,6 +382,8 @@ class FarmerProfile {
       'accountType': bankAccountType,
       'upiId': bankUpiId,
     },
+    'aadhaarNumber': aadhaarNumber,
+    'panNumber': panNumber,
     'profilePhoto': profilePhoto,
     'profileImage': profilePhoto,
     'farmPhoto': farmPhoto,
@@ -745,6 +763,78 @@ class ProductItem {
   }
 }
 
+class FarmerNotificationItem {
+  final String id;
+  final String title;
+  final String body;
+  final String type; // orders, payments, documents, schemes, crops, inventory, account, system
+  final String orderCode;
+  final String actionLabel;
+  final String time;
+  final bool read;
+  final Map<String, dynamic> data;
+
+  FarmerNotificationItem({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+    this.orderCode = '',
+    this.actionLabel = '',
+    this.time = '',
+    this.read = false,
+    this.data = const {},
+  });
+
+  factory FarmerNotificationItem.fromJson(Map<String, dynamic> json) {
+    return FarmerNotificationItem(
+      id: json['id']?.toString() ?? json['_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      body: json['body']?.toString() ?? '',
+      type: json['type']?.toString().toLowerCase() ?? 'orders',
+      orderCode: json['orderCode']?.toString() ?? (json['data'] is Map ? json['data']['orderId']?.toString() ?? '' : ''),
+      actionLabel: json['actionLabel']?.toString() ?? '',
+      time: json['createdAt']?.toString() ?? json['time']?.toString() ?? '',
+      read: json['read'] == true || json['isRead'] == true,
+      data: json['data'] is Map ? Map<String, dynamic>.from(json['data'] as Map) : const {},
+    );
+  }
+
+  FarmerNotificationItem copyWith({bool? read}) {
+    return FarmerNotificationItem(
+      id: id,
+      title: title,
+      body: body,
+      type: type,
+      orderCode: orderCode,
+      actionLabel: actionLabel,
+      time: time,
+      read: read ?? this.read,
+      data: data,
+    );
+  }
+}
+
+class OrderTimelineStep {
+  final String status;
+  final String at;
+  final String note;
+
+  OrderTimelineStep({
+    required this.status,
+    required this.at,
+    required this.note,
+  });
+
+  factory OrderTimelineStep.fromJson(Map<String, dynamic> json) {
+    return OrderTimelineStep(
+      status: json['status']?.toString() ?? '',
+      at: json['at']?.toString() ?? json['time']?.toString() ?? json['date']?.toString() ?? '',
+      note: json['note']?.toString() ?? json['description']?.toString() ?? json['message']?.toString() ?? '',
+    );
+  }
+}
+
 class FarmerOrderItem {
   final String id;
   final String? _productId;
@@ -815,6 +905,22 @@ class FarmerOrderItem {
   final String vendorName;
   final String vendorPhone;
   final String vendorBusinessName;
+  final String vendorCode;
+  final String vendorOwnerName;
+  final String vendorEmail;
+  final String vendorAddress;
+  final String customerName;
+  final String customerPhone;
+  final String customerAddress;
+  final String harvestDate;
+  final String harvestTime;
+  final String deliveryStatus;
+  final String rejectionNote;
+  final String rejectedBy;
+  final String acceptedAt;
+  final String preparedAt;
+  final String readyForPickupAt;
+  final List<OrderTimelineStep> timeline;
 
   bool get isDriverAssigned =>
       hasDriverAssigned ||
@@ -874,6 +980,22 @@ class FarmerOrderItem {
     this.vendorName = '',
     this.vendorPhone = '',
     this.vendorBusinessName = '',
+    this.vendorCode = '',
+    this.vendorOwnerName = '',
+    this.vendorEmail = '',
+    this.vendorAddress = '',
+    this.customerName = '',
+    this.customerPhone = '',
+    this.customerAddress = '',
+    this.harvestDate = '',
+    this.harvestTime = '',
+    this.deliveryStatus = '',
+    this.rejectionNote = '',
+    this.rejectedBy = '',
+    this.acceptedAt = '',
+    this.preparedAt = '',
+    this.readyForPickupAt = '',
+    this.timeline = const [],
   })  : _productId = productId ?? '',
         _collectionCentre = collectionCentre ?? '',
         _collectionCentreId = collectionCentreId ?? '',
@@ -1145,6 +1267,27 @@ class FarmerOrderItem {
       vendorName: firstText([json['vendorName'], (json['vendor'] is Map ? json['vendor']['vendorName'] : null), (json['vendor'] is Map ? json['vendor']['businessName'] : null), (json['vendor'] is Map ? json['vendor']['name'] : null)]),
       vendorPhone: firstText([json['vendorPhone'], json['vendorMobile'], (json['vendor'] is Map ? json['vendor']['mobile'] : null), (json['vendor'] is Map ? json['vendor']['phone'] : null)]),
       vendorBusinessName: firstText([json['vendorBusinessName'], (json['vendor'] is Map ? json['vendor']['businessName'] : null)]),
+      vendorCode: firstText([json['vendorCode'], (json['vendor'] is Map ? json['vendor']['vendorCode'] : null), (json['vendor'] is Map ? json['vendor']['id'] : null)]),
+      vendorOwnerName: firstText([json['vendorOwnerName'], (json['vendor'] is Map ? json['vendor']['ownerName'] : null)]),
+      vendorEmail: firstText([json['vendorEmail'], (json['vendor'] is Map ? json['vendor']['email'] : null)]),
+      vendorAddress: firstText([json['vendorAddress'], (json['vendor'] is Map ? json['vendor']['address'] : null), (json['vendor'] is Map ? json['vendor']['businessAddress'] : null)]),
+      customerName: firstText([customer['name'], json['customerName'], json['buyerName']]),
+      customerPhone: firstText([customer['phone'], json['customerPhone'], json['buyerPhone']]),
+      customerAddress: firstText([customer['address'], json['customerAddress'], json['customerDeliveryArea'], json['deliveryAddress']]),
+      harvestDate: json['harvestDate']?.toString() ?? '',
+      harvestTime: json['harvestTime']?.toString() ?? '',
+      deliveryStatus: json['deliveryStatus']?.toString() ?? 'Pending',
+      rejectionNote: json['rejectionNote']?.toString() ?? '',
+      rejectedBy: json['rejectedBy']?.toString() ?? '',
+      acceptedAt: json['acceptedAt']?.toString() ?? '',
+      preparedAt: json['preparedAt']?.toString() ?? '',
+      readyForPickupAt: json['readyForPickupAt']?.toString() ?? '',
+      timeline: (json['timeline'] is List)
+          ? (json['timeline'] as List)
+              .whereType<Map>()
+              .map((t) => OrderTimelineStep.fromJson(Map<String, dynamic>.from(t)))
+              .toList()
+          : <OrderTimelineStep>[],
     );
   }
 }

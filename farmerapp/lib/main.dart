@@ -218,7 +218,7 @@ class _SessionGateState extends State<_SessionGate> {
       return const LoginScreen();
     }
     if (!onboardingDone) {
-      return const FarmerOnboardingFlowScreen();
+      return FarmerOnboardingFlowScreen(initialStep: FarmerState().currentPendingStep);
     }
     return const MainShell();
   }

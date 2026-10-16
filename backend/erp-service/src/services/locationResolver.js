@@ -14,6 +14,11 @@ function codeFromName(name, width = 3) {
 }
 
 const DISTRICT_ALIASES = {
+  ahilyanagar: "AHI",
+  "ahilya nagar": "AHI",
+  ahmednagar: "AHI",
+  "ahmed nagar": "AHI",
+  ahi: "AHI",
   nashik: "NK",
   nasik: "NK",
   nsk: "NK",
@@ -28,6 +33,9 @@ const DISTRICT_ALIASES = {
 };
 
 const TALUKA_ALIASES = {
+  kopargaon: "KOP",
+  kopergaon: "KOP",
+  kop: "KOP",
   sinnar: "SIN",
   sinner: "SIN",
   sin: "SIN",

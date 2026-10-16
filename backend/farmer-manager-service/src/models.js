@@ -69,6 +69,8 @@ const farmerSchema = new mongoose.Schema(
       accountType: { type: String, default: "Savings" },
       upiId: { type: String, default: "" },
     },
+    aadhaarNumber: { type: String, default: "", trim: true },
+    panNumber: { type: String, default: "", trim: true },
     status: {
       type: String,
       enum: ["Pending", "Active", "Inactive", "Suspended"],
@@ -373,7 +375,7 @@ const farmerEarningSchema = new mongoose.Schema(
 const farmerDocumentSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
-    vendorId: { type: String, required: true, default: "vendor-1" },
+    vendorId: { type: String, default: "" },
     managerId: { type: String, default: "" },
     farmerId: { type: String, required: true },
     name: { type: String, default: "" },

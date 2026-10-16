@@ -16,10 +16,8 @@ class FarmerSocketService {
   bool get isConnected => _isConnected;
 
   void connect(String farmerId) {
-    if (farmerId.isEmpty) {
-      farmerId = 'farmer-1';
-    }
-    _farmerId = farmerId;
+    if (farmerId.trim().isEmpty) return;
+    _farmerId = farmerId.trim();
 
     if (_socket != null && _socket!.connected) {
       _joinRoom();

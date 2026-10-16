@@ -9,7 +9,7 @@ import '../styles/admin.css';
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [authMode, setAuthMode] = useState('password'); // 'password' | 'otp'
+  const [authMode, setAuthMode] = useState('otp'); // 'otp' | 'password'
   const [email, setEmail] = useState('admin@greengrocc.com');
   const [password, setPassword] = useState('admin123');
   const [adminPhone, setAdminPhone] = useState('7499972072');
@@ -116,7 +116,7 @@ export default function Login() {
         <p className={`mt-0.5 ${PAGE_SUB}`}>
           {authMode === 'password'
             ? 'Enter your admin email and password to continue.'
-            : 'Sign in securely using MSG91 Admin Login OTP.'}
+            : 'Sign in securely using Admin Login OTP.'}
         </p>
 
         {/* Tab switch */}
@@ -151,7 +151,7 @@ export default function Login() {
             }`}
           >
             <MessageSquareCode className="h-3.5 w-3.5" />
-            MSG91 OTP
+            Login with OTP
           </button>
         </div>
 

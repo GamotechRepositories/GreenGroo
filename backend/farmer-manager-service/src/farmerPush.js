@@ -3,7 +3,16 @@
  * Sockets update the open app; FCM reaches the farmer when the app is in background or closed.
  * Without Firebase Admin credentials on the server every send is skipped quietly.
  */
-import { Farmer } from "./models.js";
+import crypto from "crypto";
+import mongoose from "mongoose";
+import {
+  Farmer,
+  FarmerOrder,
+  FarmerHarvestOrder,
+  FarmerDocument,
+  FarmerProduct,
+  Vendor,
+} from "./models.js";
 
 // Must match kFarmerChannelId in farmerapp/lib/services/push_notification_service.dart.
 export const FARMER_CHANNEL_ID = "farmer_alerts_v2";
@@ -14,6 +23,27 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/registration-token-not-registered",
   "messaging/invalid-registration-token",
 ]);
+
+// ── Farmer In-App Notification Schema ───────────────────────────────────────
+const farmerNotificationSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    farmerId: { type: String, required: true, index: true },
+    title: { type: String, default: "" },
+    body: { type: String, default: "" },
+    type: { type: String, default: "orders" }, // 'orders', 'payments', 'documents', 'schemes', 'crops', 'inventory', 'account', 'system'
+    orderCode: { type: String, default: "" },
+    actionLabel: { type: String, default: "" },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+    read: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+farmerNotificationSchema.index({ farmerId: 1, createdAt: -1 });
+
+export const FarmerNotification =
+  mongoose.models.FarmerNotification ||
+  mongoose.model("FarmerNotification", farmerNotificationSchema);
 
 let warnedNoFirebase = false;
 
@@ -40,49 +70,85 @@ const langOf = (value) => (String(value || "").toLowerCase().startsWith("en") ? 
 const pick = (text, lang) => (typeof text === "string" ? text : text?.[lang] || text?.en || "");
 
 /**
- * Sends one notification to every app install of a farmer.
+ * Sends one notification to every app install of a farmer and stores it in their inbox.
  * title / body: string or { en, mr }; tag: notifications with the same tag replace each other.
  */
 export async function notifyFarmer(farmerKey, { title, body = "", data = {}, tag = "" }) {
   if (!farmerKey || !title) return { sent: 0, reason: "missing-input" };
   const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
-    .select("id fcmTokens")
+    .select("id fcmTokens preferredLanguage")
     .lean();
-  const tokens = (farmer?.fcmTokens || []).filter((t) => t?.token);
-  if (!tokens.length) return { sent: 0, reason: "no-tokens" };
+  if (!farmer) return { sent: 0, reason: "farmer-not-found" };
+
+  const lang = langOf(farmer.preferredLanguage || "mr");
+  const t = pick(title, lang);
+  const b = pick(body, lang);
+  let rawType = String(data.type || "orders").toLowerCase();
+  if (rawType === "order") rawType = "orders";
+  if (rawType === "payment") rawType = "payments";
+  if (rawType === "document") rawType = "documents";
+  if (rawType === "scheme") rawType = "schemes";
+
+  const orderCode = String(data.orderId || data.orderCode || "");
+  const actionLabel =
+    rawType === "payments"
+      ? "हिशोब पहा"
+      : rawType === "orders"
+      ? "ऑर्डर पहा"
+      : rawType === "documents"
+      ? "कागदपत्रे पहा"
+      : rawType === "schemes"
+      ? "योजना पहा"
+      : "पहा";
+
+  // 1. ALWAYS persist real notification into MongoDB inbox
+  await FarmerNotification.create({
+    id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+    farmerId: farmer.id,
+    title: t,
+    body: b,
+    type: rawType,
+    orderCode,
+    actionLabel,
+    data,
+    read: false,
+  }).catch((err) => console.warn("[FarmerPush] Failed to store notification in inbox:", err.message));
+
+  // 2. Push to FCM if devices are registered
+  const tokens = (farmer.fcmTokens || []).filter((t) => t?.token);
+  if (!tokens.length) return { sent: 0, reason: "no-tokens", stored: true };
 
   const messaging = await getMessagingSafe();
   if (!messaging) {
     if (!warnedNoFirebase) {
       warnedNoFirebase = true;
-      console.warn("[FarmerPush] Firebase Admin not configured — farmer push skipped (in-app updates still work).");
+      console.warn("[FarmerPush] Firebase Admin not configured — farmer push skipped (stored in app inbox).");
     }
-    return { sent: 0, reason: "firebase-not-configured" };
+    return { sent: 0, reason: "firebase-not-configured", stored: true };
   }
 
   const byLang = new Map();
-  for (const t of tokens) {
-    const lang = langOf(t.language);
-    byLang.set(lang, [...(byLang.get(lang) || []), t.token]);
+  for (const tok of tokens) {
+    const l = langOf(tok.language);
+    byLang.set(l, [...(byLang.get(l) || []), tok.token]);
   }
 
   let sent = 0;
   const invalid = [];
-  for (const [lang, list] of byLang) {
-    const t = pick(title, lang);
-    const b = pick(body, lang);
+  for (const [l, list] of byLang) {
+    const pushTitle = pick(title, l);
+    const pushBody = pick(body, l);
     try {
       const res = await messaging.sendEachForMulticast({
         tokens: [...new Set(list)],
-        notification: { title: t, body: b },
-        data: stringifyData({ ...data, title: t, body: b, tag }),
+        notification: { title: pushTitle, body: pushBody },
+        data: stringifyData({ ...data, title: pushTitle, body: pushBody, tag }),
         android: {
           priority: "high",
           notification: {
             channelId: FARMER_CHANNEL_ID,
             sound: FARMER_SOUND,
             defaultVibrateTimings: true,
-            // Show and ring on the lock screen, including Android 7 and older (no channels there).
             visibility: "public",
             notificationPriority: "PRIORITY_MAX",
             ...(tag ? { tag } : {}),
@@ -102,7 +168,7 @@ export async function notifyFarmer(farmerKey, { title, body = "", data = {}, tag
   if (invalid.length) {
     await Farmer.updateOne({ id: farmer.id }, { $pull: { fcmTokens: { token: { $in: invalid } } } }).catch(() => {});
   }
-  return { sent, invalid: invalid.length };
+  return { sent, invalid: invalid.length, stored: true };
 }
 
 export async function registerFarmerPushToken(farmerKey, { token, platform = "android", language = "mr" }) {
@@ -166,6 +232,250 @@ export async function sendFarmerTestPush(req, res) {
   }
 }
 
+// ── Auto-seed real notifications from farmer's actual database records ────────
+async function autoSeedRealFarmerNotifications(farmer) {
+  try {
+    const farmerId = farmer.id || farmer.farmerId;
+    if (!farmerId) return;
+
+    // 1. Fetch real orders
+    const [harvestOrders, classicOrders] = await Promise.all([
+      FarmerHarvestOrder.find({ farmerId }).sort({ createdAt: -1 }).limit(20).lean().catch(() => []),
+      FarmerOrder.find({ farmerId }).sort({ createdAt: -1 }).limit(20).lean().catch(() => []),
+    ]);
+
+    const allOrders = [...harvestOrders, ...classicOrders];
+    const seen = new Set();
+    const uniqueOrders = [];
+    for (const o of allOrders) {
+      const oid = String(o.id || o.orderId || o._id);
+      if (!seen.has(oid)) {
+        seen.add(oid);
+        uniqueOrders.push(o);
+      }
+    }
+
+    const vendorIds = [...new Set(uniqueOrders.map((o) => o.vendorId).filter(Boolean))];
+    const vendors = vendorIds.length
+      ? await Vendor.find({ $or: [{ id: { $in: vendorIds } }, { vendorId: { $in: vendorIds } }] })
+          .select("id vendorId vendorName ownerName businessName")
+          .lean()
+          .catch(() => [])
+      : [];
+    const vendorMap = new Map();
+    for (const v of vendors) {
+      const name = v.businessName || v.vendorName || v.ownerName || "अधिकृत व्हेंडर";
+      if (v.id) vendorMap.set(String(v.id), name);
+      if (v.vendorId) vendorMap.set(String(v.vendorId), name);
+    }
+
+    const toInsert = [];
+
+    for (const order of uniqueOrders) {
+      const orderId = order.orderId || order.id;
+      const code = order.orderCode || `#${orderId}`;
+      const vendorName = vendorMap.get(String(order.vendorId)) || farmer.vendorName || "अधिकृत व्हेंडर";
+      const product = order.productName || order.products?.[0]?.name || "शेतमाल";
+      const qty = Number(order.totalQuantity || order.quantity || order.orderedQuantity || 0);
+      const unit = order.unit || order.products?.[0]?.unit || "Kg";
+      const amount = Number(order.totalAmount || order.amount || 0);
+      const status = String(order.status || "").toUpperCase();
+
+      if (status.includes("COMPLET") || status.includes("PAID")) {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `पेमेंट जमा: ₹${amount.toLocaleString("en-IN")}`,
+          body: `${vendorName} कडून ${product} ची काढणी ऑर्डर पूर्ण झाली असून हिशोब जमा झाला आहे. (${code})`,
+          type: "payments",
+          orderCode: code,
+          actionLabel: "हिशोब पहा",
+          data: { type: "PAYMENT", screen: "earnings", orderId },
+          read: true,
+          createdAt: order.updatedAt || order.createdAt || new Date(),
+        });
+      } else if (status.includes("READY")) {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `पिकअप स्लॉट तयार: ${code}`,
+          body: `${product} चा माल पिकअपसाठी तयार ठेवा. संकलन केंद्र: ${order.collectionCentre || "मुख्य संकलन केंद्र"}`,
+          type: "orders",
+          orderCode: code,
+          actionLabel: "ऑर्डर पहा",
+          data: { type: "ORDER", screen: "order", orderId },
+          read: false,
+          createdAt: order.updatedAt || order.createdAt || new Date(),
+        });
+      } else if (status.includes("REJECT") || status.includes("CANCEL")) {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `ऑर्डर नाकारली: ${code}`,
+          body: `${product} ची ऑर्डर नाकारण्यात आली आहे.${order.rejectionReason ? ` कारण: ${order.rejectionReason}` : ""}`,
+          type: "orders",
+          orderCode: code,
+          actionLabel: "ऑर्डर पहा",
+          data: { type: "ORDER", screen: "order", orderId },
+          read: true,
+          createdAt: order.updatedAt || order.createdAt || new Date(),
+        });
+      } else {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `नवीन ऑर्डर: ₹${amount.toLocaleString("en-IN")}`,
+          body: `${vendorName} यांनी ${product} ची ${qty} ${unit} ऑर्डर नोंदवली आहे. (${code})`,
+          type: "orders",
+          orderCode: code,
+          actionLabel: "ऑर्डर पहा",
+          data: { type: "ORDER", screen: "order", orderId },
+          read: false,
+          createdAt: order.createdAt || new Date(),
+        });
+      }
+    }
+
+    // 2. Fetch real documents
+    const docs = await FarmerDocument.find({ farmerId }).lean().catch(() => []);
+    for (const doc of docs) {
+      const st = String(doc.status || "").toLowerCase();
+      if (st === "approved") {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `कागदपत्र मंजूर ✓: ${doc.name || doc.type || "कागदपत्र"}`,
+          body: `व्हेंडरने तुमचे ${doc.name || doc.type || "कागदपत्र"} तपासून मंजूर केले आहे.`,
+          type: "documents",
+          orderCode: String(doc.type || "").toUpperCase(),
+          actionLabel: "कागदपत्रे पहा",
+          data: { type: "DOCUMENT", screen: "documents", docId: doc.id },
+          read: true,
+          createdAt: doc.updatedAt || doc.createdAt || new Date(),
+        });
+      } else if (st === "rejected") {
+        toInsert.push({
+          id: `FN-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          farmerId: farmer.id,
+          title: `कागदपत्र अमान्य ⚠️: ${doc.name || doc.type || "कागदपत्र"}`,
+          body: `व्हेंडरने तुमचे ${doc.name || doc.type || "कागदपत्र"} अमान्य केले आहे.${doc.rejectionReason ? ` कारण: ${doc.rejectionReason}.` : ""} कृपया स्पष्ट प्रत पुन्हा अपलोड करा.`,
+          type: "documents",
+          orderCode: String(doc.type || "").toUpperCase(),
+          actionLabel: "पुन्हा अपलोड करा",
+          data: { type: "DOCUMENT", screen: "documents", docId: doc.id },
+          read: false,
+          createdAt: doc.updatedAt || doc.createdAt || new Date(),
+        });
+      }
+    }
+
+    if (toInsert.length > 0) {
+      toInsert.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      await FarmerNotification.insertMany(toInsert).catch((err) =>
+        console.warn("[FarmerPush] Auto-seed insert error:", err.message)
+      );
+    }
+  } catch (err) {
+    console.warn("[FarmerPush] autoSeedRealFarmerNotifications failed:", err.message);
+  }
+}
+
+// ── Farmer Notifications API Endpoints ────────────────────────────────────────
+export async function listFarmerNotifications(req, res) {
+  try {
+    const farmerKey = authFarmerKey(req);
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
+      .select("id farmerId vendorId vendorName preferredLanguage")
+      .lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const filter = { farmerId: farmer.id };
+    if (req.query.category && req.query.category !== "all") {
+      filter.type = String(req.query.category).toLowerCase();
+    }
+
+    let rows = await FarmerNotification.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+
+    // If completely empty, auto-seed from real orders & documents
+    if (rows.length === 0 && (!req.query.category || req.query.category === "all")) {
+      await autoSeedRealFarmerNotifications(farmer);
+      rows = await FarmerNotification.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+    }
+
+    const unread = await FarmerNotification.countDocuments({ farmerId: farmer.id, read: false });
+
+    res.json({
+      unread,
+      data: rows.map(({ _id, __v, ...row }) => row),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load notifications" });
+  }
+}
+
+export async function readAllFarmerNotifications(req, res) {
+  try {
+    const farmerKey = authFarmerKey(req);
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
+      .select("id")
+      .lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    await FarmerNotification.updateMany({ farmerId: farmer.id, read: false }, { $set: { read: true } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to mark notifications as read" });
+  }
+}
+
+export async function markFarmerNotificationRead(req, res) {
+  try {
+    const farmerKey = authFarmerKey(req);
+    const { id } = req.params;
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
+      .select("id")
+      .lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    await FarmerNotification.updateOne({ farmerId: farmer.id, id }, { $set: { read: true } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to mark notification as read" });
+  }
+}
+
+export async function deleteFarmerNotification(req, res) {
+  try {
+    const farmerKey = authFarmerKey(req);
+    const { id } = req.params;
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
+      .select("id")
+      .lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    await FarmerNotification.deleteOne({ farmerId: farmer.id, id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete notification" });
+  }
+}
+
+export async function clearAllFarmerNotifications(req, res) {
+  try {
+    const farmerKey = authFarmerKey(req);
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerKey }, { farmerId: farmerKey }] })
+      .select("id")
+      .lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    await FarmerNotification.deleteMany({ farmerId: farmer.id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to clear notifications" });
+  }
+}
+
 // ── Event texts ───────────────────────────────────────────────────────────────
 
 const ORDER_STATUS_TEXT = {
@@ -221,15 +531,25 @@ function orderSummary(order) {
 
 export async function notifyFarmerOrderChange(order, { isNew, statusChanged, paymentChanged }) {
   const orderId = order.orderId || order.id;
-  const code = `#${orderId}`;
+  const code = order.orderCode ? `#${order.orderCode}` : `#${orderId}`;
   const data = { type: "ORDER", screen: "order", orderId };
   const tag = `order_${orderId}`;
   const summary = orderSummary(order);
   const status = String(order.status || "").toUpperCase();
 
+  let vendorName = order.vendorBusinessName || order.vendorName || "";
+  if (!vendorName && order.vendorId) {
+    const v = await Vendor.findOne({ $or: [{ id: order.vendorId }, { vendorId: order.vendorId }] })
+      .select("businessName vendorName ownerName")
+      .lean()
+      .catch(() => null);
+    if (v) vendorName = v.businessName || v.vendorName || v.ownerName || "";
+  }
+  const vPrefix = vendorName ? `${vendorName}: ` : "";
+
   if (isNew) {
     return notifyFarmer(order.farmerId, {
-      title: { en: "New harvest order", mr: "नवीन काढणी ऑर्डर" },
+      title: { en: `${vPrefix}New harvest order`, mr: `${vPrefix}नवीन काढणी ऑर्डर` },
       body: { en: `${summary} · ${code}`, mr: `${summary} · ${code}` },
       data: { ...data, event: "ORDER_NEW", status },
       tag,
@@ -249,7 +569,10 @@ export async function notifyFarmerOrderChange(order, { isNew, statusChanged, pay
   if (!text) return null;
   const reason = order.rejectionReason ? ` · ${order.rejectionReason}` : "";
   return notifyFarmer(order.farmerId, {
-    title: text,
+    title: {
+      en: `${vPrefix}${text.en}`,
+      mr: `${vPrefix}${text.mr}`,
+    },
     body: {
       en: `${summary} · ${code}${["REJECTED", "CANCELLED"].includes(status) ? reason : ""}`,
       mr: `${summary} · ${code}${["REJECTED", "CANCELLED"].includes(status) ? reason : ""}`,

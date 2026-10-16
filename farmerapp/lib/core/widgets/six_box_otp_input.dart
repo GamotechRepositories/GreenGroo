@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 
-/// 6 Separate Box OTP Input Widget.
-/// - Shows 6 square boxes with faint placeholder digits (e.g. 1 2 3 4 5 6) when empty.
-/// - Directly clickable: clicking anywhere opens the keyboard and focuses properly.
-/// - When typed, real digits replace the placeholder in bold dark color.
+/// Rock-solid 6-Box OTP Input Widget.
+/// - 6 individual physical TextFields with auto-advance and backspace navigation.
+/// - Direct tap selection, auto-overwriting, paste support for full 6-digit OTP codes.
+/// - Clean empty boxes with active green border and blinking cursor (no confusing fake digit placeholders).
+/// - Synchronized bidirectionally with parent TextEditingController.
 class SixBoxOtpInput extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
@@ -25,134 +26,195 @@ class SixBoxOtpInput extends StatefulWidget {
 }
 
 class _SixBoxOtpInputState extends State<SixBoxOtpInput> {
-  late FocusNode _focusNode;
-
-  // Placeholder digits shown when boxes are empty
-  final List<String> _placeholderDigits = const ['1', '2', '3', '4', '5', '6'];
+  late final List<TextEditingController> _boxControllers;
+  late final List<FocusNode> _focusNodes;
+  bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
-    _focusNode.addListener(_onFocusChanged);
-    widget.controller.addListener(_onControllerChanged);
+    _boxControllers = List.generate(6, (i) => TextEditingController());
+    _focusNodes = List.generate(6, (i) {
+      return FocusNode(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+            if (_boxControllers[i].text.isEmpty && i > 0) {
+              _boxControllers[i - 1].clear();
+              _focusNodes[i - 1].requestFocus();
+              _syncToParent();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+      );
+    });
+
+    _syncFromParent();
+    widget.controller.addListener(_onParentControllerChanged);
+
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focusAndOpenKeyboard();
+        if (!mounted) return;
+        int firstEmpty = 0;
+        for (int i = 0; i < 6; i++) {
+          if (_boxControllers[i].text.isEmpty) {
+            firstEmpty = i;
+            break;
+          }
+        }
+        _focusNodes[firstEmpty].requestFocus();
       });
     }
   }
 
   @override
   void dispose() {
-    _focusNode.removeListener(_onFocusChanged);
-    widget.controller.removeListener(_onControllerChanged);
-    _focusNode.dispose();
+    widget.controller.removeListener(_onParentControllerChanged);
+    for (final c in _boxControllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  void _onFocusChanged() {
-    if (mounted) setState(() {});
+  void _onParentControllerChanged() {
+    if (_isSyncing) return;
+    _syncFromParent();
   }
 
-  void _onControllerChanged() {
-    if (mounted) setState(() {});
-    widget.onChanged?.call(widget.controller.text);
-    if (widget.controller.text.length == 6) {
-      widget.onCompleted?.call(widget.controller.text);
+  void _syncFromParent() {
+    final parentText = widget.controller.text;
+    _isSyncing = true;
+    for (int i = 0; i < 6; i++) {
+      final char = i < parentText.length ? parentText[i] : '';
+      if (_boxControllers[i].text != char) {
+        _boxControllers[i].text = char;
+      }
     }
+    _isSyncing = false;
+    if (mounted) setState(() {});
   }
 
-  void _focusAndOpenKeyboard() {
-    FocusScope.of(context).requestFocus(_focusNode);
-    SystemChannels.textInput.invokeMethod('TextInput.show');
+  void _syncToParent() {
+    _isSyncing = true;
+    final combined = _boxControllers.map((c) => c.text).join();
+    if (widget.controller.text != combined) {
+      widget.controller.text = combined;
+    }
+    _isSyncing = false;
+    widget.onChanged?.call(combined);
+    if (combined.length == 6) {
+      widget.onCompleted?.call(combined);
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onBoxChanged(int index, String value) {
+    if (value.length > 1) {
+      // Pasted content or rapid multi-character input
+      final digits = value.replaceAll(RegExp(r'\D'), '');
+      if (digits.isNotEmpty) {
+        for (int i = 0; i < digits.length && (index + i) < 6; i++) {
+          _boxControllers[index + i].text = digits[i];
+        }
+        final nextIndex = (index + digits.length).clamp(0, 5);
+        _focusNodes[nextIndex].requestFocus();
+        _syncToParent();
+        return;
+      }
+    }
+
+    if (value.isNotEmpty) {
+      // Keep only the most recently typed character
+      final lastChar = value[value.length - 1];
+      if (_boxControllers[index].text != lastChar) {
+        _boxControllers[index].text = lastChar;
+      }
+      if (index < 5) {
+        _focusNodes[index + 1].requestFocus();
+      }
+    }
+    _syncToParent();
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = widget.controller.text;
-    final isFocused = _focusNode.hasFocus;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = constraints.maxWidth;
+        // Dynamically compute box size to guarantee no horizontal overflow on any device
+        final boxWidth = ((totalWidth - (5 * 8)) / 6).clamp(38.0, 48.0);
+        final boxHeight = (boxWidth * 1.18).clamp(46.0, 56.0);
 
-    return SizedBox(
-      height: 56,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 6 Visual Boxes with Placeholders underneath
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (index) {
-              final hasChar = text.length > index;
-              final char = hasChar ? text[index] : _placeholderDigits[index];
-              final isCurrentActive = isFocused && (text.length == index || (index == 5 && text.length == 6));
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(6, (index) {
+            final hasFocus = _focusNodes[index].hasFocus;
+            final hasChar = _boxControllers[index].text.isNotEmpty;
 
-              return Container(
-                width: 46,
-                height: 54,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isCurrentActive
-                        ? AppColors.primary
-                        : (hasChar ? AppColors.primary.withValues(alpha: 0.6) : const Color(0xFFCBD5E1)),
-                    width: isCurrentActive ? 2.0 : 1.2,
-                  ),
-                  boxShadow: isCurrentActive
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.18),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          )
-                        ]
-                      : null,
+            return Container(
+              width: boxWidth,
+              height: boxHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: hasFocus ? Colors.white : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasFocus
+                      ? AppColors.primary
+                      : (hasChar
+                          ? AppColors.primary.withValues(alpha: 0.6)
+                          : const Color(0xFFCBD5E1)),
+                  width: hasFocus ? 2.0 : 1.2,
                 ),
-                child: Text(
-                  char,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: hasChar ? FontWeight.bold : FontWeight.w500,
-                    color: hasChar ? AppColors.text : const Color(0xFF94A3B8), // Faint grey placeholder
-                  ),
+                boxShadow: hasFocus
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        )
+                      ]
+                    : null,
+              ),
+              child: TextField(
+                controller: _boxControllers[index],
+                focusNode: _focusNodes[index],
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                showCursor: true,
+                cursorColor: AppColors.primary,
+                cursorWidth: 2,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6), // Allows paste on any box
+                ],
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
                 ),
-              );
-            }),
-          ),
-
-          // Real transparent TextField ON TOP so every touch directly hits native input
-          Positioned.fill(
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _focusNode,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              autofocus: widget.autofocus,
-              enableSuggestions: false,
-              autocorrect: false,
-              cursorColor: Colors.transparent,
-              cursorWidth: 0,
-              showCursor: false,
-              style: const TextStyle(
-                color: Colors.transparent,
-                fontSize: 1,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  counterText: '',
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+                onTap: () {
+                  _boxControllers[index].selection = TextSelection(
+                    baseOffset: 0,
+                    extentOffset: _boxControllers[index].text.length,
+                  );
+                },
+                onChanged: (val) => _onBoxChanged(index, val),
               ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                counterText: '',
-                contentPadding: EdgeInsets.zero,
-                fillColor: Colors.transparent,
-                filled: true,
-              ),
-              onTap: _focusAndOpenKeyboard,
-            ),
-          ),
-        ],
-      ),
+            );
+          }),
+        );
+      },
     );
   }
 }

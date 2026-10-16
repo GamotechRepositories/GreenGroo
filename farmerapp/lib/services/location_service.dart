@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 import './app_language.dart';
+import 'location_directory.dart';
 /// A chosen farm location with geocoded address details.
 class FarmGeoLocation {
   final double latitude;
@@ -35,16 +36,28 @@ class FarmGeoLocation {
     return '${latitude.toStringAsFixed(5)}°, ${longitude.toStringAsFixed(5)}°';
   }
 
-  FarmGeoLocation withCoordinates(double lat, double lng) => FarmGeoLocation(
-        latitude: lat,
-        longitude: lng,
-        village: village,
-        taluka: taluka,
-        district: district,
-        state: state,
-        pincode: pincode,
-        formattedAddress: formattedAddress,
+  FarmGeoLocation copyWith({
+    double? latitude,
+    double? longitude,
+    String? village,
+    String? taluka,
+    String? district,
+    String? state,
+    String? pincode,
+    String? formattedAddress,
+  }) =>
+      FarmGeoLocation(
+        latitude: latitude ?? this.latitude,
+        longitude: longitude ?? this.longitude,
+        village: village ?? this.village,
+        taluka: taluka ?? this.taluka,
+        district: district ?? this.district,
+        state: state ?? this.state,
+        pincode: pincode ?? this.pincode,
+        formattedAddress: formattedAddress ?? this.formattedAddress,
       );
+
+  FarmGeoLocation withCoordinates(double lat, double lng) => copyWith(latitude: lat, longitude: lng);
 }
 
 enum LocationFailureKind { serviceDisabled, denied, deniedForever, timeout, unknown }
@@ -124,18 +137,157 @@ class FarmLocationService {
   }
 
   static Future<FarmGeoLocation?> reverseGeocode(double lat, double lng) async {
+    FarmGeoLocation? loc;
+
+    // 1. Query ESRI World Geocoder first (has official Indian revenue village & locality boundaries)
     try {
-      final uri = Uri.parse(
-        '$_nominatim/reverse?format=jsonv2&lat=$lat&lon=$lng&zoom=18&addressdetails=1&accept-language=en',
+      final esriUri = Uri.parse(
+        'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?location=$lng,$lat&f=json',
       );
-      final res = await http.get(uri, headers: const {'User-Agent': _userAgent}).timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return null;
-      final data = jsonDecode(res.body);
-      if (data is! Map<String, dynamic> || data['error'] != null) return null;
-      return _fromNominatim(data, lat, lng);
-    } catch (_) {
+      final res = await http.get(esriUri, headers: const {'User-Agent': _userAgent}).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data is Map<String, dynamic> && data['address'] != null) {
+          loc = _fromEsri(data, lat, lng);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Query Nominatim (OpenStreetMap) if ESRI returned no village or failed
+    if (loc == null || loc.village.isEmpty) {
+      try {
+        final uri = Uri.parse(
+          '$_nominatim/reverse?format=jsonv2&lat=$lat&lon=$lng&zoom=18&addressdetails=1&accept-language=en',
+        );
+        final res = await http.get(uri, headers: const {'User-Agent': _userAgent}).timeout(const Duration(seconds: 6));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          if (data is Map<String, dynamic> && data['error'] == null) {
+            final nomLoc = _fromNominatim(data, lat, lng);
+            if (loc == null) {
+              loc = nomLoc;
+            } else {
+              loc = loc.copyWith(
+                village: nomLoc.village.isNotEmpty ? nomLoc.village : loc.village,
+                taluka: loc.taluka.isNotEmpty ? loc.taluka : nomLoc.taluka,
+                district: loc.district.isNotEmpty ? loc.district : nomLoc.district,
+                pincode: loc.pincode.isNotEmpty ? loc.pincode : nomLoc.pincode,
+                formattedAddress: loc.formattedAddress.isNotEmpty ? loc.formattedAddress : nomLoc.formattedAddress,
+              );
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    try {
+      loc ??= FarmGeoLocation(latitude: lat, longitude: lng);
+
+      // Filter out road names or highway numbers (e.g. MDR25, SH10)
+      if (_isRoadOrHighway(loc.village)) {
+        loc = loc.copyWith(village: '');
+      }
+
+      // Try to match or normalize the village against our official taluka directory
+      if (loc.taluka.isNotEmpty && loc.village.isNotEmpty) {
+        final match = await LocationDirectory.findMatchingVillage(loc.taluka, loc.village, districtName: loc.district);
+        if (match != null) {
+          loc = loc.copyWith(
+            village: match.name,
+            pincode: (loc.pincode.isEmpty || loc.pincode.length != 6) ? match.pincode : loc.pincode,
+          );
+        }
+      }
+
+      // If pincode is available but taluka or district is missing, enrich from directory
+      final pin = loc.pincode.trim();
+      if (pin.length == 6 && (loc.taluka.isEmpty || loc.district.isEmpty)) {
+        final localData = await LocationDirectory.findLocationByPincode(pin);
+        if (localData != null) {
+          loc = loc.copyWith(
+            taluka: loc.taluka.isNotEmpty ? loc.taluka : (localData['taluka'] ?? ''),
+            district: loc.district.isNotEmpty ? loc.district : (localData['district'] ?? ''),
+            state: loc.state.isNotEmpty ? loc.state : (localData['state'] ?? 'Maharashtra'),
+          );
+        }
+      }
+
+      // If formattedAddress starts with a highway code (e.g. "MDR25..."), clean it
+      if (_isRoadOrHighway(loc.formattedAddress.split(',').firstOrNull ?? '')) {
+        final cleanParts = [loc.village, loc.taluka, loc.district, 'Maharashtra, India']
+            .where((s) => s.isNotEmpty && !_isRoadOrHighway(s))
+            .toList();
+        if (cleanParts.isNotEmpty) {
+          loc = loc.copyWith(formattedAddress: cleanParts.join(', '));
+        }
+      }
+    } catch (_) {}
+
+    return loc ?? FarmGeoLocation(latitude: lat, longitude: lng);
+  }
+
+  static bool _isRoadOrHighway(String text) {
+    final s = text.trim();
+    if (s.isEmpty) return true;
+    if (s.toLowerCase().contains('unnamed')) return true;
+    // Highway / road codes: MDR25, MDR-25, SH10, NH60, ODR5, VR12, etc.
+    if (RegExp(r'^(MDR|SH|NH|ODR|VR|RR|NE)\s*-?\s*\d+', caseSensitive: false).hasMatch(s)) return true;
+    // Common road suffixes or keywords
+    if (RegExp(r'\b(road|rd|highway|expressway|lane|street|marg|path|toll|bypass|flyover)\b', caseSensitive: false).hasMatch(s)) return true;
+    // Digits only
+    if (RegExp(r'^\d+$').hasMatch(s)) return true;
+    return false;
+  }
+
+  static FarmGeoLocation? _fromEsri(Map<String, dynamic> data, double lat, double lng) {
+    final addr = (data['address'] as Map?)?.cast<String, dynamic>();
+    if (addr == null) return null;
+
+    String clean(dynamic val) => (val?.toString() ?? '').trim();
+
+    final rawTaluka = _stripSuffix(clean(addr['City']));
+    final rawDistrict = _stripSuffix(clean(addr['Subregion']));
+    final state = clean(addr['Region']);
+    final postal = clean(addr['Postal']);
+    final matchAddr = clean(addr['Match_addr']);
+
+    // In ESRI India data:
+    // 'District' or 'PlaceName' or 'Neighborhood' contains the rural revenue village
+    // 'City' contains the Taluka/Tehsil
+    // 'Subregion' contains the District
+    String villageCandidate = '';
+    final placeName = clean(addr['PlaceName']);
+    final districtField = clean(addr['District']);
+    final neighborhood = clean(addr['Neighborhood']);
+
+    if (!_isRoadOrHighway(placeName) &&
+        placeName.toLowerCase() != rawTaluka.toLowerCase() &&
+        placeName.toLowerCase() != rawDistrict.toLowerCase()) {
+      villageCandidate = placeName;
+    } else if (!_isRoadOrHighway(districtField) &&
+        districtField.toLowerCase() != rawTaluka.toLowerCase() &&
+        districtField.toLowerCase() != rawDistrict.toLowerCase()) {
+      villageCandidate = districtField;
+    } else if (!_isRoadOrHighway(neighborhood) &&
+        neighborhood.toLowerCase() != rawTaluka.toLowerCase() &&
+        neighborhood.toLowerCase() != rawDistrict.toLowerCase()) {
+      villageCandidate = neighborhood;
+    }
+
+    if (villageCandidate.isEmpty && rawTaluka.isEmpty && rawDistrict.isEmpty) {
       return null;
     }
+
+    return FarmGeoLocation(
+      latitude: lat,
+      longitude: lng,
+      village: villageCandidate,
+      taluka: rawTaluka,
+      district: rawDistrict,
+      state: state.isNotEmpty ? state : 'Maharashtra',
+      pincode: postal,
+      formattedAddress: matchAddr.isNotEmpty ? matchAddr : clean(data['address']?['LongLabel']),
+    );
   }
 
   static Future<List<FarmGeoLocation>> search(String query) async {
@@ -169,19 +321,68 @@ class FarmLocationService {
       return '';
     }
 
+    final rawTaluka = _stripSuffix(pick(['county', 'subdistrict', 'district_subdivision', 'tehsil', 'tahsil', 'taluk', 'taluka', 'municipality', 'city_district', 'state_district']));
+    final rawDistrict = _stripSuffix(pick(['state_district', 'district', 'city']));
+
+    // 1. Prioritize real village / rural settlement tags
+    String rawVillage = pick(['village', 'hamlet', 'isolated_dwelling', 'farm', 'croft', 'allotments', 'locality']);
+    if (_isRoadOrHighway(rawVillage)) rawVillage = '';
+
+    // 2. If empty, check suburb / neighbourhood / residential, making sure it doesn't duplicate taluka or district or road
+    if (rawVillage.isEmpty) {
+      final candidate = pick(['neighbourhood', 'suburb', 'residential', 'town']);
+      if (candidate.isNotEmpty && !_isRoadOrHighway(candidate)) {
+        final cLower = candidate.toLowerCase();
+        final tLower = rawTaluka.toLowerCase();
+        final dLower = rawDistrict.toLowerCase();
+        if (cLower != tLower && !cLower.contains(tLower) && !tLower.contains(cLower) && cLower != dLower) {
+          rawVillage = candidate;
+        }
+      }
+    }
+
+    // 2b. Check if road name has a village name: e.g. "Sawargaon Tal Rd" -> "Sawargaon Tal"
+    if (rawVillage.isEmpty) {
+      final road = pick(['road']);
+      if (road.isNotEmpty && !_isRoadOrHighway(road)) {
+        final stripped = road.replaceAll(RegExp(r'\b(road|rd|highway|expressway|lane|street|marg|path|toll|bypass|flyover)\b', caseSensitive: false), '').trim();
+        if (stripped.isNotEmpty && !_isRoadOrHighway(stripped)) {
+          rawVillage = stripped;
+        }
+      }
+    }
+
+    // 3. Fallback: Parse display_name tokens for village name, strictly skipping any roads/highways
+    if (rawVillage.isEmpty) {
+      final disp = (data['display_name'] ?? '').toString();
+      final tokens = disp.split(',').map((s) => s.trim()).toList();
+      for (final token in tokens) {
+        final tLower = token.toLowerCase();
+        if (_isRoadOrHighway(token) ||
+            tLower.contains(rawTaluka.toLowerCase()) ||
+            tLower.contains(rawDistrict.toLowerCase()) ||
+            tLower.contains('maharashtra') ||
+            tLower.contains('india')) {
+          continue;
+        }
+        rawVillage = token;
+        break;
+      }
+    }
+
     return FarmGeoLocation(
       latitude: lat,
       longitude: lng,
-      village: pick(['village', 'hamlet', 'town', 'suburb', 'neighbourhood', 'city']),
-      taluka: _stripSuffix(pick(['county', 'subdistrict', 'municipality', 'city_district'])),
-      district: _stripSuffix(pick(['state_district', 'district', 'city'])),
+      village: rawVillage,
+      taluka: rawTaluka,
+      district: rawDistrict,
       state: pick(['state']).isNotEmpty ? pick(['state']) : 'Maharashtra',
-      pincode: pick(['postcode']).replaceAll(' ', ''),
+      pincode: pick(['postcode', 'postal_code']).replaceAll(' ', ''),
       formattedAddress: (data['display_name'] ?? '').toString(),
     );
   }
 
   static String _stripSuffix(String value) => value
-      .replaceAll(RegExp(r'\s+(Taluka|Tahsil|Tehsil|Subdistrict|District)$', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s+(Taluka|Tahsil|Tehsil|Subdistrict|District|City)$', caseSensitive: false), '')
       .trim();
 }

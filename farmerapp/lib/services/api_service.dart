@@ -319,6 +319,14 @@ class ApiService {
     }
   }
 
+  Future<dynamic> confirmFarmerFarmLocation(Map<String, dynamic> body) async {
+    try {
+      return await post('/api/farmers/me/farm-location/confirm', body);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<dynamic>? _coerceList(dynamic res, List<String> keys) {
     if (res is List) return res;
     if (res is Map) {
@@ -505,6 +513,27 @@ class ApiService {
   }
 
   Future<dynamic> sendTestPush() => post('/api/farmer/push-test', {});
+
+  Future<dynamic> getFarmerNotifications({String? category}) {
+    final query = category != null && category.isNotEmpty && category != 'all' ? '?category=$category' : '';
+    return get('/api/farmer/notifications$query');
+  }
+
+  Future<dynamic> readAllFarmerNotifications() {
+    return post('/api/farmer/notifications/read-all', {});
+  }
+
+  Future<dynamic> markFarmerNotificationRead(String id) {
+    return patch('/api/farmer/notifications/$id/read', {});
+  }
+
+  Future<dynamic> deleteFarmerNotification(String id) {
+    return delete('/api/farmer/notifications/$id');
+  }
+
+  Future<dynamic> clearAllFarmerNotifications() {
+    return delete('/api/farmer/notifications');
+  }
 
   Future<dynamic> createCrop(Map<String, dynamic> body) async {
     return post('/api/farmer/crops', body);

@@ -199,7 +199,16 @@ import {
   saveInventoryAlert,
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
-import { saveFarmerPushToken, deleteFarmerPushToken, sendFarmerTestPush } from "./farmerPush.js";
+import {
+  saveFarmerPushToken,
+  deleteFarmerPushToken,
+  sendFarmerTestPush,
+  listFarmerNotifications,
+  readAllFarmerNotifications,
+  markFarmerNotificationRead,
+  deleteFarmerNotification,
+  clearAllFarmerNotifications,
+} from "./farmerPush.js";
 import {
   saveDriverPushToken,
   deleteDriverPushToken,
@@ -262,6 +271,11 @@ farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmL
 farmerRouter.post("/push-token", requireFarmer, saveFarmerPushToken);
 farmerRouter.delete("/push-token", requireFarmer, deleteFarmerPushToken);
 farmerRouter.post("/push-test", requireFarmer, sendFarmerTestPush);
+farmerRouter.get("/notifications", requireFarmer, listFarmerNotifications);
+farmerRouter.post("/notifications/read-all", requireFarmer, readAllFarmerNotifications);
+farmerRouter.patch("/notifications/:id/read", requireFarmer, markFarmerNotificationRead);
+farmerRouter.delete("/notifications/:id", requireFarmer, deleteFarmerNotification);
+farmerRouter.delete("/notifications", requireFarmer, clearAllFarmerNotifications);
 farmerRouter.get("/crops", requireFarmer, listFarmerCrops);
 farmerRouter.get("/crops/catalog", getPublicCropsCatalog);
 farmerRouter.get("/crops/vendor-available", requireFarmer, listFarmerVendorCrops);

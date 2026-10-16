@@ -133,28 +133,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadSavedBankDetails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // CRITICAL FIX: Purge old un-scoped global keys that leak across different farmers
+      await prefs.remove('farmer_bank_holder');
+      await prefs.remove('farmer_bank_name');
+      await prefs.remove('farmer_bank_acc_no');
+      await prefs.remove('farmer_bank_ifsc');
+      await prefs.remove('farmer_bank_branch');
+      await prefs.remove('farmer_bank_acc_type');
+      await prefs.remove('farmer_aadhaar');
+      await prefs.remove('farmer_pan');
+      await prefs.remove('farmer_upi_id');
+
       final p = FarmerState().profile;
-      final holder = prefs.getString('farmer_bank_holder') ?? p.bankAccountHolder;
-      final name = prefs.getString('farmer_bank_name') ?? p.bankName;
-      final accNo = prefs.getString('farmer_bank_acc_no') ?? p.bankAccountNumber;
-      final ifsc = prefs.getString('farmer_bank_ifsc') ?? p.bankIfsc;
-      final branch = prefs.getString('farmer_bank_branch') ?? p.bankBranch;
-      final accType = prefs.getString('farmer_bank_acc_type') ?? p.bankAccountType;
-      final aadhaar = prefs.getString('farmer_aadhaar');
-      final pan = prefs.getString('farmer_pan');
-      final upi = prefs.getString('farmer_upi_id') ?? p.bankUpiId;
+      final fid = p.id.trim();
+      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : null;
+
+      final holder = p.bankAccountHolder.isNotEmpty
+          ? p.bankAccountHolder
+          : (prefix != null ? (prefs.getString('${prefix}bank_holder') ?? '') : '');
+      final name = p.bankName.isNotEmpty
+          ? p.bankName
+          : (prefix != null ? (prefs.getString('${prefix}bank_name') ?? '') : '');
+      final accNo = p.bankAccountNumber.isNotEmpty
+          ? p.bankAccountNumber
+          : (prefix != null ? (prefs.getString('${prefix}bank_acc_no') ?? '') : '');
+      final ifsc = p.bankIfsc.isNotEmpty
+          ? p.bankIfsc
+          : (prefix != null ? (prefs.getString('${prefix}bank_ifsc') ?? '') : '');
+      final branch = p.bankBranch.isNotEmpty
+          ? p.bankBranch
+          : (prefix != null ? (prefs.getString('${prefix}bank_branch') ?? '') : '');
+      final accType = p.bankAccountType.isNotEmpty
+          ? p.bankAccountType
+          : (prefix != null ? (prefs.getString('${prefix}bank_acc_type') ?? 'Savings (बचत खाते)') : 'Savings (बचत खाते)');
+      final aadhaar = p.aadhaarNumber.isNotEmpty
+          ? p.aadhaarNumber
+          : (prefix != null ? (prefs.getString('${prefix}aadhaar') ?? '') : '');
+      final pan = p.panNumber.isNotEmpty
+          ? p.panNumber
+          : (prefix != null ? (prefs.getString('${prefix}pan') ?? '') : '');
+      final upi = p.bankUpiId.isNotEmpty
+          ? p.bankUpiId
+          : (prefix != null ? (prefs.getString('${prefix}upi_id') ?? '') : '');
 
       if (mounted) {
         setState(() {
-          if (holder.isNotEmpty) _bankHolderController.text = holder;
-          if (name.isNotEmpty) _bankNameController.text = name;
-          if (accNo.isNotEmpty) _bankAccountNoController.text = accNo;
-          if (ifsc.isNotEmpty) _bankIfscController.text = ifsc;
-          if (branch.isNotEmpty) _bankBranchController.text = branch;
-          if (accType.isNotEmpty) _bankAccountType = accType;
-          if (aadhaar != null && aadhaar.isNotEmpty) _aadhaarController.text = aadhaar;
-          if (pan != null && pan.isNotEmpty) _panCardController.text = pan;
-          if (upi.isNotEmpty) _upiIdController.text = upi;
+          _bankHolderController.text = holder.isNotEmpty ? holder : p.fullName;
+          _bankNameController.text = name;
+          _bankAccountNoController.text = accNo;
+          _bankIfscController.text = ifsc;
+          _bankBranchController.text = branch;
+          _bankAccountType = accType;
+          _aadhaarController.text = aadhaar;
+          _panCardController.text = pan;
+          _upiIdController.text = upi;
         });
       }
     } catch (_) {}
@@ -208,28 +241,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final current = FarmerState().profile;
+    final fid = current.id.trim();
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('farmer_bank_holder', _bankHolderController.text.trim());
-      await prefs.setString('farmer_bank_name', _bankNameController.text.trim());
-      await prefs.setString('farmer_bank_acc_no', _bankAccountNoController.text.trim());
-      await prefs.setString('farmer_bank_ifsc', _bankIfscController.text.trim());
-      await prefs.setString('farmer_bank_branch', _bankBranchController.text.trim());
-      await prefs.setString('farmer_bank_acc_type', _bankAccountType);
-      await prefs.setString('farmer_aadhaar', _aadhaarController.text.trim());
-      await prefs.setString('farmer_pan', _panCardController.text.trim());
-      await prefs.setString('farmer_upi_id', _upiIdController.text.trim());
+      if (fid.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final prefix = 'farmer_${fid}_';
+        await prefs.setString('${prefix}bank_holder', _bankHolderController.text.trim());
+        await prefs.setString('${prefix}bank_name', _bankNameController.text.trim());
+        await prefs.setString('${prefix}bank_acc_no', _bankAccountNoController.text.trim());
+        await prefs.setString('${prefix}bank_ifsc', _bankIfscController.text.trim().toUpperCase());
+        await prefs.setString('${prefix}bank_branch', _bankBranchController.text.trim());
+        await prefs.setString('${prefix}bank_acc_type', _bankAccountType);
+        await prefs.setString('${prefix}aadhaar', _aadhaarController.text.trim());
+        await prefs.setString('${prefix}pan', _panCardController.text.trim().toUpperCase());
+        await prefs.setString('${prefix}upi_id', _upiIdController.text.trim());
+      }
     } catch (_) {}
 
-    final current = FarmerState().profile;
     final updated = current.copyWith(
       bankAccountHolder: _bankHolderController.text.trim(),
       bankName: _bankNameController.text.trim(),
       bankAccountNumber: _bankAccountNoController.text.trim(),
-      bankIfsc: _bankIfscController.text.trim(),
+      bankIfsc: _bankIfscController.text.trim().toUpperCase(),
       bankBranch: _bankBranchController.text.trim(),
       bankAccountType: _bankAccountType,
       bankUpiId: _upiIdController.text.trim(),
+      aadhaarNumber: _aadhaarController.text.trim(),
+      panNumber: _panCardController.text.trim().toUpperCase(),
       bankVerificationStatus: current.bankVerificationStatus == 'VERIFIED' ? 'VERIFIED' : 'PENDING',
     );
     FarmerState().updateProfile(updated);
@@ -1066,15 +1106,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ] else ...[
-                _gridInfoTile(AppLanguage().tr(mr: 'खातेदार', en: 'Account Holder'), _bankHolderController.text),
-                _gridInfoTile(AppLanguage().tr(mr: 'बँकेचे नाव', en: 'Bank Name'), _bankNameController.text),
-                _gridInfoTile(AppLanguage().tr(mr: 'खाते क्रमांक', en: 'Account Number'), '•••• •••• •••• ${_bankAccountNoController.text.length >= 4 ? _bankAccountNoController.text.substring(_bankAccountNoController.text.length - 4) : '4589'}'),
-                _gridInfoTile(AppLanguage().tr(mr: 'आयएफएससी कोड', en: 'IFSC Code'), _bankIfscController.text),
-                _gridInfoTile(AppLanguage().tr(mr: 'शाखा', en: 'Branch'), _bankBranchController.text),
-                _gridInfoTile(AppLanguage().tr(mr: 'खात्याचा प्रकार', en: 'Account Type'), _bankAccountType),
-                _gridInfoTile(AppLanguage().tr(mr: 'आधार कार्ड', en: 'Aadhaar Card'), 'XXXX-XXXX-${_aadhaarController.text.replaceAll(' ', '').length >= 4 ? _aadhaarController.text.replaceAll(' ', '').substring(_aadhaarController.text.replaceAll(' ', '').length - 4) : '7842'} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'),
-                _gridInfoTile(AppLanguage().tr(mr: 'पॅन कार्ड', en: 'PAN Card'), '${_panCardController.text} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'),
-                _gridInfoTile('UPI ID', _upiIdController.text),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'खातेदार', en: 'Account Holder'),
+                  _bankHolderController.text.trim().isNotEmpty
+                      ? _bankHolderController.text.trim()
+                      : (profile.fullName.isNotEmpty ? profile.fullName : '—'),
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'बँकेचे नाव', en: 'Bank Name'),
+                  _bankNameController.text.trim().isNotEmpty ? _bankNameController.text.trim() : '—',
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'खाते क्रमांक', en: 'Account Number'),
+                  _bankAccountNoController.text.trim().isNotEmpty
+                      ? '•••• •••• •••• ${_bankAccountNoController.text.trim().length >= 4 ? _bankAccountNoController.text.trim().substring(_bankAccountNoController.text.trim().length - 4) : _bankAccountNoController.text.trim()}'
+                      : '—',
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'आयएफएससी कोड', en: 'IFSC Code'),
+                  _bankIfscController.text.trim().isNotEmpty ? _bankIfscController.text.trim().toUpperCase() : '—',
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'शाखा', en: 'Branch'),
+                  _bankBranchController.text.trim().isNotEmpty ? _bankBranchController.text.trim() : '—',
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'खात्याचा प्रकार', en: 'Account Type'),
+                  _bankAccountType,
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'आधार कार्ड', en: 'Aadhaar Card'),
+                  _aadhaarController.text.trim().isNotEmpty
+                      ? 'XXXX-XXXX-${_aadhaarController.text.replaceAll(' ', '').length >= 4 ? _aadhaarController.text.replaceAll(' ', '').substring(_aadhaarController.text.replaceAll(' ', '').length - 4) : _aadhaarController.text.trim()} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'
+                      : AppLanguage().tr(mr: 'माहिती भरलेली नाही', en: 'Not provided'),
+                ),
+                _gridInfoTile(
+                  AppLanguage().tr(mr: 'पॅन कार्ड', en: 'PAN Card'),
+                  _panCardController.text.trim().isNotEmpty
+                      ? '${_panCardController.text.trim().toUpperCase()} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'
+                      : '—',
+                ),
+                _gridInfoTile(
+                  'UPI ID',
+                  _upiIdController.text.trim().isNotEmpty ? _upiIdController.text.trim() : '—',
+                ),
               ],
             ],
           ),

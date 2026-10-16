@@ -11,7 +11,9 @@ import {
   CollectionCentre,
   DarkStoreRequest,
   Farmer,
+  FarmerDocument,
   FarmerManager,
+  FarmerProduct,
   PickupDriver,
   Vendor,
   VendorDocument,
@@ -344,6 +346,18 @@ export async function assignCentreFarmerAdmin(req, res, next) {
     }
 
     await farmer.save();
+
+    const ownerKeys = [farmer.id, farmer.farmerId, farmer.farmerCode].filter(Boolean);
+    await Promise.all([
+      FarmerDocument.updateMany(
+        { farmerId: { $in: ownerKeys } },
+        { $set: { vendorId: farmer.vendorId || "", managerId: farmer.managerId || "" } }
+      ).catch(() => {}),
+      FarmerProduct.updateMany(
+        { farmerId: { $in: ownerKeys } },
+        { $set: { vendorId: farmer.vendorId || "", managerId: farmer.managerId || "" } }
+      ).catch(() => {}),
+    ]);
 
     const [centreNames, manager] = await Promise.all([
       farmer.vendorId ? centreNamesFor([farmer.vendorId]) : new Map(),

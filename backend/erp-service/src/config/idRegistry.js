@@ -331,13 +331,12 @@ export const MODULES = {
   FR: {
     description: "Farmer Master ID",
     formatHint: "GGC-FR-{state}-{district}-{taluka}-{serial}",
-    example: "GGC-FR-MH-NK-SIN-00001",
-    serialWidth: 5,
+    example: "GGC-FR-MH-AHI-KOP-1",
     counterKey: (p) =>
       `farmer-${String(p.state || "MH").toUpperCase()}-${String(p.district || "XX").toUpperCase()}-${String(p.taluka || "XXX").toUpperCase()}`,
     generate: (p, seq) => {
       req(p, ["state", "district", "taluka"]);
-      return `${COMPANY_PREFIX}-FR-${String(p.state).toUpperCase()}-${String(p.district).toUpperCase()}-${String(p.taluka).toUpperCase()}-${pad(seq, 5)}`;
+      return `${COMPANY_PREFIX}-FR-${String(p.state).toUpperCase()}-${String(p.district).toUpperCase()}-${String(p.taluka).toUpperCase()}-${seq}`;
     },
   },
   FM: {
