@@ -110,6 +110,27 @@ import {
   listMyHrMeetings,
 } from "./hrExtendedControllers.js";
 import {
+  listB2bClients,
+  listRegisteredBulkUsers,
+  getB2bClient,
+  createB2bClient,
+  updateB2bClient,
+  deleteB2bClient,
+  addB2bRepresentative,
+  updateB2bRepresentative,
+  deleteB2bRepresentative,
+  listDealStages,
+  createDealStage,
+  updateDealStage,
+  deleteDealStage,
+  reorderDealStages,
+  listDeals,
+  createDeal,
+  updateDeal,
+  moveDealStage,
+  deleteDeal,
+} from "./b2bControllers.js";
+import {
   listFinance,
   createFinanceEntry,
   updateFinanceEntry,
@@ -119,6 +140,7 @@ import {
   updateRefund,
   getReports,
 } from "./financeControllers.js";
+import * as financeSuite from "./financeSuiteControllers.js";
 import {
   adjustInventoryFarmer,
   adjustInventoryVendor,
@@ -365,6 +387,30 @@ router.post("/hr/payroll/run", runHrPayroll);
 router.put("/hr/payroll/:id", updateHrPayroll);
 router.put("/hr/:id", updateHrStaff);
 
+router.get("/hr/b2b-clients", listB2bClients);
+router.get("/hr/b2b-clients/registered-users", listRegisteredBulkUsers);
+router.post("/hr/b2b-clients", createB2bClient);
+router.get("/hr/b2b-clients/:id", getB2bClient);
+router.put("/hr/b2b-clients/:id", updateB2bClient);
+router.delete("/hr/b2b-clients/:id", deleteB2bClient);
+router.post("/hr/b2b-clients/:id/representatives", addB2bRepresentative);
+router.put("/hr/b2b-clients/:id/representatives/:repId", updateB2bRepresentative);
+router.delete("/hr/b2b-clients/:id/representatives/:repId", deleteB2bRepresentative);
+
+// B2B Deal Stages (Fully Customizable)
+router.get("/hr/b2b-deal-stages", listDealStages);
+router.post("/hr/b2b-deal-stages", createDealStage);
+router.post("/hr/b2b-deal-stages/reorder", reorderDealStages);
+router.put("/hr/b2b-deal-stages/:id", updateDealStage);
+router.delete("/hr/b2b-deal-stages/:id", deleteDealStage);
+
+// B2B Deals & Pipeline
+router.get("/hr/b2b-deals", listDeals);
+router.post("/hr/b2b-deals", createDeal);
+router.put("/hr/b2b-deals/:id", updateDeal);
+router.patch("/hr/b2b-deals/:id/stage", moveDealStage);
+router.delete("/hr/b2b-deals/:id", deleteDeal);
+
 router.get("/delivery/orders", listDeliveryOrders);
 router.get("/delivery/riders", listRidersLite);
 router.get("/delivery/team", listDeliveryTeam);
@@ -378,6 +424,68 @@ router.get("/finance", listFinance);
 router.post("/finance", createFinanceEntry);
 router.put("/finance/:id", updateFinanceEntry);
 router.delete("/finance/:id", deleteFinanceEntry);
+
+// Comprehensive Finance Suite Routes
+router.get("/finance/estimations", financeSuite.listEstimations);
+router.post("/finance/estimations", financeSuite.createEstimation);
+router.put("/finance/estimations/:id", financeSuite.updateEstimation);
+router.delete("/finance/estimations/:id", financeSuite.deleteEstimation);
+
+router.get("/finance/tax-rates", financeSuite.listTaxRates);
+router.post("/finance/tax-rates", financeSuite.createTaxRate);
+router.put("/finance/tax-rates/:id", financeSuite.updateTaxRate);
+router.delete("/finance/tax-rates/:id", financeSuite.deleteTaxRate);
+
+router.get("/finance/tax-zones", financeSuite.listTaxZones);
+router.post("/finance/tax-zones", financeSuite.createTaxZone);
+router.put("/finance/tax-zones/:id", financeSuite.updateTaxZone);
+router.delete("/finance/tax-zones/:id", financeSuite.deleteTaxZone);
+
+router.get("/finance/tax-categories", financeSuite.listTaxCategories);
+router.post("/finance/tax-categories", financeSuite.createTaxCategory);
+router.put("/finance/tax-categories/:id", financeSuite.updateTaxCategory);
+router.delete("/finance/tax-categories/:id", financeSuite.deleteTaxCategory);
+
+router.get("/finance/tax-agencies", financeSuite.listTaxAgencies);
+router.post("/finance/tax-agencies", financeSuite.createTaxAgency);
+router.put("/finance/tax-agencies/:id", financeSuite.updateTaxAgency);
+router.delete("/finance/tax-agencies/:id", financeSuite.deleteTaxAgency);
+
+router.get("/finance/tax-payments", financeSuite.listTaxPayments);
+router.post("/finance/tax-payments", financeSuite.createTaxPayment);
+router.delete("/finance/tax-payments/:id", financeSuite.deleteTaxPayment);
+
+router.get("/finance/expenses", financeSuite.listExpenses);
+router.post("/finance/expenses", financeSuite.createExpense);
+router.put("/finance/expenses/:id", financeSuite.updateExpense);
+router.delete("/finance/expenses/:id", financeSuite.deleteExpense);
+
+router.get("/finance/purchases", financeSuite.listPurchases);
+router.post("/finance/purchases", financeSuite.createPurchase);
+router.put("/finance/purchases/:id", financeSuite.updatePurchase);
+router.delete("/finance/purchases/:id", financeSuite.deletePurchase);
+
+router.get("/finance/accounts", financeSuite.listAccounts);
+router.post("/finance/accounts", financeSuite.createAccount);
+router.put("/finance/accounts/:id", financeSuite.updateAccount);
+
+router.get("/finance/journals", financeSuite.listJournals);
+router.post("/finance/journals", financeSuite.createJournal);
+router.delete("/finance/journals/:id", financeSuite.deleteJournal);
+
+router.get("/finance/contacts", financeSuite.listContacts);
+router.post("/finance/contacts", financeSuite.createContact);
+router.put("/finance/contacts/:id", financeSuite.updateContact);
+router.delete("/finance/contacts/:id", financeSuite.deleteContact);
+
+router.get("/finance/transfers", financeSuite.listTransfers);
+router.post("/finance/transfers", financeSuite.createTransfer);
+
+router.get("/finance/reports/ledger", financeSuite.getLedgerReport);
+router.get("/finance/reports/trial-balance", financeSuite.getTrialBalance);
+router.get("/finance/reports/income-statement", financeSuite.getIncomeStatement);
+router.get("/finance/reports/sales-tax", financeSuite.getSalesTaxReport);
+router.get("/finance/reports/balance-sheet", financeSuite.getBalanceSheet);
 
 router.get("/refunds", listRefunds);
 router.post("/refunds", createRefund);

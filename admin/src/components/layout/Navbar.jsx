@@ -1,13 +1,33 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Search } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { LogOut, Menu, Search, Bell, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BTN, BTN_PRIMARY, INPUT } from '../../utils/ui';
+import apiClient from '../../api/client';
+import { getSoundSettings, playNotificationSound } from '../../utils/notificationSound';
 
 export default function Navbar({ onOpenSidebar, searchValue, onSearchChange }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => getSoundSettings().enabled);
   const initial = (user?.name || 'A').charAt(0).toUpperCase();
+
+  const loadUnreadCount = async () => {
+    try {
+      const res = await apiClient.get('/admin/notifications/system-alerts');
+      const count = res.data?.metrics?.unreadCount ?? 0;
+      setUnreadCount(count);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onSearch = (event) => {
     event.preventDefault();
@@ -33,6 +53,20 @@ export default function Navbar({ onOpenSidebar, searchValue, onSearchChange }) {
             className={`${INPUT} pl-9`}
           />
         </form>
+
+        {/* Notification Bell Button */}
+        <Link
+          to="/notifications"
+          className={`${BTN} relative p-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition`}
+          title={`Notifications & System Alerts (${unreadCount} unread)`}
+        >
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
 
         <span className="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex">
           Admin

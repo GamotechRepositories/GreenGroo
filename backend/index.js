@@ -46,6 +46,7 @@ import adminOpsRoutes from "./admin-ops-service/src/routes.js";
 import { seedDefaultPricingRule } from "./admin-ops-service/src/pricingAttach.js";
 import { seedDefaultRolePoliciesIfEmpty } from "./admin-ops-service/src/policyControllers.js";
 import { purgeLegacySeedMarketPrices } from "./admin-ops-service/src/marketPriceControllers.js";
+import { purgeLegacySeedB2bClients } from "./admin-ops-service/src/b2bControllers.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -158,6 +159,7 @@ connectDB("server").then(async () => {
   await seedDefaultPricingRule();
   await seedDefaultRolePoliciesIfEmpty();
   await purgeLegacySeedMarketPrices();
+  await purgeLegacySeedB2bClients();
   initIncentiveCron();
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();
@@ -195,7 +197,7 @@ connectDB("server").then(async () => {
   registerOrderTrackingSocket(io);
   startOrderStatusRelay();
   void startNotificationScheduler();
-  server.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, () => {
     console.log(`GreenGrocc backend running on port ${PORT}`);
     console.log(`Socket.io live on port ${PORT}`);
   });

@@ -261,6 +261,13 @@ export const ID_PREFIX_ORDER = [
   { prefix: "TLK-", module: "TLK", entity: "taluka" },
   { prefix: "VIL-", module: "VIL", entity: "village" },
   { prefix: "ST-", module: "ST", entity: "state" },
+  { prefix: "INV-", module: "INVCE", entity: "invoice" },
+  { prefix: "INVCE-", module: "INVCE", entity: "invoice" },
+  { prefix: "BILL-", module: "INVCE", entity: "invoice" },
+  { prefix: "BAT-", module: "BAT", entity: "batch" },
+  { prefix: "GRN-", module: "GRN", entity: "goodsReceipt" },
+  { prefix: "PO-", module: "PO", entity: "purchaseOrder" },
+  { prefix: "ORD-", module: "ORD", entity: "order" },
   { prefix: "GGC", module: "COM", entity: "company" },
 ];
 

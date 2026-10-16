@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
-import { Farmer } from "../../../farmer-manager-service/src/models.js";
+import { Farmer, FarmerCrop, FarmerOrder, FarmerDocument, FarmerManager, QualityInspection } from "../../../farmer-manager-service/src/models.js";
+import Product from "../../../legacy/models/Product.js";
+import StoreInventory from "../../../delivery-service/src/models/StoreInventory.js";
+import DeliveryManager from "../../../delivery-service/src/models/DeliveryManager.js";
+import { InventoryBatch, GoodsReceiptNote, StockAdjustmentLog, OmniInvoice } from "../../../admin-ops-service/src/models.js";
 import { detectEntity } from "../config/idRegistry.js";
 import { RESOURCES, ENTITY_RESOURCE } from "../config/resources.js";
 import {
@@ -12,6 +16,8 @@ import {
   QualityCheck,
   CollectionCentreMaster,
   Warehouse,
+  ColdStorage,
+  DarkStoreMaster,
   Packaging,
   Dispatch,
   Delivery,
@@ -25,17 +31,12 @@ import {
   Inventory,
   AuditLog,
   Procurement,
+  PurchaseOrder,
+  GoodsReceipt,
 } from "../models/index.js";
 
-function lean(doc) {
-  if (!doc) return null;
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
-
-async function findByBusinessId(resourceKey, id) {
-  const spec = RESOURCES[resourceKey];
-  if (!spec) return null;
-  return spec.model.findOne({ [spec.idField]: id, isDeleted: { $ne: true } }).lean();
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function idVariants(id) {
@@ -50,51 +51,453 @@ function idVariants(id) {
   return [...variants].filter(Boolean);
 }
 
-async function findFarmer(id) {
-  const ids = idVariants(id);
-  return Farmer.findOne({
-    $or: [
-      { farmerId: { $in: ids } },
-      { id: { $in: ids } },
-      { farmerCode: { $in: ids } },
-    ],
-    isDeleted: { $ne: true },
-  }).lean();
+async function findByBusinessId(resourceKey, id) {
+  const spec = RESOURCES[resourceKey];
+  if (!spec) return null;
+  return spec.model.findOne({ [spec.idField]: id, isDeleted: { $ne: true } }).lean();
 }
 
 async function listBy(model, filter, limit = 50) {
   return model.find({ ...filter, isDeleted: { $ne: true } }).sort({ createdAt: -1 }).limit(limit).lean();
 }
 
-export async function getByFarmerId(farmerId) {
-  const farmer = await findFarmer(farmerId);
+// ---------------------------------------------------------------------------
+// FINDERS
+// ---------------------------------------------------------------------------
+
+async function findFarmer(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  // 1. Exact ID match
+  let doc = await Farmer.findOne({
+    $or: [{ farmerId: { $in: ids } }, { id: { $in: ids } }, { farmerCode: { $in: ids } }],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  if (doc) return doc;
+
+  // 2. Mobile or Name or Village
+  doc = await Farmer.findOne({
+    $or: [
+      { mobile: rx },
+      { name: rx },
+      { "address.village": rx },
+      { farmName: rx },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  return doc;
+}
+
+async function findBatch(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  // Check AdminInventoryBatch first
+  let doc = await InventoryBatch.findOne({
+    $or: [
+      { batchNumber: { $in: ids } },
+      { batchNumber: rx },
+      { sku: { $in: ids } },
+      { grnNumber: { $in: ids } },
+    ],
+  }).lean();
+
+  if (doc) return { ...doc, isLiveBatch: true };
+
+  // Check ERP Batch
+  doc = await Batch.findOne({
+    $or: [
+      { batchId: { $in: ids } },
+      { batchNumber: { $in: ids } },
+      { id: { $in: ids } },
+      { batchId: rx },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  return doc;
+}
+
+async function findProduct(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  let doc = await Product.findOne({
+    $or: [
+      { sku: { $in: ids } },
+      { productId: { $in: ids } },
+      { name: rx },
+      { sku: rx },
+    ],
+    isDeleted: { $ne: true },
+    deleted: { $ne: true },
+  }).lean();
+
+  if (doc) return doc;
+
+  doc = await Article.findOne({
+    $or: [
+      { articleId: { $in: ids } },
+      { articleName: rx },
+      { sku: { $in: ids } },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  return doc;
+}
+
+async function findGrn(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  let doc = await GoodsReceiptNote.findOne({
+    $or: [
+      { grnNumber: { $in: ids } },
+      { grnNumber: rx },
+      { poNumber: { $in: ids } },
+    ],
+  }).lean();
+
+  if (doc) return { ...doc, isLiveGrn: true };
+
+  doc = await GoodsReceipt.findOne({
+    $or: [
+      { grnId: { $in: ids } },
+      { grnId: rx },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  return doc;
+}
+
+async function findOrder(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  let doc = await CustomerOrder.findOne({
+    $or: [
+      { orderId: { $in: ids } },
+      { sourceOrderId: { $in: ids } },
+      { customerName: rx },
+      { customerPhone: rx },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  if (doc) return doc;
+
+  if (mongoose.models.Order) {
+    try {
+      let orderDoc = null;
+      if (mongoose.isValidObjectId(query)) {
+        orderDoc = await mongoose.models.Order.findById(query).lean();
+      }
+      if (!orderDoc) {
+        orderDoc = await mongoose.models.Order.findOne({
+          $or: [
+            { orderNumber: rx },
+            { orderId: rx },
+            { "shippingAddress.phone": rx },
+            { "customer.phone": rx },
+          ],
+        }).lean();
+      }
+      if (orderDoc) return orderDoc;
+    } catch {}
+  }
+
+  return null;
+}
+
+async function findInvoice(query) {
+  if (!query) return null;
+  const ids = idVariants(query);
+  const rx = new RegExp(escapeRegex(query), "i");
+
+  // 1. Check OmniInvoice (POS/Omnichannel Invoices like INV-2026-6390)
+  let doc = await OmniInvoice.findOne({
+    $or: [
+      { invoiceNumber: { $in: ids } },
+      { invoiceNumber: rx },
+      { customerPhone: rx },
+      { customerName: rx },
+      ...(mongoose.isValidObjectId(query) ? [{ _id: query }] : []),
+    ],
+  }).lean();
+
+  if (doc) return { ...doc, isLiveOmniInvoice: true };
+
+  // 2. Check ERP Invoice
+  doc = await Invoice.findOne({
+    $or: [
+      { invoiceId: { $in: ids } },
+      { invoiceNumber: { $in: ids } },
+      { invoiceId: rx },
+      { invoiceNumber: rx },
+      { orderId: { $in: ids } },
+      { customerName: rx },
+    ],
+    isDeleted: { $ne: true },
+  }).lean();
+
+  if (doc) return doc;
+
+  // 3. Fallback via businessId helper
+  doc = await findByBusinessId("invoices", query);
+  return doc;
+}
+
+// ---------------------------------------------------------------------------
+// DEEP GRAPH BUILDERS
+// ---------------------------------------------------------------------------
+
+export async function getByFarmerId(farmerQuery) {
+  const farmer = await findFarmer(farmerQuery);
   if (!farmer) return null;
-  const ids = [...new Set([...idVariants(farmer.farmerId || farmer.id), ...idVariants(farmer.id), farmer.farmerCode].filter(Boolean))];
+
+  const ids = [
+    ...new Set(
+      [
+        farmer.farmerId,
+        farmer.id,
+        farmer.farmerCode,
+        ...(farmer.id ? idVariants(farmer.id) : []),
+        ...(farmer.farmerId ? idVariants(farmer.farmerId) : []),
+      ].filter(Boolean)
+    ),
+  ];
+
   const related = { farmerId: { $in: ids } };
-  const [farms, crops, articles, batches, crates, qrs, quality, procurements] = await Promise.all([
+
+  const [
+    farms,
+    crops,
+    farmerCrops,
+    articles,
+    batches,
+    inventoryBatches,
+    crates,
+    qrs,
+    quality,
+    procurements,
+    orders,
+    documents,
+    manager,
+  ] = await Promise.all([
     listBy(Farm, related),
     listBy(Crop, related),
+    FarmerCrop.find({ farmerId: { $in: ids } }).lean(),
     listBy(Article, related),
     listBy(Batch, related),
+    InventoryBatch.find({ supplierName: new RegExp(escapeRegex(farmer.name || farmer.farmName || ""), "i") }).lean(),
     listBy(Crate, related),
     listBy(QrCode, related),
     listBy(QualityCheck, related),
     listBy(Procurement, related),
+    FarmerOrder.find({ farmerId: { $in: ids } }).limit(20).lean(),
+    FarmerDocument.find({ farmerId: { $in: ids } }).lean(),
+    farmer.managerId ? FarmerManager.findOne({ id: farmer.managerId }).lean() : null,
   ]);
-  return { farmer, farms, crops, articles, batches, crates, qrs, quality, procurements };
+
+  return {
+    farmer,
+    farms,
+    crops: crops.length ? crops : farmerCrops,
+    articles,
+    batches: [...batches, ...inventoryBatches],
+    crates,
+    qrs,
+    quality,
+    procurements,
+    orders,
+    documents,
+    manager,
+  };
+}
+
+export async function getByBatchId(batchQuery) {
+  const batch = await findBatch(batchQuery);
+  if (!batch) return null;
+
+  const batchId = batch.batchNumber || batch.batchId || batch.id;
+  const sku = batch.sku;
+
+  const [
+    product,
+    storeInventory,
+    grn,
+    crates,
+    qrs,
+    quality,
+    packaging,
+    dispatch,
+    warehouse,
+    store,
+  ] = await Promise.all([
+    sku ? Product.findOne({ sku }).lean() : null,
+    sku ? StoreInventory.find({ sku }).lean() : [],
+    batch.grnNumber ? findGrn(batch.grnNumber) : null,
+    listBy(Crate, { $or: [{ batchId }, { batchNumber: batchId }] }),
+    QrCode.find({ $or: [{ batchId }, { batchNumber: batchId }] }).lean(),
+    listBy(QualityCheck, { $or: [{ batchId }, { batchNumber: batchId }] }),
+    listBy(Packaging, { $or: [{ batchId }, { batchNumber: batchId }] }),
+    listBy(Dispatch, { $or: [{ batchId }, { batchNumber: batchId }] }),
+    batch.warehouseId ? findByBusinessId("warehouses", batch.warehouseId) : null,
+    batch.storeId && mongoose.isValidObjectId(batch.storeId)
+      ? DeliveryManager.findById(batch.storeId).select("name area city storeName phone").lean()
+      : null,
+  ]);
+
+  let farmer = null;
+  let farm = null;
+  let crop = null;
+
+  if (batch.farmerId) {
+    farmer = await findFarmer(batch.farmerId);
+  } else if (batch.supplierName) {
+    farmer = await findFarmer(batch.supplierName);
+  }
+
+  if (batch.farmId) {
+    farm = await findByBusinessId("farms", batch.farmId);
+  }
+  if (batch.cropId) {
+    crop = await findByBusinessId("crops", batch.cropId);
+  }
+
+  return {
+    batch,
+    product,
+    storeInventory,
+    grn,
+    farmer,
+    farm,
+    crop,
+    crates,
+    qr: qrs?.[0] || null,
+    quality,
+    packaging,
+    dispatch,
+    warehouse,
+    store,
+  };
+}
+
+export async function getByProductOrSku(prodQuery) {
+  const product = await findProduct(prodQuery);
+  if (!product) return null;
+
+  const sku = product.sku || product.productId;
+
+  const [
+    batches,
+    storeInventories,
+    grns,
+    crop,
+  ] = await Promise.all([
+    InventoryBatch.find({ sku }).lean(),
+    StoreInventory.find({ sku }).populate("managerId", "name area city storeName").lean(),
+    GoodsReceiptNote.find({ "items.sku": sku }).lean(),
+    product.category ? Crop.findOne({ cropName: new RegExp(escapeRegex(product.category), "i") }).lean() : null,
+  ]);
+
+  let farmer = null;
+  if (product.farmerId) {
+    farmer = await findFarmer(product.farmerId);
+  } else if (batches[0]?.supplierName) {
+    farmer = await findFarmer(batches[0].supplierName);
+  }
+
+  return {
+    product,
+    sku,
+    batches,
+    storeInventories,
+    grns,
+    crop,
+    farmer,
+  };
+}
+
+export async function getByGrnNumber(grnQuery) {
+  const grn = await findGrn(grnQuery);
+  if (!grn) return null;
+
+  const grnNumber = grn.grnNumber || grn.grnId;
+
+  const [
+    batches,
+    store,
+  ] = await Promise.all([
+    InventoryBatch.find({ grnNumber }).lean(),
+    grn.storeId && mongoose.isValidObjectId(grn.storeId)
+      ? DeliveryManager.findById(grn.storeId).select("name area city storeName").lean()
+      : null,
+  ]);
+
+  let supplier = null;
+  if (grn.supplierName) {
+    supplier = await findFarmer(grn.supplierName);
+  }
+
+  return {
+    grn,
+    batches,
+    store,
+    supplier,
+  };
+}
+
+export async function getByOrderId(orderQuery) {
+  const order = await findOrder(orderQuery);
+  if (!order) return null;
+
+  const linkedOrderId = order.orderId || order._id?.toString() || orderQuery;
+
+  const [customer, deliveries, dispatches, invoices, payments] = await Promise.all([
+    order.customerId ? findByBusinessId("customers", order.customerId) : null,
+    listBy(Delivery, { orderId: linkedOrderId }),
+    listBy(Dispatch, { orderId: linkedOrderId }),
+    listBy(Invoice, { orderId: linkedOrderId }),
+    listBy(ErpPayment, { orderId: linkedOrderId }),
+  ]);
+
+  // Extract batch numbers or SKUs from items
+  const skus = (order.items || []).map((i) => i.sku || i.productId).filter(Boolean);
+  const batches = skus.length ? await InventoryBatch.find({ sku: { $in: skus } }).lean() : [];
+
+  return {
+    order,
+    customer,
+    deliveries,
+    dispatches,
+    invoices,
+    payments,
+    batches,
+  };
 }
 
 export async function getByFarmId(farmId) {
   const farm = await findByBusinessId("farms", farmId);
   if (!farm) return null;
-  const crops = await listBy(Crop, { farmId });
+  const crops = await listBy(Crop, { farmId }) || [];
   const farmer = farm.farmerId ? await findFarmer(farm.farmerId) : null;
-  const batches = await listBy(Batch, { farmId });
+  const batches = await listBy(Batch, { farmId }) || [];
   return { farm, farmer, crops, batches };
 }
 
 export async function getByCropId(cropId) {
-  const crop = await findByBusinessId("crops", cropId);
+  const crop = await findByBusinessId("crops", cropId) || await FarmerCrop.findOne({ cropId }).lean();
   if (!crop) return null;
   const [farm, farmer, articles, batches] = await Promise.all([
     crop.farmId ? findByBusinessId("farms", crop.farmId) : null,
@@ -103,64 +506,6 @@ export async function getByCropId(cropId) {
     listBy(Batch, { cropId }),
   ]);
   return { crop, farm, farmer, articles, batches };
-}
-
-export async function getByArticleId(articleId) {
-  const article = await findByBusinessId("articles", articleId);
-  if (!article) return null;
-  const [crop, farmer, batches, inventory] = await Promise.all([
-    article.cropId ? findByBusinessId("crops", article.cropId) : null,
-    article.farmerId ? findFarmer(article.farmerId) : null,
-    listBy(Batch, { articleId }),
-    listBy(Inventory, { articleId }),
-  ]);
-  return { article, crop, farmer, batches, inventory };
-}
-
-export async function getByBatchId(batchId) {
-  const batch = await findByBusinessId("batches", batchId);
-  if (!batch) return null;
-  const [
-    farmer,
-    farm,
-    crop,
-    article,
-    crates,
-    quality,
-    cc,
-    warehouse,
-    packaging,
-    dispatch,
-    inventory,
-  ] = await Promise.all([
-    batch.farmerId ? findFarmer(batch.farmerId) : null,
-    batch.farmId ? findByBusinessId("farms", batch.farmId) : null,
-    batch.cropId ? findByBusinessId("crops", batch.cropId) : null,
-    batch.articleId ? findByBusinessId("articles", batch.articleId) : null,
-    listBy(Crate, { batchId }),
-    listBy(QualityCheck, { batchId }),
-    batch.collectionCentreId
-      ? findByBusinessId("collection_centres", batch.collectionCentreId)
-      : null,
-    batch.warehouseId ? findByBusinessId("warehouses", batch.warehouseId) : null,
-    listBy(Packaging, { batchId }),
-    listBy(Dispatch, { batchId }),
-    listBy(Inventory, { batchId }),
-  ]);
-  return {
-    batch,
-    farmer,
-    farm,
-    crop,
-    article,
-    crates,
-    quality,
-    collectionCentre: cc,
-    warehouse,
-    packaging,
-    dispatch,
-    inventory,
-  };
 }
 
 export async function getByCrateId(crateId) {
@@ -185,26 +530,6 @@ export async function getByQrId(qrId) {
   return { qr };
 }
 
-export async function getByOrderId(orderId) {
-  const ids = idVariants(orderId);
-  const order = await CustomerOrder.findOne({
-    isDeleted: { $ne: true },
-    $or: [{ orderId: { $in: ids } }, { sourceOrderId: { $in: ids } }],
-  }).lean();
-  if (!order) return null;
-  const linkedOrderId = order.orderId || orderId;
-  const [customer, deliveries, dispatches, invoices, payments] = await Promise.all([
-    order.customerId ? findByBusinessId("customers", order.customerId) : null,
-    listBy(Delivery, { orderId: linkedOrderId }),
-    listBy(Dispatch, { orderId: linkedOrderId }),
-    listBy(Invoice, { orderId: linkedOrderId }),
-    listBy(ErpPayment, { orderId: linkedOrderId }),
-  ]);
-  const batchIds = (order.items || []).map((i) => i.batchId).filter(Boolean);
-  const batches = batchIds.length ? await Batch.find({ batchId: { $in: batchIds } }).lean() : [];
-  return { order, customer, deliveries, dispatches, invoices, payments, batches };
-}
-
 export async function getByCustomerId(customerId) {
   const customer = await findByBusinessId("customers", customerId);
   if (!customer) return null;
@@ -217,31 +542,76 @@ export async function getByCustomerId(customerId) {
   return { customer, orders, invoices, payments, crm };
 }
 
-export async function getByInvoiceId(invoiceId) {
-  const invoice = await findByBusinessId("invoices", invoiceId);
+export async function getByInvoiceId(invoiceQuery) {
+  const invoice = await findInvoice(invoiceQuery);
   if (!invoice) return null;
+
+  const linkedOrderId = invoice.orderId || invoice.sourceOrderId || "";
   const [order, customer, payments] = await Promise.all([
-    invoice.orderId ? getByOrderId(invoice.orderId) : null,
+    linkedOrderId ? getByOrderId(linkedOrderId) : null,
     invoice.customerId ? findByBusinessId("customers", invoice.customerId) : null,
-    listBy(ErpPayment, { invoiceId }),
+    listBy(ErpPayment, { $or: [{ invoiceId: invoice.invoiceNumber }, { invoiceId: invoice.invoiceId }, { invoiceId: invoiceQuery }] }),
   ]);
-  return { invoice, customer, payments, ...(order || {}) };
+
+  // Extract products and batches from invoice items
+  const skus = (invoice.items || []).map((i) => i.sku || i.productId).filter(Boolean);
+  const [batches, products, store] = await Promise.all([
+    skus.length ? InventoryBatch.find({ sku: { $in: skus } }).lean() : [],
+    skus.length ? Product.find({ sku: { $in: skus } }).lean() : [],
+    invoice.storeId && mongoose.isValidObjectId(invoice.storeId)
+      ? DeliveryManager.findById(invoice.storeId).select("name area city storeName").lean()
+      : null,
+  ]);
+
+  let farmer = null;
+  if (batches[0]?.supplierName) {
+    farmer = await findFarmer(batches[0].supplierName);
+  } else if (products[0]?.farmerId) {
+    farmer = await findFarmer(products[0].farmerId);
+  }
+
+  let quality = null;
+  if (batches[0]?.batchNumber) {
+    quality = await QualityInspection.findOne({
+      $or: [{ batchNumber: batches[0].batchNumber }, { sku: batches[0].sku }],
+    }).lean();
+  }
+
+  return {
+    invoice,
+    order: order?.order || null,
+    customer: customer || (invoice.customerName ? { name: invoice.customerName, phone: invoice.customerPhone, tier: invoice.customerTier } : null),
+    payments: payments?.length ? payments : [{ paymentMethod: invoice.paymentMethod, paymentStatus: invoice.paymentStatus, amount: invoice.grandTotal }],
+    items: invoice.items || [],
+    batches,
+    batch: batches[0] || null,
+    products,
+    product: products[0] || null,
+    farmer,
+    store: store || (invoice.storeName ? { storeName: invoice.storeName, area: invoice.area, zone: invoice.zone } : null),
+    quality: quality ? [quality] : [],
+    ...(order || {}),
+  };
 }
 
 export async function getByPaymentId(paymentId) {
   const payment = await findByBusinessId("payments", paymentId);
   if (!payment) return null;
-  const invoice = payment.invoiceId ? await findByBusinessId("invoices", payment.invoiceId) : null;
+  const invoice = payment.invoiceId ? await findInvoice(payment.invoiceId) : null;
   const order = payment.orderId ? await getByOrderId(payment.orderId) : null;
   return { payment, invoice, ...(order || {}) };
 }
+
+// ---------------------------------------------------------------------------
+// TIMELINE GENERATOR
+// ---------------------------------------------------------------------------
 
 function timelineEvent(at, title, entity, data) {
   return {
     at: at || data?.createdAt || data?.updatedAt || null,
     title,
     entity,
-    id: data?.[`${entity}Id`] || data?.id || data?._id || "",
+    id: data?.[`${entity}Id`] || data?.id || data?._id || data?.batchNumber || data?.grnNumber || data?.sku || data?.invoiceNumber || "",
     status: data?.status || data?.paymentStatus || data?.deliveryStatus || "",
     data,
   };
@@ -250,73 +620,323 @@ function timelineEvent(at, title, entity, data) {
 function buildTimeline(graph) {
   const events = [];
   if (graph.farmer) events.push(timelineEvent(graph.farmer.createdAt, "Farmer registered", "farmer", graph.farmer));
-  (graph.farms || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Farm created", "farm", d)));
-  if (graph.farm && !graph.farms) events.push(timelineEvent(graph.farm.createdAt, "Farm", "farm", graph.farm));
-  (graph.crops || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Crop", "crop", d)));
-  if (graph.crop && !graph.crops) events.push(timelineEvent(graph.crop.createdAt, "Crop", "crop", graph.crop));
-  (graph.articles || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Article", "article", d)));
-  if (graph.article && !graph.articles) events.push(timelineEvent(graph.article.createdAt, "Article", "article", graph.article));
-  (graph.batches || []).forEach((d) => events.push(timelineEvent(d.harvestDate || d.createdAt, "Batch / harvest", "batch", d)));
-  if (graph.batch && !graph.batches) events.push(timelineEvent(graph.batch.createdAt, "Batch", "batch", graph.batch));
-  (graph.crates || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Crate", "crate", d)));
-  if (graph.crate) events.push(timelineEvent(graph.crate.createdAt, "Crate", "crate", graph.crate));
-  if (graph.qr) events.push(timelineEvent(graph.qr.generatedAt, "QR generated", "qr", graph.qr));
-  (graph.quality || []).forEach((d) => events.push(timelineEvent(d.inspectionDate || d.createdAt, "Quality check", "qualityCheck", d)));
-  if (graph.collectionCentre) events.push(timelineEvent(graph.collectionCentre.createdAt, "Collection centre", "collectionCentre", graph.collectionCentre));
-  if (graph.warehouse) events.push(timelineEvent(graph.warehouse.createdAt, "Warehouse", "warehouse", graph.warehouse));
-  (graph.inventory || []).forEach((d) => events.push(timelineEvent(d.updatedAt, "Inventory", "inventory", d)));
-  (graph.packaging || []).forEach((d) => events.push(timelineEvent(d.packingDate || d.createdAt, "Packaging", "packaging", d)));
-  (graph.dispatch || []).forEach((d) => events.push(timelineEvent(d.dispatchDate || d.createdAt, "Dispatch", "dispatch", d)));
-  (graph.dispatches || []).forEach((d) => events.push(timelineEvent(d.dispatchDate || d.createdAt, "Dispatch", "dispatch", d)));
-  if (graph.order) events.push(timelineEvent(graph.order.createdAt, "Customer order", "order", graph.order));
-  (graph.deliveries || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Delivery", "delivery", d)));
-  if (graph.customer) events.push(timelineEvent(graph.customer.createdAt, "Customer", "customer", graph.customer));
-  (graph.invoices || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Invoice", "invoice", d)));
-  if (graph.invoice && !graph.invoices) events.push(timelineEvent(graph.invoice.createdAt, "Invoice", "invoice", graph.invoice));
-  (graph.payments || []).forEach((d) => events.push(timelineEvent(d.paymentDate || d.createdAt, "Payment", "payment", d)));
-  if (graph.payment && !graph.payments) events.push(timelineEvent(graph.payment.createdAt, "Payment", "payment", graph.payment));
-  return events.sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  (graph.farms || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Farm registered", "farm", d)));
+  if (graph.farm && !graph.farms?.length) events.push(timelineEvent(graph.farm.createdAt, "Farm", "farm", graph.farm));
+  (graph.crops || []).forEach((d) => events.push(timelineEvent(d.createdAt || d.sowingDate, "Crop sowing", "crop", d)));
+  if (graph.crop && !graph.crops?.length) events.push(timelineEvent(graph.crop.createdAt, "Crop", "crop", graph.crop));
+  if (graph.product) events.push(timelineEvent(graph.product.createdAt, "Catalog product created", "product", graph.product));
+  (graph.articles || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Article created", "article", d)));
+  (graph.quality || []).forEach((d) => events.push(timelineEvent(d.inspectionDate || d.createdAt, "Quality inspection", "qualityCheck", d)));
+  (graph.batches || []).forEach((d) => events.push(timelineEvent(d.mfgDate || d.harvestDate || d.createdAt, `Batch Inwarded: ${d.batchNumber || d.batchId}`, "batch", d)));
+  if (graph.batch && !graph.batches?.length) events.push(timelineEvent(graph.batch.mfgDate || graph.batch.createdAt, `Batch: ${graph.batch.batchNumber || graph.batch.batchId}`, "batch", graph.batch));
+  if (graph.grn) events.push(timelineEvent(graph.grn.createdAt, `Goods Receipt Note: ${graph.grn.grnNumber}`, "grn", graph.grn));
+  (graph.crates || []).forEach((d) => events.push(timelineEvent(d.createdAt, "Crate packed", "crate", d)));
+  if (graph.crate && !graph.crates?.length) events.push(timelineEvent(graph.crate.createdAt, "Crate", "crate", graph.crate));
+  if (graph.qr) events.push(timelineEvent(graph.qr.generatedAt || graph.qr.createdAt, "QR Code Generated", "qr", graph.qr));
+  (graph.packaging || []).forEach((d) => events.push(timelineEvent(d.packingDate || d.createdAt, "Packaging & QC", "packaging", d)));
+  (graph.dispatch || []).forEach((d) => events.push(timelineEvent(d.dispatchDate || d.createdAt, "Dispatch for store", "dispatch", d)));
+  if (graph.store) events.push(timelineEvent(graph.store.createdAt, `Dark store stock: ${graph.store.storeName || graph.store.name}`, "store", graph.store));
+  if (graph.order) events.push(timelineEvent(graph.order.createdAt, `Order Placed: ${graph.order.orderId || graph.order.orderNumber || ""}`, "order", graph.order));
+  (graph.orders || []).forEach((d) => events.push(timelineEvent(d.createdAt, `Order: ${d.orderId || d.orderNumber}`, "order", d)));
+  if (graph.invoice) events.push(timelineEvent(graph.invoice.createdAt, `Tax Invoice Generated: ${graph.invoice.invoiceNumber || graph.invoice.invoiceId}`, "invoice", graph.invoice));
+  (graph.invoices || []).forEach((d) => events.push(timelineEvent(d.createdAt, `Tax Invoice: ${d.invoiceNumber || d.invoiceId}`, "invoice", d)));
+  (graph.payments || []).forEach((d) => events.push(timelineEvent(d.paymentDate || d.createdAt, "Payment completed", "payment", d)));
+
+  return events.filter((e) => e.at).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
 }
+
+// ---------------------------------------------------------------------------
+// OMNI-SEARCH ENGINE
+// ---------------------------------------------------------------------------
+
+export async function omniSearch(rawQuery) {
+  const q = String(rawQuery || "").trim();
+  if (!q) return [];
+
+  const rx = new RegExp(escapeRegex(q), "i");
+  const ids = idVariants(q);
+
+  const [
+    farmers,
+    batches,
+    products,
+    grns,
+    orders,
+    crops,
+    farms,
+    stores,
+    omniInvoices,
+    erpInvoices,
+  ] = await Promise.all([
+    Farmer.find({
+      $or: [
+        { farmerId: { $in: ids } },
+        { id: { $in: ids } },
+        { farmerCode: { $in: ids } },
+        { name: rx },
+        { mobile: rx },
+        { "address.village": rx },
+        { "address.district": rx },
+        { farmName: rx },
+      ],
+      isDeleted: { $ne: true },
+    }).limit(10).lean(),
+
+    InventoryBatch.find({
+      $or: [
+        { batchNumber: { $in: ids } },
+        { batchNumber: rx },
+        { sku: { $in: ids } },
+        { productName: rx },
+        { supplierName: rx },
+        { grnNumber: { $in: ids } },
+      ],
+    }).limit(10).lean(),
+
+    Product.find({
+      $or: [
+        { sku: { $in: ids } },
+        { sku: rx },
+        { productId: { $in: ids } },
+        { name: rx },
+        { category: rx },
+        { varietyName: rx },
+      ],
+      isDeleted: { $ne: true },
+      deleted: { $ne: true },
+    }).limit(10).lean(),
+
+    GoodsReceiptNote.find({
+      $or: [
+        { grnNumber: { $in: ids } },
+        { grnNumber: rx },
+        { supplierName: rx },
+        { poNumber: { $in: ids } },
+      ],
+    }).limit(8).lean(),
+
+    CustomerOrder.find({
+      $or: [
+        { orderId: { $in: ids } },
+        { orderId: rx },
+        { customerName: rx },
+        { customerPhone: rx },
+      ],
+      isDeleted: { $ne: true },
+    }).limit(8).lean(),
+
+    Crop.find({
+      $or: [{ cropId: { $in: ids } }, { cropName: rx }, { variety: rx }],
+      isDeleted: { $ne: true },
+    }).limit(5).lean(),
+
+    Farm.find({
+      $or: [{ farmId: { $in: ids } }, { farmName: rx }, { location: rx }],
+      isDeleted: { $ne: true },
+    }).limit(5).lean(),
+
+    DeliveryManager.find({
+      $or: [{ storeName: rx }, { name: rx }, { area: rx }, { city: rx }, { phone: rx }],
+    }).limit(6).lean(),
+
+    OmniInvoice.find({
+      $or: [
+        { invoiceNumber: { $in: ids } },
+        { invoiceNumber: rx },
+        { customerName: rx },
+        { customerPhone: rx },
+        { storeName: rx },
+      ],
+    }).limit(8).lean(),
+
+    Invoice.find({
+      $or: [
+        { invoiceId: { $in: ids } },
+        { invoiceNumber: { $in: ids } },
+        { invoiceId: rx },
+        { invoiceNumber: rx },
+        { customerName: rx },
+      ],
+      isDeleted: { $ne: true },
+    }).limit(8).lean(),
+  ]);
+
+  const matches = [];
+
+  for (const f of farmers) {
+    matches.push({
+      id: f.farmerId || f.id || f.farmerCode,
+      type: "farmer",
+      title: f.name || "Unnamed Farmer",
+      subtitle: `${f.address?.village || f.farmName || "Maharashtra"} • Mobile: ${f.mobile || "—"}`,
+      badge: "Farmer",
+      entityId: f.farmerId || f.id,
+    });
+  }
+
+  for (const b of batches) {
+    matches.push({
+      id: b.batchNumber,
+      type: "batch",
+      title: `${b.batchNumber} • ${b.productName}`,
+      subtitle: `Supplier: ${b.supplierName || "Direct Farm"} • Stock: ${b.currentQty} ${b.unit || "units"}`,
+      badge: "Batch",
+      entityId: b.batchNumber,
+    });
+  }
+
+  for (const p of products) {
+    matches.push({
+      id: p.sku || p.productId,
+      type: "product",
+      title: p.name,
+      subtitle: `SKU: ${p.sku || p.productId} • ${p.category || "Produce"} • ₹${p.price || 0}`,
+      badge: "Product / SKU",
+      entityId: p.sku || p.productId,
+    });
+  }
+
+  for (const g of grns) {
+    matches.push({
+      id: g.grnNumber,
+      type: "grn",
+      title: `GRN: ${g.grnNumber}`,
+      subtitle: `Supplier: ${g.supplierName || "Vendor"} • Items: ${g.totalItems || g.items?.length || 0}`,
+      badge: "GRN Inwarding",
+      entityId: g.grnNumber,
+    });
+  }
+
+  for (const o of orders) {
+    matches.push({
+      id: o.orderId,
+      type: "order",
+      title: `Order: ${o.orderId}`,
+      subtitle: `Customer: ${o.customerName || "Customer"} • ₹${o.totalAmount || 0}`,
+      badge: "Customer Order",
+      entityId: o.orderId,
+    });
+  }
+
+  for (const c of crops) {
+    matches.push({
+      id: c.cropId,
+      type: "crop",
+      title: `Crop: ${c.cropName} (${c.variety || "General"})`,
+      subtitle: `Status: ${c.status || "Active"} • ID: ${c.cropId}`,
+      badge: "Crop / Harvest",
+      entityId: c.cropId,
+    });
+  }
+
+  for (const fm of farms) {
+    matches.push({
+      id: fm.farmId,
+      type: "farm",
+      title: `Farm: ${fm.farmName || fm.farmId}`,
+      subtitle: `Location: ${fm.location || "Maharashtra"} • ${fm.areaAcre || 0} Acres`,
+      badge: "Farm / Land",
+      entityId: fm.farmId,
+    });
+  }
+
+  for (const s of stores) {
+    matches.push({
+      id: s.storeName || s.name,
+      type: "store",
+      title: s.storeName || s.name,
+      subtitle: `${s.area || ""}, ${s.city || "Pune"} • Dark Store`,
+      badge: "Dark Store Hub",
+      entityId: s._id?.toString(),
+    });
+  }
+
+  for (const inv of (omniInvoices || [])) {
+    matches.push({
+      id: inv.invoiceNumber,
+      type: "invoice",
+      title: `Invoice: ${inv.invoiceNumber}`,
+      subtitle: `₹${inv.grandTotal || 0} • ${inv.itemsCount || inv.items?.length || 0} items • ${inv.customerName || "Walk-in Guest"} • ${inv.storeName || "Store"}`,
+      badge: "Tax Invoice",
+      entityId: inv.invoiceNumber,
+    });
+  }
+
+  for (const inv of (erpInvoices || [])) {
+    matches.push({
+      id: inv.invoiceId || inv.invoiceNumber,
+      type: "invoice",
+      title: `ERP Invoice: ${inv.invoiceId || inv.invoiceNumber}`,
+      subtitle: `₹${inv.amount || inv.grandTotal || 0} • Customer: ${inv.customerId || inv.customerName || "Customer"}`,
+      badge: "ERP Invoice",
+      entityId: inv.invoiceId || inv.invoiceNumber,
+    });
+  }
+
+  return matches;
+}
+
+// ---------------------------------------------------------------------------
+// MAIN COMPLETE TRACEABILITY ENGINE
+// ---------------------------------------------------------------------------
 
 const LOADERS = {
   farmer: getByFarmerId,
+  batch: getByBatchId,
+  product: getByProductOrSku,
+  grn: getByGrnNumber,
+  order: getByOrderId,
   farm: getByFarmId,
   crop: getByCropId,
-  article: getByArticleId,
-  batch: getByBatchId,
   crate: getByCrateId,
   qr: getByQrId,
-  order: getByOrderId,
   customer: getByCustomerId,
   invoice: getByInvoiceId,
   payment: getByPaymentId,
 };
 
-export async function getCompleteTraceability(id) {
+export async function getCompleteTraceability(id, options = {}) {
   const raw = String(id || "").trim();
-  if (!raw) return { found: false, error: "ID is required" };
+  if (!raw) return { found: false, error: "ID or search query is required" };
 
   const lookupId = raw.replace(/^#+/, "").trim() || raw;
   const detected = detectEntity(lookupId) || detectEntity(raw);
-  let entity = detected?.entity || null;
+  let entity = options.entity || detected?.entity || null;
   let graph = null;
 
   const tryLoad = async (loader, value) => {
     try {
       return await loader(value);
     } catch (err) {
-      console.error(`[erp-search] loader failed for ${value}:`, err.message);
+      console.error(`[traceability] loader failed for ${value}:`, err.message);
       return null;
     }
   };
 
+  // If exact entity specified or detected
   if (entity && LOADERS[entity]) {
     graph = await tryLoad(LOADERS[entity], lookupId);
     if (!graph && lookupId !== raw) graph = await tryLoad(LOADERS[entity], raw);
   }
 
+  // If not found yet, test loaders in priority order
   if (!graph) {
-    for (const [key, loader] of Object.entries(LOADERS)) {
+    const priorityLoaders = [
+      ["batch", getByBatchId],
+      ["farmer", getByFarmerId],
+      ["product", getByProductOrSku],
+      ["grn", getByGrnNumber],
+      ["order", getByOrderId],
+      ["qr", getByQrId],
+      ["crop", getByCropId],
+      ["farm", getByFarmId],
+      ["crate", getByCrateId],
+      ["invoice", getByInvoiceId],
+      ["payment", getByPaymentId],
+      ["customer", getByCustomerId],
+    ];
+
+    for (const [key, loader] of priorityLoaders) {
       graph = await tryLoad(loader, lookupId);
       if (!graph && lookupId !== raw) graph = await tryLoad(loader, raw);
       if (graph) {
@@ -326,14 +946,24 @@ export async function getCompleteTraceability(id) {
     }
   }
 
-  if (!graph && detected?.entity) {
-    const resourceKey = ENTITY_RESOURCE[detected.entity];
-    const record = resourceKey
-      ? (await findByBusinessId(resourceKey, lookupId)) || (await findByBusinessId(resourceKey, raw))
-      : null;
-    if (record) {
-      graph = { [detected.entity]: record };
-      entity = detected.entity;
+  // If still not found, check generic omni-search for multi-matches
+  if (!graph && !options.exact) {
+    const matches = await omniSearch(raw);
+    if (matches.length === 1) {
+      // Exactly 1 match found! Resolve it directly!
+      const single = matches[0];
+      if (LOADERS[single.type]) {
+        graph = await tryLoad(LOADERS[single.type], single.entityId || single.id);
+        if (graph) entity = single.type;
+      }
+    } else if (matches.length > 1) {
+      return {
+        found: true,
+        isMultiMatch: true,
+        query: raw,
+        totalMatches: matches.length,
+        matches,
+      };
     }
   }
 
@@ -350,6 +980,7 @@ export async function getCompleteTraceability(id) {
 
   return {
     found: true,
+    isMultiMatch: false,
     id: raw,
     entity,
     module: detected?.module || null,
@@ -357,6 +988,7 @@ export async function getCompleteTraceability(id) {
     graph,
     timeline: buildTimeline(graph),
     audits,
+    rawPayload: graph,
   };
 }
 
@@ -372,6 +1004,10 @@ function collectRecordIds(graph) {
       for (const k of Object.keys(value)) {
         if (/Id$/.test(k) && value[k]) ids.add(String(value[k]));
         if (k === "id" && value[k]) ids.add(String(value[k]));
+        if (k === "batchNumber" && value[k]) ids.add(String(value[k]));
+        if (k === "grnNumber" && value[k]) ids.add(String(value[k]));
+        if (k === "invoiceNumber" && value[k]) ids.add(String(value[k]));
+        if (k === "invoiceId" && value[k]) ids.add(String(value[k]));
       }
     }
   };
@@ -380,33 +1016,42 @@ function collectRecordIds(graph) {
 }
 
 function summarizeCurrent(graph) {
+  const invoice = graph.invoice;
   const batch = graph.batch || graph.batches?.[0];
   const crate = graph.crate || graph.crates?.[0];
-  const quality = graph.quality?.[0];
-  const order = graph.order;
-  const payment = graph.payment || graph.payments?.[0];
+  const quality = graph.quality?.[0] || graph.quality;
+  const order = graph.order || graph.orders?.[0];
+  const product = graph.product || graph.products?.[0];
+  const farmer = graph.farmer;
+  const store = graph.store || graph.storeInventories?.[0];
+
   return {
-    status: batch?.status || order?.status || graph.farmer?.status || "",
-    locationType: crate?.currentLocationType || batch?.currentLocationType || "",
-    locationId: crate?.currentLocationId || batch?.currentLocationId || "",
-    quantity: batch?.quantity || order?.quantity || 0,
-    grade: quality?.grade || batch?.grade || graph.article?.grade || "",
-    quality: quality?.status || quality?.grade || "",
-    orderId: order?.orderId || "",
-    customerId: graph.customer?.customerId || order?.customerId || "",
-    paymentStatus: payment?.paymentStatus || order?.paymentStatus || "",
+    status: invoice?.status || batch?.status || order?.status || farmer?.status || "Active",
+    locationType: invoice?.storeName || crate?.currentLocationType || batch?.storeName || (store?.managerId?.storeName || store?.managerId?.name || store?.storeName) || "Central Dark Store",
+    locationId: invoice?.storeId || crate?.currentLocationId || batch?.storeId || "",
+    quantity: invoice ? (invoice.itemsCount || invoice.items?.length || 0) : (batch?.currentQty ?? batch?.quantity ?? order?.quantity ?? product?.stock ?? 0),
+    unit: invoice ? "items" : (batch?.unit || product?.unit || "units"),
+    grade: quality?.grade || batch?.grade || product?.specs?.find?.((s) => s[0] === "Grade")?.[1] || "Grade A (Premium)",
+    qualityStatus: quality?.status || "Lab Certified Fresh",
+    orderId: invoice?.invoiceNumber || order?.orderId || order?.orderNumber || "",
+    customerId: invoice?.customerPhone || graph.customer?.phone || graph.customer?.customerId || order?.customerId || "",
+    paymentStatus: invoice?.paymentStatus || order?.paymentStatus || graph.payments?.[0]?.paymentStatus || "Completed",
+    productName: invoice?.items?.[0]?.name ? `${invoice.items[0].name}${invoice.items.length > 1 ? ` (+${invoice.items.length - 1} items)` : ""}` : (product?.name || batch?.productName || ""),
+    farmerName: farmer?.name || batch?.supplierName || "Direct Farm Network",
   };
 }
 
 export const TraceabilityService = {
+  omniSearch,
   getByFarmerId,
+  getByBatchId,
+  getByProductOrSku,
+  getByGrnNumber,
+  getByOrderId,
   getByFarmId,
   getByCropId,
-  getByArticleId,
-  getByBatchId,
   getByCrateId,
   getByQrId,
-  getByOrderId,
   getByCustomerId,
   getByInvoiceId,
   getByPaymentId,

@@ -39,10 +39,15 @@ export async function ceoDashboard(req, res) {
 export async function globalSearch(req, res) {
   try {
     const q = String(req.query.q || req.params.id || "").trim();
-    if (!q) return res.status(400).json({ success: false, message: "Search ID is required" });
-    const result = await TraceabilityService.getCompleteTraceability(q);
+    if (!q) return res.status(400).json({ success: false, message: "Search query is required" });
+    const { entity, exact } = req.query;
+    const result = await TraceabilityService.getCompleteTraceability(q, {
+      entity: entity ? String(entity).toLowerCase() : undefined,
+      exact: exact === "true" || exact === true,
+    });
     res.json({ success: true, ...result });
   } catch (err) {
+    console.error("globalSearch error:", err);
     res.status(500).json({ success: false, message: err.message || "Search failed" });
   }
 }

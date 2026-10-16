@@ -4,6 +4,14 @@ import Payment from "../models/payment/Payment.js";
 import SupportMessage from "../models/support/SupportMessage.js";
 import Notification from "../models/Notification.js";
 import ScheduledNotification from "../models/ScheduledNotification.js";
+import AdminAlertState from "../models/AdminAlertState.js";
+import {
+  HrPayroll,
+  HrMeeting,
+  HrCandidate,
+  HrLeaveRequest,
+  B2bClient,
+} from "../../admin-ops-service/src/models.js";
 import {
   sendCustomNotification,
   sendOffer,
@@ -666,3 +674,423 @@ export const sendAdminMulticast = async (req, res) => {
     });
   }
 };
+
+/**
+ * Aggregates live system alerts across ERP, HR (employee due salaries, meetings, interviews, leave),
+ * compliance (B2B KYC), and operations.
+ */
+export const getAdminSystemAlerts = async (req, res) => {
+  try {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const userId = String(req.user?._id || "admin");
+
+    const [
+      payrollRows,
+      meetings,
+      candidates,
+      leaveRequests,
+      b2bClients,
+      pendingPayments,
+      customNotifs,
+      alertStates,
+    ] = await Promise.all([
+      HrPayroll.find({ status: "pending" }).sort({ createdAt: -1 }).limit(100).lean().catch(() => []),
+      HrMeeting.find({}).sort({ createdAt: -1 }).limit(50).lean().catch(() => []),
+      HrCandidate.find({ $or: [{ section: "finalize" }, { stage: "interview" }] }).sort({ updatedAt: -1 }).limit(50).lean().catch(() => []),
+      HrLeaveRequest.find({ status: "pending" }).sort({ createdAt: -1 }).limit(50).lean().catch(() => []),
+      B2bClient.find({ status: "pending_verification" }).sort({ createdAt: -1 }).limit(50).lean().catch(() => []),
+      Payment.find({ status: "pending" }).sort({ createdAt: -1 }).limit(30).lean().catch(() => []),
+      Notification.find({ "data.channel": "admin_inbox" }).sort({ createdAt: -1 }).limit(50).lean().catch(() => []),
+      AdminAlertState.find({ userId }).lean().catch(() => []),
+    ]);
+
+    const stateMap = new Map();
+    alertStates.forEach((s) => stateMap.set(s.alertKey, s));
+
+    const rawAlerts = [];
+
+    // 1. Employee Due Payments (HrPayroll status: "pending")
+    payrollRows.forEach((row) => {
+      const alertKey = `payroll:${row._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      const isOverdue = Boolean(row.month && row.month < currentMonth);
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "payroll",
+        priority: isOverdue ? "critical" : "high",
+        title: `Salary Payment Due: ${row.name || "Employee"}`,
+        message: `Net salary of ₹${(row.net || 0).toLocaleString("en-IN")} pending disbursement for ${row.month || "current month"} (${row.role || row.employeeType || "Staff"}).`,
+        timestamp: row.createdAt || new Date(),
+        dueDate: row.month ? `${row.month}-28` : null,
+        isRead: Boolean(state?.isRead),
+        actionLabel: "Disburse Salary",
+        actionLink: `/hr-management/payroll?role=${row.roleKey || ""}&employee=${row.employeeId || ""}`,
+        badge: {
+          label: isOverdue ? "OVERDUE PAYMENT" : "SALARY DUE",
+          color: isOverdue ? "rose" : "amber",
+        },
+        metadata: {
+          employeeId: row.employeeId,
+          employeeType: row.employeeType,
+          name: row.name,
+          month: row.month,
+          gross: row.gross,
+          deductions: row.deductions,
+          net: row.net,
+        },
+      });
+    });
+
+    // 2. Scheduled Meetings (HrMeeting)
+    meetings.forEach((m) => {
+      const alertKey = `meeting:${m._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      const roleLabels = Array.isArray(m.roles) && m.roles.length > 0 ? m.roles.join(", ") : "All Roles";
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "meeting",
+        priority: "normal",
+        title: `Scheduled Meeting: ${m.note || roleLabels}`,
+        message: `Online meeting scheduled for ${roleLabels}. Meeting ID: ${m.meetingId || "Direct URL"}.`,
+        timestamp: m.createdAt || new Date(),
+        isRead: Boolean(state?.isRead),
+        actionLabel: m.link ? "Join Meeting" : "View Meetings",
+        actionLink: m.link || "/hr-management/meetings",
+        badge: {
+          label: "MEETING",
+          color: "blue",
+        },
+        metadata: {
+          meetingId: m.meetingId,
+          roles: m.roles,
+          link: m.link,
+          password: m.password,
+          note: m.note,
+        },
+      });
+    });
+
+    // 3. Candidate Interviews / Finalize (HrCandidate)
+    candidates.forEach((c) => {
+      const alertKey = `candidate:${c._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "meeting",
+        priority: "high",
+        title: `Candidate Interview: ${c.name || "Candidate"}`,
+        message: `Candidate shortlisted for ${c.roleKey || "open vacancy"}. Stage: ${c.finalizeStatus || c.stage || "Interview"}.`,
+        timestamp: c.updatedAt || c.createdAt || new Date(),
+        isRead: Boolean(state?.isRead),
+        actionLabel: "Review Candidate",
+        actionLink: "/hr-management/recruitment",
+        badge: {
+          label: "INTERVIEW",
+          color: "purple",
+        },
+        metadata: {
+          candidateId: c._id,
+          name: c.name,
+          roleKey: c.roleKey,
+          rating: c.rating,
+        },
+      });
+    });
+
+    // 4. Employee Leave Requests Pending (HrLeaveRequest)
+    leaveRequests.forEach((lv) => {
+      const alertKey = `leave:${lv._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "hr",
+        priority: "high",
+        title: `Leave Approval Pending: ${lv.name}`,
+        message: `${lv.days || 1} day(s) ${lv.leaveType || "casual"} leave from ${lv.fromDate} to ${lv.toDate}. Reason: ${lv.reason || "Not specified"}.`,
+        timestamp: lv.createdAt || new Date(),
+        isRead: Boolean(state?.isRead),
+        actionLabel: "Review Leave",
+        actionLink: "/hr-management/leave",
+        badge: {
+          label: "LEAVE REQUEST",
+          color: "amber",
+        },
+        metadata: {
+          leaveId: lv._id,
+          name: lv.name,
+          days: lv.days,
+          fromDate: lv.fromDate,
+          toDate: lv.toDate,
+          leaveType: lv.leaveType,
+        },
+      });
+    });
+
+    // 5. B2B Client KYC Reviews Pending (B2bClient)
+    b2bClients.forEach((client) => {
+      const alertKey = `b2b:${client._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "compliance",
+        priority: "high",
+        title: `B2B Client KYC Pending: ${client.companyName}`,
+        message: `GSTIN (${client.gstin || "Pending"}) & documentation under review for corporate credit terms.`,
+        timestamp: client.createdAt || new Date(),
+        isRead: Boolean(state?.isRead),
+        actionLabel: "Review Client",
+        actionLink: "/hr-management/b2b-users",
+        badge: {
+          label: "KYC VERIFICATION",
+          color: "teal",
+        },
+        metadata: {
+          clientId: client._id,
+          companyName: client.companyName,
+          category: client.category,
+        },
+      });
+    });
+
+    // 6. Pending Payments & Orders
+    pendingPayments.forEach((p) => {
+      const alertKey = `payment:${p._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: "payment",
+        priority: "normal",
+        title: `Payment Awaiting Clearance: ₹${(p.amount || 0).toLocaleString("en-IN")}`,
+        message: `Payment reference ${p.transactionId || p._id} in pending state via ${p.paymentMethod || "gateway"}.`,
+        timestamp: p.createdAt || new Date(),
+        isRead: Boolean(state?.isRead),
+        actionLabel: "View Payment",
+        actionLink: "/billing",
+        badge: {
+          label: "PENDING PAYMENT",
+          color: "blue",
+        },
+        metadata: {
+          paymentId: p._id,
+          amount: p.amount,
+          method: p.paymentMethod,
+        },
+      });
+    });
+
+    // 7. Custom / Inbox Alerts (Notification collection)
+    customNotifs.forEach((n) => {
+      const alertKey = `notif:${n._id}`;
+      const state = stateMap.get(alertKey);
+      if (state?.isDismissed) return;
+
+      rawAlerts.push({
+        id: alertKey,
+        alertKey,
+        category: n.type === "alert" ? "general" : n.type || "general",
+        priority: n.data?.priority || "normal",
+        title: n.title || "System Alert",
+        message: n.body || "",
+        timestamp: n.createdAt || new Date(),
+        isRead: state ? state.isRead : Boolean(n.isRead),
+        actionLabel: n.data?.actionLabel || (n.data?.link ? "View Details" : ""),
+        actionLink: n.data?.link || "",
+        badge: {
+          label: n.data?.badge || "SYSTEM ALERT",
+          color: "indigo",
+        },
+        metadata: n.data || {},
+      });
+    });
+
+    // Sort: unread first, then by priority (critical > high > normal), then newest first
+    const priorityWeight = { critical: 3, high: 2, normal: 1, low: 0 };
+    rawAlerts.sort((a, b) => {
+      if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+      const pwA = priorityWeight[a.priority] || 0;
+      const pwB = priorityWeight[b.priority] || 0;
+      if (pwA !== pwB) return pwB - pwA;
+      return new Date(b.timestamp) - new Date(a.timestamp);
+    });
+
+    const metrics = {
+      totalAlerts: rawAlerts.length,
+      unreadCount: rawAlerts.filter((a) => !a.isRead).length,
+      duePaymentsCount: rawAlerts.filter((a) => a.category === "payroll").length,
+      duePaymentsTotal: rawAlerts
+        .filter((a) => a.category === "payroll")
+        .reduce((sum, a) => sum + (Number(a.metadata?.net) || 0), 0),
+      meetingsCount: rawAlerts.filter((a) => a.category === "meeting").length,
+      urgentCount: rawAlerts.filter((a) => a.priority === "critical" || a.priority === "high").length,
+    };
+
+    return res.json({
+      success: true,
+      metrics,
+      data: rawAlerts,
+    });
+  } catch (error) {
+    console.error("Failed to load admin system alerts:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load admin system alerts",
+    });
+  }
+};
+
+/**
+ * Mark a system alert as read
+ */
+export const markAdminSystemAlertRead = async (req, res) => {
+  try {
+    const alertKey = decodeURIComponent(req.params.id);
+    const userId = String(req.user?._id || "admin");
+
+    await AdminAlertState.findOneAndUpdate(
+      { alertKey, userId },
+      { $set: { isRead: true, readAt: new Date() } },
+      { upsert: true, new: true }
+    );
+
+    // If it's a Notification collection item, also update it
+    if (alertKey.startsWith("notif:")) {
+      const notifId = alertKey.replace("notif:", "");
+      await Notification.findByIdAndUpdate(notifId, { $set: { isRead: true } });
+    }
+
+    return res.json({ success: true, message: "Alert marked as read" });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to mark alert as read",
+    });
+  }
+};
+
+/**
+ * Dismiss / Hide a system alert from list
+ */
+export const dismissAdminSystemAlert = async (req, res) => {
+  try {
+    const alertKey = decodeURIComponent(req.params.id);
+    const userId = String(req.user?._id || "admin");
+
+    await AdminAlertState.findOneAndUpdate(
+      { alertKey, userId },
+      { $set: { isDismissed: true, dismissedAt: new Date(), isRead: true } },
+      { upsert: true, new: true }
+    );
+
+    return res.json({ success: true, message: "Alert dismissed" });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to dismiss alert",
+    });
+  }
+};
+
+/**
+ * Mark all active alerts as read
+ */
+export const markAllAdminSystemAlertsRead = async (req, res) => {
+  try {
+    const userId = String(req.user?._id || "admin");
+    const { alertKeys = [] } = req.body;
+
+    if (Array.isArray(alertKeys) && alertKeys.length > 0) {
+      const bulkOps = alertKeys.map((key) => ({
+        updateOne: {
+          filter: { alertKey: key, userId },
+          update: { $set: { isRead: true, readAt: new Date() } },
+          upsert: true,
+        },
+      }));
+      await AdminAlertState.bulkWrite(bulkOps);
+    }
+
+    // Also update any unread Notification docs
+    await Notification.updateMany(
+      { "data.channel": "admin_inbox", isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    return res.json({ success: true, message: "All alerts marked as read" });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to mark all alerts as read",
+    });
+  }
+};
+
+/**
+ * Create a custom manual alert/announcement with optional sound/priority
+ */
+export const createCustomSystemAlert = async (req, res) => {
+  try {
+    const {
+      title,
+      message,
+      category = "general",
+      priority = "normal",
+      actionLabel = "",
+      actionLink = "",
+      badge = "ALERT",
+    } = req.body;
+
+    if (!title?.trim() || !message?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and message are required",
+      });
+    }
+
+    const notif = await Notification.create({
+      user: req.user?._id || null,
+      title: title.trim(),
+      body: message.trim(),
+      type: category === "payroll" ? "payroll" : "alert",
+      isRead: false,
+      data: {
+        channel: "admin_inbox",
+        priority,
+        actionLabel,
+        link: actionLink,
+        badge,
+        category,
+        sound: true,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Custom alert published successfully",
+      data: notif,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create custom alert",
+    });
+  }
+};
+

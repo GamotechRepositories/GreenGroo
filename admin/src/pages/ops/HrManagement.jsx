@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Clock3, Loader2, Megaphone, Palmtree, RefreshCw, UserPlus, UserRound, Users, Wallet } from 'lucide-react';
+import { Building2, CalendarDays, Clock3, Loader2, Megaphone, Palmtree, RefreshCw, UserPlus, UserRound, Users, Wallet } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 import { inr, HrBackButtons } from '../hr/hrShared';
 
 const MODULES = [
+  { to: '/hr-management/b2b-users', label: 'B2B User Management', text: 'Business clients, partners, and company profiles with multiple representatives', icon: Building2 },
   { to: '/hr-management/employees', label: 'Employees', text: 'Role-wise people, logins, and profiles', icon: UserRound },
   { to: '/hr-management/calendar', label: 'Calendar', text: 'Assign leave and schedule announcements', icon: CalendarDays },
   { to: '/hr-management/announcements', label: 'Announcements', text: 'Draft and publish by role', icon: Megaphone },

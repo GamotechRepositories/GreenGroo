@@ -2293,7 +2293,42 @@ export async function listStoreSupport(req, res, next) {
       roleMeta = { roleKey, label: supportRoleLabel(roleKey) };
     }
 
-    const tickets = await SupportMessage.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+    const q = String(req.query.q || "").trim();
+    if (q) {
+      const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { name: rx },
+        { email: rx },
+        { phone: rx },
+        { orderId: rx },
+        { message: rx },
+      ];
+    }
+
+    const issueTypeRaw = String(req.query.issueType || "").trim();
+    if (issueTypeRaw && issueTypeRaw !== "all") {
+      const types = issueTypeRaw.split(",").map((t) => t.trim()).filter(Boolean);
+      filter.issueType = types.length === 1 ? types[0] : { $in: types };
+    }
+
+    if (req.query.hasAttachment === "true" || req.query.hasAttachment === true) {
+      filter["attachments.0"] = { $exists: true };
+    }
+
+    const dateRange = String(req.query.dateRange || "").trim().toLowerCase();
+    if (dateRange === "today") {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      filter.createdAt = { $gte: start };
+    } else if (dateRange === "7d") {
+      const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      filter.createdAt = { $gte: start };
+    } else if (dateRange === "30d") {
+      const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      filter.createdAt = { $gte: start };
+    }
+
+    const tickets = await SupportMessage.find(filter).sort({ createdAt: -1 }).limit(300).lean();
     return ok(res, tickets, {
       role: roleMeta,
       stats: {

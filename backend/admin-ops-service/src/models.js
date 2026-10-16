@@ -864,3 +864,182 @@ export const StockAdjustmentLog =
   mongoose.models.AdminStockAdjustmentLog ||
   mongoose.model("AdminStockAdjustmentLog", stockAdjustmentLogSchema);
 
+const b2bRepresentativeSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
+    phone: { type: String, default: "", trim: true },
+    designation: { type: String, default: "Procurement Officer", trim: true },
+    department: { type: String, default: "Procurement", trim: true },
+    roleTag: {
+      type: String,
+      enum: [
+        "authorized_signatory",
+        "procurement_lead",
+        "finance_lead",
+        "receiving_dock",
+        "store_manager",
+        "general_contact",
+      ],
+      default: "procurement_lead",
+    },
+    isPrimary: { type: Boolean, default: false },
+    portalAccess: { type: Boolean, default: true },
+    status: {
+      type: String,
+      enum: ["active", "invited", "suspended", "inactive"],
+      default: "active",
+    },
+    notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const b2bClientSchema = new mongoose.Schema(
+  {
+    companyCode: { type: String, trim: true, uppercase: true, index: true },
+    companyName: { type: String, required: true, trim: true, index: true },
+    tradeName: { type: String, default: "", trim: true },
+    clientType: {
+      type: String,
+      enum: ["client", "partner", "enterprise_buyer", "vendor_enterprise", "institutional"],
+      default: "client",
+      index: true,
+    },
+    category: {
+      type: String,
+      enum: [
+        "Hospitality & HoReCa",
+        "Modern Retail & Supermarkets",
+        "Corporate Canteen & Catering",
+        "Food Processing & Cloud Kitchen",
+        "Institutional & Healthcare",
+        "Export & Distribution",
+        "Other",
+      ],
+      default: "Hospitality & HoReCa",
+      index: true,
+    },
+    registrationNumber: { type: String, default: "", trim: true },
+    gstin: { type: String, default: "", trim: true, uppercase: true, index: true },
+    pan: { type: String, default: "", trim: true, uppercase: true },
+    status: {
+      type: String,
+      enum: ["active", "pending_verification", "under_review", "suspended", "inactive"],
+      default: "active",
+      index: true,
+    },
+    creditLimit: { type: Number, default: 0, min: 0 },
+    creditDays: { type: Number, default: 30, min: 0 },
+    creditUsed: { type: Number, default: 0, min: 0 },
+    assignedDarkStore: { type: String, default: "", trim: true },
+    darkStoreId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryManager", default: null },
+    billingAddress: {
+      street: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      pincode: { type: String, default: "" },
+      country: { type: String, default: "India" },
+    },
+    shippingAddress: {
+      street: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      pincode: { type: String, default: "" },
+    },
+    representatives: [b2bRepresentativeSchema],
+    contractDetails: {
+      contractNumber: { type: String, default: "" },
+      startDate: { type: Date, default: null },
+      endDate: { type: Date, default: null },
+      contractStatus: {
+        type: String,
+        enum: ["active", "pending_renewal", "expired", "negotiating"],
+        default: "active",
+      },
+      pricingTier: {
+        type: String,
+        enum: ["Standard B2B", "Tier-1 Wholesale", "Enterprise Bulk", "Strategic Partner"],
+        default: "Standard B2B",
+      },
+      slaTerms: { type: String, default: "" },
+    },
+    notes: { type: String, default: "" },
+    totalOrdersCount: { type: Number, default: 0 },
+    totalLifetimeSpend: { type: Number, default: 0 },
+    createdBy: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export const B2bClient =
+  mongoose.models.AdminB2bClient || mongoose.model("AdminB2bClient", b2bClientSchema);
+
+const b2bDealStageSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    key: { type: String, required: true, trim: true, lowercase: true, index: true },
+    order: { type: Number, default: 0, index: true },
+    color: { type: String, default: "emerald", trim: true },
+    probability: { type: Number, default: 50, min: 0, max: 100 },
+    isWon: { type: Boolean, default: false },
+    isLost: { type: Boolean, default: false },
+    isDefault: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true, index: true },
+    description: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+export const B2bDealStage =
+  mongoose.models.AdminB2bDealStage || mongoose.model("AdminB2bDealStage", b2bDealStageSchema);
+
+const dealHistorySchema = new mongoose.Schema(
+  {
+    stageKey: { type: String, required: true },
+    stageName: { type: String, required: true },
+    movedAt: { type: Date, default: Date.now },
+    movedBy: { type: String, default: "Admin" },
+    notes: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const b2bDealSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, index: true },
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: "AdminB2bClient", required: true, index: true },
+    clientName: { type: String, required: true, trim: true },
+    companyCode: { type: String, default: "", trim: true },
+    dealValue: { type: Number, default: 0, min: 0 },
+    currency: { type: String, default: "INR", trim: true },
+    stageId: { type: mongoose.Schema.Types.ObjectId, ref: "AdminB2bDealStage", index: true },
+    stageKey: { type: String, required: true, trim: true, index: true },
+    stageName: { type: String, required: true, trim: true },
+    probability: { type: Number, default: 50, min: 0, max: 100 },
+    expectedCloseDate: { type: Date, default: null },
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "urgent"],
+      default: "medium",
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ["open", "won", "lost"],
+      default: "open",
+      index: true,
+    },
+    assignedTo: { type: String, default: "", trim: true },
+    notes: { type: String, default: "", trim: true },
+    lostReason: { type: String, default: "", trim: true },
+    stageHistory: [dealHistorySchema],
+    createdBy: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export const B2bDeal =
+  mongoose.models.AdminB2bDeal || mongoose.model("AdminB2bDeal", b2bDealSchema);
+
+

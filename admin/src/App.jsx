@@ -34,6 +34,7 @@ import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
 import VendorCropRequestsPage from './pages/ops/VendorCropRequestsPage';
 import CentreFarmerManagersPage from './pages/ops/CentreFarmerManagersPage';
 import HrManagement from './pages/ops/HrManagement';
+import HrB2bUsersPage from './pages/hr/HrB2bUsersPage';
 import HrCalendarPage from './pages/hr/HrCalendarPage';
 import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage';
 import HrLeavePage from './pages/hr/HrLeavePage';
@@ -76,6 +77,7 @@ import CreateGovtSchemePage from './pages/government/CreateGovtSchemePage';
 import AllSchemeApplicationsPage from './pages/government/AllSchemeApplicationsPage';
 import OmnichannelBillingPage from './pages/billing/OmnichannelBillingPage';
 import InventoryToolsPage from './pages/inventory/InventoryToolsPage';
+import AdminNotificationsPage from './pages/notifications/AdminNotificationsPage';
 
 export default function App() {
   return (
@@ -87,6 +89,7 @@ export default function App() {
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<CeoDashboard />} />
               <Route path="welcome" element={<Dashboard />} />
+              <Route path="notifications" element={<AdminNotificationsPage />} />
               <Route path="billing" element={<OmnichannelBillingPage />} />
               <Route path="billing/:subTab" element={<OmnichannelBillingPage />} />
               <Route path="inventory-tools" element={<InventoryToolsPage />} />
@@ -125,6 +128,7 @@ export default function App() {
               <Route path="collection-farmers" element={<CentreFarmersPage />} />
               <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />
               <Route path="hr-management" element={<HrManagement />} />
+              <Route path="hr-management/b2b-users" element={<HrB2bUsersPage />} />
               <Route path="hr-management/calendar" element={<HrCalendarPage />} />
               <Route path="hr-management/announcements" element={<HrAnnouncementsPage />} />
               <Route path="hr-management/leave" element={<HrLeavePage />} />
@@ -161,6 +165,7 @@ export default function App() {
               <Route path="store-support" element={<StoreSupport />} />
               <Route path="store-support/:roleKey" element={<StoreSupport />} />
               <Route path="finance" element={<FinanceManagement />} />
+              <Route path="finance/:section" element={<FinanceManagement />} />
               <Route path="refund-warranty" element={<RefundWarrantyTypePage />} />
               <Route path="refund-warranty/:accountType" element={<RefundWarrantyListPage />} />
               <Route path="reports" element={<Reports />} />

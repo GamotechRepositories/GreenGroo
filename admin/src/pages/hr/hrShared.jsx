@@ -4,6 +4,7 @@ import { BTN } from '../../utils/ui';
 
 export const HR_LINKS = [
   { to: '/hr-management', label: 'Dashboard' },
+  { to: '/hr-management/b2b-users', label: 'B2B Users' },
   { to: '/hr-management/calendar', label: 'Calendar' },
   { to: '/hr-management/announcements', label: 'Announcements' },
   { to: '/hr-management/leave', label: 'Leave' },

@@ -13,11 +13,23 @@ import {
   sendAdminNotification,
   sendAdminMulticast,
   sendPromotionalNotification,
+  getAdminSystemAlerts,
+  markAdminSystemAlertRead,
+  dismissAdminSystemAlert,
+  markAllAdminSystemAlertsRead,
+  createCustomSystemAlert,
 } from "../controllers/adminNotificationController.js";
 
 const router = express.Router();
 
 router.use(protect, requireAdmin);
+
+// System Alerts for Due Payments, Meetings, Operations
+router.get("/system-alerts", getAdminSystemAlerts);
+router.post("/system-alerts/custom", createCustomSystemAlert);
+router.put("/system-alerts/read-all", markAllAdminSystemAlertsRead);
+router.put("/system-alerts/:id/read", markAdminSystemAlertRead);
+router.put("/system-alerts/:id/dismiss", dismissAdminSystemAlert);
 
 router.get("/inbox-summary", getAdminInboxSummary);
 router.get("/inbox", getAdminInboxAlerts);
