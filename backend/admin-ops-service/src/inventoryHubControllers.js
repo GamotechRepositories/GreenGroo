@@ -129,8 +129,8 @@ async function adjustProductStock({
 export async function listInventoryFarmers(req, res, next) {
   try {
     const search = String(req.query.search || req.query.q || "").trim().toLowerCase();
-    const farmers = await Farmer.find().select("-password").sort({ createdAt: -1 }).lean();
-    const products = await FarmerProduct.find().select("farmerId stock availableQuantity grades lowStockLimit status").lean();
+    const farmers = await Farmer.find({ isDeleted: { $ne: true }, deleted: { $ne: true } }).select("-password").sort({ createdAt: -1 }).lean();
+    const products = await FarmerProduct.find({ isDeleted: { $ne: true }, deleted: { $ne: true } }).select("farmerId stock availableQuantity grades lowStockLimit status").lean();
 
     const byFarmer = new Map();
     products.forEach((product) => {
@@ -262,8 +262,8 @@ export async function adjustInventoryFarmer(req, res, next) {
 export async function listInventoryVendors(req, res, next) {
   try {
     const search = String(req.query.search || req.query.q || "").trim().toLowerCase();
-    const vendors = await Vendor.find().select("-password").sort({ createdAt: -1 }).lean();
-    const products = await FarmerProduct.find().select("vendorId stock availableQuantity grades lowStockLimit").lean();
+    const vendors = await Vendor.find({ isDeleted: { $ne: true }, deleted: { $ne: true } }).select("-password").sort({ createdAt: -1 }).lean();
+    const products = await FarmerProduct.find({ isDeleted: { $ne: true }, deleted: { $ne: true } }).select("vendorId stock availableQuantity grades lowStockLimit").lean();
 
     const byVendor = new Map();
     products.forEach((product) => {

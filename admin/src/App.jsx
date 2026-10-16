@@ -75,6 +75,7 @@ import AllGovtSchemesPage from './pages/government/AllGovtSchemesPage';
 import CreateGovtSchemePage from './pages/government/CreateGovtSchemePage';
 import AllSchemeApplicationsPage from './pages/government/AllSchemeApplicationsPage';
 import OmnichannelBillingPage from './pages/billing/OmnichannelBillingPage';
+import InventoryToolsPage from './pages/inventory/InventoryToolsPage';
 
 export default function App() {
   return (
@@ -88,6 +89,8 @@ export default function App() {
               <Route path="welcome" element={<Dashboard />} />
               <Route path="billing" element={<OmnichannelBillingPage />} />
               <Route path="billing/:subTab" element={<OmnichannelBillingPage />} />
+              <Route path="inventory-tools" element={<InventoryToolsPage />} />
+              <Route path="inventory-tools/:tab" element={<InventoryToolsPage />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="traceability" element={<TraceabilityPage />} />
               <Route path="erp/locations" element={<LocationMastersPage />} />

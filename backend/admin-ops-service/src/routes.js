@@ -185,6 +185,18 @@ import {
   getBillingInvoices,
   getOmnichannelOverview,
 } from "./billingControllers.js";
+import {
+  getRealtimeStock,
+  getBatchExpiryTracking,
+  quarantineBatch,
+  getLowStockAlerts,
+  getGrnList,
+  createGrn,
+  getDeadStockReport,
+  getStockAdjustmentLogs,
+  createStockAdjustment,
+  getInventoryStoresAndVendors,
+} from "./inventoryControllers.js";
 import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
 import { attachVendorHrScope } from "./hrScope.js";
 
@@ -213,6 +225,18 @@ router.post("/billing/customers", optionalAuth, createBillingCustomer);
 router.post("/billing/invoices", optionalAuth, createBillingInvoice);
 router.get("/billing/invoices", optionalAuth, getBillingInvoices);
 router.get("/billing/channels-overview", optionalAuth, getOmnichannelOverview);
+
+// Inventory & Stock Tools routes
+router.get("/inventory-tools/realtime-stock", optionalAuth, getRealtimeStock);
+router.get("/inventory-tools/batches", optionalAuth, getBatchExpiryTracking);
+router.post("/inventory-tools/batches/:batchId/quarantine", optionalAuth, quarantineBatch);
+router.get("/inventory-tools/alerts", optionalAuth, getLowStockAlerts);
+router.get("/inventory-tools/grn", optionalAuth, getGrnList);
+router.post("/inventory-tools/grn", optionalAuth, createGrn);
+router.get("/inventory-tools/dead-stock", optionalAuth, getDeadStockReport);
+router.get("/inventory-tools/adjustments", optionalAuth, getStockAdjustmentLogs);
+router.post("/inventory-tools/adjustments", optionalAuth, createStockAdjustment);
+router.get("/inventory-tools/metadata", optionalAuth, getInventoryStoresAndVendors);
 
 router.use(protect, requireAdmin);
 

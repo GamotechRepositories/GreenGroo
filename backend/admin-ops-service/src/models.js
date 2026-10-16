@@ -746,3 +746,121 @@ export const PosRegisterShift =
   mongoose.models.AdminPosRegisterShift ||
   mongoose.model("AdminPosRegisterShift", posRegisterShiftSchema);
 
+// =========================================================================
+// INVENTORY & STOCK TOOLS MODELS
+// =========================================================================
+
+const inventoryBatchSchema = new mongoose.Schema(
+  {
+    batchNumber: { type: String, required: true, trim: true, index: true },
+    sku: { type: String, required: true, trim: true, index: true },
+    productName: { type: String, required: true, trim: true },
+    category: { type: String, default: "General", trim: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryManager", required: true, index: true },
+    storeName: { type: String, default: "", trim: true },
+    mfgDate: { type: Date, default: () => new Date() },
+    expiryDate: { type: Date, required: true, index: true },
+    initialQty: { type: Number, default: 0, min: 0 },
+    currentQty: { type: Number, default: 0, min: 0 },
+    unit: { type: String, default: "pcs", trim: true },
+    unitCost: { type: Number, default: 0, min: 0 },
+    mrp: { type: Number, default: 0, min: 0 },
+    supplierName: { type: String, default: "", trim: true },
+    grnNumber: { type: String, default: "", trim: true },
+    status: {
+      type: String,
+      enum: ["active", "near_expiry", "expired", "quarantined", "depleted"],
+      default: "active",
+      index: true,
+    },
+    quarantineReason: { type: String, default: "" },
+    quarantinedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+export const InventoryBatch =
+  mongoose.models.AdminInventoryBatch ||
+  mongoose.model("AdminInventoryBatch", inventoryBatchSchema);
+
+const goodsReceiptNoteSchema = new mongoose.Schema(
+  {
+    grnNumber: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    poNumber: { type: String, default: "", trim: true },
+    supplierType: { type: String, enum: ["vendor", "farmer", "distributor"], default: "vendor" },
+    supplierId: { type: String, default: "" },
+    supplierName: { type: String, required: true, trim: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryManager", required: true, index: true },
+    storeName: { type: String, required: true, trim: true },
+    invoiceNumber: { type: String, default: "", trim: true },
+    invoiceDate: { type: Date, default: null },
+    receivedDate: { type: Date, default: () => new Date() },
+    items: [
+      {
+        sku: { type: String, required: true },
+        name: { type: String, required: true },
+        category: { type: String, default: "General" },
+        orderedQty: { type: Number, default: 0, min: 0 },
+        receivedQty: { type: Number, default: 0, min: 0 },
+        acceptedQty: { type: Number, default: 0, min: 0 },
+        rejectedQty: { type: Number, default: 0, min: 0 },
+        unit: { type: String, default: "pcs" },
+        unitCost: { type: Number, default: 0, min: 0 },
+        totalCost: { type: Number, default: 0, min: 0 },
+        batchNumber: { type: String, default: "" },
+        mfgDate: { type: Date, default: null },
+        expiryDate: { type: Date, default: null },
+        rejectionReason: { type: String, default: "" },
+      },
+    ],
+    totalItems: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
+    status: { type: String, enum: ["draft", "verified", "approved", "rejected"], default: "verified" },
+    receivedBy: { type: String, default: "Store Manager" },
+    verifiedBy: { type: String, default: "Quality Inspector" },
+    notes: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export const GoodsReceiptNote =
+  mongoose.models.AdminGoodsReceiptNote ||
+  mongoose.model("AdminGoodsReceiptNote", goodsReceiptNoteSchema);
+
+const stockAdjustmentLogSchema = new mongoose.Schema(
+  {
+    adjustmentNumber: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    storeId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryManager", required: true, index: true },
+    storeName: { type: String, required: true, trim: true },
+    sku: { type: String, required: true, trim: true, index: true },
+    productName: { type: String, required: true, trim: true },
+    unit: { type: String, default: "pcs", trim: true },
+    previousStock: { type: Number, required: true },
+    adjustedQty: { type: Number, required: true }, // positive for add, negative for deduction
+    newStock: { type: Number, required: true },
+    reason: {
+      type: String,
+      enum: [
+        "damage_spoilage",
+        "cycle_count",
+        "shrinkage_theft",
+        "expired_writeoff",
+        "vendor_return",
+        "internal_transfer",
+        "other",
+      ],
+      default: "cycle_count",
+    },
+    unitCost: { type: Number, default: 0 },
+    financialImpact: { type: Number, default: 0 },
+    batchNumber: { type: String, default: "" },
+    adjustedBy: { type: String, default: "Admin" },
+    notes: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export const StockAdjustmentLog =
+  mongoose.models.AdminStockAdjustmentLog ||
+  mongoose.model("AdminStockAdjustmentLog", stockAdjustmentLogSchema);
+

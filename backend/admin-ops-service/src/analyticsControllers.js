@@ -141,7 +141,11 @@ function readFilters(query) {
  * so this resolves them once and returns a match builder for any date window.
  */
 async function buildOrderScope(filters) {
-  const base = {};
+  const base = {
+    isDeleted: { $ne: true },
+    deleted: { $ne: true },
+    status: { $nin: ["deleted", "DELETED"] },
+  };
   if (filters.city) base["deliveryAddress.city"] = exactCi(filters.city);
   if (filters.department) base.departments = filters.department;
   if (filters.payment) base.paymentMethod = filters.payment;
@@ -152,6 +156,8 @@ async function buildOrderScope(filters) {
       ? await StoreOrder.distinct("sourceOrderId", {
           $or: [{ managerId: storeId }, { darkStoreId: storeId }],
           sourceOrderId: { $ne: null },
+          isDeleted: { $ne: true },
+          deleted: { $ne: true },
         })
       : [];
     base._id = { $in: ids };
@@ -159,7 +165,9 @@ async function buildOrderScope(filters) {
 
   if (filters.accountType) {
     const userFilter =
-      filters.accountType === "bulk" ? { accountType: "bulk" } : { accountType: { $ne: "bulk" } };
+      filters.accountType === "bulk"
+        ? { accountType: "bulk", isDeleted: { $ne: true }, deleted: { $ne: true } }
+        : { accountType: { $ne: "bulk" }, isDeleted: { $ne: true }, deleted: { $ne: true } };
     base.user = { $in: await User.distinct("_id", userFilter) };
   }
 
@@ -167,7 +175,11 @@ async function buildOrderScope(filters) {
 }
 
 function storeOrderMatch(filters, from, to) {
-  const match = { createdAt: { $gte: from, $lte: to } };
+  const match = {
+    createdAt: { $gte: from, $lte: to },
+    isDeleted: { $ne: true },
+    deleted: { $ne: true },
+  };
   if (filters.store) {
     const storeId = toObjectId(filters.store);
     match.$or = [{ managerId: storeId }, { darkStoreId: storeId }];
@@ -260,7 +272,11 @@ async function deliveryKpis(match) {
 }
 
 function newCustomerMatch(filters, from, to) {
-  const match = { createdAt: { $gte: from, $lte: to } };
+  const match = {
+    createdAt: { $gte: from, $lte: to },
+    isDeleted: { $ne: true },
+    deleted: { $ne: true },
+  };
   if (filters.accountType === "bulk") match.accountType = "bulk";
   else if (filters.accountType === "retail") match.accountType = { $ne: "bulk" };
   return match;
@@ -268,8 +284,15 @@ function newCustomerMatch(filters, from, to) {
 
 async function filterOptions() {
   const [stores, orderCities] = await Promise.all([
-    DeliveryManager.find({}).select("storeName name city area").sort({ storeName: 1 }).lean(),
-    Order.distinct("deliveryAddress.city"),
+    DeliveryManager.find({
+      isActive: true,
+      isDeleted: { $ne: true },
+      deleted: { $ne: true },
+    })
+      .select("storeName name city area")
+      .sort({ storeName: 1 })
+      .lean(),
+    Order.distinct("deliveryAddress.city", { isDeleted: { $ne: true }, deleted: { $ne: true } }),
   ]);
   const cities = new Map();
   for (const c of [...stores.map((s) => s.city), ...orderCities]) {

@@ -378,7 +378,13 @@ export async function getReports(_req, res, next) {
     const [orderAgg, recentOrders, productCount, riderCount, storeOrders, topProducts] =
       await Promise.all([
         Order.aggregate([
-          { $match: { status: { $nin: ["attempted"] } } },
+          {
+            $match: {
+              status: { $nin: ["attempted", "deleted", "DELETED"] },
+              isDeleted: { $ne: true },
+              deleted: { $ne: true },
+            },
+          },
           {
             $group: {
               _id: "$status",
@@ -387,16 +393,43 @@ export async function getReports(_req, res, next) {
             },
           },
         ]),
-        Order.find({ status: { $nin: ["attempted"] } })
+        Order.find({
+          status: { $nin: ["attempted", "deleted", "DELETED"] },
+          isDeleted: { $ne: true },
+          deleted: { $ne: true },
+        })
           .sort({ createdAt: -1 })
           .limit(8)
           .select("orderNumber total status paymentStatus createdAt")
           .lean(),
-        Product.countDocuments({ isActive: true }),
-        DeliveryBoy.countDocuments(),
-        StoreOrder.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+        Product.countDocuments({
+          isActive: true,
+          isDeleted: { $ne: true },
+          deleted: { $ne: true },
+          status: { $nin: ["deleted", "DELETED"] },
+        }),
+        DeliveryBoy.countDocuments({
+          isDeleted: { $ne: true },
+          deleted: { $ne: true },
+          status: { $nin: ["deleted", "DELETED"] },
+        }),
+        StoreOrder.aggregate([
+          {
+            $match: {
+              isDeleted: { $ne: true },
+              deleted: { $ne: true },
+            },
+          },
+          { $group: { _id: "$status", count: { $sum: 1 } } },
+        ]),
         Order.aggregate([
-          { $match: { status: { $nin: ["attempted", "cancelled"] } } },
+          {
+            $match: {
+              status: { $nin: ["attempted", "cancelled", "deleted", "DELETED"] },
+              isDeleted: { $ne: true },
+              deleted: { $ne: true },
+            },
+          },
           { $unwind: "$items" },
           {
             $group: {

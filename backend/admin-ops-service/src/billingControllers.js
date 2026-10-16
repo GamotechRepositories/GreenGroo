@@ -36,7 +36,11 @@ function computeTier(spend, points) {
  */
 export async function getBillingZonesAndStores(req, res) {
   try {
-    const stores = await DeliveryManager.find()
+    const stores = await DeliveryManager.find({
+      isActive: true,
+      isDeleted: { $ne: true },
+      deleted: { $ne: true },
+    })
       .select("-password")
       .sort({ city: 1, area: 1, storeName: 1 })
       .lean();
@@ -49,6 +53,9 @@ export async function getBillingZonesAndStores(req, res) {
 
     const vendors = await Vendor.find({
       $or: [{ id: { $in: vendorIds } }, { _id: { $in: objectIds } }],
+      isDeleted: { $ne: true },
+      deleted: { $ne: true },
+      status: { $nin: ["deleted", "DELETED", "blocked", "BLOCKED"] },
     }).lean();
 
     const vendorMap = new Map();
@@ -59,7 +66,14 @@ export async function getBillingZonesAndStores(req, res) {
 
     // In-stock item count per store in StoreInventory
     const stockAggs = await StoreInventory.aggregate([
-      { $match: { stockCount: { $gt: 0 }, isActive: true } },
+      {
+        $match: {
+          stockCount: { $gt: 0 },
+          isActive: true,
+          isDeleted: { $ne: true },
+          deleted: { $ne: true },
+        },
+      },
       { $group: { _id: "$managerId", inStockCount: { $sum: 1 } } },
     ]);
     const stockMap = new Map(stockAggs.map((it) => [String(it._id), it.inStockCount]));
@@ -161,15 +175,22 @@ export async function getBillingCatalog(req, res) {
         vendor = await Vendor.findOne(vFilter).lean();
       }
 
-      // Fetch real store inventory for this dark store
+      // Fetch real store inventory for this dark store (non-deleted)
       const storeInventories = await StoreInventory.find({
         managerId: store._id,
         isActive: true,
+        isDeleted: { $ne: true },
+        deleted: { $ne: true },
+        status: { $nin: ["deleted", "DELETED"] },
       }).lean();
 
       // Fetch products supplied by this vendor
       const vendorProducts = store.vendorId
-        ? await VendorProduct.find({ vendorId: store.vendorId }).lean()
+        ? await VendorProduct.find({
+            vendorId: store.vendorId,
+            isDeleted: { $ne: true },
+            deleted: { $ne: true },
+          }).lean()
         : [];
 
       // Match products from central Product collection for high-res images and metadata
@@ -181,6 +202,9 @@ export async function getBillingCatalog(req, res) {
           { name: { $in: names } },
           { ownerManagerId: store._id },
         ],
+        isDeleted: { $ne: true },
+        deleted: { $ne: true },
+        status: { $nin: ["deleted", "DELETED"] },
       })
         .select("_id name sku productId price discountedPrice stock unit categories subcategory productImages")
         .lean();
@@ -302,14 +326,23 @@ export async function getBillingCatalog(req, res) {
 
     // Fallback: Return central catalog if no storeId passed
     const [products, categories] = await Promise.all([
-      Product.find({ isActive: true })
+      Product.find({
+        isActive: true,
+        isDeleted: { $ne: true },
+        deleted: { $ne: true },
+        status: { $nin: ["deleted", "DELETED"] },
+      })
         .select(
           "_id name sku productId price discountedPrice stock unit categories subcategory productImages section storeType"
         )
         .sort({ name: 1 })
         .limit(150)
         .lean(),
-      Category.find({ isActive: true }).select("categoryName").sort({ categoryName: 1 }).lean(),
+      Category.find({
+        isActive: true,
+        isDeleted: { $ne: true },
+        deleted: { $ne: true },
+      }).select("categoryName").sort({ categoryName: 1 }).lean(),
     ]);
 
     const formattedProducts = products.map((prod) => {
