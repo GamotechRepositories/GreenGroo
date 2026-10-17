@@ -178,12 +178,14 @@ String productSku(Product product) {
 
 enum ProductSortOption {
   newest('newest', 'Newest'),
-  oldest('oldest', 'Oldest'),
   priceAsc('price-asc', 'Price: Low to High'),
   priceDesc('price-desc', 'Price: High to Low'),
-  defaultOrder('default', 'Default'),
+  oldest('oldest', 'Oldest'),
+  weightAsc('weight-asc', 'Weight: Low to High'),
+  weightDesc('weight-desc', 'Weight: High to Low'),
   name('name', 'Name A-Z'),
-  brand('brand', 'Brand');
+  brand('brand', 'Brand'),
+  defaultOrder('default', 'Default');
 
   const ProductSortOption(this.id, this.label);
 
@@ -204,10 +206,66 @@ enum ProductSortOption {
   /// Compact filter-bar options that match the website ProductFiltersBar.
   static const List<ProductSortOption> listingOptions = [
     newest,
-    oldest,
     priceAsc,
     priceDesc,
+    oldest,
+    weightAsc,
+    weightDesc,
+    name,
   ];
+}
+
+double parseProductWeightGrams(Product product) {
+  final text = '${product.variants.isNotEmpty ? product.variants.first.name : ''} ${product.subcategory} ${product.name}';
+  final kgMatch = RegExp(r'(\d+(?:\.\d+)?)\s*(?:kg|kilo)', caseSensitive: false).firstMatch(text);
+  if (kgMatch != null) {
+    return (double.tryParse(kgMatch.group(1) ?? '') ?? 0) * 1000;
+  }
+  final gMatch = RegExp(r'(\d+(?:\.\d+)?)\s*(?:g|gm|gms)\b', caseSensitive: false).firstMatch(text);
+  if (gMatch != null) {
+    return double.tryParse(gMatch.group(1) ?? '') ?? 0;
+  }
+  final lMatch = RegExp(r'(\d+(?:\.\d+)?)\s*(?:l|ltr|litre)\b', caseSensitive: false).firstMatch(text);
+  if (lMatch != null) {
+    return (double.tryParse(lMatch.group(1) ?? '') ?? 0) * 1000;
+  }
+  final mlMatch = RegExp(r'(\d+(?:\.\d+)?)\s*ml\b', caseSensitive: false).firstMatch(text);
+  if (mlMatch != null) {
+    return double.tryParse(mlMatch.group(1) ?? '') ?? 0;
+  }
+  final pcMatch = RegExp(r'(\d+)\s*(?:pc|pcs|piece|pieces|pack)\b', caseSensitive: false).firstMatch(text);
+  if (pcMatch != null) {
+    return (double.tryParse(pcMatch.group(1) ?? '') ?? 0) * 100;
+  }
+  return 0;
+}
+
+List<String> extractWeightsAndSizes(List<Product> products) {
+  final weights = <String>{};
+  final regex = RegExp(r'\b(\d+(?:\.\d+)?\s*(?:kg|g|gm|gms|ml|l|ltr|litre|pc|pcs|pack))\b', caseSensitive: false);
+  for (final p in products) {
+    for (final v in p.variants) {
+      if (v.name.trim().isNotEmpty) {
+        weights.add(v.name.trim());
+      }
+    }
+    if (p.subcategory.trim().isNotEmpty && regex.hasMatch(p.subcategory)) {
+      weights.add(p.subcategory.trim());
+    }
+    for (final m in regex.allMatches(p.name)) {
+      final str = m.group(1)?.trim();
+      if (str != null && str.isNotEmpty) {
+        weights.add(str);
+      }
+    }
+  }
+  final list = weights.toList();
+  list.sort((a, b) {
+    final aNum = double.tryParse(RegExp(r'\d+(?:\.\d+)?').firstMatch(a)?.group(0) ?? '') ?? 0;
+    final bNum = double.tryParse(RegExp(r'\d+(?:\.\d+)?').firstMatch(b)?.group(0) ?? '') ?? 0;
+    return aNum.compareTo(bNum);
+  });
+  return list;
 }
 
 List<Product> filterAndSortProducts({
@@ -217,6 +275,9 @@ List<Product> filterAndSortProducts({
   String? brand,
   String? minPrice,
   String? maxPrice,
+  String? minDiscount,
+  String? weightSize,
+  bool inStockOnly = false,
   ProductSortOption sort = ProductSortOption.listingDefault,
 }) {
   final query = searchQuery?.trim().toLowerCase() ?? '';
@@ -270,6 +331,24 @@ List<Product> filterAndSortProducts({
     final max = double.tryParse(maxPrice ?? '');
     if (min != null && price < min) return false;
     if (max != null && price > max) return false;
+
+    final minDisc = double.tryParse(minDiscount ?? '');
+    if (minDisc != null && minDisc > 0 && product.discountedPercent < minDisc) {
+      return false;
+    }
+
+    if (weightSize != null && weightSize.trim().isNotEmpty) {
+      final wLower = weightSize.toLowerCase().trim();
+      final inVariants = product.variants.any((v) => v.name.toLowerCase().contains(wLower));
+      final inName = product.name.toLowerCase().contains(wLower);
+      final inSub = product.subcategory.toLowerCase().contains(wLower);
+      if (!inVariants && !inName && !inSub) return false;
+    }
+
+    if (inStockOnly && !product.isAvailable) {
+      return false;
+    }
+
     return true;
   }).toList();
 
@@ -283,6 +362,10 @@ List<Product> filterAndSortProducts({
       list.sort((a, b) => _compareCreatedAt(b, a));
     case ProductSortOption.oldest:
       list.sort((a, b) => _compareCreatedAt(a, b));
+    case ProductSortOption.weightAsc:
+      list.sort((a, b) => parseProductWeightGrams(a).compareTo(parseProductWeightGrams(b)));
+    case ProductSortOption.weightDesc:
+      list.sort((a, b) => parseProductWeightGrams(b).compareTo(parseProductWeightGrams(a)));
     case ProductSortOption.name:
       list.sort((a, b) => a.name.compareTo(b.name));
     case ProductSortOption.brand:

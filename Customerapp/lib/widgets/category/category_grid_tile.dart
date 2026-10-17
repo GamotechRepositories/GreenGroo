@@ -174,7 +174,7 @@ class CategoryGridTile extends StatelessWidget {
                               size: 32,
                               color: AppColors.primary,
                             )
-                          : resolvedImage != null
+                          : (resolvedImage != null && resolvedImage.trim().isNotEmpty)
                               ? AppNetworkImage(
                                   imageUrl: resolvedImage,
                                   fit: BoxFit.contain,
@@ -183,11 +183,7 @@ class CategoryGridTile extends StatelessWidget {
                                   errorIcon: tileIcon,
                                   errorIconSize: 32,
                                 )
-                              : Icon(
-                                  tileIcon,
-                                  size: 32,
-                                  color: AppColors.textPrimary,
-                                ),
+                              : const AppImagePlaceholder(fit: BoxFit.contain),
                     ),
                   ),
                 ),
@@ -246,7 +242,7 @@ class CategoryGridTile extends StatelessWidget {
                               size: 28,
                               color: AppColors.primary.withValues(alpha: 0.9),
                             )
-                          : resolvedImage != null
+                          : (resolvedImage != null && resolvedImage.trim().isNotEmpty)
                               ? ClipOval(
                                   child: Padding(
                                     padding: const EdgeInsets.all(10),
@@ -260,11 +256,7 @@ class CategoryGridTile extends StatelessWidget {
                                     ),
                                   ),
                                 )
-                              : Icon(
-                                  tileIcon,
-                                  size: 28,
-                                  color: AppColors.textPrimary,
-                                ),
+                              : const AppImagePlaceholder(fit: BoxFit.contain),
                     ),
                   ),
                 ),
@@ -337,7 +329,7 @@ class CategoryGridTile extends StatelessWidget {
                                 color: AppColors.primary,
                               ),
                             )
-                          : resolvedImage != null
+                          : (resolvedImage != null && resolvedImage.trim().isNotEmpty)
                               ? AppNetworkImage(
                                   imageUrl: resolvedImage,
                                   fit: BoxFit.contain,
@@ -346,13 +338,7 @@ class CategoryGridTile extends StatelessWidget {
                                   errorIcon: tileIcon,
                                   errorIconSize: 38,
                                 )
-                              : Center(
-                                  child: Icon(
-                                    tileIcon,
-                                    size: 38,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
+                              : const AppImagePlaceholder(fit: BoxFit.contain),
                     ),
                   ),
                 ),
@@ -498,7 +484,7 @@ class CategorySliderTile extends StatelessWidget {
                                 size: 40,
                                 color: AppColors.primary,
                               )
-                            : imageUrl != null
+                            : (imageUrl != null && imageUrl!.trim().isNotEmpty)
                                 ? AppNetworkImage(
                                     imageUrl: imageUrl!,
                                     fit: BoxFit.contain,
@@ -507,11 +493,7 @@ class CategorySliderTile extends StatelessWidget {
                                     errorIcon: tileIcon,
                                     errorIconSize: 36,
                                   )
-                                : Icon(
-                                    tileIcon,
-                                    size: 36,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                : const AppImagePlaceholder(fit: BoxFit.contain),
                       ),
                     ),
                   ),

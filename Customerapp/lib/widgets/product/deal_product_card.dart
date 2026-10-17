@@ -134,19 +134,13 @@ class DealProductCard extends ConsumerWidget {
                         : null,
                     child: Padding(
                       padding: const EdgeInsets.all(6.0),
-                      child: product.primaryImage != null
+                      child: (product.primaryImage != null && product.primaryImage!.trim().isNotEmpty)
                           ? AppNetworkImage(
                               imageUrl: product.primaryImage!,
                               fit: BoxFit.contain,
                               errorIcon: Icons.image_outlined,
                             )
-                          : const Center(
-                              child: Icon(
-                                Icons.image_outlined,
-                                color: AppColors.textMuted,
-                                size: 32,
-                              ),
-                            ),
+                          : const AppImagePlaceholder(fit: BoxFit.contain),
                     ),
                   ),
 

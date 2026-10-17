@@ -708,25 +708,31 @@ export const getProducts = async (req, res) => {
       filter.categories = req.query.categoryName.trim();
     }
 
+    filter.$and = filter.$and || [];
+
     if (req.query.subcategory?.trim()) {
       const subRegex = new RegExp(
         `^${escapeRegex(req.query.subcategory.trim())}$`,
         "i"
       );
-      filter.$or = [{ subcategory: subRegex }, { subcategories: subRegex }];
+      filter.$and.push({
+        $or: [{ subcategory: subRegex }, { subcategories: subRegex }],
+      });
     }
 
     if (req.query.q?.trim()) {
       const term = escapeRegex(req.query.q.trim());
       const regex = new RegExp(term, "i");
-      filter.$or = [
-        { name: regex },
-        { brandName: regex },
-        { subcategory: regex },
-        { categories: regex },
-        { description: regex },
-        { sku: regex },
-      ];
+      filter.$and.push({
+        $or: [
+          { name: regex },
+          { brandName: regex },
+          { subcategory: regex },
+          { categories: regex },
+          { description: regex },
+          { sku: regex },
+        ],
+      });
     }
 
     if (req.query.brandName?.trim()) {
@@ -746,7 +752,16 @@ export const getProducts = async (req, res) => {
       if (Number.isFinite(maxPrice)) filter.discountedPrice.$lte = maxPrice;
     }
 
-    filter.$and = [...(filter.$and || []), storeProductScope(catalog)];
+    const minDiscount = Number(req.query.minDiscount || req.query.discount);
+    if (Number.isFinite(minDiscount) && minDiscount > 0) {
+      filter.discountedPercent = { $gte: minDiscount };
+    }
+
+    if (req.query.inStock === "true" || req.query.inStockOnly === "true") {
+      filter.inStock = true;
+    }
+
+    filter.$and.push(storeProductScope(catalog));
 
     let sort = { createdAt: -1, name: 1 };
     const sortParam = String(req.query.sort || "newest").trim();

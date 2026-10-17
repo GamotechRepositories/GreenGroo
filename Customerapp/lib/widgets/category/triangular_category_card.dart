@@ -253,18 +253,14 @@ class CategoryTriangularCard extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
                     child: Center(
                       child: SizedBox.expand(
-                        child: imageUrl != null && imageUrl!.isNotEmpty
+                        child: (imageUrl != null && imageUrl!.trim().isNotEmpty)
                             ? AppNetworkImage(
                                 imageUrl: imageUrl!,
                                 fit: BoxFit.contain,
                                 errorIcon: errorIcon,
                                 errorIconSize: 46,
                               )
-                            : Icon(
-                                errorIcon,
-                                size: 46,
-                                color: theme.textColor.withValues(alpha: 0.7),
-                              ),
+                            : const AppImagePlaceholder(fit: BoxFit.contain),
                       ),
                     ),
                   ),

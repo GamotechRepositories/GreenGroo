@@ -28,15 +28,17 @@ class _AuthHostState extends ConsumerState<AuthHost> {
   }
 
   void _showAuthSheet(AuthModalMode mode) {
-    final sheetContext = rootNavigatorKey.currentContext;
-    if (sheetContext == null || !sheetContext.mounted) return;
+    final navState = rootNavigatorKey.currentState;
+    final sheetContext =
+        navState?.overlay?.context ?? rootNavigatorKey.currentContext ?? context;
+    if (!mounted) return;
 
     _visibleMode = mode;
     showModalBottomSheet<void>(
       context: sheetContext,
       isScrollControlled: true,
       useSafeArea: true,
-      useRootNavigator: true,
+      useRootNavigator: false,
       isDismissible: true,
       enableDrag: true,
       backgroundColor: Colors.white,
@@ -44,7 +46,9 @@ class _AuthHostState extends ConsumerState<AuthHost> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => AuthSheet(mode: mode),
-    ).whenComplete(() {
+    ).catchError((dynamic err) {
+      debugPrint('AuthSheet display error: $err');
+    }).whenComplete(() {
       _visibleMode = null;
       ref.read(authControllerProvider.notifier).closeAuthModal();
     });

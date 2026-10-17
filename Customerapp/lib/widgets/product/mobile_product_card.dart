@@ -46,7 +46,7 @@ class MobileProductCard extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: product.primaryImage != null
+                  child: (product.primaryImage != null && product.primaryImage!.trim().isNotEmpty)
                       ? AppNetworkImage(
                           imageUrl: product.primaryImage!,
                           fit: BoxFit.contain,
@@ -56,7 +56,7 @@ class MobileProductCard extends StatelessWidget {
                           cacheHeight: 208,
                           errorIcon: Icons.image_outlined,
                         )
-                      : const Icon(Icons.image_outlined, color: AppColors.textMuted),
+                      : const AppImagePlaceholder(fit: BoxFit.contain, width: 84, height: 104),
                 ),
               ),
               Positioned(

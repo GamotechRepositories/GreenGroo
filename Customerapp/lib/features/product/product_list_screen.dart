@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/theme/store_chrome.dart';
@@ -17,12 +16,14 @@ import '../../features/home/widgets/home_search_bar.dart';
 import '../../features/product/product_providers.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
+import '../../core/providers/location_provider.dart';
 import '../../models/product.dart';
+import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/common/api_error_view.dart';
 import '../../widgets/common/app_network_image.dart';
-import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/deal_product_card.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
+import '../../widgets/product/product_filter_sheet.dart';
 import '../../widgets/product/product_filters_bar.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,10 @@ class ProductListScreen extends ConsumerStatefulWidget {
     this.minPrice,
     this.maxPrice,
     this.sortId,
+    this.minDiscount,
+    this.pincode,
+    this.weightSize,
+    this.inStockOnly = false,
   });
 
   final String? searchQuery;
@@ -44,6 +49,10 @@ class ProductListScreen extends ConsumerStatefulWidget {
   final String? minPrice;
   final String? maxPrice;
   final String? sortId;
+  final String? minDiscount;
+  final String? pincode;
+  final String? weightSize;
+  final bool inStockOnly;
 
   @override
   ConsumerState<ProductListScreen> createState() => _ProductListScreenState();
@@ -99,6 +108,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       section = 'preorder';
     }
 
+    final activePincode =
+        widget.pincode ?? ref.watch(deliveryLocationProvider)?.pincode;
+
     return ProductQuery(
       categoryName: widget.categoryName,
       search: widget.searchQuery,
@@ -107,30 +119,22 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       minPrice: widget.minPrice,
       maxPrice: widget.maxPrice,
       sort: _sort.id,
+      minDiscount: widget.minDiscount,
+      pincode: activePincode,
+      weightSize: widget.weightSize,
+      inStockOnly: widget.inStockOnly,
       section: section,
     );
   }
 
-
   void _updateSort(ProductSortOption option) {
     setState(() => _sort = option);
-    final path = ProductSearch.buildPath(
-      query: widget.searchQuery ?? '',
-      categoryName: widget.categoryName ?? '',
-      subcategory: widget.subcategory ?? '',
-      brand: widget.brand ?? '',
-      minPrice: widget.minPrice ?? '',
-      maxPrice: widget.maxPrice ?? '',
-      sort: option.id,
-    );
-    context.go(path);
+    _applyFilters(sort: option);
   }
 
   void _updateBrand(String brand) {
     _applyFilters(
       brand: brand.trim().isEmpty ? null : brand.trim(),
-      minPrice: widget.minPrice,
-      maxPrice: widget.maxPrice,
     );
   }
 
@@ -142,6 +146,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       brand: widget.brand ?? '',
       minPrice: widget.minPrice ?? '',
       maxPrice: widget.maxPrice ?? '',
+      minDiscount: widget.minDiscount ?? '',
+      pincode: widget.pincode ?? '',
+      weightSize: widget.weightSize ?? '',
+      inStockOnly: widget.inStockOnly,
       sort: widget.sortId ?? _sort.id,
     );
     context.go(path);
@@ -177,15 +185,25 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     String? brand,
     String? minPrice,
     String? maxPrice,
+    String? minDiscount,
+    String? pincode,
+    String? weightSize,
+    bool? inStockOnly,
+    ProductSortOption? sort,
+    String? searchQuery,
   }) {
     final path = ProductSearch.buildPath(
-      query: widget.searchQuery ?? '',
+      query: searchQuery ?? widget.searchQuery ?? '',
       categoryName: widget.categoryName ?? '',
       subcategory: widget.subcategory ?? '',
-      brand: brand ?? '',
-      minPrice: minPrice ?? '',
-      maxPrice: maxPrice ?? '',
-      sort: widget.sortId ?? _sort.id,
+      brand: brand ?? widget.brand ?? '',
+      minPrice: minPrice ?? widget.minPrice ?? '',
+      maxPrice: maxPrice ?? widget.maxPrice ?? '',
+      minDiscount: minDiscount ?? widget.minDiscount ?? '',
+      pincode: pincode ?? widget.pincode ?? '',
+      weightSize: weightSize ?? widget.weightSize ?? '',
+      inStockOnly: inStockOnly ?? widget.inStockOnly,
+      sort: (sort ?? _sort).id,
     );
     context.go(path);
   }
@@ -194,8 +212,89 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       (widget.brand?.isNotEmpty ?? false) ||
       (widget.minPrice?.isNotEmpty ?? false) ||
       (widget.maxPrice?.isNotEmpty ?? false) ||
+      (widget.minDiscount?.isNotEmpty ?? false) ||
+      (widget.pincode?.isNotEmpty ?? false) ||
+      (widget.weightSize?.isNotEmpty ?? false) ||
+      widget.inStockOnly ||
       (_sort != ProductSortOption.listingDefault &&
           _sort.id != ProductSortOption.listingDefault.id);
+
+  int get _activeFilterCount {
+    int count = 0;
+    if (widget.brand?.isNotEmpty ?? false) count++;
+    if ((widget.minPrice?.isNotEmpty ?? false) ||
+        (widget.maxPrice?.isNotEmpty ?? false)) {
+      count++;
+    }
+    if (widget.minDiscount?.isNotEmpty ?? false) count++;
+    if (widget.pincode?.isNotEmpty ?? false) count++;
+    if (widget.weightSize?.isNotEmpty ?? false) count++;
+    if (widget.inStockOnly) count++;
+    if (_sort != ProductSortOption.listingDefault &&
+        _sort.id != ProductSortOption.listingDefault.id) {
+      count++;
+    }
+    return count;
+  }
+
+  void _openFilterSheet(List<Product> products) {
+    final allBrands = <String>{
+      ...extractBrands(products),
+      ...(ref.read(brandsProvider).value?.map((b) => b.brandName) ?? const <String>[]),
+    }.where((b) => b.isNotEmpty).toList();
+    allBrands.sort();
+
+    showProductFilterBottomSheet(
+      context: context,
+      brands: allBrands,
+      currentBrand: widget.brand,
+      currentSort: _sort,
+      currentMinPrice: widget.minPrice,
+      currentMaxPrice: widget.maxPrice,
+      currentMinDiscount: widget.minDiscount,
+      currentPincode: widget.pincode ?? ref.read(deliveryLocationProvider)?.pincode,
+      currentWeightSize: widget.weightSize,
+      weightsSizes: extractWeightsAndSizes(products),
+      currentInStockOnly: widget.inStockOnly,
+      currentSearch: widget.searchQuery,
+      onApply: ({
+        brand,
+        sort,
+        minPrice,
+        maxPrice,
+        minDiscount,
+        pincode,
+        weightSize,
+        inStockOnly = false,
+        searchQuery,
+      }) {
+        if (sort != null) setState(() => _sort = sort);
+        _applyFilters(
+          brand: brand,
+          minPrice: minPrice,
+          maxPrice: maxPrice,
+          minDiscount: minDiscount,
+          pincode: pincode,
+          weightSize: weightSize,
+          inStockOnly: inStockOnly,
+          sort: sort,
+          searchQuery: searchQuery,
+        );
+      },
+      onClear: _clearListingFilters,
+    );
+  }
+
+  void _openPincodePicker() {
+    showSelectDeliveryLocationBottomSheet(context, ref).then((_) {
+      if (mounted) {
+        final loc = ref.read(deliveryLocationProvider);
+        if (loc?.pincode != null && loc!.pincode!.isNotEmpty) {
+          _applyFilters(pincode: loc.pincode);
+        }
+      }
+    });
+  }
 
   Future<void> _refreshProducts() =>
       ref.read(pagedProductsProvider(_query).notifier).refresh();
@@ -207,7 +306,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final showLeftSidebar =
         widget.categoryName != null && widget.categoryName!.isNotEmpty;
     final topInset = MediaQuery.paddingOf(context).top;
-    final activeCategoryName = widget.categoryName ?? 'All';
 
     final currentStore = ref.watch(selectedStoreTabProvider);
     final headerBgColor = StoreChrome.forStore(currentStore).header;
@@ -224,22 +322,20 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
               isLightBg: true,
               showBackButton: true,
               initialQuery: widget.searchQuery,
+              onSubmitted: (q) => _applyFilters(searchQuery: q),
             ),
           ),
           // Content Area: Left Subcategories & Right Products
           Expanded(
             child: Builder(
               builder: (context) {
-                if (paged.loadingFirst) {
-                  return const SkeletonProductGrid(useShellBottomInset: true);
-                }
-                if (paged.error != null && paged.items.isEmpty) {
-                  return ApiErrorView(
-                    message: 'Could not load products',
-                    onRetry: _refreshProducts,
-                  );
-                }
                 final products = paged.items;
+                final allBrands = <String>{
+                  ...extractBrands(products),
+                  ...(ref.watch(brandsProvider).value?.map((b) => b.brandName) ?? const <String>[]),
+                }.where((b) => b.isNotEmpty).toList();
+                allBrands.sort();
+
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -255,34 +351,90 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           ProductFiltersBar(
-                            brands: extractBrands(products),
+                            brands: allBrands,
                             selectedBrand: widget.brand ?? '',
                             sortBy: _sort,
+                            selectedMinDiscount: widget.minDiscount,
+                            selectedPincode: widget.pincode ??
+                                ref.watch(deliveryLocationProvider)?.pincode,
+                            selectedWeightSize: widget.weightSize,
+                            weightsSizes: extractWeightsAndSizes(products),
+                            inStockOnly: widget.inStockOnly,
                             onBrandChange: _updateBrand,
                             onSortChange: _updateSort,
+                            onDiscountChange: (discount) =>
+                                _applyFilters(minDiscount: discount),
+                            onPincodeTap: _openPincodePicker,
+                            onWeightSizeChange: (weight) =>
+                                _applyFilters(weightSize: weight),
+                            onInStockOnlyChange: (inStock) =>
+                                _applyFilters(inStockOnly: inStock),
+                            onOpenFilterSheet: () => _openFilterSheet(products),
                             hasActiveFilters: _hasActiveFilters,
+                            activeFiltersCount: _activeFilterCount,
                             onClear: _clearListingFilters,
                           ),
                           Expanded(
-                            child: RefreshIndicator(
-                              onRefresh: _refreshProducts,
-                              child: _ProductResultsView(
-                                scrollController: _scrollController,
-                                products: products,
-                                searchQuery: widget.searchQuery,
-                                categoryName: widget.categoryName,
-                                subcategory: widget.subcategory,
-                                brand: widget.brand,
-                                minPrice: widget.minPrice,
-                                maxPrice: widget.maxPrice,
-                                sort: _sort,
-                                onAdd: _handleAdd,
-                                hasMore: paged.hasMore,
-                                loadingMore: paged.loadingMore,
-                                loadMoreFailed: paged.error != null,
-                                onLoadMore: () =>
-                                    ref.read(pagedProductsProvider(query).notifier).loadMore(),
-                              ),
+                            child: Builder(
+                              builder: (context) {
+                                if (paged.loadingFirst) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(
+                                          width: 32,
+                                          height: 32,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Color(0xFF047857),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Updating products...',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                if (paged.error != null && paged.items.isEmpty) {
+                                  return ApiErrorView(
+                                    message: 'Could not load products',
+                                    onRetry: _refreshProducts,
+                                  );
+                                }
+                                return RefreshIndicator(
+                                  onRefresh: _refreshProducts,
+                                  child: _ProductResultsView(
+                                    scrollController: _scrollController,
+                                    products: products,
+                                    searchQuery: widget.searchQuery,
+                                    categoryName: widget.categoryName,
+                                    subcategory: widget.subcategory,
+                                    brand: widget.brand,
+                                    minPrice: widget.minPrice,
+                                    maxPrice: widget.maxPrice,
+                                    minDiscount: widget.minDiscount,
+                                    pincode: widget.pincode,
+                                    weightSize: widget.weightSize,
+                                    inStockOnly: widget.inStockOnly,
+                                    sort: _sort,
+                                    onAdd: _handleAdd,
+                                    hasMore: paged.hasMore,
+                                    loadingMore: paged.loadingMore,
+                                    loadMoreFailed: paged.error != null,
+                                    onLoadMore: () =>
+                                        ref.read(pagedProductsProvider(query).notifier).loadMore(),
+                                    onClearFilters: _clearListingFilters,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -448,17 +600,13 @@ class _LeftSubcategorySidebarState
                     ),
                     padding: const EdgeInsets.all(4),
                     child: ClipOval(
-                      child: item.imageUrl != null
-                          ? AppNetworkImage(
+                      child: (isAll || item.imageUrl == null || item.imageUrl!.trim().isEmpty)
+                          ? const AppImagePlaceholder(fit: BoxFit.contain)
+                          : AppNetworkImage(
                               imageUrl: item.imageUrl!,
                               fit: BoxFit.cover,
                               errorIcon: Icons.category_rounded,
                               errorIconSize: 20,
-                            )
-                          : const Icon(
-                              Icons.category_rounded,
-                              size: 20,
-                              color: Color(0xFF047857),
                             ),
                     ),
                   ),
@@ -497,12 +645,17 @@ class _ProductResultsView extends ConsumerStatefulWidget {
     required this.brand,
     required this.minPrice,
     required this.maxPrice,
+    this.minDiscount,
+    this.pincode,
+    this.weightSize,
+    this.inStockOnly = false,
     required this.sort,
     required this.onAdd,
     required this.hasMore,
     required this.loadingMore,
     required this.loadMoreFailed,
     required this.onLoadMore,
+    this.onClearFilters,
   });
 
   final ScrollController? scrollController;
@@ -513,12 +666,17 @@ class _ProductResultsView extends ConsumerStatefulWidget {
   final String? brand;
   final String? minPrice;
   final String? maxPrice;
+  final String? minDiscount;
+  final String? pincode;
+  final String? weightSize;
+  final bool inStockOnly;
   final ProductSortOption sort;
   final Future<void> Function(Product, BuildContext) onAdd;
   final bool hasMore;
   final bool loadingMore;
   final bool loadMoreFailed;
   final VoidCallback onLoadMore;
+  final VoidCallback? onClearFilters;
 
   @override
   ConsumerState<_ProductResultsView> createState() =>
@@ -544,6 +702,10 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
         oldWidget.brand != widget.brand ||
         oldWidget.minPrice != widget.minPrice ||
         oldWidget.maxPrice != widget.maxPrice ||
+        oldWidget.minDiscount != widget.minDiscount ||
+        oldWidget.pincode != widget.pincode ||
+        oldWidget.weightSize != widget.weightSize ||
+        oldWidget.inStockOnly != widget.inStockOnly ||
         oldWidget.sort != widget.sort) {
       _filtered = _computeFiltered();
     }
@@ -557,6 +719,9 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
       brand: widget.brand,
       minPrice: widget.minPrice,
       maxPrice: widget.maxPrice,
+      minDiscount: widget.minDiscount,
+      weightSize: widget.weightSize,
+      inStockOnly: widget.inStockOnly,
       sort: widget.sort,
     );
   }
@@ -651,14 +816,78 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (_filtered.isEmpty) {
+      final hasActive = (widget.brand?.isNotEmpty ?? false) ||
+          (widget.minPrice?.isNotEmpty ?? false) ||
+          (widget.maxPrice?.isNotEmpty ?? false) ||
+          (widget.minDiscount?.isNotEmpty ?? false) ||
+          (widget.pincode?.isNotEmpty ?? false) ||
+          widget.inStockOnly ||
+          (widget.searchQuery?.isNotEmpty ?? false);
+
       return Center(
-        child: Text(
-          widget.brand != null && widget.brand!.isNotEmpty
-              ? 'No products found for brand "${widget.brand}".'
-              : widget.searchQuery != null
-                  ? 'No products found for "${widget.searchQuery}".'
-                  : 'No products available yet.',
-          style: const TextStyle(color: AppColors.textSecondary),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.filter_alt_off_outlined,
+                  size: 28,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No products found',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hasActive
+                    ? 'No products matched your active filters. Try adjusting or clearing your filters.'
+                    : widget.searchQuery != null
+                        ? 'No products found for "${widget.searchQuery}".'
+                        : 'No products available in this section yet.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              if (hasActive && widget.onClearFilters != null) ...[
+                const SizedBox(height: 14),
+                FilledButton.tonal(
+                  onPressed: widget.onClearFilters,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFECFDF5),
+                    foregroundColor: const Color(0xFF047857),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Clear all filters',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }

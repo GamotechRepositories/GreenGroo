@@ -76,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                     minPrice: params['minPrice'],
                     maxPrice: params['maxPrice'],
                     sortId: params['sort'],
+                    minDiscount: params['minDiscount'] ?? params['discount'],
+                    pincode: params['pincode'],
+                    weightSize: params['weightSize'] ?? params['weight'],
+                    inStockOnly: params['inStock'] == 'true' || params['inStockOnly'] == 'true',
                   );
                 },
               ),

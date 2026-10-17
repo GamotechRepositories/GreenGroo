@@ -1,155 +1,714 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../config/theme.dart';
 import '../../core/utils/product_utils.dart';
 
-/// Compact brand + sort bar matching website `ProductFiltersBar`.
+/// Single-row horizontal product filter bar.
+///
+/// Order requested by user:
+/// 1. Newest (by default first item)
+/// 2. Discount
+/// 3. Low to High (Price: Low to High)
+/// 4. Price High to Low
+/// 5. Oldest
+/// 6. By Weight / Size
+/// 7. Brand
+/// 8. Pincode
+/// 9. Full Filter Sheet
 class ProductFiltersBar extends StatelessWidget {
   const ProductFiltersBar({
     super.key,
     required this.brands,
     required this.selectedBrand,
     required this.sortBy,
+    this.selectedMinDiscount,
+    this.selectedPincode,
+    this.selectedWeightSize,
+    this.weightsSizes = const [],
+    this.inStockOnly = false,
     required this.onBrandChange,
     required this.onSortChange,
+    this.onDiscountChange,
+    this.onPincodeTap,
+    this.onWeightSizeChange,
+    this.onInStockOnlyChange,
+    this.onOpenFilterSheet,
     this.onClear,
     this.hasActiveFilters = false,
-    this.showBrand = true,
-    this.showSort = true,
+    this.activeFiltersCount = 0,
   });
 
   final List<String> brands;
   final String selectedBrand;
   final ProductSortOption sortBy;
+  final String? selectedMinDiscount;
+  final String? selectedPincode;
+  final String? selectedWeightSize;
+  final List<String> weightsSizes;
+  final bool inStockOnly;
   final ValueChanged<String> onBrandChange;
   final ValueChanged<ProductSortOption> onSortChange;
+  final ValueChanged<String?>? onDiscountChange;
+  final VoidCallback? onPincodeTap;
+  final ValueChanged<String?>? onWeightSizeChange;
+  final ValueChanged<bool>? onInStockOnlyChange;
+  final VoidCallback? onOpenFilterSheet;
   final VoidCallback? onClear;
   final bool hasActiveFilters;
-  final bool showBrand;
-  final bool showSort;
+  final int activeFiltersCount;
 
   @override
   Widget build(BuildContext context) {
-    final listingSort = ProductSortOption.listingOptions.contains(sortBy)
-        ? sortBy
-        : ProductSortOption.listingDefault;
-    final brandValue =
-        selectedBrand.isEmpty || brands.contains(selectedBrand) ? selectedBrand : '';
-
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-      child: Row(
-        children: [
-          if (showBrand) ...[
-            Expanded(
-              child: _FilterDropdown<String>(
-                value: brandValue,
-                hint: 'All brands',
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('All brands')),
-                  ...brands.map(
-                    (brand) => DropdownMenuItem(
-                      value: brand,
-                      child: Text(brand, overflow: TextOverflow.ellipsis),
-                    ),
-                  ),
-                ],
-                onChanged: (value) => onBrandChange(value ?? ''),
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            // 1. NEWEST
+            _buildPillButton(
+              icon: Icons.access_time_filled_rounded,
+              label: 'Newest',
+              isSelected: sortBy == ProductSortOption.newest ||
+                  sortBy == ProductSortOption.listingDefault,
+              onTap: () => onSortChange(ProductSortOption.newest),
             ),
-            const SizedBox(width: 8),
-          ],
-          if (showSort) ...[
-            Expanded(
-              child: _FilterDropdown<ProductSortOption>(
-                value: listingSort,
-                items: ProductSortOption.listingOptions
-                    .map(
-                      (option) => DropdownMenuItem(
-                        value: option,
-                        child: Text(
-                          option.label,
-                          overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 6),
+
+            // 2. OLDEST
+            _buildPillButton(
+              icon: Icons.history_rounded,
+              label: 'Oldest',
+              isSelected: sortBy == ProductSortOption.oldest,
+              onTap: () {
+                if (sortBy == ProductSortOption.oldest) {
+                  onSortChange(ProductSortOption.newest);
+                } else {
+                  onSortChange(ProductSortOption.oldest);
+                }
+              },
+            ),
+            const SizedBox(width: 6),
+
+            // 3. DISCOUNT
+            _buildDiscountPill(context),
+            const SizedBox(width: 6),
+
+            // 4. LOW TO HIGH
+            _buildPillButton(
+              icon: Icons.arrow_upward_rounded,
+              label: 'Low to High',
+              isSelected: sortBy == ProductSortOption.priceAsc,
+              onTap: () {
+                if (sortBy == ProductSortOption.priceAsc) {
+                  onSortChange(ProductSortOption.newest);
+                } else {
+                  onSortChange(ProductSortOption.priceAsc);
+                }
+              },
+            ),
+            const SizedBox(width: 6),
+
+            // 5. HIGH TO LOW
+            _buildPillButton(
+              icon: Icons.arrow_downward_rounded,
+              label: 'Price High to Low',
+              isSelected: sortBy == ProductSortOption.priceDesc,
+              onTap: () {
+                if (sortBy == ProductSortOption.priceDesc) {
+                  onSortChange(ProductSortOption.newest);
+                } else {
+                  onSortChange(ProductSortOption.priceDesc);
+                }
+              },
+            ),
+            const SizedBox(width: 6),
+
+            // 6. BY WEIGHT / SIZE
+            _buildWeightSizePill(context),
+            const SizedBox(width: 6),
+
+            // 7. BRAND
+            _buildBrandPill(context),
+            const SizedBox(width: 6),
+
+            // 8. PINCODE
+            _buildPillButton(
+              icon: Icons.location_on_outlined,
+              label: selectedPincode?.isNotEmpty == true
+                  ? 'Pin: $selectedPincode'
+                  : 'Pincode',
+              isSelected: selectedPincode?.isNotEmpty == true,
+              showDropdownArrow: true,
+              onTap: onPincodeTap ?? () {},
+            ),
+
+            // 9. IN-STOCK ONLY
+            if (onInStockOnlyChange != null) ...[
+              const SizedBox(width: 6),
+              _buildPillButton(
+                icon: inStockOnly
+                    ? Icons.check_circle_rounded
+                    : Icons.inventory_2_outlined,
+                label: 'In Stock',
+                isSelected: inStockOnly,
+                onTap: () => onInStockOnlyChange!(!inStockOnly),
+              ),
+            ],
+
+            // 10. CLEAR ALL (shown only when filters are active)
+            if (hasActiveFilters && onClear != null) ...[
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: onClear,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: Color(0xFFEF4444),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Clear',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFEF4444),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) onSortChange(value);
-                },
-              ),
-            ),
-          ],
-          if (hasActiveFilters && onClear != null) ...[
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 36,
-              child: OutlinedButton(
-                onPressed: onClear,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  foregroundColor: AppColors.textSecondary,
-                  side: const BorderSide(color: AppColors.borderLight),
-                  textStyle: const TextStyle(
-                    inherit: false,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    ],
                   ),
                 ),
-                child: const Text('Clear'),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
-}
 
-class _FilterDropdown<T> extends StatelessWidget {
-  const _FilterDropdown({
-    required this.value,
-    required this.items,
-    required this.onChanged,
-    this.hint,
-  });
-
-  final T? value;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          isExpanded: true,
-          value: value,
-          hint: hint != null
-              ? Text(
-                  hint!,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                )
-              : null,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
+  Widget _buildPillButton({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    bool showDropdownArrow = false,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
           ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-          items: items,
-          onChanged: onChanged,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: isSelected ? const Color(0xFF047857) : const Color(0xFF475569),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? const Color(0xFF047857) : const Color(0xFF1E293B),
+              ),
+            ),
+            if (showDropdownArrow) ...[
+              const SizedBox(width: 3),
+              Icon(
+                Icons.arrow_drop_down_rounded,
+                size: 16,
+                color: isSelected ? const Color(0xFF047857) : const Color(0xFF64748B),
+              ),
+            ],
+          ],
         ),
       ),
+    );
+  }
+
+
+
+  Widget _buildDiscountPill(BuildContext context) {
+    final hasDiscount =
+        selectedMinDiscount != null && selectedMinDiscount!.isNotEmpty;
+    final label = hasDiscount ? '$selectedMinDiscount%+ Off' : 'Discount';
+
+    return _buildPillButton(
+      icon: Icons.percent_rounded,
+      label: label,
+      isSelected: hasDiscount,
+      showDropdownArrow: true,
+      onTap: () => _showDiscountModal(context),
+    );
+  }
+
+  void _showDiscountModal(BuildContext context) {
+    final options = [
+      (label: 'All Discounts (Clear)', value: null),
+      (label: '10% or more', value: '10'),
+      (label: '20% or more', value: '20'),
+      (label: '30% or more', value: '30'),
+      (label: '40% or more', value: '40'),
+      (label: '50% or more', value: '50'),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Filter by Discount',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...options.map((opt) {
+                final isCurrent = (opt.value == null &&
+                        (selectedMinDiscount == null ||
+                            selectedMinDiscount!.isEmpty)) ||
+                    (selectedMinDiscount == opt.value);
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isCurrent
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_off_rounded,
+                    color: isCurrent
+                        ? const Color(0xFF047857)
+                        : const Color(0xFF94A3B8),
+                  ),
+                  title: Text(
+                    opt.label,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                      color: isCurrent
+                          ? const Color(0xFF047857)
+                          : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    if (onDiscountChange != null) {
+                      onDiscountChange!(opt.value);
+                    }
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWeightSizePill(BuildContext context) {
+    final hasWeight =
+        selectedWeightSize != null && selectedWeightSize!.isNotEmpty;
+    final isWeightSort = sortBy == ProductSortOption.weightAsc ||
+        sortBy == ProductSortOption.weightDesc;
+    final label = hasWeight
+        ? 'Size: $selectedWeightSize'
+        : isWeightSort
+            ? sortBy.label
+            : 'By Weight / Size';
+
+    return _buildPillButton(
+      icon: Icons.scale_outlined,
+      label: label,
+      isSelected: hasWeight || isWeightSort,
+      showDropdownArrow: true,
+      onTap: () => _showWeightSizeModal(context),
+    );
+  }
+
+  void _showWeightSizeModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Filter / Sort by Weight & Size',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Sort by weight options
+              Text(
+                'Sort Order',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        onSortChange(ProductSortOption.weightAsc);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: BorderSide(
+                          color: sortBy == ProductSortOption.weightAsc
+                              ? const Color(0xFF047857)
+                              : const Color(0xFFCBD5E1),
+                          width: sortBy == ProductSortOption.weightAsc ? 1.5 : 1,
+                        ),
+                        backgroundColor: sortBy == ProductSortOption.weightAsc
+                            ? const Color(0xFFECFDF5)
+                            : Colors.white,
+                      ),
+                      child: Text(
+                        'Weight: Low to High',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: sortBy == ProductSortOption.weightAsc
+                              ? const Color(0xFF047857)
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        onSortChange(ProductSortOption.weightDesc);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        side: BorderSide(
+                          color: sortBy == ProductSortOption.weightDesc
+                              ? const Color(0xFF047857)
+                              : const Color(0xFFCBD5E1),
+                          width: sortBy == ProductSortOption.weightDesc ? 1.5 : 1,
+                        ),
+                        backgroundColor: sortBy == ProductSortOption.weightDesc
+                            ? const Color(0xFFECFDF5)
+                            : Colors.white,
+                      ),
+                      child: Text(
+                        'Weight: High to Low',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: sortBy == ProductSortOption.weightDesc
+                              ? const Color(0xFF047857)
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Filter by specific weight/size
+              if (weightsSizes.isNotEmpty) ...[
+                Text(
+                  'Select Pack Size / Weight',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        if (onWeightSizeChange != null) {
+                          onWeightSizeChange!(null);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: selectedWeightSize == null
+                              ? const Color(0xFFECFDF5)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selectedWeightSize == null
+                                ? const Color(0xFF047857)
+                                : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Text(
+                          'All Sizes',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: selectedWeightSize == null
+                                ? const Color(0xFF047857)
+                                : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ),
+                    ...weightsSizes.map((size) {
+                      final isSelected = selectedWeightSize?.toLowerCase() ==
+                          size.toLowerCase();
+                      return InkWell(
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          if (onWeightSizeChange != null) {
+                            onWeightSizeChange!(isSelected ? null : size);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Text(
+                            size,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBrandPill(BuildContext context) {
+    final hasBrand = selectedBrand.isNotEmpty;
+    final label = hasBrand ? 'Brand: $selectedBrand' : 'Brand';
+
+    return _buildPillButton(
+      icon: Icons.verified_outlined,
+      label: label,
+      isSelected: hasBrand,
+      showDropdownArrow: true,
+      onTap: () => _showBrandModal(context),
+    );
+  }
+
+  void _showBrandModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.70,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'Filter by Brand',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          selectedBrand.isEmpty
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: selectedBrand.isEmpty
+                              ? const Color(0xFF047857)
+                              : const Color(0xFF94A3B8),
+                        ),
+                        title: Text(
+                          'All brands',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: selectedBrand.isEmpty
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: selectedBrand.isEmpty
+                                ? const Color(0xFF047857)
+                                : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          onBrandChange('');
+                        },
+                      ),
+                      ...brands.map((b) {
+                        final isCurrent =
+                            selectedBrand.toLowerCase() == b.toLowerCase();
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            isCurrent
+                                ? Icons.radio_button_checked_rounded
+                                : Icons.radio_button_off_rounded,
+                            color: isCurrent
+                                ? const Color(0xFF047857)
+                                : const Color(0xFF94A3B8),
+                          ),
+                          title: Text(
+                            b,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight:
+                                  isCurrent ? FontWeight.w800 : FontWeight.w600,
+                              color: isCurrent
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFF1E293B),
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            onBrandChange(b);
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

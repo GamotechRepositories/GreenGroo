@@ -1,7 +1,95 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../config/theme.dart';
+/// Clean brand placeholder for missing or loading images:
+/// Shows the GreenGrocc brand asset with the cart icon above and logo below (no background color).
+class AppImagePlaceholder extends StatelessWidget {
+  const AppImagePlaceholder({
+    super.key,
+    this.width,
+    this.height,
+    this.isLoading = false,
+    this.fit = BoxFit.contain,
+  });
+
+  final double? width;
+  final double? height;
+  final bool isLoading;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxH = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : (height ?? 48.0);
+          final cartH = (maxH * 0.40).clamp(10.0, 36.0);
+          final logoH = (maxH * 0.32).clamp(8.0, 28.0);
+          final spacing = (maxH * 0.04).clamp(1.0, 4.0);
+
+          return Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Opacity(
+                  opacity: isLoading ? 0.6 : 1.0,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/images/cart.png',
+                        height: cartH,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.shopping_cart_outlined,
+                          color: const Color(0xFF047857),
+                          size: cartH,
+                        ),
+                      ),
+                      SizedBox(height: spacing),
+                      Image.asset(
+                        'assets/images/logo (1).png',
+                        height: logoH,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Image.asset(
+                          'assets/images/logo1.png',
+                          height: logoH,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Text(
+                            'GreenGrocc',
+                            style: TextStyle(
+                              fontSize: (logoH * 0.5).clamp(8.0, 14.0),
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF047857),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isLoading)
+                  SizedBox(
+                    width: (maxH * 0.3).clamp(14.0, 24.0),
+                    height: (maxH * 0.3).clamp(14.0, 24.0),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 /// Network image with memory/disk cache sizing — avoids decoding full-res on thumbnails.
 class AppNetworkImage extends StatelessWidget {
@@ -66,28 +154,20 @@ class AppNetworkImage extends StatelessWidget {
   }
 
   Widget _loadingBox() {
-    return ColoredBox(
-      // White like the website's .product-image background — no gray flash.
-      color: Colors.white,
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.primary.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
+    return AppImagePlaceholder(
+      width: width,
+      height: height,
+      isLoading: true,
+      fit: fit,
     );
   }
 
   Widget _errorBox() {
-    return ColoredBox(
-      color: Colors.white,
-      child: Center(
-        child: Icon(errorIcon, size: errorIconSize, color: AppColors.textMuted),
-      ),
+    return AppImagePlaceholder(
+      width: width,
+      height: height,
+      isLoading: false,
+      fit: fit,
     );
   }
 }

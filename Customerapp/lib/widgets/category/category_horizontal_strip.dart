@@ -101,7 +101,7 @@ class _CategoryStripItem extends StatelessWidget {
                         size: 22,
                         color: AppColors.textSecondary,
                       )
-                    : imageUrl != null
+                    : (imageUrl != null && imageUrl!.trim().isNotEmpty)
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: AppNetworkImage(
@@ -112,16 +112,9 @@ class _CategoryStripItem extends StatelessWidget {
                               errorIcon: Icons.category_outlined,
                             ),
                           )
-                        : Center(
-                            child: Text(
-                              label.isNotEmpty
-                                  ? label.characters.first.toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: const AppImagePlaceholder(fit: BoxFit.contain),
                           ),
               ),
               const SizedBox(height: 6),

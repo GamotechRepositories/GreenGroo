@@ -39,7 +39,7 @@ class CategoryHeaderSection extends StatelessWidget {
               SizedBox(
                 width: 48,
                 height: 48,
-                child: imageUrl != null
+                child: (imageUrl != null && imageUrl.trim().isNotEmpty)
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: AppNetworkImage(
@@ -50,23 +50,9 @@ class CategoryHeaderSection extends StatelessWidget {
                           errorIcon: Icons.category_outlined,
                         ),
                       )
-                    : DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.mobileSurface,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            categoryName.isNotEmpty
-                                ? categoryName.characters.first.toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ),
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: const AppImagePlaceholder(fit: BoxFit.contain),
                       ),
               ),
               const SizedBox(width: 12),

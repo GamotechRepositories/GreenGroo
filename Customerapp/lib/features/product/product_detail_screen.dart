@@ -1270,13 +1270,12 @@ class _ProductDetailsSheet extends ConsumerWidget {
                           border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: product.primaryImage != null
+                        child: (product.primaryImage != null && product.primaryImage!.trim().isNotEmpty)
                             ? AppNetworkImage(
                                 imageUrl: product.primaryImage!,
                                 fit: BoxFit.contain,
                               )
-                            : const Icon(Icons.image_outlined,
-                                color: AppColors.textMuted),
+                            : const AppImagePlaceholder(fit: BoxFit.contain),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -2096,11 +2095,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
               height: galleryHeight,
               child: items.isEmpty
                   ? const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 64,
-                        color: AppColors.textMuted,
-                      ),
+                      child: AppImagePlaceholder(fit: BoxFit.contain),
                     )
                   : PageView.builder(
                       controller: _pageController,

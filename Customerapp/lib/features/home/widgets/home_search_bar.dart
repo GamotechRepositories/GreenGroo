@@ -14,6 +14,7 @@ class HomeSearchBar extends ConsumerStatefulWidget {
   final String? hintText;
   final bool showBackButton;
   final String? initialQuery;
+  final ValueChanged<String>? onSubmitted;
 
   const HomeSearchBar({
     super.key,
@@ -21,6 +22,7 @@ class HomeSearchBar extends ConsumerStatefulWidget {
     this.hintText,
     this.showBackButton = false,
     this.initialQuery,
+    this.onSubmitted,
   });
 
   @override
@@ -64,6 +66,10 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
 
   void _submitSearch(String query) {
     final trimmed = query.trim();
+    if (widget.onSubmitted != null) {
+      widget.onSubmitted!(trimmed);
+      return;
+    }
     if (trimmed.isEmpty) {
       context.push(RoutePaths.product);
       return;

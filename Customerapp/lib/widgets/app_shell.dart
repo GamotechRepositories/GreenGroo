@@ -104,23 +104,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     final currentVisual = _visualIndex(widget.navigationShell.currentIndex);
     final isCurrentTab = visualIndex == currentVisual;
 
-    final auth = ref.read(authControllerProvider);
-    final isOrderAgainTab = visualIndex == 1;
-    final isCartTab = visualIndex == 3;
-    final isAccountTab = visualIndex == 4;
-    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
-
-    if (isProtectedTab && !auth.isLoggedIn) {
-      final targetRoute = isAccountTab
-          ? RoutePaths.profile
-          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
-      ref.read(authControllerProvider.notifier).openAuthModal(
-            AuthModalMode.login,
-            targetRoute,
-          );
-      return;
-    }
-
     if (isCurrentTab) {
       await ref.read(tabScrollRegistryProvider).scrollToTop(shellIndex);
     }

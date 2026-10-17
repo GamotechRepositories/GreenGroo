@@ -28,6 +28,19 @@ Map<String, dynamic> _queryParams(ProductQuery query) {
   if (query.sort != null && query.sort!.isNotEmpty) {
     params['sort'] = query.sort;
   }
+  if (query.minDiscount != null && query.minDiscount!.isNotEmpty) {
+    params['minDiscount'] = query.minDiscount;
+    params['discount'] = query.minDiscount;
+  }
+  if (query.pincode != null && query.pincode!.isNotEmpty) {
+    params['pincode'] = query.pincode;
+  }
+  if (query.weightSize != null && query.weightSize!.isNotEmpty) {
+    params['weightSize'] = query.weightSize;
+  }
+  if (query.inStockOnly) {
+    params['inStock'] = 'true';
+  }
   if (query.justArrived) {
     params['justArrived'] = true;
   }
@@ -184,6 +197,10 @@ class ProductQuery {
     this.minPrice,
     this.maxPrice,
     this.sort,
+    this.minDiscount,
+    this.pincode,
+    this.weightSize,
+    this.inStockOnly = false,
     this.justArrived = false,
     this.hotSelling = false,
     this.section,
@@ -196,6 +213,10 @@ class ProductQuery {
   final String? minPrice;
   final String? maxPrice;
   final String? sort;
+  final String? minDiscount;
+  final String? pincode;
+  final String? weightSize;
+  final bool inStockOnly;
   final bool justArrived;
   final bool hotSelling;
   final String? section;
@@ -210,6 +231,10 @@ class ProductQuery {
         other.minPrice == minPrice &&
         other.maxPrice == maxPrice &&
         other.sort == sort &&
+        other.minDiscount == minDiscount &&
+        other.pincode == pincode &&
+        other.weightSize == weightSize &&
+        other.inStockOnly == inStockOnly &&
         other.justArrived == justArrived &&
         other.hotSelling == hotSelling &&
         other.section == section;
@@ -224,6 +249,10 @@ class ProductQuery {
         minPrice,
         maxPrice,
         sort,
+        minDiscount,
+        pincode,
+        weightSize,
+        inStockOnly,
         justArrived,
         hotSelling,
         section,
