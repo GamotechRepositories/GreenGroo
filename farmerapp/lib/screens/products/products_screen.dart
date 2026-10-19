@@ -19,7 +19,6 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class ProductsScreenState extends State<ProductsScreen> with SingleTickerProviderStateMixin {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late TabController _tabController;
 
   void switchToTab(int index) {
@@ -154,8 +153,6 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
         final myAddedProducts = state.products.where((p) => state.isProductSelfAdded(p)).toList();
 
         return Scaffold(
-          key: _scaffoldKey,
-          drawer: const FarmerSidebarDrawer(),
           backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
             backgroundColor: Colors.white,
@@ -163,13 +160,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
             leading: IconButton(
               icon: const Icon(Icons.menu, color: Color(0xFF217346)),
               tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
-              onPressed: () {
-                if (_scaffoldKey.currentState != null) {
-                  _scaffoldKey.currentState!.openDrawer();
-                } else {
-                  MainShell.openDrawer(context);
-                }
-              },
+              onPressed: () => MainShell.openDrawer(context),
             ),
             title: Text(
               lang.tr(mr: 'उत्पादने व्यवस्थापन', en: 'Products Management'),
@@ -526,8 +517,17 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
     final isPending = item['isPending'] == true;
     final isRejected = item['isRejected'] == true;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        if (isAdded) {
+          _tabController.animateTo(1);
+        } else {
+          _openRequestProductSheet(context, item);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -725,7 +725,8 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   // ==========================================
@@ -1445,8 +1446,16 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
       final pUnit = product.unit.isNotEmpty ? product.unit : 'Kg';
       final pHarvest = product.harvestDate.isNotEmpty ? product.harvestDate : AppLanguage().tr(mr: 'उपलब्ध', en: 'Available');
 
-      return Container(
-        padding: const EdgeInsets.all(14),
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1622,8 +1631,9 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
             ),
           ],
         ),
-      );
-    } catch (_) {
+      ),
+    );
+  } catch (_) {
       return const SizedBox.shrink();
     }
   }

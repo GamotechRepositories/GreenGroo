@@ -23,19 +23,25 @@ class MainShell extends StatefulWidget {
   final int initialTab;
   const MainShell({super.key, this.initialTab = 0});
 
-  static void openDrawer(BuildContext context) {
-    context.findAncestorStateOfType<_MainShellState>()?.openDrawer();
+  static final GlobalKey<MainShellState> shellKey = GlobalKey<MainShellState>();
+
+  static void openDrawer([BuildContext? context]) {
+    final state = shellKey.currentState ??
+        (context != null && context.mounted ? context.findAncestorStateOfType<MainShellState>() : null);
+    state?.openDrawer();
   }
 
-  static void setTab(BuildContext context, int index, {int? subTab}) {
-    context.findAncestorStateOfType<_MainShellState>()?.setTab(index, subTab: subTab);
+  static void setTab(BuildContext? context, int index, {int? subTab}) {
+    final state = shellKey.currentState ??
+        (context != null && context.mounted ? context.findAncestorStateOfType<MainShellState>() : null);
+    state?.setTab(index, subTab: subTab);
   }
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  State<MainShell> createState() => MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<EarningsScreenState> _earningsKey = GlobalKey<EarningsScreenState>();
   final GlobalKey<ProductsScreenState> _productsKey = GlobalKey<ProductsScreenState>();
@@ -203,8 +209,11 @@ class FarmerSidebarDrawer extends StatelessWidget {
     if (onSelectTab != null) {
       onSelectTab!(index, subTab: subTab);
     } else {
-      Navigator.of(context).popUntil((route) => route.isFirst);
       MainShell.setTab(context, index, subTab: subTab);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        MainShell.setTab(null, index, subTab: subTab);
+      });
     }
   }
 
@@ -413,12 +422,34 @@ class FarmerSidebarDrawer extends StatelessWidget {
                       ExpansionTile(
                         initiallyExpanded: currentTabIndex == 1,
                         leading: const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.primary),
-                        title: Text(
-                          lang.tr(mr: 'उत्पादने', en: 'Products'),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: currentTabIndex == 1 ? AppColors.primary : AppColors.textPrimary,
+                        title: InkWell(
+                          onTap: () => _handleSelectTab(context, 1),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  lang.tr(mr: 'उत्पादने', en: 'Products'),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: currentTabIndex == 1 ? AppColors.primary : AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  lang.tr(mr: 'उघडा', en: 'Open'),
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                           ),
                         ),
                         childrenPadding: const EdgeInsets.only(left: 36),

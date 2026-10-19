@@ -7,6 +7,8 @@ import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../notifications/notifications_screen.dart';
 import '../schemes/schemes_screen.dart';
+import '../crops/crops_screen.dart';
+import '../inventory/inventory_screen.dart';
 import '../main_shell.dart';
 import '../market/market_comparison_screen.dart';
 import '../orders/order_detail_screen.dart';
@@ -438,6 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           iconBg: const Color(0xFFDCFCE7),
                           label: AppLanguage().tr(mr: 'उत्पादने', en: 'Products'),
                           value: totalProductsVal,
+                          onTap: () => MainShell.setTab(context, 1),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -448,6 +451,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           iconBg: const Color(0xFFD1FAE5),
                           label: AppLanguage().tr(mr: 'शिल्लक साठा', en: 'Stock'),
                           value: totalStockVal,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const InventoryScreen()),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -458,6 +465,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           iconBg: const Color(0xFFDBEAFE),
                           label: AppLanguage().tr(mr: 'पिके', en: 'Crops'),
                           value: '$totalCropsCount',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CropsScreen()),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -468,6 +479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           iconBg: const Color(0xFFFFEDD5),
                           label: AppLanguage().tr(mr: 'काढणी', en: 'Harvest'),
                           value: harvestOrdersVal,
+                          onTap: () => MainShell.setTab(context, 2),
                         ),
                       ),
                     ],
@@ -1289,6 +1301,7 @@ class _OverviewStatCard extends StatelessWidget {
   final Color iconBg;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   const _OverviewStatCard({
     required this.icon,
@@ -1296,12 +1309,18 @@ class _OverviewStatCard extends StatelessWidget {
     required this.iconBg,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1355,6 +1374,8 @@ class _OverviewStatCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
+    ),
     );
   }
 }

@@ -220,6 +220,6 @@ class _SessionGateState extends State<_SessionGate> {
     if (!onboardingDone) {
       return FarmerOnboardingFlowScreen(initialStep: FarmerState().currentPendingStep);
     }
-    return const MainShell();
+    return MainShell(key: MainShell.shellKey);
   }
 }
