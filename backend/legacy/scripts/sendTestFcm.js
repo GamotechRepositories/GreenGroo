@@ -8,7 +8,7 @@ import { getFirebaseAdmin } from "../config/firebaseAdmin.js";
 await connectDB();
 getFirebaseAdmin();
 
-const phone = process.argv[2] || "7499972072";
+const phone = process.argv[2] || process.env.ADMIN_MOBILE || "";
 const user = await User.findOne({ phone }).select("_id phone name fcmToken deviceType").lean();
 
 if (!user) {

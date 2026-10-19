@@ -19,7 +19,7 @@ import {
   sendCustomNotification,
 } from "../services/notificationService.js";
 
-const PHONE = process.argv[2] || "7499972072";
+const PHONE = process.argv[2] || process.env.ADMIN_MOBILE || "";
 
 function summarize(result) {
   if (!result) return { ok: false, detail: "no result" };

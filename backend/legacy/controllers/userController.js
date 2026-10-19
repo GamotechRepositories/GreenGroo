@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import Admin from "../models/admin.js";
@@ -40,13 +43,37 @@ const signToken = (userId) => {
 
 const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
+export function getActiveAdminMobile() {
+  try {
+    const candidates = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "backend", ".env"),
+      path.resolve(process.cwd(), "..", ".env"),
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        const parsed = dotenv.parse(fs.readFileSync(cand, "utf8"));
+        if (parsed.ADMIN_MOBILE) {
+          process.env.ADMIN_MOBILE = parsed.ADMIN_MOBILE.trim();
+          break;
+        }
+      }
+    }
+  } catch {}
+  return normalizeIndianPhone(process.env.ADMIN_MOBILE || "");
+}
+
 const formatAuthUser = (user) => {
   const blocked = isUserBlocked(user);
+  const adminMobile = getActiveAdminMobile();
+  const phone = (user.role === "admin" && adminMobile)
+    ? adminMobile
+    : user.phone;
   return {
     id: user._id,
     name: user.name,
     email: user.email,
-    phone: user.phone,
+    phone,
     shopNo: user.shopNo || "",
     shopName: user.shopName || "",
     shopAddress: user.shopAddress || "",
@@ -725,7 +752,10 @@ export const getMe = async (req, res) => {
         id: req.user._id,
         name: req.user.name,
         email: req.user.email,
-        phone: req.user.phone,
+        phone:
+          req.user.role === "admin" && process.env.ADMIN_MOBILE
+            ? normalizeIndianPhone(process.env.ADMIN_MOBILE) || req.user.phone
+            : req.user.phone,
         shopNo: req.user.shopNo || "",
         shopName: req.user.shopName || "",
         shopAddress: req.user.shopAddress || "",
@@ -930,23 +960,37 @@ export const sendAdminLoginOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Admin email or phone is required" });
     }
 
+    const adminMobile = getActiveAdminMobile();
     const normalizedPhone = normalizeIndianPhone(rawInput);
     const normalizedEmail = rawInput.toLowerCase();
 
     let user = null;
-    if (normalizedPhone) {
-      user =
-        (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
-        (await Admin.findOne({ phone: normalizedPhone }));
-    }
-    if (!user && normalizedEmail.includes("@")) {
+    if (normalizedEmail.includes("@")) {
       user =
         (await User.findOne({ email: normalizedEmail, role: "admin" })) ||
         (await Admin.findOne({ email: normalizedEmail }));
     }
+    if (!user && normalizedPhone) {
+      if (adminMobile && normalizedPhone === adminMobile) {
+        user =
+          (await User.findOne({ role: "admin" })) ||
+          (await Admin.findOne({}));
+      } else {
+        user =
+          (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
+          (await Admin.findOne({ phone: normalizedPhone }));
+      }
+    }
+    if (!user && adminMobile && (normalizedPhone === adminMobile || normalizedEmail.includes("admin"))) {
+      user = (await User.findOne({ role: "admin" })) || (await Admin.findOne({}));
+    }
+    if (!user && adminMobile && normalizedPhone === adminMobile) {
+      user = { _id: "admin", role: "admin", name: "Super Admin", email: "admin@greengrocc.com", phone: adminMobile };
+    }
 
-    if (user && !user.phone && process.env.ADMIN_MOBILE) {
-      user.phone = process.env.ADMIN_MOBILE;
+    // Always deliver to active adminMobile from .env if configured
+    if (adminMobile && user) {
+      user.phone = adminMobile;
     }
 
     if (!user || !user.phone) {
@@ -963,8 +1007,9 @@ export const sendAdminLoginOtp = async (req, res) => {
       });
     }
 
+    const targetPhone = adminMobile || user.phone;
     const result = await sendOtp({
-      phone: user.phone,
+      phone: targetPhone,
       role: "admin",
       purpose: "admin_login",
       templateId: MSG91_TEMPLATES.ADMIN_LOGIN,
@@ -972,10 +1017,10 @@ export const sendAdminLoginOtp = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Admin login OTP sent to ${maskPhoneNumber(user.phone)}`,
+      message: `Admin login OTP sent to ${maskPhoneNumber(targetPhone)}`,
       data: {
-        phone: user.phone,
-        phoneHint: maskPhoneNumber(user.phone),
+        phone: targetPhone,
+        phoneHint: maskPhoneNumber(targetPhone),
         devMock: result.devMock,
       },
     });
@@ -991,23 +1036,36 @@ export const resendAdminLoginOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Admin email or phone is required" });
     }
 
+    const adminMobile = getActiveAdminMobile();
     const normalizedPhone = normalizeIndianPhone(rawInput);
     const normalizedEmail = rawInput.toLowerCase();
 
     let user = null;
-    if (normalizedPhone) {
-      user =
-        (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
-        (await Admin.findOne({ phone: normalizedPhone }));
-    }
-    if (!user && normalizedEmail.includes("@")) {
+    if (normalizedEmail.includes("@")) {
       user =
         (await User.findOne({ email: normalizedEmail, role: "admin" })) ||
         (await Admin.findOne({ email: normalizedEmail }));
     }
+    if (!user && normalizedPhone) {
+      if (adminMobile && normalizedPhone === adminMobile) {
+        user =
+          (await User.findOne({ role: "admin" })) ||
+          (await Admin.findOne({}));
+      } else {
+        user =
+          (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
+          (await Admin.findOne({ phone: normalizedPhone }));
+      }
+    }
+    if (!user && adminMobile && (normalizedPhone === adminMobile || normalizedEmail.includes("admin"))) {
+      user = (await User.findOne({ role: "admin" })) || (await Admin.findOne({}));
+    }
+    if (!user && adminMobile && normalizedPhone === adminMobile) {
+      user = { _id: "admin", role: "admin", name: "Super Admin", email: "admin@greengrocc.com", phone: adminMobile };
+    }
 
-    if (user && !user.phone && process.env.ADMIN_MOBILE) {
-      user.phone = process.env.ADMIN_MOBILE;
+    if (adminMobile && user) {
+      user.phone = adminMobile;
     }
 
     if (!user || !user.phone) {
@@ -1024,14 +1082,15 @@ export const resendAdminLoginOtp = async (req, res) => {
       });
     }
 
-    const result = await dispatchResendAdminLoginOtp(user.phone);
+    const targetPhone = adminMobile || user.phone;
+    const result = await dispatchResendAdminLoginOtp(targetPhone);
 
     return res.status(200).json({
       success: true,
-      message: `Admin login OTP resent to ${maskPhoneNumber(user.phone)}`,
+      message: `Admin login OTP resent to ${maskPhoneNumber(targetPhone)}`,
       data: {
-        phone: user.phone,
-        phoneHint: maskPhoneNumber(user.phone),
+        phone: targetPhone,
+        phoneHint: maskPhoneNumber(targetPhone),
         devMock: result.devMock,
       },
     });
@@ -1049,26 +1108,35 @@ export const verifyAdminLoginOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Admin identifier and OTP are required" });
     }
 
+    const adminMobile = getActiveAdminMobile();
     const normalizedPhone = normalizeIndianPhone(rawInput);
     const normalizedEmail = rawInput.toLowerCase();
 
     let user = null;
-    if (normalizedPhone) {
-      user =
-        (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
-        (await Admin.findOne({ phone: normalizedPhone }));
-    }
-    if (!user && normalizedEmail.includes("@")) {
+    if (normalizedEmail.includes("@")) {
       user =
         (await User.findOne({ email: normalizedEmail, role: "admin" })) ||
         (await Admin.findOne({ email: normalizedEmail }));
     }
-
-    if (user && !user.phone && process.env.ADMIN_MOBILE) {
-      user.phone = process.env.ADMIN_MOBILE;
+    if (!user && normalizedPhone) {
+      if (adminMobile && normalizedPhone === adminMobile) {
+        user =
+          (await User.findOne({ role: "admin" })) ||
+          (await Admin.findOne({}));
+      } else {
+        user =
+          (await User.findOne({ phone: normalizedPhone, role: "admin" })) ||
+          (await Admin.findOne({ phone: normalizedPhone }));
+      }
+    }
+    if (!user && adminMobile && (normalizedPhone === adminMobile || normalizedEmail.includes("admin"))) {
+      user = (await User.findOne({ role: "admin" })) || (await Admin.findOne({}));
+    }
+    if (!user && adminMobile && normalizedPhone === adminMobile) {
+      user = (await User.findOne({ role: "admin" })) || (await Admin.findOne({}));
     }
 
-    if (!user || !user.phone) {
+    if (!user) {
       return res.status(404).json({ success: false, message: "Admin account not found" });
     }
 
@@ -1076,11 +1144,13 @@ export const verifyAdminLoginOtp = async (req, res) => {
       return res.status(403).json({ success: false, message: "Admin account is blocked" });
     }
 
-    const verification = await validateAdminLoginOtp(user.phone, otp);
+    const targetPhone = adminMobile || user.phone;
+    const verification = await validateAdminLoginOtp(targetPhone, otp);
     if (!verification.ok) {
       return res.status(400).json({ success: false, message: verification.message || "Invalid OTP" });
     }
 
+    user.phone = targetPhone;
     const token = signToken(user._id);
     return res.status(200).json({
       success: true,
@@ -1605,25 +1675,22 @@ export const deleteUser = async (req, res) => {
 
 export async function seedDefaultAdminIfEmpty() {
   try {
-    const adminEmails = ["admin@greengrocc.com", "admin@greengrocc.in"];
-    for (const email of adminEmails) {
-      let existing = await User.findOne({ email: email.toLowerCase() });
-      if (!existing) {
-        existing = await Admin.findOne({ email: email.toLowerCase() });
-      }
-      if (!existing) {
-        await User.create({
-          name: "Super Admin",
-          email: email.toLowerCase(),
-          phone: email.includes(".com") ? "9876543210" : "9876543211",
-          password: "admin123",
-          role: "admin",
-        });
-        console.log(`Seeded default admin account (${email})`);
-      }
+    const existingAdmin = (await User.findOne({ role: "admin" })) || (await Admin.findOne({}));
+    if (existingAdmin) {
+      // Admin account already exists; never re-seed or overwrite phone numbers in database
+      return;
     }
+    const adminMobile = normalizeIndianPhone(process.env.ADMIN_MOBILE || "") || "9876543210";
+    await User.create({
+      name: "Super Admin",
+      email: "admin@greengrocc.com",
+      phone: adminMobile,
+      password: "admin123",
+      role: "admin",
+    });
+    console.log("Seeded default admin account (admin@greengrocc.com)");
   } catch (error) {
-    console.error("Failed to seed default admin:", error.message);
+    console.warn("Notice on seedDefaultAdminIfEmpty:", error.message);
   }
 }
 

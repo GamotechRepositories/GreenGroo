@@ -12,7 +12,7 @@ export default function Login() {
   const [authMode, setAuthMode] = useState('otp'); // 'otp' | 'password'
   const [email, setEmail] = useState('admin@greengrocc.com');
   const [password, setPassword] = useState('admin123');
-  const [adminPhone, setAdminPhone] = useState('7499972072');
+  const [adminPhone, setAdminPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [phoneHint, setPhoneHint] = useState('');
@@ -242,12 +242,11 @@ export default function Login() {
               <input
                 type="text"
                 required
-                placeholder="admin@greengrocc.com or 9876543210"
-                value={adminPhone || email}
+                placeholder="admin@greengrocc.com or registered mobile"
+                value={adminPhone}
                 disabled={otpSent && loading}
                 onChange={(e) => {
                   setAdminPhone(e.target.value);
-                  setEmail(e.target.value);
                 }}
                 className={INPUT}
               />
