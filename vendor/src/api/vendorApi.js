@@ -108,13 +108,23 @@ export const vendorApi = {
   setFarmerStatus: (id, status) => api.patch(`/api/vendor/farmers/${id}/status`, { status }),
   assignFarmerManager: (farmerId, managerId) => api.put(`/api/vendor/farmers/${farmerId}/manager`, { managerId }),
 
-  // Drivers
+  // Drivers (Pickup Drivers from Farmers)
   getDrivers: (params) => api.get("/api/vendor/drivers", { params }),
   getDriverById: (id) => api.get(`/api/vendor/drivers/${id}`),
   createDriver: (data) => api.post("/api/vendor/drivers", data),
   updateDriver: (id, data) => api.put(`/api/vendor/drivers/${id}`, data),
   setDriverStatus: (id, status) => api.patch(`/api/vendor/drivers/${id}/status`, { status }),
   deleteDriver: (id) => api.delete(`/api/vendor/drivers/${id}`),
+
+  // Delivery Boys (Orders to Customers from Dark Stores)
+  getDeliveryBoys: (params) => api.get("/api/vendor/delivery-boys", { params }),
+  createDeliveryBoy: (data) => api.post("/api/vendor/delivery-boys", data),
+  deleteDeliveryBoy: (id) => api.delete(`/api/vendor/delivery-boys/${encodeURIComponent(id)}`),
+
+  // Shipping Methods (Quantity, User, Pin Code, Category, Weight, State)
+  getShippingMethods: () => api.get("/api/vendor/shipping-methods"),
+  saveShippingMethods: (data) => api.put("/api/vendor/shipping-methods", data),
+  calculateShipping: (data) => api.post("/api/vendor/shipping-methods/calculate", data),
 
   // Pickups
   getPickups: (params) => api.get("/api/vendor/pickups", { params }),
@@ -174,6 +184,20 @@ export const vendorApi = {
   getQualityReport: (orderId) => api.get(`/api/quality/${orderId}/report`),
   updateOrderPayment: (orderId, data) => api.patch(`/api/quality/${orderId}/payment`, data),
   verifyQualityQr: (data) => api.post("/api/quality/verify-qr", data),
+
+  // Market Prices (APMC Mandi Rates & Trends)
+  getLiveMarketPrices: (params) => api.get("/api/admin-ops/market-prices/live", { params }).then((res) => res.data),
+  getMarketPrices: (params) => api.get("/api/admin-ops/market-prices", { params }).then((res) => res.data),
+
+  // Pre-Order Slots Configuration
+  getPreOrderSlots: () => api.get("/api/settings").then((res) => res.data?.data?.preOrderSlots || res.data?.preOrderSlots || []),
+  savePreOrderSlots: (slots) => api.put("/api/settings", { preOrderSlots: slots }).then((res) => res.data),
+
+  // Bulk & CSV Import / Export
+  exportProductsJson: () => api.get("/api/admin-ops/bulk/products").then((res) => res.data),
+  importProductsJson: (products) => api.post("/api/admin-ops/bulk/products", { products }).then((res) => res.data),
+  exportProductsCsv: () => api.get("/api/admin-ops/csv/products").then((res) => res.data),
+  importProductsCsv: (csv) => api.post("/api/admin-ops/csv/products", { csv }).then((res) => res.data),
 };
 
 export { VENDOR_STORAGE_KEY };

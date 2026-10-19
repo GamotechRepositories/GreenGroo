@@ -11,6 +11,7 @@ import {
   ackSlotAlerts,
   register,
   sendDeliveryPartnerOtpController,
+  resendDeliveryPartnerOtpController,
   verifyDeliveryPartnerOtpController,
   updateFcmToken,
   updateLocation,
@@ -89,6 +90,7 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/otp/send", sendDeliveryPartnerOtpController);
+router.post("/otp/resend", resendDeliveryPartnerOtpController);
 router.post("/otp/verify", verifyDeliveryPartnerOtpController);
 router.get("/me", protect, me);
 router.post("/slot-alerts/ack", protect, ackSlotAlerts);

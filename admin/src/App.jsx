@@ -27,6 +27,7 @@ import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
 import MultiVendor from './pages/ops/MultiVendor';
 import MultiVendorDetailPage from './pages/ops/MultiVendorDetailPage';
+import ShippingMethodsPage from './pages/ops/ShippingMethodsPage';
 import DarkStoreRequestsPage from './pages/ops/DarkStoreRequestsPage';
 import CentreFarmersPage from './pages/ops/CentreFarmersPage';
 import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
@@ -121,6 +122,15 @@ export default function App() {
               <Route path="csv-import-export" element={<CsvImportExport />} />
               <Route path="multi-vendor" element={<MultiVendor />} />
               <Route path="multi-vendor/:vendorId" element={<MultiVendorDetailPage />} />
+              <Route path="shipping-methods" element={<ShippingMethodsPage />} />
+              <Route path="multi-vendor/shipping-methods" element={<ShippingMethodsPage />} />
+              <Route path="multi-vendor/products" element={<Products />} />
+              <Route path="multi-vendor/market-prices" element={<MarketPricesPage />} />
+              <Route path="multi-vendor/pre-order-slots" element={<PreOrderSlots />} />
+              <Route path="multi-vendor/pre-orders" element={<PreOrders />} />
+              <Route path="multi-vendor/inventory" element={<InventoryHubPage />} />
+              <Route path="multi-vendor/bulk-import-export" element={<BulkImportExport />} />
+              <Route path="multi-vendor/csv-import-export" element={<CsvImportExport />} />
               <Route path="dark-store-requests" element={<DarkStoreRequestsPage />} />
               <Route path="collection-dashboard" element={<CollectionDashboardPage />} />
               <Route path="vendor-product-requests" element={<VendorProductRequestsPage />} />

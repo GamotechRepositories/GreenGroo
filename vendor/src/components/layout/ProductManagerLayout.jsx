@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  ArrowUpDown,
   BadgeCheck,
   Boxes,
   Briefcase,
@@ -10,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Clock3,
+  FileSpreadsheet,
   FileText,
   Headset,
   IdCard,
@@ -22,6 +25,7 @@ import {
   Sprout,
   Store,
   Tractor,
+  TrendingUp,
   Truck,
   UserRound,
   Users,
@@ -58,13 +62,52 @@ const navItems = [
   },
   {
     id: 'products',
-    label: 'Products',
+    label: 'Product Management',
     icon: Package,
     children: [
       { to: '/vendor/products', label: 'All Products', end: true },
       { to: '/vendor/my-products', label: 'My Products' },
       { to: '/vendor/farmer-products', label: 'Farmer Products' },
+      { to: '/vendor/bulk-import-export', label: 'Bulk Import / Export' },
+      { to: '/vendor/csv-import-export', label: 'CSV Import & Export' },
     ],
+  },
+  { to: '/vendor/market-prices', label: 'Market Prices', icon: TrendingUp },
+  {
+    id: 'preorders-group',
+    label: 'Pre-Orders & Slots',
+    icon: CalendarClock,
+    children: [
+      { to: '/vendor/preorders', label: 'All Pre-orders', end: true },
+      { to: '/vendor/pre-order-slots', label: 'Pre-Order Slots' },
+    ],
+  },
+  {
+    id: 'inventory',
+    label: 'Inventory',
+    icon: ClipboardList,
+    children: [
+      { to: '/vendor/inventory', label: 'All Inventory', end: true },
+      { to: '/vendor/inventory/farmers', label: 'All Farmer Inventory' },
+      { to: '/vendor/inventory/history', label: 'History' },
+    ],
+  },
+  { to: '/vendor/bulk-import-export', label: 'Bulk Import / Export', icon: ArrowUpDown },
+  { to: '/vendor/csv-import-export', label: 'CSV Import & Export', icon: FileSpreadsheet },
+  {
+    id: 'dark-stores',
+    label: 'Dark Stores',
+    icon: Store,
+    children: [
+      { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
+      { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
+      { to: '/vendor/delivery-boys', label: 'Delivery Boys' },
+    ],
+  },
+  {
+    to: '/vendor/shipping-methods',
+    label: 'Shipping Methods',
+    icon: Truck,
   },
   {
     id: 'driver',
@@ -100,25 +143,6 @@ const navItems = [
     ],
   },
   {
-    id: 'inventory',
-    label: 'Inventory',
-    icon: ClipboardList,
-    children: [
-      { to: '/vendor/inventory', label: 'All Inventory', end: true },
-      { to: '/vendor/inventory/farmers', label: 'All Farmer Inventory' },
-      { to: '/vendor/inventory/history', label: 'History' },
-    ],
-  },
-  {
-    id: 'dark-stores',
-    label: 'Dark Stores',
-    icon: Store,
-    children: [
-      { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
-      { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
-    ],
-  },
-  {
     id: 'req-stock',
     label: 'Req Stock',
     icon: Boxes,
@@ -126,7 +150,6 @@ const navItems = [
       { to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true },
     ],
   },
-  { to: '/vendor/preorders', label: 'Pre-orders', icon: CalendarClock },
   {
     id: 'orders',
     label: 'Order Manager',

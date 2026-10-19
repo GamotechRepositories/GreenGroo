@@ -361,6 +361,10 @@ async function createDeliveryBoy(req, res, next) {
     const phone = normalizePhone(req.body.phone);
     const password = String(req.body.password || "");
     const name = String(req.body.name || "").trim();
+    const vehicleType = String(req.body.vehicleType || "motorcycle").trim();
+    const storeId = String(req.body.storeId || "").trim();
+    const actorRole = req.user?.role;
+    const vendorId = req.user?.vendorId || (actorRole === "vendor" ? req.user.id : "");
 
     if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({
@@ -384,27 +388,61 @@ async function createDeliveryBoy(req, res, next) {
       });
     }
 
-    const manager = await DeliveryManager.findById(req.user.id);
-    if (!manager) {
-      return res.status(404).json({
-        success: false,
-        message: "Delivery manager not found",
-      });
+    let manager = null;
+    if (actorRole === "delivery_manager") {
+      manager = await DeliveryManager.findById(req.user.id);
+      if (!manager) {
+        return res.status(404).json({
+          success: false,
+          message: "Delivery manager not found",
+        });
+      }
+    } else if (actorRole === "vendor") {
+      if (storeId) {
+        manager = await DeliveryManager.findOne({ _id: storeId, vendorId });
+      } else {
+        const stores = await DeliveryManager.find({ vendorId });
+        if (stores.length === 1) manager = stores[0];
+        else if (stores.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "No approved dark store found. Admin must approve a dark store for your vendor account first.",
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: "Please select an approved dark store for this delivery boy",
+          });
+        }
+      }
+      if (!manager) {
+        return res.status(404).json({
+          success: false,
+          message: "Selected dark store not found or does not belong to your vendor account",
+        });
+      }
+    } else if (actorRole === "admin" && storeId) {
+      manager = await DeliveryManager.findById(storeId);
     }
 
     const deliveryBoy = await DeliveryBoy.create({
       phone,
       password,
       name,
-      city: manager.city,
-      cityId: manager.cityId,
-      area: manager.area,
-      verificationStatus: "pending",
+      vehicleType,
+      city: manager?.city || req.body.city || "",
+      cityId: manager?.cityId || req.body.cityId || "",
+      area: manager?.area || req.body.area || "",
+      managerId: manager?._id || undefined,
+      storeId: manager ? manager._id.toString() : storeId,
+      vendorId: manager?.vendorId || vendorId || "",
+      verificationStatus: actorRole === "vendor" || actorRole === "admin" ? "verified" : "pending",
+      status: "offline",
     });
 
     return res.status(201).json({
       success: true,
-      message: "Delivery boy account created — pending verification",
+      message: "Delivery boy account created successfully",
       deliveryBoy: deliveryBoy.toSafeJSON(),
     });
   } catch (error) {

@@ -74,6 +74,10 @@ import {
   updateStoreSupport,
 } from "./opsControllers.js";
 import {
+  getAdminShippingMethods,
+  saveAdminShippingMethods,
+} from "../../farmer-manager-service/src/shippingControllers.js";
+import {
   getHrPerson,
   listHrRoles,
   listHrAnnouncements,
@@ -316,6 +320,8 @@ router.put("/vendors/:id", updateVendorAdmin);
 router.delete("/vendors/:id", deleteVendorAdmin);
 router.get("/vendors/:id/documents/:docId", getVendorDocumentAdmin);
 router.delete("/vendors/:id/documents/:docId", deleteVendorDocumentAdmin);
+router.get("/shipping-methods", getAdminShippingMethods);
+router.put("/shipping-methods", saveAdminShippingMethods);
 router.post("/dark-stores", createDarkStoreAdmin);
 router.get("/collection-dashboard", getCollectionDashboardAdmin);
 router.get("/vendor-product-requests", listVendorProductRequestsAdmin);

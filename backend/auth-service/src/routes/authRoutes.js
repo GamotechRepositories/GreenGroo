@@ -4,10 +4,12 @@ import {
   login,
   loginWithPhone,
   sendOtpLogin,
+  resendOtpLogin,
   verifyOtpLogin,
   completeOtpSignup,
   resetPasswordWithPhoneOtp,
   sendAdminLoginOtp,
+  resendAdminLoginOtp,
   verifyAdminLoginOtp,
   sendAdminSecurityOtp,
   requestAdminPasswordReset,
@@ -28,12 +30,14 @@ router.post("/unblock-request", createUnblockRequest);
 
 // OTP routes for customer login & registration
 router.post("/otp/send", sendOtpLogin);
+router.post("/otp/resend", resendOtpLogin);
 router.post("/otp/verify", verifyOtpLogin);
 router.post("/otp/complete-signup", completeOtpSignup);
 router.post("/password/reset", resetPasswordWithPhoneOtp);
 
 // Admin OTP login & security
 router.post("/admin/otp/send", sendAdminLoginOtp);
+router.post("/admin/otp/resend", resendAdminLoginOtp);
 router.post("/admin/otp/verify", verifyAdminLoginOtp);
 router.post("/admin/forgot-password", requestAdminPasswordReset);
 router.post("/admin/reset-password", resetAdminPassword);

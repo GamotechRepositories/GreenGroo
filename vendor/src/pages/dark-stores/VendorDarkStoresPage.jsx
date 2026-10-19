@@ -61,9 +61,14 @@ export default function VendorDarkStoresPage() {
             Dark stores supplied by your collection centre. New dark stores need admin approval.
           </p>
         </div>
-        <Link to="/vendor/dark-stores/request" className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white">
-          + Request Dark Store
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/vendor/delivery-boys" className="border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+            Manage Delivery Boys
+          </Link>
+          <Link to="/vendor/dark-stores/request" className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1a5c37]">
+            + Request Dark Store
+          </Link>
+        </div>
       </div>
 
       {location.state?.sent ? (
@@ -92,6 +97,7 @@ export default function VendorDarkStoresPage() {
                       <th className="px-4 py-2">Location</th>
                       <th className="px-4 py-2">Manager</th>
                       <th className="px-4 py-2">Status</th>
+                      <th className="px-4 py-2 text-right">Riders</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -107,6 +113,14 @@ export default function VendorDarkStoresPage() {
                           <span className={store.isActive ? "font-semibold text-emerald-700" : "text-gray-400"}>
                             {store.isActive ? "Active" : "Inactive"}
                           </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <Link
+                            to="/vendor/delivery-boys"
+                            className="font-medium text-[#217346] hover:underline"
+                          >
+                            Delivery Boys →
+                          </Link>
                         </td>
                       </tr>
                     ))}

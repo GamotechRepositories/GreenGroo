@@ -2,14 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowUpDown,
   Building2,
   Calendar,
+  CalendarDays,
   Check,
   CheckCircle2,
+  ClipboardList,
+  Clock3,
   Copy,
   CreditCard,
   ExternalLink,
   FileCheck,
+  FileSpreadsheet,
   FileText,
   Loader2,
   Mail,
@@ -22,6 +27,8 @@ import {
   Sprout,
   Store,
   Trash2,
+  TrendingUp,
+  Truck,
   UserCheck,
   Users,
   Warehouse,
@@ -540,6 +547,42 @@ export default function MultiVendorDetailPage() {
             </p>
           </div>
         </button>
+      </div>
+
+      {/* Quick Catalog & Operations Navigation */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Multi-Vendor Operations & Catalog
+          </p>
+          <span className="text-[11px] font-medium text-emerald-700">Quick Navigation</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          {[
+            { label: 'Products', href: '/products', icon: Package, color: 'text-emerald-700 bg-emerald-50' },
+            { label: 'Market Prices', href: '/market-prices', icon: TrendingUp, color: 'text-blue-700 bg-blue-50' },
+            { label: 'Pre-Order Slots', href: '/pre-order-slots', icon: Clock3, color: 'text-amber-700 bg-amber-50' },
+            { label: 'Pre-orders', href: '/pre-orders', icon: CalendarDays, color: 'text-purple-700 bg-purple-50' },
+            { label: 'Inventory', href: '/inventory', icon: ClipboardList, color: 'text-indigo-700 bg-indigo-50' },
+            { label: 'Bulk Import', href: '/bulk-import-export', icon: ArrowUpDown, color: 'text-cyan-700 bg-cyan-50' },
+            { label: 'CSV Import', href: '/csv-import-export', icon: FileSpreadsheet, color: 'text-teal-700 bg-teal-50' },
+            { label: 'Shipping', href: `/shipping-methods?vendorId=${vendorId}`, icon: Truck, color: 'text-rose-700 bg-rose-50' },
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={idx}
+                to={item.href}
+                className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-center hover:bg-white hover:border-slate-300 hover:shadow-xs transition"
+              >
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.color}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="text-xs font-semibold text-slate-800 truncate w-full">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tabs Navigation */}

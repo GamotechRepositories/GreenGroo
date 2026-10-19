@@ -212,7 +212,17 @@ export default function DeliveryTeamPage() {
                           <Link to={`/delivery-team/managers/${m.id}`} className="block truncate font-semibold text-[#217346] hover:underline">
                             {m.storeName || m.name}
                           </Link>
-                          <p className="text-[11px] text-slate-400">{m.deliveryRadiusKm || 0} km radius</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <span>{m.deliveryRadiusKm || 0} km radius</span>
+                            {m.vendorId ? (
+                              <>
+                                <span>·</span>
+                                <Link to={`/multi-vendor/${m.vendorId}`} className="font-medium text-emerald-700 hover:underline">
+                                  Vendor
+                                </Link>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </td>

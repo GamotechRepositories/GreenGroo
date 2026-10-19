@@ -1028,6 +1028,185 @@ vendorCropSchema.index({ vendorId: 1, cropId: 1 }, { unique: true });
 
 export const VendorCrop = mongoose.models.VendorCrop || mongoose.model("VendorCrop", vendorCropSchema);
 
+const vendorShippingMethodSchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true, unique: true, index: true },
+    isActive: { type: Boolean, default: true },
+    // 1. Shipping cost by quantity
+    quantityRules: {
+      enabled: { type: Boolean, default: true },
+      baseCost: { type: Number, default: 30 },
+      freeAboveQuantity: { type: Number, default: 15 },
+      perExtraItemFee: { type: Number, default: 5 },
+      slabs: [
+        {
+          minQty: { type: Number, default: 1 },
+          maxQty: { type: Number, default: 5 },
+          cost: { type: Number, default: 30 },
+        },
+        {
+          minQty: { type: Number, default: 6 },
+          maxQty: { type: Number, default: 10 },
+          cost: { type: Number, default: 50 },
+        },
+        {
+          minQty: { type: Number, default: 11 },
+          maxQty: { type: Number, default: 20 },
+          cost: { type: Number, default: 80 },
+        },
+      ],
+    },
+    // 2. Shipping cost by user
+    userRules: {
+      enabled: { type: Boolean, default: true },
+      defaultCost: { type: Number, default: 40 },
+      userTypes: [
+        {
+          userType: { type: String, default: "retail" },
+          label: { type: String, default: "Retail Customer" },
+          cost: { type: Number, default: 40 },
+          freeAboveOrderAmount: { type: Number, default: 499 },
+        },
+        {
+          userType: { type: String, default: "b2b" },
+          label: { type: String, default: "B2B / Wholesale Buyer" },
+          cost: { type: Number, default: 100 },
+          freeAboveOrderAmount: { type: Number, default: 2999 },
+        },
+        {
+          userType: { type: String, default: "vip" },
+          label: { type: String, default: "VIP / Prime Member" },
+          cost: { type: Number, default: 0 },
+          freeAboveOrderAmount: { type: Number, default: 0 },
+        },
+        {
+          userType: { type: String, default: "first_order" },
+          label: { type: String, default: "First-Time Buyer" },
+          cost: { type: Number, default: 0 },
+          freeAboveOrderAmount: { type: Number, default: 199 },
+        },
+      ],
+    },
+    // 3. Shipping cost by pin code
+    pincodeRules: {
+      enabled: { type: Boolean, default: true },
+      defaultCost: { type: Number, default: 50 },
+      pincodes: [
+        {
+          code: { type: String, default: "411057" },
+          areaName: { type: String, default: "Hinjawadi (Local Zone 1)" },
+          cost: { type: Number, default: 25 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          code: { type: String, default: "411045" },
+          areaName: { type: String, default: "Baner (Local Zone 2)" },
+          cost: { type: Number, default: 35 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          code: { type: String, default: "411001" },
+          areaName: { type: String, default: "Pune City Central" },
+          cost: { type: Number, default: 60 },
+          isServiceable: { type: Boolean, default: true },
+        },
+      ],
+    },
+    // 4. Shipping cost by category
+    categoryRules: {
+      enabled: { type: Boolean, default: true },
+      defaultCost: { type: Number, default: 30 },
+      categories: [
+        {
+          categoryName: { type: String, default: "Fresh Vegetables" },
+          extraCost: { type: Number, default: 10 },
+          isFreeShipping: { type: Boolean, default: false },
+        },
+        {
+          categoryName: { type: String, default: "Fresh Fruits" },
+          extraCost: { type: Number, default: 15 },
+          isFreeShipping: { type: Boolean, default: false },
+        },
+        {
+          categoryName: { type: String, default: "Dairy & Cold Chain" },
+          extraCost: { type: Number, default: 25 },
+          isFreeShipping: { type: Boolean, default: false },
+        },
+        {
+          categoryName: { type: String, default: "Heavy Grains & Pulses" },
+          extraCost: { type: Number, default: 40 },
+          isFreeShipping: { type: Boolean, default: false },
+        },
+      ],
+    },
+    // 5. Shipping cost by weight
+    weightRules: {
+      enabled: { type: Boolean, default: true },
+      baseWeightKg: { type: Number, default: 1 },
+      baseCost: { type: Number, default: 30 },
+      costPerExtraKg: { type: Number, default: 15 },
+      slabs: [
+        {
+          minWeightKg: { type: Number, default: 0 },
+          maxWeightKg: { type: Number, default: 2 },
+          cost: { type: Number, default: 30 },
+        },
+        {
+          minWeightKg: { type: Number, default: 2 },
+          maxWeightKg: { type: Number, default: 5 },
+          cost: { type: Number, default: 60 },
+        },
+        {
+          minWeightKg: { type: Number, default: 5 },
+          maxWeightKg: { type: Number, default: 10 },
+          cost: { type: Number, default: 110 },
+        },
+        {
+          minWeightKg: { type: Number, default: 10 },
+          maxWeightKg: { type: Number, default: 25 },
+          cost: { type: Number, default: 200 },
+        },
+      ],
+    },
+    // 6. Shipping cost by state
+    stateRules: {
+      enabled: { type: Boolean, default: true },
+      defaultCost: { type: Number, default: 90 },
+      states: [
+        {
+          stateName: { type: String, default: "Maharashtra" },
+          cost: { type: Number, default: 40 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          stateName: { type: String, default: "Gujarat" },
+          cost: { type: Number, default: 80 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          stateName: { type: String, default: "Karnataka" },
+          cost: { type: Number, default: 90 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          stateName: { type: String, default: "Madhya Pradesh" },
+          cost: { type: Number, default: 110 },
+          isServiceable: { type: Boolean, default: true },
+        },
+        {
+          stateName: { type: String, default: "Goa" },
+          cost: { type: Number, default: 70 },
+          isServiceable: { type: Boolean, default: true },
+        },
+      ],
+    },
+  },
+  { timestamps: true }
+);
+
+export const VendorShippingMethod =
+  mongoose.models.VendorShippingMethod || mongoose.model("VendorShippingMethod", vendorShippingMethodSchema);
+
 /**
  * Ensures all MongoDB indexes for farmer-manager service are created in background
  */

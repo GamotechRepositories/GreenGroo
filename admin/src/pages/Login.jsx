@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, KeyRound, MessageSquareCode } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,15 @@ export default function Login() {
   const [infoMsg, setInfoMsg] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const signInWithPassword = async (loginEmail, loginPassword) => {
     setLoading(true);
@@ -44,7 +53,7 @@ export default function Login() {
   };
 
   const handleSendOtp = async (e) => {
-    if (e) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const loginIdent = String(adminPhone || email || '').trim();
     if (!loginIdent) {
       setError('Please enter your admin email or registered mobile number.');
@@ -59,6 +68,7 @@ export default function Login() {
       });
       if (response.data?.success) {
         setOtpSent(true);
+        setResendCooldown(30);
         setPhoneHint(response.data?.data?.phoneHint || '');
         setInfoMsg(response.data?.message || 'OTP sent successfully to registered phone.');
       } else {
@@ -66,6 +76,39 @@ export default function Login() {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send admin OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (resendCooldown > 0 || loading) return;
+    const loginIdent = String(adminPhone || email || '').trim();
+    if (!loginIdent) {
+      setError('Please enter your admin email or registered mobile number.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setInfoMsg('');
+    try {
+      let response;
+      try {
+        response = await apiClient.post('/users/admin/otp/resend', { login: loginIdent });
+      } catch {
+        response = await apiClient.post('/users/admin/otp/send', { login: loginIdent });
+      }
+      if (response.data?.success) {
+        setOtp('');
+        setResendCooldown(30);
+        setPhoneHint(response.data?.data?.phoneHint || phoneHint || '');
+        setInfoMsg(response.data?.message || 'New OTP sent successfully to registered phone.');
+      } else {
+        setError(response.data?.message || 'Failed to resend OTP');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not resend admin OTP.');
     } finally {
       setLoading(false);
     }
@@ -216,18 +259,26 @@ export default function Login() {
                   <label className="block text-xs font-semibold">Enter 6-digit OTP</label>
                   <button
                     type="button"
-                    onClick={handleSendOtp}
-                    disabled={loading}
-                    className="text-[11px] font-semibold text-emerald-700 hover:underline"
+                    onClick={handleResendOtp}
+                    disabled={loading || resendCooldown > 0}
+                    className={`text-[11px] font-semibold transition ${
+                      resendCooldown > 0 || loading
+                        ? "text-slate-400 cursor-not-allowed"
+                        : "text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                    }`}
                   >
-                    Resend OTP
+                    {loading
+                      ? "Sending..."
+                      : resendCooldown > 0
+                      ? `Resend OTP in ${resendCooldown}s`
+                      : "Resend OTP"}
                   </button>
                 </div>
                 <input
                   type="text"
                   required
                   maxLength={8}
-                  placeholder="123456"
+                  placeholder="Enter OTP"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   className={`${INPUT} tracking-widest text-center font-mono text-base font-bold`}
@@ -235,16 +286,6 @@ export default function Login() {
                 {phoneHint ? (
                   <p className="mt-1 text-[11px] text-slate-500">Sent to {phoneHint}</p>
                 ) : null}
-                <div className="mt-2 rounded-lg bg-emerald-50/80 border border-emerald-200/60 p-2 text-[11px] text-emerald-900 flex items-center justify-between">
-                  <span>SMS not received? Master OTP: <strong>123456</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => setOtp('123456')}
-                    className="font-bold text-emerald-800 hover:text-emerald-950 underline ml-2 shrink-0"
-                  >
-                    Use 123456
-                  </button>
-                </div>
               </div>
             ) : null}
 

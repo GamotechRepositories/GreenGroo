@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
   sendFarmerOtp,
+  resendFarmerOtp,
   verifyOtp,
   normalizeIndianPhone,
 } from "@greengrocc/shared";
@@ -952,6 +953,63 @@ export async function sendFarmerOtpController(req, res) {
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Failed to send farmer OTP" });
+  }
+}
+
+export async function resendFarmerOtpController(req, res) {
+  try {
+    const rawMobile = req.body.mobile || req.body.phone;
+    const mobile = normalizeIndianPhone(rawMobile);
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid 10-digit mobile number is required",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    const farmer = await Farmer.findOne({ mobile });
+
+    if (isRegister) {
+      if (farmer) {
+        return res.status(400).json({
+          success: false,
+          message: "A farmer account already exists with this mobile number. Please log in.",
+        });
+      }
+    } else {
+      if (!farmer) {
+        return res.status(404).json({
+          success: false,
+          message: "No farmer account found with this mobile number. Please register first.",
+        });
+      }
+      if (farmer.loginEnabled === false) {
+        return res.status(403).json({
+          success: false,
+          message: "Farmer login is currently disabled. Please contact your manager.",
+        });
+      }
+      if (farmer.status !== "Active") {
+        return res.status(403).json({
+          success: false,
+          message: `Farmer account is currently ${farmer.status.toLowerCase()}. Please contact your manager.`,
+        });
+      }
+    }
+
+    const result = await resendFarmerOtp(mobile, isRegister ? "register" : "login");
+    return res.json({
+      success: true,
+      message: result.message || "OTP resent successfully",
+      mobile,
+      purpose: isRegister ? "register" : "login",
+      devMock: result.devMock,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to resend farmer OTP" });
   }
 }
 

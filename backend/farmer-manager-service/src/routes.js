@@ -9,6 +9,7 @@ import {
   farmerLogin,
   registerFarmer,
   sendFarmerOtpController,
+  resendFarmerOtpController,
   verifyFarmerOtpController,
   submitFarmerKyc,
   getFarmerMe,
@@ -163,7 +164,15 @@ import {
   listVendorDarkStoreRequests,
   createVendorDarkStoreRequest,
   cancelVendorDarkStoreRequest,
+  listVendorDeliveryBoys,
+  createVendorDeliveryBoy,
+  deleteVendorDeliveryBoy,
 } from "./darkStoreRequestControllers.js";
+import {
+  getVendorShippingMethods,
+  saveVendorShippingMethods,
+  calculateShippingRate,
+} from "./shippingControllers.js";
 import {
   listVendorCatalogProducts,
   listVendorMyProducts,
@@ -262,6 +271,7 @@ farmerRouter.use(attachAuth);
 farmerRouter.post("/login", farmerLogin);
 farmerRouter.post("/register", registerFarmer);
 farmerRouter.post("/otp/send", sendFarmerOtpController);
+farmerRouter.post("/otp/resend", resendFarmerOtpController);
 farmerRouter.post("/otp/verify", verifyFarmerOtpController);
 farmerRouter.get("/me", requireFarmer, getFarmerMe);
 farmerRouter.put("/me/profile", requireFarmer, updateFarmerSelfProfile);
@@ -519,6 +529,9 @@ vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
 vendorRouter.get("/dark-store-requests", requireVendor, listVendorDarkStoreRequests);
 vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRequest);
 vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
+vendorRouter.get("/delivery-boys", requireVendor, listVendorDeliveryBoys);
+vendorRouter.post("/delivery-boys", requireVendor, createVendorDeliveryBoy);
+vendorRouter.delete("/delivery-boys/:boyId", requireVendor, deleteVendorDeliveryBoy);
 vendorRouter.get("/preorders", requireVendor, listVendorPreOrders);
 vendorRouter.post("/preorders/confirm", requireVendor, confirmVendorPreOrders);
 vendorRouter.post("/preorders/:orderId/reject", requireVendor, rejectVendorPreOrder);
@@ -527,11 +540,13 @@ vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
 vendorRouter.patch("/my-products/:productId", requireVendor, updateVendorMyProduct);
 vendorRouter.delete("/my-products/:productId", requireVendor, deleteVendorMyProduct);
 vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);
-vendorRouter.post("/product-requests/:requestId/cancel", requireVendor, cancelVendorProductRequest);
 vendorRouter.get("/catalog-crops", requireVendor, listVendorCatalogCrops);
 vendorRouter.get("/my-crops", requireVendor, listVendorMyCrops);
 vendorRouter.post("/crop-requests", requireVendor, createVendorCropRequest);
 vendorRouter.post("/crop-requests/:requestId/cancel", requireVendor, cancelVendorCropRequest);
+vendorRouter.get("/shipping-methods", requireVendor, getVendorShippingMethods);
+vendorRouter.put("/shipping-methods", requireVendor, saveVendorShippingMethods);
+vendorRouter.post("/shipping-methods/calculate", attachAuth, calculateShippingRate);
 
 vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
 vendorRouter.get("/driver-desk/batches/:batchId", requireDriver, getDriverBatch);

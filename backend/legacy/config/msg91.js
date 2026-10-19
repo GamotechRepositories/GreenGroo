@@ -6,35 +6,35 @@ const PLACEHOLDER_PATTERN = /^(your|xxx|test)/i;
 export const MSG91_TEMPLATES = {
   // 1. Delivery verification OTP for userapp / frontend / delivery completion
   DELIVERY_VERIFICATION:
-    process.env.MSG91_TEMPLATE_DELIVERY_VERIFY?.trim() || "1277179206470002377",
+    process.env.MSG91_TEMPLATE_DELIVERY_VERIFY?.trim() || "6ad22b384233828ece0fe432",
 
   // 2. GreenGrocc Admin Login OTP
   ADMIN_LOGIN:
-    process.env.MSG91_TEMPLATE_ADMIN_LOGIN?.trim() || "1277179206046350946",
+    process.env.MSG91_TEMPLATE_ADMIN_LOGIN?.trim() || "6ad0c670a33b8888e30b69b2",
 
   // 3. GreenGrocc Customer Login OTP for userapp / frontend
   USER_LOGIN:
-    process.env.MSG91_TEMPLATE_USER_LOGIN?.trim() || "1277179206610483262",
+    process.env.MSG91_TEMPLATE_USER_LOGIN?.trim() || "6ad22b01d08f916900083772",
 
   // 4. GreenGrocc Customer Registration OTP for userapp / frontend
   USER_REGISTRATION:
-    process.env.MSG91_TEMPLATE_USER_REG?.trim() || "1277179206667336427",
+    process.env.MSG91_TEMPLATE_USER_REG?.trim() || "6ad22ac5cf70e75d8705c454",
 
   // 5. Delivery Partner Login OTP for delivery app
   DELIVERY_PARTNER_LOGIN:
-    process.env.MSG91_TEMPLATE_DELIVERY_LOGIN?.trim() || "1277179206817944860",
+    process.env.MSG91_TEMPLATE_DELIVERY_LOGIN?.trim() || "6ad22d787d4a4a46bb0027d3",
 
   // 6. Delivery Partner Registration OTP for delivery app
   DELIVERY_PARTNER_REGISTRATION:
-    process.env.MSG91_TEMPLATE_DELIVERY_REG?.trim() || "1277179206647085826",
+    process.env.MSG91_TEMPLATE_DELIVERY_REG?.trim() || "6ad22a84e456c659070eca32",
 
   // 7. Haritsetu Registration OTP for farmer app
   HARITSETU_REGISTRATION:
-    process.env.MSG91_TEMPLATE_FARMER_REG?.trim() || "1277179206800949621",
+    process.env.MSG91_TEMPLATE_FARMER_REG?.trim() || "6ad22a3d6c206ccb8808a390",
 
   // 8. Haritsetu Login OTP for farmer app
   HARITSETU_LOGIN:
-    process.env.MSG91_TEMPLATE_FARMER_LOGIN?.trim() || "1277179206725138232",
+    process.env.MSG91_TEMPLATE_FARMER_LOGIN?.trim() || "6ad229e275be8e188e041062",
 };
 
 export const msg91Config = {

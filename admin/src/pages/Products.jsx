@@ -4480,11 +4480,18 @@ export default function Products() {
             const primaryCat = Array.isArray(p.categories) ? p.categories[0] : p.category;
 
             return (
-              <button
+              <div
                 key={p._id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => handleOpenEdit(p)}
-                className={`${PANEL} group overflow-hidden text-left transition hover:border-emerald-300 hover:shadow-md`}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleOpenEdit(p);
+                  }
+                }}
+                className={`${PANEL} group cursor-pointer overflow-hidden text-left transition hover:border-emerald-300 hover:shadow-md`}
               >
                 <div className="relative flex h-36 items-center justify-center bg-slate-50 p-3">
                   {img ? (
@@ -4554,27 +4561,25 @@ export default function Products() {
                         Variety
                       </button>
                     )}
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       onClick={() => handleOpenEdit(p)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleOpenEdit(p)}
                       className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-emerald-700"
+                      title="Edit"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
-                    </span>
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => confirmDelete(p)}
-                      onKeyDown={(e) => e.key === 'Enter' && confirmDelete(p)}
                       className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-rose-600"
+                      title="Delete"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                    </span>
+                    </button>
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

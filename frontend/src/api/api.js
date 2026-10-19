@@ -101,6 +101,7 @@ export const signupUser = (data) => api.post("/api/users/signup", data);
 export const loginUser = (data) => api.post("/api/users/login", data);
 export const loginWithPhone = (data) => api.post("/api/users/login/phone", data);
 export const sendOtpLogin = (data) => api.post("/api/users/otp/send", data);
+export const resendOtpLogin = (data) => api.post("/api/users/otp/resend", data);
 export const verifyOtpLogin = (data) => api.post("/api/users/otp/verify", data);
 export const completeOtpSignup = (data) => api.post("/api/users/otp/complete-signup", data);
 export const resetPasswordWithPhoneOtp = (data) =>

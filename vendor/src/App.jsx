@@ -55,8 +55,14 @@ import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
 import ManagerEarningReportPage from './pages/manager/ManagerEarningReportPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
 import VendorDarkStoresPage from './pages/dark-stores/VendorDarkStoresPage'
-import VendorPreOrdersPage from './pages/preorders/VendorPreOrdersPage'
 import DarkStoreRequestPage from './pages/dark-stores/DarkStoreRequestPage'
+import VendorDeliveryBoysPage from './pages/dark-stores/VendorDeliveryBoysPage'
+import ShippingMethodsPage from './pages/shipping/ShippingMethodsPage'
+import VendorPreOrdersPage from './pages/preorders/VendorPreOrdersPage'
+import VendorMarketPricesPage from './pages/market/VendorMarketPricesPage'
+import VendorPreOrderSlotsPage from './pages/preorders/VendorPreOrderSlotsPage'
+import VendorBulkImportExportPage from './pages/catalog/VendorBulkImportExportPage'
+import VendorCsvImportExportPage from './pages/catalog/VendorCsvImportExportPage'
 import VendorMyProductsPage from './pages/products/VendorMyProductsPage'
 import VendorProductRequestPage from './pages/products/VendorProductRequestPage'
 import VendorAllCropsPage from './pages/crops/VendorAllCropsPage'
@@ -141,6 +147,9 @@ function App() {
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />
                 <Route path="/vendor/dark-stores" element={<VendorDarkStoresPage />} />
                 <Route path="/vendor/dark-stores/request" element={<DarkStoreRequestPage />} />
+                <Route path="/vendor/delivery-boys" element={<VendorDeliveryBoysPage />} />
+                <Route path="/vendor/dark-stores/delivery-boys" element={<Navigate to="/vendor/delivery-boys" replace />} />
+                <Route path="/vendor/shipping-methods" element={<ShippingMethodsPage />} />
                 <Route path="/vendor/pickups" element={<Navigate to="/vendor/pickups/ready" replace />} />
                 <Route path="/vendor/pickups/requests" element={<Navigate to="/vendor/pickups/ready" replace />} />
                 <Route path="/vendor/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
@@ -174,8 +183,19 @@ function App() {
                 <Route path="/vendor/orders/products" element={<ManagerOrdersPage mode="products" />} />
                 <Route path="/vendor/orders/by-product" element={<ManagerOrdersPage mode="products" />} />
                 <Route path="/vendor/orders/products/:productKey/inventory" element={<OrderProductInventoryPage />} />
-                <Route path="/vendor/orders/darkstore" element={<ManagerOrdersPage mode="darkstore" />} />
-                <Route path="/vendor/preorders" element={<VendorPreOrdersPage />} />
+                 <Route path="/vendor/preorders" element={<VendorPreOrdersPage />} />
+                <Route path="/vendor/pre-orders" element={<VendorPreOrdersPage />} />
+                <Route path="/pre-orders" element={<VendorPreOrdersPage />} />
+                <Route path="/vendor/pre-order-slots" element={<VendorPreOrderSlotsPage />} />
+                <Route path="/pre-order-slots" element={<VendorPreOrderSlotsPage />} />
+                <Route path="/vendor/market-prices" element={<VendorMarketPricesPage />} />
+                <Route path="/market-prices" element={<VendorMarketPricesPage />} />
+                <Route path="/vendor/bulk-import-export" element={<VendorBulkImportExportPage />} />
+                <Route path="/bulk-import-export" element={<VendorBulkImportExportPage />} />
+                <Route path="/vendor/csv-import-export" element={<VendorCsvImportExportPage />} />
+                <Route path="/csv-import-export" element={<VendorCsvImportExportPage />} />
+                <Route path="/products" element={<Navigate to="/vendor/products" replace />} />
+                <Route path="/inventory" element={<Navigate to="/vendor/inventory" replace />} />
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
                 <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
                 <Route path="/vendor/earnings" element={<ManagerEarningsPage />} />

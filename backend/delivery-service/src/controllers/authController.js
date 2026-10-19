@@ -5,6 +5,7 @@ import StoreOrder from "../models/StoreOrder.js";
 import Shift from "../models/Shift.js";
 import {
   sendDeliveryPartnerOtp,
+  resendDeliveryPartnerOtp,
   verifyOtp,
   normalizeIndianPhone,
 } from "@greengrocc/shared";
@@ -368,6 +369,57 @@ export const sendDeliveryPartnerOtpController = async (req, res, next) => {
     return res.json({
       success: true,
       message: result.message || "OTP sent successfully",
+      phone,
+      purpose: isRegister ? "register" : "login",
+      devMock: result.devMock,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendDeliveryPartnerOtpController = async (req, res, next) => {
+  try {
+    const rawPhone = req.body.phone || req.body.mobile;
+    const phone = normalizeIndianPhone(rawPhone);
+    const purpose = String(req.body.purpose || req.body.mode || "login").trim().toLowerCase();
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid 10-digit phone number is required",
+      });
+    }
+
+    const isRegister = purpose === "register" || purpose === "signup";
+    const existing = await DeliveryBoy.findOne({ phone });
+
+    if (isRegister) {
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: "A delivery partner account with this phone already exists. Please log in.",
+        });
+      }
+    } else {
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: "No delivery partner account found with this phone. Please register first.",
+        });
+      }
+      if (!existing.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Account is deactivated. Contact support.",
+        });
+      }
+    }
+
+    const result = await resendDeliveryPartnerOtp(phone, isRegister ? "register" : "login");
+    return res.json({
+      success: true,
+      message: result.message || "OTP resent successfully",
       phone,
       purpose: isRegister ? "register" : "login",
       devMock: result.devMock,
