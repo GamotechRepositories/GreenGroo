@@ -305,7 +305,7 @@ class _RatingHero extends StatelessWidget {
     final value = hasRating ? average! : 0.0;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: brandHeroDecoration(),
       child: Row(
         children: [
@@ -316,19 +316,19 @@ class _RatingHero extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.inter(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       hasRating ? value.toStringAsFixed(1) : '—',
                       style: GoogleFonts.inter(
-                        fontSize: 40,
+                        fontSize: 30,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         height: 1,
@@ -336,11 +336,11 @@ class _RatingHero extends StatelessWidget {
                     ),
                     if (hasRating)
                       Padding(
-                        padding: const EdgeInsets.only(left: 4, bottom: 4),
+                        padding: const EdgeInsets.only(left: 4, bottom: 2),
                         child: Text(
                           '/ 5',
                           style: GoogleFonts.inter(
-                            fontSize: 15,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.white.withValues(alpha: 0.75),
                           ),
@@ -348,7 +348,7 @@ class _RatingHero extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Row(
                   children: List.generate(5, (i) {
                     final fill = (value - i).clamp(0.0, 1.0);
@@ -359,18 +359,18 @@ class _RatingHero extends StatelessWidget {
                               ? Icons.star_half_rounded
                               : Icons.star_outline_rounded,
                       color: const Color(0xFFFCD34D),
-                      size: 22,
+                      size: 18,
                     );
                   }),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   hasRating
                       ? '$count rating${count == 1 ? '' : 's'}'
                           '${since != null ? ' · since ${DateFormat('d MMM yyyy').format(since!)}' : ''}'
                       : 'No ratings yet',
                   style: GoogleFonts.inter(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
@@ -378,13 +378,13 @@ class _RatingHero extends StatelessWidget {
             ),
           ),
           Container(
-            width: 72,
-            height: 72,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 38),
+            child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 28),
           ),
         ],
       ),

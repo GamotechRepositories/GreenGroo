@@ -1,17 +1,32 @@
+import 'dart:convert';
+
 /// Mirrors backend response wrapper: `{ success, data, message }`.
 class ApiResponseParser {
   ApiResponseParser._();
 
-  static dynamic getData(dynamic responseBody) {
-    if (responseBody is Map<String, dynamic>) {
-      return responseBody['data'];
+  static dynamic _normalize(dynamic body) {
+    if (body is String) {
+      try {
+        return jsonDecode(body);
+      } catch (_) {
+        return body;
+      }
     }
-    return responseBody;
+    return body;
+  }
+
+  static dynamic getData(dynamic responseBody) {
+    final body = _normalize(responseBody);
+    if (body is Map) {
+      return body['data'] ?? body;
+    }
+    return body;
   }
 
   static String? getMessage(dynamic responseBody) {
-    if (responseBody is Map<String, dynamic>) {
-      final message = responseBody['message'];
+    final body = _normalize(responseBody);
+    if (body is Map) {
+      final message = body['message'] ?? body['error'] ?? body['msg'];
       return message?.toString();
     }
     return null;
@@ -22,10 +37,10 @@ class ApiResponseParser {
     T Function(Map<String, dynamic> json) fromJson,
   ) {
     final data = getData(responseBody);
-    if (data is! Map<String, dynamic>) {
+    if (data is! Map) {
       throw FormatException('Expected object in response.data');
     }
-    return fromJson(data);
+    return fromJson(Map<String, dynamic>.from(data));
   }
 
   static List<T> parseList<T>(
@@ -36,8 +51,8 @@ class ApiResponseParser {
     if (data is! List) return [];
 
     return data
-        .whereType<Map<String, dynamic>>()
-        .map(fromJson)
+        .whereType<Map>()
+        .map((item) => fromJson(Map<String, dynamic>.from(item)))
         .toList();
   }
 }

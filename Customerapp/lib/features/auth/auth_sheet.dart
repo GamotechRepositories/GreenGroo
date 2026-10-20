@@ -7,7 +7,6 @@ import '../../core/utils/validators.dart';
 import '../../models/user.dart';
 import 'auth_completion.dart';
 import 'auth_controller.dart';
-import 'auth_state.dart';
 
 class AuthSheet extends ConsumerStatefulWidget {
   const AuthSheet({super.key, required this.mode});
@@ -179,7 +178,8 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
 
       if (!mounted) return;
       _handleAuthSuccess(user, isSignup: _isSignup);
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Auth submit error: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
         _submitting = false;

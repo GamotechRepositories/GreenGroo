@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../../features/auth/auth_host.dart';
 import '../../routes/route_paths.dart';
 
 
@@ -163,10 +164,12 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
       final targetRoute = isAccountTab
           ? RoutePaths.profile
           : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
-      ref.read(authControllerProvider.notifier).openAuthModal(
-            AuthModalMode.login,
-            targetRoute,
-          );
+      showAuthModalBottomSheet(
+        context,
+        ref,
+        mode: AuthModalMode.login,
+        redirectRoute: targetRoute,
+      );
       return;
     }
 

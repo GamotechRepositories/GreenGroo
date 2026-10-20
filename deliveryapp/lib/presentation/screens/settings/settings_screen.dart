@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/l10n/locale_controller.dart';
 import '../../../core/l10n/supported_locales.dart';
 import '../../../core/routes/app_routes.dart';
@@ -25,7 +24,7 @@ class SettingsScreen extends StatelessWidget {
         final l10n = AppLocalizations.of(context);
         final isDark = ThemeController.instance.isDark;
         return Scaffold(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.background,
           appBar: CustomAppBar(
             title: l10n.settings,
             showBackButton: true,
@@ -66,26 +65,29 @@ class _SettingsBodyState extends State<_SettingsBody> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
       children: [
         DashboardCard(
           padding: EdgeInsets.zero,
           child: Column(
             children: [
               SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                 title: Text(
                   l10n.darkMode,
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 subtitle: Text(
                   widget.isDark ? l10n.darkThemeOn : l10n.lightThemeOn,
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
                 secondary: Icon(
                   widget.isDark
                       ? Icons.dark_mode_rounded
                       : Icons.light_mode_rounded,
                   color: AppColors.primary,
+                  size: 22,
                 ),
                 value: widget.isDark,
                 activeThumbColor: AppColors.primary,
@@ -94,9 +96,9 @@ class _SettingsBodyState extends State<_SettingsBody> {
               ),
               Divider(
                 height: 1,
-                indent: AppSpacing.lg,
-                endIndent: AppSpacing.lg,
-                color: AppColors.border,
+                indent: 14,
+                endIndent: 14,
+                color: AppColors.cardBorder,
               ),
               ProfileTile(
                 title: l10n.language,
@@ -112,22 +114,26 @@ class _SettingsBodyState extends State<_SettingsBody> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 14),
         Text(
           l10n.notifications,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.textPrimary,
-              ),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textSecondary,
+          ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: 6),
         DashboardCard(
           padding: EdgeInsets.zero,
           child: Column(
             children: [
               SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                 title: Text(
                   l10n.pushNotifications,
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 value: _pushNotifications,
                 activeThumbColor: AppColors.primary,
@@ -136,14 +142,16 @@ class _SettingsBodyState extends State<_SettingsBody> {
               ),
               Divider(
                 height: 1,
-                indent: AppSpacing.lg,
-                endIndent: AppSpacing.lg,
-                color: AppColors.border,
+                indent: 14,
+                endIndent: 14,
+                color: AppColors.cardBorder,
               ),
               SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                 title: Text(
                   l10n.orderAlerts,
-                  style: TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 value: _orderAlerts,
                 activeThumbColor: AppColors.primary,
@@ -152,7 +160,7 @@ class _SettingsBodyState extends State<_SettingsBody> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 14),
         DashboardCard(
           padding: EdgeInsets.zero,
           child: Column(
@@ -167,21 +175,29 @@ class _SettingsBodyState extends State<_SettingsBody> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        ListTile(
-          onTap: () => logoutAndGoLogin(context),
-          leading: Icon(Icons.logout, color: AppColors.error),
-          title: Text(
-            l10n.logout,
-            style: TextStyle(
-              color: AppColors.error,
-              fontWeight: FontWeight.w600,
+        const SizedBox(height: 14),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: ListTile(
+            dense: true,
+            onTap: () => logoutAndGoLogin(context),
+            leading: Icon(Icons.logout_rounded, color: AppColors.error, size: 20),
+            title: Text(
+              l10n.logout,
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          ),
-          tileColor: AppColors.background,
         ),
       ],
     );

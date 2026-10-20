@@ -103,7 +103,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: const Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 28),
+                Icon(Icons.check_circle_rounded, color: Color(0xFF0F5A32), size: 28),
                 SizedBox(width: 8),
                 Text('Location Verified!'),
               ],
@@ -273,7 +273,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFFBBF7D0),
+                      color: ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFF0F5A32),
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -292,7 +292,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
+                              color: ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -300,7 +300,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D),
+                                color: ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32),
                               ),
                             ),
                           ),
@@ -412,14 +412,17 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
               if (_upcomingBookings.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.cardBorder),
                   ),
                   child: Center(
-                    child: Text(l10n.noFutureUpcomingShifts, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    child: Text(
+                      l10n.noFutureUpcomingShifts,
+                      style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 13),
+                    ),
                   ),
                 )
               else
@@ -427,36 +430,68 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _upcomingBookings.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final b = _upcomingBookings[index];
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
                     return Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                       decoration: BoxDecoration(
                         color: AppColors.cardBackground,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${b.startTime} – ${b.endTime}',
-                                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                b.storeName,
-                                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
-                              ),
-                            ],
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: Text('📅', style: TextStyle(fontSize: 14)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${b.startTime} – ${b.endTime}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  b.storeName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           TextButton(
                             onPressed: () => _cancelBooking(b.id),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w700),
+                            ),
                           ),
                         ],
                       ),

@@ -506,13 +506,18 @@ class ApiService {
       'password': password,
     });
     final raw = response.data;
-    if (raw is Map<String, dynamic> && raw['success'] == false) {
+    if (raw is Map && raw['success'] == false) {
       throw ApiException(
         ApiResponseParser.getMessage(raw) ?? 'Sign in failed',
       );
     }
-    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
-    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    final rawData = ApiResponseParser.getData(raw);
+    final data = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+    final userRaw = data['user'];
+    if (userRaw is! Map) {
+      throw ApiException('User data missing in response');
+    }
+    final user = User.fromJson(Map<String, dynamic>.from(userRaw));
     _assertCustomerUser(user);
     return AuthSession(
       user: user,
@@ -535,13 +540,18 @@ class ApiService {
     }
     final response = await loginUser(payload);
     final raw = response.data;
-    if (raw is Map<String, dynamic> && raw['success'] == false) {
+    if (raw is Map && raw['success'] == false) {
       throw ApiException(
         ApiResponseParser.getMessage(raw) ?? 'Sign in failed',
       );
     }
-    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
-    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    final rawData = ApiResponseParser.getData(raw);
+    final data = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+    final userRaw = data['user'];
+    if (userRaw is! Map) {
+      throw ApiException('User data missing in response');
+    }
+    final user = User.fromJson(Map<String, dynamic>.from(userRaw));
     _assertCustomerUser(user);
     return AuthSession(
       user: user,
@@ -675,13 +685,18 @@ class ApiService {
     }
     final response = await signupUser(payload);
     final raw = response.data;
-    if (raw is Map<String, dynamic> && raw['success'] == false) {
+    if (raw is Map && raw['success'] == false) {
       throw ApiException(
         ApiResponseParser.getMessage(raw) ?? 'Registration failed',
       );
     }
-    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
-    final user = User.fromJson(data['user'] as Map<String, dynamic>);
+    final rawData = ApiResponseParser.getData(raw);
+    final data = rawData is Map ? Map<String, dynamic>.from(rawData) : <String, dynamic>{};
+    final userRaw = data['user'];
+    if (userRaw is! Map) {
+      throw ApiException('User data missing in response');
+    }
+    final user = User.fromJson(Map<String, dynamic>.from(userRaw));
     _assertCustomerUser(user);
     return AuthSession(
       user: user,

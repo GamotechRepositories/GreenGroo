@@ -178,7 +178,7 @@ class _WalletScreenState extends State<WalletScreen> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: brandHeroDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,20 +186,20 @@ class _WalletScreenState extends State<WalletScreen> {
               Row(
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 22),
+                    child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Total Earnings',
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.white.withValues(alpha: 0.9),
                       ),
@@ -207,34 +207,34 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 10),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _rupee(_total),
                   style: GoogleFonts.inter(
-                    fontSize: 38,
+                    fontSize: 30,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                     height: 1.1,
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 'From verification date to today',
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
@@ -490,36 +490,42 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(12),
+              color: isDark ? const Color(0xFF064E3B) : AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.south_west_rounded, color: AppColors.primary, size: 20),
+            child: Icon(
+              Icons.south_west_rounded,
+              color: isDark ? const Color(0xFF34D399) : AppColors.primary,
+              size: 18,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   date,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   '$dayLabel · $orders deliver${orders == 1 ? 'y' : 'ies'}',
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+                  style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                 ),
               ],
             ),
@@ -527,9 +533,9 @@ class _HistoryRow extends StatelessWidget {
           Text(
             '+$amount',
             style: GoogleFonts.inter(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: AppColors.success,
+              color: isDark ? const Color(0xFF34D399) : AppColors.success,
             ),
           ),
         ],

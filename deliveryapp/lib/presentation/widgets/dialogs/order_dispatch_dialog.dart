@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../data/services/order_service.dart';
 
-/// Compact new-order popup: title, earn up to ₹X, timer, Accept / Decline.
+/// Compact new-order popup matching requested UI:
+/// - "New Order" top middle
+/// - Timer pill below it (countdown)
+/// - Accept & Decline buttons below it
+/// - Customer name and address omitted
 class OrderDispatchDialog extends StatefulWidget {
   const OrderDispatchDialog({
     super.key,
@@ -31,7 +34,7 @@ class OrderDispatchDialog extends StatefulWidget {
       barrierLabel: 'Order offer',
       barrierColor: Colors.black.withValues(alpha: 0.55),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (ctx, _, __) => OrderDispatchDialog(
+      pageBuilder: (ctx, _, _) => OrderDispatchDialog(
         offer: offer,
         onAccept: onAccept,
         onDecline: onDecline,
@@ -63,12 +66,9 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
     super.initState();
     _remainingSeconds = widget.offer.remainingSeconds > 0
         ? widget.offer.remainingSeconds
-        : widget.offer.timeoutSeconds;
+        : (widget.offer.timeoutSeconds > 0 ? widget.offer.timeoutSeconds : 20);
     _startTimer();
   }
-
-  int get _totalSeconds =>
-      widget.offer.timeoutSeconds > 0 ? widget.offer.timeoutSeconds : 20;
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -76,7 +76,7 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
       if (_remainingSeconds <= 1) {
         t.cancel();
         // Client timer only closes UI — do NOT call decline.
-        // Backend timeout rotates to the next driver (or re-offers this one if alone).
+        // Backend timeout rotates to next driver
         Navigator.of(context, rootNavigator: true).pop();
       } else {
         setState(() => _remainingSeconds--);
@@ -107,171 +107,127 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (_remainingSeconds / _totalSeconds).clamp(0.0, 1.0);
-    final urgent = _remainingSeconds <= 5;
-    final earn = widget.offer.estimatedEarnings;
-
     return Center(
       child: Material(
         color: Colors.transparent,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 36),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 20,
+                blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'New Order Received',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              if (widget.offer.orderNumber.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '#${widget.offer.orderNumber}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-
-              // Compact earn row
+              // 1. TOP MIDDLE: "New Order" pill badge
               Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF047857), Color(0xFF10B981)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Earn up to  ',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.92),
-                      ),
+                    const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 18,
+                      color: Color(0xFF047857),
                     ),
+                    const SizedBox(width: 6),
                     Text(
-                      '₹$earn',
+                      'New Order',
                       style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1.1,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF047857),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              // Compact timer
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 4,
-                      backgroundColor: const Color(0xFFE2E8F0),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        urgent
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF059669),
+              // 2. BELOW IT: Timer pill (e.g. 20s countdown)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF059669),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 16,
+                      color: Color(0xFF059669),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_remainingSeconds}s',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF059669),
                       ),
                     ),
-                  ),
-                  Text(
-                    '$_remainingSeconds',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: urgent
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFF0F172A),
-                      height: 1,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                urgent ? 'Accept soon or it expires' : 'Time left to respond',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: urgent
-                      ? const Color(0xFFDC2626)
-                      : const Color(0xFF64748B),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
+              // 3. BELOW IT: Accept & Decline buttons side-by-side
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _isProcessing ? null : _handleDecline,
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(
-                          color: Color(0xFFFECACA),
-                          width: 1.4,
+                          color: Color(0xFF059669),
+                          width: 1.5,
                         ),
-                        foregroundColor: const Color(0xFFDC2626),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF059669),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        elevation: 0,
                       ),
                       child: Text(
                         'Decline',
                         style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF059669),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
-                    flex: 2,
                     child: ElevatedButton(
                       onPressed: _isProcessing ? null : _handleAccept,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: const Color(0xFF059669),
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -289,7 +245,8 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
                               'Accept',
                               style: GoogleFonts.inter(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                     ),

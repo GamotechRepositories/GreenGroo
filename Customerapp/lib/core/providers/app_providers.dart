@@ -7,7 +7,7 @@ import '../storage/auth_storage.dart';
 import 'location_provider.dart';
 
 final authStorageProvider = Provider<AuthStorage>((ref) {
-  throw UnimplementedError('AuthStorage must be overridden in main.dart');
+  return AuthStorage.instance;
 });
 
 final apiClientProvider = Provider<ApiClient>((ref) {

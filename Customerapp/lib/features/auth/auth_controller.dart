@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/exceptions/api_exception.dart';
@@ -46,16 +47,22 @@ class AuthController extends Notifier<AuthState> {
     }
 
     final rawSession = storage.session;
-    if (rawSession != null && rawSession['user'] is Map<String, dynamic>) {
+    User? cachedUser;
+    if (rawSession != null && rawSession['user'] is Map) {
       try {
-        final cachedUser =
-            User.fromJson(rawSession['user'] as Map<String, dynamic>);
+        cachedUser =
+            User.fromJson(Map<String, dynamic>.from(rawSession['user'] as Map));
         if (cachedUser.isAdmin || cachedUser.isBlocked) {
           await storage.clear();
           state = const AuthState(loading: false);
           return;
         }
       } catch (_) {}
+    }
+
+    // Immediately restore cached session so user stays logged in
+    if (cachedUser != null) {
+      state = AuthState(user: cachedUser, token: savedToken, loading: false);
     }
 
     try {
@@ -68,9 +75,21 @@ class AuthController extends Notifier<AuthState> {
 
       await storage.saveSession(user: user.toJson(), token: savedToken);
       state = AuthState(user: user, token: savedToken, loading: false);
+    } on DioException catch (dioError) {
+      final statusCode = dioError.response?.statusCode;
+      if (statusCode == 401 || statusCode == 403) {
+        await storage.clear();
+        state = const AuthState(loading: false);
+      } else if (cachedUser != null) {
+        state = AuthState(user: cachedUser, token: savedToken, loading: false);
+      }
     } catch (_) {
-      await storage.clear();
-      state = const AuthState(loading: false);
+      // Keep user logged in if cached session exists
+      if (cachedUser != null) {
+        state = AuthState(user: cachedUser, token: savedToken, loading: false);
+      } else {
+        state = AuthState(token: savedToken, loading: false);
+      }
     }
   }
 

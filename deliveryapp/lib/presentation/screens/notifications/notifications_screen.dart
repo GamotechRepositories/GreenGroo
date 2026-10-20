@@ -179,10 +179,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               : ListView.separated(
                   padding: const EdgeInsets.only(bottom: 24),
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => Divider(
+                  separatorBuilder: (_, _) => Divider(
                     height: 1,
                     thickness: 1,
-                    color: Colors.grey.shade200,
+                    color: AppColors.cardBorder,
                   ),
                   itemBuilder: (context, index) {
                     final item = items[index];
@@ -199,11 +199,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
     );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final body = Column(
       children: [
         Container(
           width: double.infinity,
-          color: AppColors.primaryDark,
+          color: isDark ? const Color(0xFF0F172A) : AppColors.primaryDark,
           padding: EdgeInsets.fromLTRB(8, topInset + 4, 8, 14),
           child: Row(
             children: [
@@ -235,11 +237,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Row(
               children: [
@@ -250,22 +253,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       left: Radius.circular(12),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.done_all_rounded,
                             size: 16,
-                            color: AppColors.primary,
+                            color: isDark ? const Color(0xFF34D399) : AppColors.primary,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'Mark all as read',
                             style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF374151),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF374151),
                             ),
                           ),
                         ],
@@ -273,7 +276,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                   ),
                 ),
-                Container(width: 1, height: 28, color: Colors.grey.shade300),
+                Container(width: 1, height: 22, color: AppColors.cardBorder),
                 Expanded(
                   child: InkWell(
                     onTap: items.isEmpty ? null : _confirmClearAll,
@@ -281,22 +284,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       right: Radius.circular(12),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
                             Icons.delete_outline_rounded,
                             size: 16,
-                            color: Color(0xFFDC2626),
+                            color: Color(0xFFEF4444),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'Clear all',
                             style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFDC2626),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFEF4444),
                             ),
                           ),
                         ],
@@ -313,7 +316,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
 
     return ColoredBox(
-      color: Colors.white,
+      color: AppColors.background,
       child: body,
     );
   }
@@ -340,6 +343,28 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Detect category emoji
+    final tLower = title.toLowerCase();
+    final bLower = body.toLowerCase();
+    String emoji = '🔔';
+    Color emojiBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+
+    if (tLower.contains('order') || bLower.contains('order') || tLower.contains('deliver')) {
+      emoji = '📦';
+      emojiBg = isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5);
+    } else if (tLower.contains('wallet') || tLower.contains('credit') || tLower.contains('payout') || tLower.contains('cash') || tLower.contains('earning')) {
+      emoji = '💰';
+      emojiBg = isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7);
+    } else if (tLower.contains('shift') || bLower.contains('shift') || tLower.contains('slot')) {
+      emoji = '⏰';
+      emojiBg = isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF);
+    } else if (tLower.contains('gig') || tLower.contains('incentive') || tLower.contains('bonus')) {
+      emoji = '🎯';
+      emojiBg = isDark ? const Color(0xFF3B0764) : const Color(0xFFFAF5FF);
+    }
+
     return Dismissible(
       key: ValueKey(id),
       direction: DismissDirection.endToStart,
@@ -352,72 +377,87 @@ class _NotificationRow extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+          color: isUnread
+              ? (isDark ? const Color(0xFF0F1E19) : const Color(0xFFF0FDF4))
+              : Colors.transparent,
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 6, right: 10),
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isUnread ? AppColors.primary : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: emojiBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(emoji, style: const TextStyle(fontSize: 16)),
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        if (isUnread) ...[
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
                         Expanded(
                           child: Text(
                             title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF111827),
-                              height: 1.25,
+                              fontSize: 13,
+                              fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Text(
                           time,
                           style: GoogleFonts.inter(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xFF9CA3AF),
+                            color: AppColors.textMuted,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 3),
                     Text(
                       body,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: const Color(0xFF6B7280),
+                        fontSize: 12,
+                        height: 1.25,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(left: 4, top: 18),
-                child: Icon(
-                  Icons.chevron_right_rounded,
-                  size: 22,
-                  color: Color(0xFFD1D5DB),
-                ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.textMuted,
               ),
             ],
           ),

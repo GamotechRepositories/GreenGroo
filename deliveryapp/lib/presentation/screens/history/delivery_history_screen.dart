@@ -231,6 +231,7 @@ class _RangeChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final options = [
       ('week', weekLabel),
       ('month', monthLabel),
@@ -239,8 +240,9 @@ class _RangeChips extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: Row(
         children: options.map((opt) {
@@ -250,16 +252,18 @@ class _RangeChips extends StatelessWidget {
               onTap: () => onChanged(opt.$1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: selected ? AppColors.surface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
+                  color: selected
+                      ? (isDark ? const Color(0xFF0F172A) : Colors.white)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: AppColors.shadow,
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: isDark ? Colors.black26 : Colors.black12,
+                            blurRadius: 4,
+                            offset: const Offset(0, 1.5),
                           ),
                         ]
                       : null,
@@ -268,10 +272,10 @@ class _RangeChips extends StatelessWidget {
                   opt.$2,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                     color: selected
-                        ? AppColors.primary
+                        ? (isDark ? const Color(0xFF34D399) : AppColors.primary)
                         : AppColors.textSecondary,
                   ),
                 ),
@@ -294,7 +298,7 @@ class _TotalsBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: brandHeroDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,30 +306,30 @@ class _TotalsBar extends StatelessWidget {
           Text(
             l10n.earnings,
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.85),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               rupeeAmount(totals.earnings),
               style: GoogleFonts.inter(
-                fontSize: 30,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
@@ -348,25 +352,28 @@ class _DayHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dateParts = day.date.split('-');
     final dateShort = dateParts.length == 3
         ? '${dateParts[2]}/${dateParts[1]}'
         : day.date;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: day.isToday ? AppColors.primary : AppColors.border,
+          color: day.isToday
+              ? (isDark ? const Color(0xFF10B981) : AppColors.primary)
+              : AppColors.cardBorder,
           width: day.isToday ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -378,34 +385,33 @@ class _DayHistoryCard extends StatelessWidget {
               Text(
                 day.dayLabel,
                 style: GoogleFonts.inter(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 dateShort,
                 style: GoogleFonts.inter(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: AppColors.textSecondary,
                 ),
               ),
               if (day.isToday) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(999),
+                    color: isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     l10n.today,
                     style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryDark,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D),
                     ),
                   ),
                 ),
@@ -414,40 +420,40 @@ class _DayHistoryCard extends StatelessWidget {
               Text(
                 rupeeAmount(day.total),
                 style: GoogleFonts.inter(
-                  fontSize: 17,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
+                  color: isDark ? const Color(0xFF34D399) : AppColors.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _MetricChip(
-                icon: Icons.payments_outlined,
+                emoji: '💰',
                 label: l10n.earnShort,
                 value: '₹${day.earnings}',
               ),
               _MetricChip(
-                icon: Icons.schedule_outlined,
+                emoji: '⏱️',
                 label: l10n.online,
                 value: day.onlineTime,
               ),
               _MetricChip(
-                icon: Icons.event_available_outlined,
+                emoji: '📅',
                 label: l10n.shifts,
                 value: l10n.shiftsBookedValue(day.shiftsBooked),
               ),
               _MetricChip(
-                icon: Icons.check_circle_outline,
+                emoji: '✅',
                 label: l10n.doneShort,
                 value: l10n.shiftsDoneValue(day.shiftsCompleted),
               ),
               _MetricChip(
-                icon: Icons.delivery_dining_outlined,
+                emoji: '🛵',
                 label: l10n.trips,
                 value: '${day.trips}',
               ),
@@ -461,41 +467,41 @@ class _DayHistoryCard extends StatelessWidget {
 
 class _MetricChip extends StatelessWidget {
   const _MetricChip({
-    required this.icon,
+    required this.emoji,
     required this.label,
     required this.value,
   });
 
-  final IconData icon;
+  final String emoji;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.cardSubBg,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.cardSubBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.textMuted),
-          const SizedBox(width: 6),
+          Text(emoji, style: const TextStyle(fontSize: 11)),
+          const SizedBox(width: 4),
           Text(
             AppLocalizations.of(context).labelWithColon(label),
             style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 10.5,
               color: AppColors.textSecondary,
             ),
           ),
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
           ),

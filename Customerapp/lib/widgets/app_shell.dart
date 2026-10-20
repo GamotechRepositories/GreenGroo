@@ -10,6 +10,7 @@ import 'package:customer_app/core/providers/location_provider.dart';
 import 'package:customer_app/core/scroll/tab_scroll_registry.dart';
 import 'package:customer_app/core/theme/store_chrome.dart';
 import 'package:customer_app/features/auth/auth_controller.dart';
+import 'package:customer_app/features/auth/auth_host.dart';
 import 'package:customer_app/features/cart/cart_controller.dart';
 import 'package:customer_app/features/home/home_providers.dart';
 import 'package:customer_app/routes/route_paths.dart';
@@ -100,6 +101,24 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Future<void> _onTap(int visualIndex) async {
+    final isOrderAgainTab = visualIndex == 1;
+    final isCartTab = visualIndex == 3;
+    final isAccountTab = visualIndex == 4;
+    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
+
+    if (isProtectedTab && !ref.read(authControllerProvider).isLoggedIn) {
+      final targetRoute = isAccountTab
+          ? RoutePaths.profile
+          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
+      await showAuthModalBottomSheet(
+        context,
+        ref,
+        mode: AuthModalMode.login,
+        redirectRoute: targetRoute,
+      );
+      return;
+    }
+
     final shellIndex = _shellForVisual[visualIndex];
     final currentVisual = _visualIndex(widget.navigationShell.currentIndex);
     final isCurrentTab = visualIndex == currentVisual;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -28,40 +28,63 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     final l10n = AppLocalizations.of(context);
     final boy = AuthService.instance.deliveryBoy;
     final type = boy?.vehicleType.isNotEmpty == true ? boy!.vehicleType : '—';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final emoji = type.toLowerCase().contains('cycle') || type.toLowerCase().contains('bicycle')
+        ? '🚲'
+        : type.toLowerCase().contains('car') || type.toLowerCase().contains('van')
+            ? '🚗'
+            : '🛵';
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: CustomAppBar(
         title: l10n.vehicleDetails,
         subtitle: 'View only · contact Delivery Manager to update',
         showBackButton: true,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
         children: [
           DashboardCard(
+            padding: const EdgeInsets.all(14),
             child: Column(
               children: [
                 Container(
                   width: double.infinity,
-                  height: 120,
+                  height: 68,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    color: isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF10B981) : const Color(0xFF0F5A32),
+                    ),
                   ),
-                  child: Icon(Icons.two_wheeler, size: 64, color: AppColors.primary),
+                  child: Center(
+                    child: Text(emoji, style: const TextStyle(fontSize: 34)),
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: 12),
                 _Row(label: 'Vehicle type', value: type),
+                const SizedBox(height: 8),
+                Divider(height: 1, color: AppColors.cardBorder),
+                const SizedBox(height: 8),
+                _Row(
+                  label: 'Registration',
+                  value: boy?.documents['rc']?['status'] == 'approved' ? 'Verified' : 'Active Partner',
+                  valueColor: isDark ? const Color(0xFF34D399) : const Color(0xFF0F5A32),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 12),
           Text(
             'Vehicle details can only be updated by your Delivery Manager.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: GoogleFonts.inter(
+              fontSize: 11.5,
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
@@ -70,21 +93,30 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value});
+  const _Row({required this.label, required this.value, this.valueColor});
   final String label;
   final String value;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
         Text(
           value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? AppColors.textPrimary,
+          ),
         ),
       ],
     );

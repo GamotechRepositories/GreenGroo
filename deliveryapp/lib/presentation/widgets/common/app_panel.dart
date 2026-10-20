@@ -294,21 +294,26 @@ class HeroStat extends StatelessWidget {
   }
 }
 
-BoxDecoration brandHeroDecoration() => BoxDecoration(
-      gradient: LinearGradient(
-        colors: [AppColors.primary, AppColors.primaryDark],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+BoxDecoration brandHeroDecoration() {
+  final isDark = ThemeController.instance.isDark;
+  return BoxDecoration(
+    gradient: LinearGradient(
+      colors: isDark
+          ? const [Color(0xFF064E3B), Color(0xFF0F291E)]
+          : const [Color(0xFF0F5A32), Color(0xFF084826)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: isDark ? Colors.black45 : const Color(0xFF0F5A32).withValues(alpha: 0.22),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
       ),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.primary.withValues(alpha: 0.25),
-          blurRadius: 22,
-          offset: const Offset(0, 10),
-        ),
-      ],
-    );
+    ],
+  );
+}
 
 class LegendDot extends StatelessWidget {
   const LegendDot({super.key, required this.color, required this.label});

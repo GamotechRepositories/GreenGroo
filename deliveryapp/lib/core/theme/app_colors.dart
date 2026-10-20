@@ -44,10 +44,10 @@ class AppPalette {
   final Color shadow;
 
   static const light = AppPalette(
-    primary: Color(0xFF16A34A),
-    primaryDark: Color(0xFF15803D),
-    primaryLight: Color(0xFFDCFCE7),
-    primarySoft: Color(0xFFF0FDF4),
+    primary: Color(0xFF0F5A32),
+    primaryDark: Color(0xFF084826),
+    primaryLight: Color(0xFFE8F5E9),
+    primarySoft: Color(0xFFF1F8F4),
     background: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
     surfaceVariant: Color(0xFFF8FAFC),
@@ -58,17 +58,17 @@ class AppPalette {
     error: Color(0xFFEF4444),
     warning: Color(0xFFF59E0B),
     info: Color(0xFF3B82F6),
-    success: Color(0xFF16A34A),
+    success: Color(0xFF0F5A32),
     offline: Color(0xFF6B7280),
-    online: Color(0xFF16A34A),
+    online: Color(0xFF0F5A32),
     shadow: Color(0x0F000000),
   );
 
   static const dark = AppPalette(
-    primary: Color(0xFF10B981),
-    primaryDark: Color(0xFF34D399),
+    primary: Color(0xFF22C55E),
+    primaryDark: Color(0xFF16A34A),
     primaryLight: Color(0xFF064E3B),
-    primarySoft: Color(0xFF065F46),
+    primarySoft: Color(0xFF0F291E),
     background: Color(0xFF0B0F17),
     surface: Color(0xFF1E293B),
     surfaceVariant: Color(0xFF111827),
@@ -79,7 +79,7 @@ class AppPalette {
     error: Color(0xFFF87171),
     warning: Color(0xFFFBBF24),
     info: Color(0xFF60A5FA),
-    success: Color(0xFF10B981),
+    success: Color(0xFF22C55E),
     offline: Color(0xFF9CA3AF),
     online: Color(0xFF34D399),
     shadow: Color(0x40000000),

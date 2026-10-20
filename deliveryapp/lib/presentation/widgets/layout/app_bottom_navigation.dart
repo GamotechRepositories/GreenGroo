@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/app_localizations.dart';
 
-/// Home · My Shifts · [Notifications] · Wallet · History
+/// Flat bottom navigation bar: Home · My Shifts · Notifications · Wallet · History
+/// Matches the exact UI from Image 1 with active green indicator and notification red dot.
 class AppBottomNavigation extends StatelessWidget {
   const AppBottomNavigation({
     super.key,
@@ -21,141 +22,45 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final bottomPad = MediaQuery.paddingOf(context).bottom;
-    Theme.of(context);
 
-    return Material(
-      color: Colors.transparent,
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.only(bottom: bottomPad),
+      decoration: BoxDecoration(
+        color: ThemeController.instance.isDark ? AppColors.surface : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: ThemeController.instance.isDark
+                ? AppColors.cardBorder
+                : const Color(0xFFE5E7EB),
+            width: 1,
+          ),
+        ),
+      ),
       child: SizedBox(
-        height: 72 + bottomPad,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
+        height: 60,
+        child: Row(
           children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.only(bottom: bottomPad),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  border: Border(
-                    top: BorderSide(color: AppColors.cardBorder, width: 1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 12,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: SizedBox(
-                  height: 56,
-                  child: Row(
-                    children: [
-                      _sideTab(0, Icons.home_outlined, Icons.home_rounded, l10n.home),
-                      _sideTab(1, Icons.schedule_outlined, Icons.schedule, l10n.myShifts),
-                      const Expanded(child: SizedBox()),
-                      _sideTab(
-                        3,
-                        Icons.account_balance_wallet_outlined,
-                        Icons.account_balance_wallet,
-                        l10n.wallet,
-                      ),
-                      _sideTab(
-                        4,
-                        Icons.history_outlined,
-                        Icons.history_rounded,
-                        'History',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _tab(0, Icons.home_outlined, Icons.home_rounded, l10n.home),
+            _tab(1, Icons.schedule_outlined, Icons.schedule_rounded, l10n.myShifts),
+            _tab(
+              2,
+              Icons.notifications_none_rounded,
+              Icons.notifications_rounded,
+              l10n.notifications,
+              isNotification: true,
             ),
-
-            // Raised center = Notifications (replaces Map)
-            Positioned(
-              bottom: bottomPad + 18,
-              child: GestureDetector(
-                onTap: () => onTap(2),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.35),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: AppColors.cardBackground,
-                              width: 3,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        if (notificationBadgeCount > 0)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFDC2626),
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              child: Text(
-                                notificationBadgeCount > 9
-                                    ? '9+'
-                                    : '$notificationBadgeCount',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.notifications,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: currentIndex == 2
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: currentIndex == 2
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            _tab(
+              3,
+              Icons.account_balance_wallet_outlined,
+              Icons.account_balance_wallet_rounded,
+              l10n.wallet,
+            ),
+            _tab(
+              4,
+              Icons.history_rounded,
+              Icons.history_rounded,
+              'History',
             ),
           ],
         ),
@@ -163,107 +68,73 @@ class AppBottomNavigation extends StatelessWidget {
     );
   }
 
-  Widget _sideTab(
+  Widget _tab(
     int index,
     IconData icon,
     IconData activeIcon,
     String label, {
-    int? badgeCount,
+    bool isNotification = false,
   }) {
+    final isActive = currentIndex == index;
+    final primaryGreen = const Color(0xFF047857);
+    final inactiveColor = ThemeController.instance.isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF6B7280);
+    final color = isActive ? primaryGreen : inactiveColor;
+
     return Expanded(
-      child: _NavTab(
-        icon: icon,
-        activeIcon: activeIcon,
-        label: label,
-        isActive: currentIndex == index,
-        badgeCount: badgeCount,
+      child: InkWell(
         onTap: () => onTap(index),
-      ),
-    );
-  }
-}
-
-class _NavTab extends StatelessWidget {
-  const _NavTab({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-    this.badgeCount,
-  });
-
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-  final int? badgeCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? AppColors.primary : AppColors.textSecondary;
-
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(isActive ? activeIcon : icon, size: 24, color: color),
-              if (badgeCount != null && badgeCount! > 0)
-                Positioned(
-                  top: -2,
-                  right: -6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFDC2626),
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 14,
-                      minHeight: 14,
-                    ),
-                    child: Text(
-                      '$badgeCount',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  isActive ? activeIcon : icon,
+                  size: 24,
+                  color: color,
+                ),
+                if (isNotification)
+                  Positioned(
+                    top: -1,
+                    right: -2,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: color,
-                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: color,
               ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Container(
-            width: isActive ? 18 : 0,
-            height: 3,
-            color: isActive ? AppColors.primary : Colors.transparent,
-          ),
-        ],
+            const SizedBox(height: 3),
+            Container(
+              width: isActive ? 22 : 0,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: isActive ? primaryGreen : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+

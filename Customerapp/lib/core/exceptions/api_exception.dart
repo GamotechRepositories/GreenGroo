@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 
 class ApiException implements Exception {
@@ -9,13 +10,21 @@ class ApiException implements Exception {
 
   factory ApiException.fromDio(DioException error) {
     final response = error.response;
-    final data = response?.data;
+    var data = response?.data;
 
-    if (data is Map<String, dynamic>) {
-      final message = data['message']?.toString();
-      if (message != null && message.isNotEmpty) {
+    if (data is String) {
+      try {
+        data = jsonDecode(data);
+      } catch (_) {}
+    }
+
+    if (data is Map) {
+      final message = data['message']?.toString() ??
+          data['error']?.toString() ??
+          data['msg']?.toString();
+      if (message != null && message.trim().isNotEmpty) {
         return ApiException(
-          message,
+          message.trim(),
           statusCode: response?.statusCode,
           cause: error,
         );
@@ -70,6 +79,10 @@ String apiErrorMessage(
         (error.error as ApiException).message,
         fallback: fallback,
       );
+    }
+    final extracted = ApiException.fromDio(error).message;
+    if (extracted.isNotEmpty && extracted != 'Something went wrong') {
+      return _sanitizeApiMessage(extracted, fallback: fallback);
     }
     final message = error.message;
     if (message != null && message.isNotEmpty) {

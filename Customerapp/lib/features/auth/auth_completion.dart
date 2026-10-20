@@ -23,7 +23,9 @@ void completeAuthAndGoHome({
   required User user,
   required bool isSignup,
 }) {
-  if (sheetContext.mounted) {
+  if (sheetContext.mounted && Navigator.canPop(sheetContext)) {
+    Navigator.of(sheetContext).pop();
+  } else if (sheetContext.mounted) {
     final nav = Navigator.maybeOf(sheetContext, rootNavigator: true) ??
         Navigator.maybeOf(sheetContext);
     if (nav != null && _isTopRoutePopup(nav)) {
@@ -31,13 +33,17 @@ void completeAuthAndGoHome({
     }
   }
 
+  final redirect = ref.read(authControllerProvider).redirectRoute;
+
   ref.read(authControllerProvider.notifier).closeAuthModal();
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
 
-    GoRouter.of(ctx).go(RoutePaths.home);
+    if (redirect != null && redirect.isNotEmpty) {
+      GoRouter.of(ctx).go(redirect);
+    }
 
     final greetingName =
         user.name.trim().isNotEmpty ? user.name.trim() : 'there';

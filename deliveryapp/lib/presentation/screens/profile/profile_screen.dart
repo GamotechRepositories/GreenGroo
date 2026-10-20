@@ -128,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         Container(
-          padding: const EdgeInsets.all(AppSpacing.xl),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: brandHeroDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,17 +140,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Stack(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(3),
+                          padding: const EdgeInsets.all(2.5),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white.withValues(alpha: 0.35),
                           ),
                           child: CircleAvatar(
-                            radius: 36,
+                            radius: 30,
                             backgroundColor: AppColors.primaryLight,
                             backgroundImage: avatar,
                             child: avatar == null
-                                ? Icon(Icons.person, size: 36, color: AppColors.primary)
+                                ? Icon(Icons.person, size: 30, color: AppColors.primary)
                                 : null,
                           ),
                         ),
@@ -158,46 +158,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           right: 0,
                           bottom: 0,
                           child: Container(
-                            padding: const EdgeInsets.all(5),
+                            padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primary, width: 2),
+                              border: Border.all(color: AppColors.primary, width: 1.5),
                             ),
-                            child: Icon(Icons.camera_alt, size: 12, color: AppColors.primary),
+                            child: Icon(Icons.camera_alt, size: 10, color: AppColors.primary),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.lg),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           boy?.name.isNotEmpty == true ? boy!.name : 'Delivery Partner',
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontSize: 19,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 1),
                         Text(
                           boy?.phone ?? '',
                           style: GoogleFonts.inter(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.88),
                           ),
                         ),
                         if (employment.isNotEmpty || location.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Wrap(
                             spacing: 6,
-                            runSpacing: 6,
+                            runSpacing: 4,
                             children: [
                               if (employment.isNotEmpty)
                                 _HeroChip(
@@ -221,18 +221,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     shape: const CircleBorder(),
                     child: IconButton(
                       onPressed: _busy ? null : _editName,
-                      icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
                       tooltip: 'Edit name',
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
@@ -251,11 +253,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: 6),
               Text(
                 'Tap photo to update · saved to cloud & home avatar',
                 style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   color: Colors.white.withValues(alpha: 0.8),
                 ),
               ),

@@ -120,14 +120,14 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
             const SizedBox(height: 12),
             Text(
               AppLocalizations.of(context).confirmBookQuestion,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -148,9 +148,9 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
   Widget _buildDialogRow(String label, String value) {
     return Row(
       children: [
-        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black54)),
+        Text('$label: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textSecondary)),
         Expanded(
-          child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+          child: Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
         ),
       ],
     );
@@ -190,97 +190,107 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
           bool isNotificationOn = booking.notificationEnabled;
           int selectedMins = booking.notificationTimeMinutes;
 
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
           return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFDCFCE7),
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF064E3B) : const Color(0xFFE8F5E9),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 34),
+                  child: Icon(Icons.check_circle_rounded, color: isDark ? const Color(0xFF22C55E) : const Color(0xFF0F5A32), size: 28),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   AppLocalizations.of(context).shiftBookedSuccessfully,
                   style: GoogleFonts.inter(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   AppLocalizations.of(context).shiftConfirmedSubtitle,
-                  style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary),
+                  style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
-                    borderRadius: BorderRadius.circular(16),
+                    color: AppColors.cardSubBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.cardBorder),
                   ),
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Date', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
-                          Text(booking.dateString, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Date', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text(booking.dateString, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Working Hours', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
-                          Text('${booking.startTime} – ${booking.endTime}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('Working Hours', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text('${booking.startTime} – ${booking.endTime}', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Store', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
-                          Text(booking.storeName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                          Text('Store', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text(booking.storeName, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    color: isDark ? const Color(0xFF292211) : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.notifications_active_rounded, color: Color(0xFFD97706), size: 24),
-                      const SizedBox(width: 12),
+                      const Icon(Icons.notifications_active_rounded, color: Color(0xFFF59E0B), size: 22),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               '🔔 Shift Reminder',
-                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: const Color(0xFF92400E)),
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
                             ),
                             Text(
                               'Get push alert before shift starts',
-                              style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFB45309)),
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFFB45309),
+                              ),
                             ),
                           ],
                         ),
@@ -297,7 +307,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 PrimaryButton(
                   label: 'Done',
                   onPressed: () => Navigator.pop(ctx),
@@ -312,6 +322,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final dateStr = _formatDateString(_selectedDate);
 
     final content = RefreshIndicator(
@@ -326,8 +337,10 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF047857), Color(0xFF059669)],
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? const [Color(0xFF064E3B), Color(0xFF0F291E)]
+                        : const [Color(0xFF0F5A32), Color(0xFF084826)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -496,7 +509,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: availableSlotsList.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final slot = availableSlotsList[index];
                     final isUserBooked = slot.isBookedByMe ||
@@ -506,17 +519,25 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                     final isFull = slot.status == 'FULL' || slot.remainingCapacity == 0;
                     final isFew = slot.status == 'FEW_SPOTS_LEFT';
                     final isDisabled = isEnded || isFull || isUserBooked;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+                    final timeLower = slot.startTime.toLowerCase();
+                    final timeEmoji = timeLower.contains('am') || (slot.startTime.startsWith('0') || slot.startTime.startsWith('10') || slot.startTime.startsWith('11'))
+                        ? '🌅'
+                        : timeLower.contains('pm') && (slot.startTime.startsWith('12') || slot.startTime.startsWith('01') || slot.startTime.startsWith('02') || slot.startTime.startsWith('03') || slot.startTime.startsWith('04'))
+                            ? '☀️'
+                            : '🌙';
 
                     return Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: isUserBooked
-                            ? (ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFF0FDF4))
-                            : (isDisabled ? AppColors.cardSubBg : AppColors.cardBackground),
-                        borderRadius: BorderRadius.circular(16),
+                            ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFE8F5E9))
+                            : (isDisabled ? (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : AppColors.cardSubBg) : AppColors.cardBackground),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isUserBooked
-                              ? (ThemeController.instance.isDark ? const Color(0xFF10B981) : const Color(0xFF22C55E))
+                              ? (isDark ? const Color(0xFF22C55E) : const Color(0xFF0F5A32))
                               : (isDisabled
                                   ? AppColors.cardSubBorder
                                   : (isFew ? const Color(0xFFF59E0B) : AppColors.cardBorder)),
@@ -525,96 +546,125 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                       ),
                       child: Row(
                         children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(timeEmoji, style: const TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Row(
                                   children: [
                                     Text(
                                       '${slot.startTime} – ${slot.endTime}',
                                       style: GoogleFonts.inter(
-                                        fontSize: 16,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w800,
                                         color: isUserBooked
-                                            ? const Color(0xFF15803D)
-                                            : (isDisabled ? Colors.grey : AppColors.textPrimary),
+                                            ? (isDark ? const Color(0xFF34D399) : const Color(0xFF0F5A32))
+                                            : (isDisabled ? (isDark ? const Color(0xFF64748B) : Colors.grey) : AppColors.textPrimary),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  slot.shiftName,
-                                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: isUserBooked
-                                        ? const Color(0xFFDCFCE7)
-                                        : isEnded
-                                            ? const Color(0xFFF3F4F6)
-                                            : isFull
-                                                ? const Color(0xFFFEE2E2)
-                                                : isFew
-                                                    ? const Color(0xFFFEF3C7)
-                                                    : const Color(0xFFDCFCE7),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    isUserBooked
-                                        ? AppLocalizations.of(context).shiftStatusYourBooked
-                                        : isEnded
-                                            ? AppLocalizations.of(context).shiftStatusEnded
-                                            : isFull
-                                                ? AppLocalizations.of(context).shiftStatusFull
-                                                : isFew
-                                                    ? AppLocalizations.of(context).spotsLeftCount(slot.remainingCapacity)
-                                                    : AppLocalizations.of(context).spotsAvailableCount(slot.remainingCapacity),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: isUserBooked
-                                          ? const Color(0xFF15803D)
-                                          : isEnded
-                                              ? Colors.grey.shade600
-                                              : isFull
-                                                  ? const Color(0xFF991B1B)
-                                                  : isFew
-                                                      ? const Color(0xFFD97706)
-                                                      : const Color(0xFF15803D),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Text(
+                                      slot.shiftName,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isUserBooked
+                                            ? (isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12))
+                                            : isEnded
+                                                ? (isDark ? const Color(0xFF334155) : const Color(0xFFF3F4F6))
+                                                : isFull
+                                                    ? (isDark ? const Color(0xFF451A1A) : const Color(0xFFFEE2E2))
+                                                    : isFew
+                                                        ? (isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7))
+                                                        : (isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12)),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        isUserBooked
+                                            ? AppLocalizations.of(context).shiftStatusYourBooked
+                                            : isEnded
+                                                ? AppLocalizations.of(context).shiftStatusEnded
+                                                : isFull
+                                                    ? AppLocalizations.of(context).shiftStatusFull
+                                                    : isFew
+                                                        ? AppLocalizations.of(context).spotsLeftCount(slot.remainingCapacity)
+                                                        : AppLocalizations.of(context).spotsAvailableCount(slot.remainingCapacity),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: isUserBooked
+                                              ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32))
+                                              : isEnded
+                                                  ? (isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600)
+                                                  : isFull
+                                                      ? (isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B))
+                                                      : isFew
+                                                          ? (isDark ? const Color(0xFFFDE68A) : const Color(0xFFD97706))
+                                                          : (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isUserBooked
-                                  ? const Color(0xFF16A34A)
-                                  : (isDisabled ? Colors.grey.shade300 : AppColors.primary),
-                              elevation: (isDisabled && !isUserBooked) ? 0 : 2,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            onPressed: isDisabled
-                                ? null
-                                : () => _onConfirmBooking(slot),
-                            child: Text(
-                              isUserBooked
-                                  ? AppLocalizations.of(context).badgeBooked
-                                  : isEnded
-                                      ? AppLocalizations.of(context).badgeEnded
-                                      : isFull
-                                          ? AppLocalizations.of(context).badgeFull
-                                          : AppLocalizations.of(context).btnBook,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isUserBooked
-                                    ? Colors.white
-                                    : (isDisabled ? Colors.grey.shade600 : Colors.white),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 32,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isUserBooked
+                                    ? (isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32))
+                                    : (isDisabled
+                                        ? (isDark ? const Color(0xFF334155) : Colors.grey.shade300)
+                                        : AppColors.primary),
+                                elevation: (isDisabled && !isUserBooked) ? 0 : 1,
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: isDisabled ? null : () => _onConfirmBooking(slot),
+                              child: Text(
+                                isUserBooked
+                                    ? AppLocalizations.of(context).badgeBooked
+                                    : isEnded
+                                        ? AppLocalizations.of(context).badgeEnded
+                                        : isFull
+                                            ? AppLocalizations.of(context).badgeFull
+                                            : AppLocalizations.of(context).btnBook,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: isUserBooked
+                                      ? Colors.white
+                                      : (isDisabled
+                                          ? (isDark ? const Color(0xFF64748B) : Colors.grey.shade600)
+                                          : Colors.white),
+                                ),
                               ),
                             ),
                           ),

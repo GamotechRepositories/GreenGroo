@@ -820,20 +820,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                   const SizedBox(height: 2),
                 ],
 
-                // 2. FEATURED INCENTIVE / GIG BANNER CARD (Only shown if backend has registered gigs for the store)
-                if (_homeGigs.isNotEmpty) ...[
-                  _FeaturedGigBannerCard(
-                    gig: _homeGigs.first,
-                    totalGigsCount: _homeGigs.length,
-                    isOnline: _isOnline,
-                    onViewGigs: () => Navigator.pushNamed(context, AppRoutes.gigs),
-                    onGoOnline: () {
-                      if (!_isOnline) _onStatusToggle(fromGig: true);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
                 // 3. GO ONLINE DIRECT BANNER CARD
                 _GoOnlineBannerCard(
                   isOnline: _isOnline,
@@ -850,8 +836,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                 ),
                 const SizedBox(height: 18),
 
-                // 5. INCENTIVE PROGRESS & BONUS LEVELS CARD (Only shown if backend has registered gigs for the store)
+                // FEATURED INCENTIVE / GIG BANNER CARD (Only shown if backend has registered gigs for the store)
                 if (_homeGigs.isNotEmpty) ...[
+                  _FeaturedGigBannerCard(
+                    gig: _homeGigs.first,
+                    totalGigsCount: _homeGigs.length,
+                    isOnline: _isOnline,
+                    onViewGigs: () => Navigator.pushNamed(context, AppRoutes.gigs),
+                    onGoOnline: () {
+                      if (!_isOnline) _onStatusToggle(fromGig: true);
+                    },
+                  ),
+                  const SizedBox(height: 14),
                   _LiveGigIncentiveProgressCard(
                     gig: _homeGigs.first,
                   ),
@@ -891,111 +887,167 @@ class _TopHeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Drawer Hamburger Menu Icon
-        InkWell(
-          onTap: onDrawerTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Icon(Icons.menu_rounded, size: 28, color: AppColors.textPrimary),
-          ),
-        ),
-        const SizedBox(width: 12),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayName = name.isNotEmpty ? name : 'Driver1';
 
-        // Name + Verified Tick Icon & Status Pill
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      name,
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                        height: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ROW 1: HAMBURGER MENU + GREENGROO DELIVERY PARTNER (LEFT)  |  PROFILE AVATAR (RIGHT)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drawer Hamburger Menu Icon
+                InkWell(
+                  onTap: onDrawerTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      Icons.menu_rounded,
+                      size: 28,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
-                  ),
-                  if (isVerified) ...[
-                    const SizedBox(width: 6),
-                    // Verified Checkmark Tick Badge (Only shown when rider verification is approved)
-                    const Icon(
-                      Icons.verified_rounded,
-                      color: Color(0xFF059669),
-                      size: 19,
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 4),
-              // Status Pill Tag
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isOnline
-                      ? (ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
-                      : (ThemeController.instance.isDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6)),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isOnline
-                        ? (ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFF86EFAC))
-                        : (ThemeController.instance.isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB)),
                   ),
                 ),
-                child: Row(
+                const SizedBox(width: 10),
+
+                // GreenGroo Delivery Partner Brand on the left
+                Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isOnline ? const Color(0xFF34D399) : const Color(0xFF9CA3AF),
-                        shape: BoxShape.circle,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'GreenGroo',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF0F5132),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.eco_rounded,
+                          color: Color(0xFF16A34A),
+                          size: 20,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
                     Text(
-                      isOnline ? AppLocalizations.of(context).online : AppLocalizations.of(context).offline,
+                      'Delivery Partner',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isOnline
-                            ? (ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D))
-                            : (ThemeController.instance.isDark ? const Color(0xFFCBD5E1) : const Color(0xFF4B5563)),
+                        color: isDark ? const Color(0xFF22C55E) : const Color(0xFF16A34A),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
 
-        // Profile avatar (selfie from AWS/DB) — scooter fallback
-        GestureDetector(
-          onTap: onProfileTap,
-          child: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary, width: 2),
-              image: DecorationImage(
-                image: _avatarImage(deliveryBoy),
-                fit: BoxFit.cover,
+            // Profile avatar
+            GestureDetector(
+              onTap: onProfileTap,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF16A34A), width: 1.5),
+                  image: DecorationImage(
+                    image: _avatarImage(deliveryBoy),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // ROW 2: ONLY DRIVER NAME (NO "Hello, ") + VERIFIED BADGE ON LEFT & STATUS PILL ON RIGHT (NO BELL)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  displayName,
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                  ),
+                ),
+                if (isVerified) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF059669),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: isOnline
+                    ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: isOnline
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFF94A3B8),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isOnline ? 'Online' : 'Offline',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isOnline
+                          ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D))
+                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1221,133 +1273,132 @@ class _GoOnlineBannerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F5A32),
+            Color(0xFF084826),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadow,
+            color: const Color(0xFF0F5A32).withValues(alpha: 0.2),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
+          // Lightning bolt circular badge
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Color(0xFF22C55E),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.bolt_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Title & Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isOnline
-                      ? AppLocalizations.of(context).youAreOnline
-                      : AppLocalizations.of(context).goOnlineToReceiveOrders,
+                  isOnline ? 'You are Online' : 'Ready to deliver?',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                    height: 1.25,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 6),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.shopping_bag_outlined, size: 13, color: Color(0xFF047857)),
-                          const SizedBox(width: 3),
-                          Text(
-                            AppLocalizations.of(context).moreOrders,
-                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                        child: Text(
-                          '|',
-                          style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFCBD5E1)),
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFF047857), width: 1),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '₹',
-                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF047857), height: 1),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            AppLocalizations.of(context).moreEarnings,
-                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ],
+                const SizedBox(height: 1),
+                Text(
+                  isOnline
+                      ? 'Receiving nearby delivery requests.'
+                      : 'Go online to receive requests.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withValues(alpha: 0.88),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isOnline ? const Color(0xFFDC2626) : const Color(0xFF047857),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 8),
+
+          // Go Online / Go Offline White Pill Button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: updatingStatus ? null : onStatusToggle,
+              borderRadius: BorderRadius.circular(30),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: updatingStatus
+                    ? SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color: isOnline
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF0F5A32),
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.power_settings_new_rounded,
+                            size: 15,
+                            color: isOnline
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF0F5A32),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isOnline ? 'Go Offline' : 'Go Online',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: isOnline
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFF0F5A32),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
-            onPressed: updatingStatus ? null : onStatusToggle,
-            child: updatingStatus
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.power_settings_new_rounded,
-                          color: isOnline ? const Color(0xFFDC2626) : const Color(0xFF047857),
-                          size: 16,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isOnline ? AppLocalizations.of(context).goOffline : AppLocalizations.of(context).goOnline,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
           ),
         ],
       ),
@@ -1355,7 +1406,7 @@ class _GoOnlineBannerCard extends StatelessWidget {
   }
 }
 
-/// 4. Today's Progress Section Card (5 Metrics, 3 Rows)
+/// 4. Today's Progress Section Card (5 distinct Cards in 2 Rows matching Image 1)
 class _TodaysProgressSectionCard extends StatelessWidget {
   const _TodaysProgressSectionCard({
     required this.data,
@@ -1369,17 +1420,12 @@ class _TodaysProgressSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final earningsStr = '₹${data.todayEarnings}';
-    final tripsStr = data.completedTrips == 1
-        ? l10n.tripCountOne(data.completedTrips)
-        : l10n.tripsCount(data.completedTrips);
+    final tripsStr = '${data.completedTrips}';
     final onlineStr = data.onlineTime;
-    final shiftsStr = data.bookedShifts == 1
-        ? l10n.shiftCountOne(data.bookedShifts)
-        : l10n.shiftsCount(data.bookedShifts);
-    final completedStr = l10n.completedCountLabel(data.completedShifts);
+    final shiftsStr = '${data.bookedShifts}';
+    final completedStr = '${data.completedShifts}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1387,188 +1433,263 @@ class _TodaysProgressSectionCard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Text(
-                l10n.todaysProgress,
-                style: GoogleFonts.inter(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            Text(
+              "Today's Progress",
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
               ),
             ),
             InkWell(
               onTap: onViewAll,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    l10n.viewAll,
+                    'View All',
                     style: GoogleFonts.inter(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF059669),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF047857),
                     ),
                   ),
+                  const SizedBox(width: 2),
                   const Icon(
                     Icons.chevron_right_rounded,
                     size: 18,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF047857),
                   ),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        const SizedBox(height: 12),
+
+        if (isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF047857),
+                ),
+              ),
+            ),
+          )
+        else ...[
+          // ROW 1: 3 CARDS
+          Row(
+            children: [
+              Expanded(
+                child: _MetricCard(
+                  iconWidget: const Text(
+                    '₹',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+                  value: earningsStr,
+                  label: "Today's Earnings",
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricCard(
+                  iconWidget: const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 20,
+                    color: Color(0xFF047857),
+                  ),
+                  value: tripsStr,
+                  label: 'Trips Completed',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetricCard(
+                  iconWidget: const Icon(
+                    Icons.schedule_rounded,
+                    size: 20,
+                    color: Color(0xFF047857),
+                  ),
+                  value: onlineStr,
+                  label: 'Online Time',
+                ),
               ),
             ],
           ),
-          child: isLoading
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    // ROW 1: Today's Earnings & Today's Trips
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MetricTile(
-                            value: earningsStr,
-                            label: l10n.todaysEarnings,
-                          ),
-                        ),
-                        const _VerticalDivider(),
-                        Expanded(
-                          child: _MetricTile(
-                            value: tripsStr,
-                            label: l10n.trips,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(height: 1, color: AppColors.border),
-                    ),
+          const SizedBox(height: 10),
 
-                    // ROW 2: Today's Online Session & Today's Shifts Booked
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MetricTile(
-                            value: onlineStr,
-                            label: l10n.onlineTime,
-                          ),
-                        ),
-                        const _VerticalDivider(),
-                        Expanded(
-                          child: _MetricTile(
-                            value: shiftsStr,
-                            label: l10n.shiftsBookedLabel,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(height: 1, color: AppColors.border),
-                    ),
-
-                    // ROW 3: Today's Completed Shifts
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MetricTile(
-                            value: completedStr,
-                            label: l10n.completedShiftsLabel,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          // ROW 2: 2 CARDS
+          Row(
+            children: [
+              Expanded(
+                child: _HorizontalMetricCard(
+                  icon: Icons.calendar_today_outlined,
+                  value: shiftsStr,
+                  label: 'Shifts Booked',
                 ),
-        ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HorizontalMetricCard(
+                  icon: Icons.check_circle_outline_rounded,
+                  value: completedStr,
+                  label: 'Completed Shifts',
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.iconWidget,
     required this.value,
     required this.label,
   });
 
+  final Widget iconWidget;
   final String value;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB),
+          width: 1.2,
         ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
+              shape: BoxShape.circle,
+            ),
+            child: Center(child: iconWidget),
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }
 
+class _HorizontalMetricCard extends StatelessWidget {
+  const _HorizontalMetricCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
 
-
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
+  final IconData icon;
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      width: 1,
-      height: 32,
-      color: AppColors.cardBorder,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF047857),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1815,7 +1936,7 @@ class _SlabCard extends StatelessWidget {
   }
 }
 
-/// 6. Performance — graph only (taps through to full Performance).
+/// 6. Performance — Shows graph if data exists, or empty state matching Image 1 if no data.
 class _HomePerformanceCard extends StatefulWidget {
   const _HomePerformanceCard({required this.onOpen});
 
@@ -1857,96 +1978,299 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final rating = _data?['customerRating'] as Map<String, dynamic>?;
     final avg = (rating?['average'] as num?)?.toDouble() ?? 0;
+    final ratingCount = (rating?['count'] as num?)?.toInt() ?? 0;
     final acceptance = _pct('acceptanceRate');
     final onTime = _pct('onTimeDeliveryRate');
     final decline = _pct('declineRate');
     final ratingPct = (avg / 5 * 100).clamp(0.0, 100.0);
 
-    return Material(
-      color: AppColors.cardBackground,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: widget.onOpen,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.insights_rounded,
-                      color: AppColors.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      l10n.performance,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    l10n.viewAll,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  Icon(Icons.chevron_right_rounded,
-                      size: 18, color: AppColors.primary),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (_loading)
-                const SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                  ),
-                )
-              else
-                ClipRect(
-                  child: WeeklyBarChart(
-                    height: 220,
-                    color: AppColors.primary,
-                    emptyMessage: 'Complete deliveries to see your graph',
-                    tooltipLabel: (i) {
-                      const labels = ['Rating', 'Accept', 'On time', 'Decline'];
-                      final vals = [ratingPct, acceptance, onTime, decline];
-                      final idx = i.clamp(0, 3);
-                      return '${labels[idx]}  ${vals[idx].toStringAsFixed(0)}%';
-                    },
-                    axisLabel: (v) => '${v.toInt()}',
-                    bars: [
-                      ChartBar(label: 'Rating', value: ratingPct, highlight: true),
-                      ChartBar(label: 'Accept', value: acceptance),
-                      ChartBar(label: 'On time', value: onTime),
-                      ChartBar(label: 'Decline', value: decline, muted: true),
-                    ],
+    final counts = _data?['counts'] as Map<String, dynamic>?;
+    final offered = (counts?['offered'] as num?)?.toInt() ?? 0;
+    final delivered = (counts?['delivered'] as num?)?.toInt() ?? 0;
+
+    final hasData = offered > 0 || delivered > 0 || ratingCount > 0 || avg > 0 || acceptance > 0 || onTime > 0;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.trending_up_rounded,
+                  color: Color(0xFF047857),
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Performance',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
                   ),
                 ),
-            ],
+              ],
+            ),
+            InkWell(
+              onTap: widget.onOpen,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View All',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF047857),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: Color(0xFF047857),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: widget.onOpen,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB),
+                  width: 1.2,
+                ),
+              ),
+              child: _loading
+                  ? const SizedBox(
+                      height: 160,
+                      child: Center(
+                        child: SizedBox(
+                          width: 26,
+                          height: 26,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Color(0xFF047857),
+                          ),
+                        ),
+                      ),
+                    )
+                  : hasData
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Quick stats row above chart
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _StatPill(
+                                  label: 'Rating',
+                                  value: avg > 0 ? '${avg.toStringAsFixed(1)} ★' : '—',
+                                  color: const Color(0xFF047857),
+                                ),
+                                _StatPill(
+                                  label: 'Acceptance',
+                                  value: '${acceptance.toInt()}%',
+                                  color: const Color(0xFF10B981),
+                                ),
+                                _StatPill(
+                                  label: 'On-Time',
+                                  value: '${onTime.toInt()}%',
+                                  color: const Color(0xFF059669),
+                                ),
+                                _StatPill(
+                                  label: 'Delivered',
+                                  value: '$delivered',
+                                  color: const Color(0xFF0284C7),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            ClipRect(
+                              child: WeeklyBarChart(
+                                height: 180,
+                                color: const Color(0xFF047857),
+                                emptyMessage: 'Complete deliveries to see your graph',
+                                tooltipLabel: (i) {
+                                  const labels = ['Rating', 'Accept', 'On time', 'Decline'];
+                                  final vals = [ratingPct, acceptance, onTime, decline];
+                                  final idx = i.clamp(0, 3);
+                                  return '${labels[idx]}  ${vals[idx].toStringAsFixed(0)}%';
+                                },
+                                axisLabel: (v) => '${v.toInt()}',
+                                bars: [
+                                  ChartBar(label: 'Rating', value: ratingPct, highlight: true),
+                                  ChartBar(label: 'Accept', value: acceptance),
+                                  ChartBar(label: 'On time', value: onTime),
+                                  ChartBar(label: 'Decline', value: decline, muted: true),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 12),
+                            // Illustration: mint shape with 3 green bars and sparkles
+                            SizedBox(
+                              width: 72,
+                              height: 56,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // Soft mint cloud/blob
+                                  Container(
+                                    width: 58,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(22),
+                                    ),
+                                  ),
+                                  // 3 vertical green rounded bars
+                                  Positioned(
+                                    bottom: 12,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981),
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          width: 6,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF059669),
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          width: 6,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF047857),
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Sparkle star 1
+                                  const Positioned(
+                                    top: 4,
+                                    right: 8,
+                                    child: Icon(
+                                      Icons.auto_awesome,
+                                      size: 14,
+                                      color: Color(0xFF047857),
+                                    ),
+                                  ),
+                                  // Sparkle star 2
+                                  const Positioned(
+                                    top: -2,
+                                    right: -4,
+                                    child: Icon(
+                                      Icons.auto_awesome,
+                                      size: 10,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No performance data yet',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Complete deliveries to see your performance\nand growth here.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B7280),
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+            ),
           ),
         ),
-      ),
+      ],
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w500,
+            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2105,110 +2429,149 @@ class _CodCashWarningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = ThemeController.instance.isDark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final formattedAmount = amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF291B00) : const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? const Color(0xFFB45309) : const Color(0xFFFDE68A),
-          width: 1.5,
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.wallet),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1F1D14) : const Color(0xFFFFFDF0),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? const Color(0xFF854D0E) : const Color(0xFFFDE68A),
+            width: 1.2,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD97706),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.35),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Wallet icon with small exclamation badge
+            Stack(
+              clipBehavior: Clip.none,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'CASH DEPOSIT DUE',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: const Color(0xFFB45309),
-                      ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: Colors.white,
+                      size: 18,
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFD97706).withValues(alpha: 0.4),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        '₹$formattedAmount',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Hand over ₹$formattedAmount till end of the day to darkstore manager',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? const Color(0xFFFEF3C7) : const Color(0xFF78350F),
-                    height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'COD cash collected from customer deliveries must be physically handed over to your dark store manager by the end of today.',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
-                    height: 1.35,
+                Positioned(
+                  bottom: -1,
+                  right: -1,
+                  child: Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF1F1D14) : const Color(0xFFFFFDF0),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+
+            // Title and concise subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Cash Deposit Due',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Details',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? const Color(0xFF34D399) : const Color(0xFF047857),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    'Hand over to darkstore manager today',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Amount pill + chevron
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF78350F) : const Color(0xFFFEF08A),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '₹$formattedAmount',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? const Color(0xFFFEF08A) : const Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF047857),
+                  size: 18,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -90,36 +89,43 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         showBackButton: true,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
         children: [
           DashboardCard(
-            child: Text(
-              'Documents are view-only. Contact your Delivery Manager to update them.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const Text('📑', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Documents are view-only. Contact your Delivery Manager to update them.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: 14),
           if (uploaded.isNotEmpty) ...[
             Text(
               'Uploaded documents',
               style: GoogleFonts.inter(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: uploaded.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.95,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.05,
               ),
               itemBuilder: (context, index) {
                 final item = uploaded[index];
@@ -128,12 +134,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   onTap: item.image == null
                       ? null
                       : () => _preview(item.title, item.image!),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
+                      color: AppColors.cardBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.shadow,
@@ -151,7 +157,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                               ? Image(
                                   image: item.image!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorBuilder: (_, _, _) => Container(
                                     color: AppColors.primaryLight,
                                     child: Icon(item.icon, color: AppColors.primary),
                                   ),
@@ -162,21 +168,21 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                 ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 item.title,
                                 style: GoogleFonts.inter(
-                                  fontSize: 13,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               StatusChip(
                                 label: status.replaceAll('_', ' '),
                                 type: status == 'approved'
@@ -196,36 +202,41 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             ),
           ],
           if (missing.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: 16),
             Text(
               'Not uploaded',
               style: GoogleFonts.inter(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: 10),
             ...missing.map((item) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: DashboardCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: AppColors.primaryLight,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(item.icon, color: AppColors.primary),
+                        child: Icon(item.icon, color: AppColors.primary, size: 18),
                       ),
-                      const SizedBox(width: AppSpacing.md),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           item.title,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                       const StatusChip(
@@ -266,7 +277,7 @@ class _DocPreviewPage extends StatelessWidget {
           child: Image(
             image: image,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Icon(
+            errorBuilder: (_, _, _) => const Icon(
               Icons.broken_image_outlined,
               color: Colors.white54,
               size: 64,
