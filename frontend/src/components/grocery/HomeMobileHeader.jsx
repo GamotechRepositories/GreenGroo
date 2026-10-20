@@ -104,11 +104,11 @@ export function HomeDeliveryBar() {
   return (
     <div className={`${theme.deliveryBg} px-3 pb-0 pt-1 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-2">
-        <Link to="/" className="min-w-0 shrink leading-none">
+        <Link to="/" className="min-w-0 shrink leading-none py-0.5">
           <img
             src={LOGO_URL}
             alt="GreenGroo"
-            className="h-12 w-auto max-w-[200px] object-contain object-left"
+            className="h-8 sm:h-9 w-auto max-w-[130px] sm:max-w-[150px] object-contain object-left"
           />
         </Link>
         <ProfileButton theme={theme} />

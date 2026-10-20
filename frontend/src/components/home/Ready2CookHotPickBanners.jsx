@@ -73,13 +73,17 @@ const INSTANT_PROMOS = [
 function promosForStore(store) {
   if (store === "mall") return INSTANT_PROMOS;
   if (store === "festive") return READY2COOK_PROMOS;
-  return PREORDER_PROMOS;
+  return [];
 }
 
 export default function Ready2CookHotPickBanners() {
   const [searchParams] = useSearchParams();
   const store = sectionToStoreKey(searchParams.get("store"));
   const promos = promosForStore(store);
+
+  if (!promos || promos.length === 0) {
+    return null;
+  }
 
   return (
     <section className="px-4 pb-1 pt-1 sm:px-6 lg:px-6">

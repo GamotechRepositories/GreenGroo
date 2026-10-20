@@ -10,8 +10,8 @@ import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 import DesktopSearchBar from "./DesktopSearchBar";
 import CategoryNavbar from "../layout/CategoryNavbar";
 
-export const UPPER_BAR_H = 44;
-export const MAIN_BAR_H = 52;
+export const UPPER_BAR_H = 56;
+export const MAIN_BAR_H = 46;
 export const CATEGORY_TAB_H = 36;
 
 function sectionLabel(sec) {
@@ -48,6 +48,15 @@ function UserIcon({ className = "h-4 w-4" }) {
         strokeLinejoin="round"
         d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
       />
+    </svg>
+  );
+}
+
+function MapPinIcon({ className = "h-4 w-4" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
     </svg>
   );
 }
@@ -124,149 +133,134 @@ function TopNav() {
 
       {/* One fixed shell — upper + main/categories fused, no gap */}
       <div className="fixed top-0 left-0 right-0 z-50">
-        {/* Upper bar */}
-        <div
-          className="bg-white"
-        >
+        {/* Upper bar (Main Navbar) */}
+        <div className="bg-white">
           <div
-            className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-5 xl:px-8"
+            className="relative mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-5 xl:px-8"
             style={{ height: UPPER_BAR_H }}
           >
-            <nav
-              className="flex items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5"
-              aria-label="Store sections"
-            >
-              {displaySections.map((sec) => {
-                const storeKey = sectionStoreKey(sec);
-                const label = sectionLabel(sec);
-                const isActive =
-                  currentStore === storeKey ||
-                  (currentStore === "main" && storeKey === "main") ||
-                  (currentStore === "festive" && storeKey === "festive") ||
-                  (currentStore === "mall" && storeKey === "mall");
+            {/* Left corner: Logo (clean and properly sized) */}
+            <div className="relative z-10 flex shrink-0 items-center">
+              <Link to="/" className="flex shrink-0 items-center hover:opacity-90 transition-opacity">
+                <img
+                  src={LOGO_URL}
+                  alt="GreenGrocc"
+                  className="h-8 xl:h-9 max-h-9 w-auto object-contain"
+                />
+              </Link>
+            </div>
 
-                return (
-                  <button
-                    key={sec._id || sec.slug || storeKey}
-                    type="button"
-                    onClick={() => setStore(storeKey)}
-                    className={`relative shrink-0 rounded-full px-3.5 py-1 text-[12.5px] font-semibold tracking-tight transition-all duration-200 ${
-                      isActive
-                        ? "bg-[#0C831F] text-white shadow-[0_1px_3px_rgba(12,131,31,0.35)]"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </nav>
+            {/* Exact Center: PreOrder, Ready2Cook, InstantOrder */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <nav
+                className="pointer-events-auto flex items-center gap-1 rounded-full bg-gray-100/90 p-1"
+                aria-label="Store sections"
+              >
+                {displaySections.map((sec) => {
+                  const storeKey = sectionStoreKey(sec);
+                  const label = sectionLabel(sec);
+                  const isActive =
+                    currentStore === storeKey ||
+                    (currentStore === "main" && storeKey === "main") ||
+                    (currentStore === "festive" && storeKey === "festive") ||
+                    (currentStore === "mall" && storeKey === "mall");
 
-            {/* Upper bar: Search bar + Cart button */}
-            <div className="flex shrink-0 items-center gap-2.5">
-              <DesktopSearchBar className="w-[190px] xl:w-[230px]" />
+                  return (
+                    <button
+                      key={sec._id || sec.slug || storeKey}
+                      type="button"
+                      onClick={() => setStore(storeKey)}
+                      className={`relative shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-semibold tracking-tight transition-all duration-200 ${
+                        isActive
+                          ? "bg-[#0C831F] text-white shadow-[0_1px_3px_rgba(12,131,31,0.35)]"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Right corner: Search Bar + Cart Icon + Address Icon + Profile Icon */}
+            <div className="relative z-10 flex shrink-0 items-center gap-2.5">
+              <DesktopSearchBar />
+
+              {/* 1. Cart Icon Only */}
               <Link
                 to="/cart"
                 data-cart-target="desktop"
-                className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-[#0C831F] text-white shadow-[0_2px_6px_rgba(12,131,31,0.25)] transition-all hover:bg-[#0A6C19] hover:shadow-[0_4px_10px_rgba(12,131,31,0.32)] active:scale-[0.97]"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
                 aria-label={cartLabel}
+                title={cartLabel}
               >
-                <CartIcon className="h-4 w-4" />
+                <CartIcon className="h-5 w-5" />
                 {cartCount > 0 ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold tabular-nums text-[#0C831F] shadow-sm ring-2 ring-[#0C831F]">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#0C831F] px-1 text-[9px] font-extrabold tabular-nums text-white shadow-xs">
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 ) : null}
               </Link>
+
+              {/* 2. Address Icon (at the right of Cart) */}
+              <Link
+                to="/location"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                aria-label="Delivery location"
+                title={`Delivery location: ${addressLine}`}
+              >
+                <MapPinIcon className="h-5 w-5" />
+              </Link>
+
+              {/* 3. Profile Icon (at right of Address icon) */}
+              {user ? (
+                <Link
+                  to="/profile"
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                  aria-label={`Profile (${user.name || "Account"})`}
+                  title={`Account: ${user.name || "Profile"}`}
+                >
+                  <UserIcon className="h-5 w-5" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal("login")}
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                  aria-label="Login / Sign Up"
+                  title="Login / Sign Up"
+                >
+                  <UserIcon className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Attached lower chrome — full bar or curved category tab */}
+        {/* Attached lower chrome (Subnavbar) */}
         <div
           className={`relative transition-[height] duration-300 ease-out ${
             compactChrome ? "pointer-events-none" : ""
           }`}
           style={{ height: lowerHeight }}
         >
-          {/* Expanded: full main bar, curved bottom, fused to upper */}
+          {/* Expanded: full main bar, flat bottom, fused to upper (no black line) */}
           <div
             className={`absolute inset-x-0 top-0 bg-white transition-all duration-300 ease-out ${
               compactChrome
                 ? "pointer-events-none invisible h-0 overflow-hidden opacity-0"
-                : "h-full overflow-visible rounded-b-[1.1rem] opacity-100"
+                : "h-full overflow-visible rounded-b-none opacity-100"
             }`}
           >
             <div
-              className={`mx-auto flex h-full max-w-[1400px] items-center gap-4 px-5 xl:gap-6 xl:px-8 ${
-                showNavCategories ? "" : "justify-between"
-              }`}
+              className="mx-auto flex h-full max-w-[1400px] items-center justify-center px-5 xl:px-8"
               style={{ height: MAIN_BAR_H }}
             >
-              <Link to="/" className="relative z-10 flex shrink-0 items-center hover:opacity-90">
-                <img
-                  src={LOGO_URL}
-                  alt="GreenGrocc"
-                  className="h-[4.5rem] w-auto object-contain xl:h-[5.25rem]"
-                />
-              </Link>
-
+              {/* Exact Center of subnavbar: Categories */}
               {showNavCategories ? (
-                <CategoryNavbar compact className="min-w-0 flex-1" />
+                <CategoryNavbar compact className="min-w-0 max-w-[880px] w-full" />
               ) : null}
-
-              {/* Subnavbar: Location picker + Profile button */}
-              <div className="flex shrink-0 items-center gap-2.5 xl:gap-3">
-                <Link
-                  to="/location"
-                  className="group flex min-w-0 max-w-[280px] xl:max-w-[320px] shrink items-center gap-2 rounded-xl py-1 pl-1.5 pr-2.5 transition-colors hover:bg-gray-50 border border-transparent hover:border-gray-200"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0C831F]/10 text-[#0C831F] transition-colors group-hover:bg-[#0C831F]/15">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                  </div>
-                  <div className="flex min-w-0 flex-col justify-center leading-none text-left">
-                    <p className="text-[12px] font-semibold text-gray-900">
-                      Delivery in <span className="text-[#0C831F]">15 mins</span>
-                    </p>
-                    <span className="mt-1 flex min-w-0 items-center gap-1">
-                      <span className="truncate text-[11px] font-medium text-gray-500 group-hover:text-gray-700">
-                        {addressLine}
-                      </span>
-                      <svg
-                        className="h-3 w-3 shrink-0 text-gray-400 transition-transform group-hover:translate-y-px"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </span>
-                  </div>
-                </Link>
-
-                {user ? (
-                  <Link
-                    to="/profile"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-xs transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 active:scale-[0.97]"
-                    aria-label={`Profile (${user.name || "Account"})`}
-                  >
-                    <UserIcon className="h-4.5 w-4.5" />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("login")}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-xs transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 active:scale-[0.97]"
-                    aria-label="Login"
-                  >
-                    <UserIcon className="h-4.5 w-4.5" />
-                  </button>
-                )}
-              </div>
             </div>
           </div>
 
