@@ -41,10 +41,10 @@ export default function HomeSlidingBanners() {
   };
 
   return (
-    <section className="bg-white">
+    <section className="w-full bg-white">
       {/* Full-width carousel container showing original height/width proportions */}
       <div 
-        className="relative overflow-hidden w-full rounded-2xl sm:rounded-3xl"
+        className="relative overflow-hidden w-full rounded-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -59,7 +59,7 @@ export default function HomeSlidingBanners() {
                 <img
                   src={banner.image}
                   alt={`Hero Banner ${banner.id}`}
-                  className="w-full h-[300px] object-contain bg-gray-100 cursor-pointer lg:h-auto"
+                  className="w-full h-auto object-cover cursor-pointer block rounded-none"
                 />
               </Link>
             </div>

@@ -94,15 +94,15 @@ function DesktopSearchBar({ className = "" }) {
 
   return (
     <form
-      className={`group flex h-8 w-full max-w-[220px] items-center gap-2 rounded-lg border border-gray-200/90 bg-[#F4F6F5] px-2.5 transition-all duration-200 hover:border-gray-300 hover:bg-[#EEF1F0] focus-within:border-[#0C831F]/40 focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(12,131,31,0.08)] xl:max-w-[260px] ${className}`}
+      className={`group flex h-10 w-full max-w-[260px] items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50/90 px-3.5 transition-all duration-200 hover:border-gray-300 hover:bg-gray-100/70 focus-within:border-[#0C831F] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0C831F]/15 xl:max-w-[340px] ${className}`}
       onSubmit={handleSubmit}
     >
       <svg
-        className="h-3.5 w-3.5 shrink-0 text-gray-400 transition-colors group-focus-within:text-[#0C831F]"
+        className="h-4 w-4 shrink-0 text-gray-400 transition-colors group-focus-within:text-[#0C831F]"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
-        strokeWidth={2.1}
+        strokeWidth={2.2}
         aria-hidden="true"
       >
         <path
@@ -119,7 +119,7 @@ function DesktopSearchBar({ className = "" }) {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="h-full w-full bg-transparent text-[12.5px] font-medium leading-none text-gray-900 placeholder:text-gray-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="h-full w-full bg-transparent text-[13px] font-medium leading-none text-gray-900 placeholder:text-gray-400 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           aria-label="Search products"
         />
       </div>

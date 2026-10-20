@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import FreshPromoBanner from "../components/grocery/FreshPromoBanner";
 import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
 import CategoryPills from "../components/grocery/CategoryPills";
@@ -15,7 +15,7 @@ import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import Ready2CookHotPickBanners from "../components/home/Ready2CookHotPickBanners";
-import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
+import DesktopHeroFeatureCards from "../components/home/DesktopHeroFeatureCards";
 import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
@@ -40,6 +40,11 @@ function StoreContent() {
   return (
     <>
       <ZeptoFestiveHeroSection />
+      {store === "main" && (
+        <div className="lg:hidden px-3.5 my-2.5">
+          <DesktopHeroFeatureCards />
+        </div>
+      )}
       <Ready2CookHotPickBanners />
       <CategoryPills />
       <HotSelling />
@@ -74,11 +79,24 @@ function Home() {
         <StoreContent />
       </div>
 
-      {/* Desktop store view */}
-      <div className="mx-auto max-w-7xl lg:px-8 lg:pt-8">
+      {/* Full-width PreOrder Hero Banner for Desktop — touches subnavbar directly, edge-to-edge, no curved edges */}
+      {store === "main" && (
+        <section className="hidden lg:block w-full bg-white">
+          <Link to="/product" className="block w-full">
+            <img
+              src="/assets/payment/heroBaner.png"
+              alt="PreOrder — शेतकऱ्यांच्या मेहनतीतून, तुमच्या कुटुंबाच्या ताटापर्यंत!"
+              className="w-full h-auto object-cover block rounded-none cursor-pointer"
+            />
+          </Link>
+        </section>
+      )}
+
+      {/* Desktop store view content */}
+      <div className="mx-auto max-w-7xl lg:px-8 pt-4">
         {store === "main" && (
-          <div className="hidden lg:block mb-4">
-            <HomeSlidingBanners />
+          <div className="hidden lg:block space-y-4 mb-4">
+            <DesktopHeroFeatureCards />
           </div>
         )}
       </div>
