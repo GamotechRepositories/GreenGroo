@@ -15,6 +15,7 @@ import { estimateOfferEarning } from "./ShiftEarningService.js";
 
 const activeOfferTimers = new Map();
 const waitingOrderIds = new Set();
+const currentlyAssigningOrders = new Set();
 
 function darkStoreIdOf(orderOrManager) {
   return String(orderOrManager?.darkStoreId || orderOrManager?.managerId || "");
@@ -43,19 +44,38 @@ function waitingSince(driver) {
 
 function assignmentMaxDistanceM(darkStore) {
   const geofence = Number(darkStore?.geofenceRadius);
-  const deliveryKm = Number(darkStore?.deliveryRadiusKm);
-  const fromGeofence = Number.isFinite(geofence) && geofence > 0 ? geofence : 500;
-  const fromDelivery =
-    Number.isFinite(deliveryKm) && deliveryKm > 0 ? deliveryKm * 1000 : 5000;
-  // Keep assign radius >= go-online same-area allowance so "online" drivers can get offers
-  return Math.max(fromGeofence, fromDelivery, MAX_ASSIGNMENT_DISTANCE_M, 15000);
+  if (Number.isFinite(geofence) && geofence > 0) {
+    return geofence;
+  }
+  return MAX_ASSIGNMENT_DISTANCE_M; // Default 500m
 }
 
 export async function findEligibleDrivers(darkStore, excludedIds = []) {
-  const storeLat = darkStore.latitude ?? 18.559;
-  const storeLng = darkStore.longitude ?? 73.7868;
+  const storeLat = darkStore.latitude;
+  const storeLng = darkStore.longitude;
   const storeId = darkStore._id;
-  const maxDistanceM = Math.max(assignmentMaxDistanceM(darkStore), 25000);
+  const maxDistanceM = assignmentMaxDistanceM(darkStore);
+
+  if (storeLat == null || storeLng == null) {
+    console.warn(
+      `[assignment] store ${storeId} missing latitude/longitude — no drivers can be matched`
+    );
+    return [];
+  }
+
+  // Exclude drivers who currently have an active pending offer to prevent duplicate assignments
+  const pendingOfferedOrders = await StoreOrder.find({
+    status: "offered",
+    currentOfferDriverId: { $ne: null },
+    offerExpiresAt: { $gt: new Date() },
+  }).select("currentOfferDriverId");
+  const activeOfferedDriverIds = pendingOfferedOrders
+    .map((o) => String(o.currentOfferDriverId))
+    .filter(Boolean);
+
+  const allExcludedIds = [
+    ...new Set([...excludedIds.map(String), ...activeOfferedDriverIds]),
+  ];
 
   const storeAreaRegex = darkStore.area
     ? new RegExp(darkStore.area.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
@@ -65,7 +85,8 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
     isActive: true,
     status: "online",
     activeOrderId: null,
-    _id: { $nin: excludedIds },
+    employmentType: { $ne: "FULL_TIME" },
+    _id: { $nin: allExcludedIds },
     $and: [
       {
         $or: [
@@ -91,18 +112,25 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
 
   for (const driver of drivers) {
     const loc = driver.currentLocation;
-    let distanceM = 1000;
-
-    if (loc?.lat != null && loc?.lng != null) {
-      const computed = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
-      if (computed != null) {
-        distanceM = computed;
-      }
+    if (loc?.lat == null || loc?.lng == null) {
+      console.warn(`[assignment] skip ${driver._id}: missing currentLocation`);
+      continue;
     }
 
-    if (distanceM > maxDistanceM) {
+    const locUpdatedAt = loc.updatedAt || driver.lastStatusAt || driver.lastOnlineAt;
+    if (!locUpdatedAt || now - new Date(locUpdatedAt).getTime() > LOCATION_FRESHNESS_MS) {
+      console.warn(`[assignment] skip ${driver._id}: stale/missing location timestamp`);
+      continue;
+    }
+
+    const distanceM = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
+    if (distanceM == null) {
+      console.warn(`[assignment] skip ${driver._id}: cannot compute distance (store coords?)`);
+      continue;
+    }
+    if (distanceM < MIN_ASSIGNMENT_DISTANCE_M || distanceM > maxDistanceM) {
       console.warn(
-        `[assignment] skip ${driver._id}: ${Math.round(distanceM)}m outside [${MIN_ASSIGNMENT_DISTANCE_M}, ${maxDistanceM}]m`
+        `[assignment] skip ${driver._id}: ${Math.round(distanceM)}m outside store radius (${maxDistanceM}m)`
       );
       continue;
     }
@@ -111,17 +139,18 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
   }
 
   eligible.sort((a, b) => {
-    // 1) Nearest to dark store first
-    const distDiff = a.distanceM - b.distanceM;
-    if (Math.abs(distDiff) > 25) return distDiff;
+    // 1) Round-robin rotation across eligible drivers within 500m
+    const rrA = a.driver.roundRobinPosition ?? 0;
+    const rrB = b.driver.roundRobinPosition ?? 0;
+    if (rrA !== rrB) return rrA - rrB;
+
     // 2) Longest waiting (online / idle longest) next
     const waitA = new Date(waitingSince(a.driver)).getTime();
     const waitB = new Date(waitingSince(b.driver)).getTime();
     if (waitA !== waitB) return waitA - waitB;
-    // 3) Round-robin tie-break
-    const rrA = a.driver.roundRobinPosition ?? 0;
-    const rrB = b.driver.roundRobinPosition ?? 0;
-    return rrA - rrB;
+
+    // 3) Nearest distance tie-break
+    return a.distanceM - b.distanceM;
   });
 
   return eligible;
@@ -175,6 +204,12 @@ async function returnPreOrderToManualQueue(order, message) {
 }
 
 export async function assignNextDriver(orderId, opts = {}) {
+  const orderKey = String(orderId);
+  if (currentlyAssigningOrders.has(orderKey)) {
+    return { success: false, message: "Assignment already in progress for this order" };
+  }
+  currentlyAssigningOrders.add(orderKey);
+
   try {
     const timedOutDriverId = opts.timedOutDriverId
       ? String(opts.timedOutDriverId)
@@ -191,22 +226,28 @@ export async function assignNextDriver(orderId, opts = {}) {
       };
     }
 
-    if (!["incoming", "order_received", "packed", "offered"].includes(order.status)) {
+    if (!["packed", "offered"].includes(order.status)) {
+      console.warn(
+        `[assignment] BLOCKED premature assignment for order ${order._id} (${order.orderNumber}) in state '${order.status}'. Must be packed by Delivery Manager first. Called by:\n${new Error().stack}`
+      );
       return {
         success: false,
-        message: `Order is in state '${order.status}', cannot assign.`,
+        message: `Order is in state '${order.status}', cannot assign. Order must be packed first by Delivery Manager.`,
+      };
+    }
+
+    if (!order.stockDeductedAt && !order.isPreOrder && order.fulfillmentType !== "pickup") {
+      console.warn(
+        `[assignment] BLOCKED premature assignment for order ${order._id} (${order.orderNumber}): stock has not been deducted by Delivery Manager!`
+      );
+      return {
+        success: false,
+        message: `Order must be packed and stock deducted by Delivery Manager before driver assignment.`,
       };
     }
 
     const darkStore = await DeliveryManager.findById(order.managerId || order.darkStoreId);
     if (!darkStore) return { success: false, message: "Dark store not found" };
-
-    if (["incoming", "order_received"].includes(order.status)) {
-      order.status = "packed";
-      order.packedAt = order.packedAt || new Date();
-      order.assignmentStatus = "SEARCHING_FOR_DRIVER";
-      await order.save();
-    }
 
     clearOfferTimer(order._id);
 
@@ -309,13 +350,17 @@ export async function assignNextDriver(orderId, opts = {}) {
     // Bind store hub if driver was online via area match without managerId
     if (!selectedDriver.managerId || String(selectedDriver.managerId) !== String(darkStore._id)) {
       selectedDriver.managerId = darkStore._id;
-      await selectedDriver.save().catch(() => {});
     }
+    // Advance round-robin rotation for successive assignments
+    selectedDriver.roundRobinPosition = Date.now();
+    await selectedDriver.save().catch(() => {});
 
     return sendOfferToDriver(order, selectedDriver, darkStore, distanceM);
   } catch (error) {
     console.error("[assignment] assignNextDriver error:", error);
     return { success: false, error: error.message };
+  } finally {
+    currentlyAssigningOrders.delete(orderKey);
   }
 }
 

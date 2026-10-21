@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'splash_screen_view.dart';
+
 class OpeningSplashHost extends StatefulWidget {
   const OpeningSplashHost({super.key, required this.child});
 
@@ -12,7 +14,11 @@ class OpeningSplashHost extends StatefulWidget {
 
 class _OpeningSplashHostState extends State<OpeningSplashHost>
     with SingleTickerProviderStateMixin {
-  static const _fadeDuration = Duration(milliseconds: 250);
+  /// How long the splash screen stays fully visible before fading out
+  static const _splashVisibleDuration = Duration(milliseconds: 2300);
+
+  /// Smooth fade-out duration when revealing the app
+  static const _fadeDuration = Duration(milliseconds: 450);
 
   AnimationController? _controller;
   Animation<double>? _overlayOpacity;
@@ -42,14 +48,14 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
     _overlayOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: controller,
-        curve: Curves.easeOut,
+        curve: Curves.easeInOutCubic,
       ),
     );
 
-    // Fade directly into the home screen once the first frame is painted.
+    // Give user time to enjoy the animated splash screen, then fade into the app.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _controller == null) return;
-      Future.delayed(const Duration(milliseconds: 150), () {
+      Future.delayed(_splashVisibleDuration, () {
         if (!mounted || _controller == null) return;
         _controller!.forward();
       });
@@ -60,6 +66,12 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
         setState(() => _showOverlay = false);
       }
     });
+  }
+
+  void _skipSplash() {
+    if (_controller != null && !_controller!.isAnimating && !_controller!.isCompleted) {
+      _controller!.forward();
+    }
   }
 
   @override
@@ -85,11 +97,13 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
               builder: (context, _) {
                 final overlayOpacity = _overlayOpacity?.value ?? 1.0;
                 return IgnorePointer(
+                  ignoring: overlayOpacity < 0.1,
                   child: Opacity(
-                    opacity: overlayOpacity,
-                    child: const ColoredBox(
-                      color: Colors.white,
-                      child: _OpeningSplashContent(),
+                    opacity: overlayOpacity.clamp(0.0, 1.0),
+                    child: GestureDetector(
+                      onTap: _skipSplash,
+                      behavior: HitTestBehavior.opaque,
+                      child: const SplashScreenView(),
                     ),
                   ),
                 );
@@ -97,26 +111,6 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
             ),
           ),
       ],
-    );
-  }
-}
-
-class _OpeningSplashContent extends StatelessWidget {
-  const _OpeningSplashContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Image.asset(
-        'assets/images/app_icon_launcher.png',
-        width: 130,
-        height: 130,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => const SizedBox(
-          width: 130,
-          height: 130,
-        ),
-      ),
     );
   }
 }

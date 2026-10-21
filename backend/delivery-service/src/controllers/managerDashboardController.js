@@ -410,6 +410,13 @@ export const packOrder = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
+    if (order.isPreOrder) {
+      return res.status(400).json({
+        success: false,
+        message: "Pre-orders are managed through the Pre-Orders workflow and cannot be packed here.",
+      });
+    }
+
     if (!["incoming", "order_received", "stock_issue"].includes(order.status)) {
       return res.status(400).json({
         success: false,

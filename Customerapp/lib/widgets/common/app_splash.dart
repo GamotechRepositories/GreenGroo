@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../config/theme.dart';
-import 'app_logo.dart';
+import 'splash_screen_view.dart';
 
 class AppSplash extends StatelessWidget {
   const AppSplash({super.key, this.message});
@@ -10,20 +9,7 @@ class AppSplash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Image.asset(
-          'assets/images/app_icon_launcher.png',
-          width: 140,
-          height: 140,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => const SizedBox(
-            width: 140,
-            height: 140,
-          ),
-        ),
-      ),
-    );
+    return const SplashScreenView(isStandalone: true);
   }
 }
+

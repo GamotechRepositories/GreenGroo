@@ -340,7 +340,9 @@ export async function openSameRouteWindowAfterAccept(order, manager) {
     managerId: manager._id,
     _id: { $ne: order._id },
     isPreOrder: { $ne: true },
-    status: { $in: ["packed", "offered"] },
+    status: "packed",
+    assignmentStatus: { $nin: ["OFFER_SENT", "DRIVER_ASSIGNED"] },
+    currentOfferDriverId: null,
     assignedRiderId: null,
   }).sort({ packedAt: 1 });
 
@@ -376,6 +378,10 @@ export async function openSameRouteWindowAfterAccept(order, manager) {
  * Different-route orders return autoAttached:false → normal dispatch to other drivers.
  */
 export async function tryAutoAttachOnPack(newOrder, manager) {
+  if (!newOrder || newOrder.isPreOrder || newOrder.fulfillmentType === "pickup") {
+    return { autoAttached: false, suggestion: null };
+  }
+
   const now = new Date();
   const anchors = await findAssignableRouteAnchors(StoreOrder, manager._id, {
     excludeId: newOrder._id,

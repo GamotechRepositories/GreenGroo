@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "node index.js",
+    "start": "nodemon index.js",
     "dev:legacy": "npm run dev -w legacy",
     "fake:driver": "node scripts/fakeDriverLocation.mjs",
     "sync:catalog-stores": "node delivery-service/src/scripts/syncCatalogToStores.js",

@@ -605,6 +605,27 @@ storeOrderSchema.methods.toRiderJSON = function toRiderJSON() {
   return json;
 };
 
+// ── Hard Enforced State Machine Defense ─────────────────────────────────────
+// INCOMING ORDERS MUST REMAIN IN 'order_received' UNTIL PACKED BY THE MANAGER.
+// Under NO circumstance should any caller mutate an order to 'packed', 'offered',
+// or 'assigned' unless stockDeductedAt is set (done exclusively by manager packOrder).
+storeOrderSchema.pre("save", async function preSaveStoreOrder() {
+  if (!this.isPreOrder && this.fulfillmentType !== "pickup") {
+    if (!this.stockDeductedAt && ["packed", "offered", "assigned"].includes(this.status)) {
+      console.warn(
+        `[StoreOrder Schema Guardian] BLOCKED premature status '${this.status}' on order ${this.orderNumber || this._id}! Reverting to 'order_received' because Delivery Manager has not confirmed & packed it yet.`
+      );
+      this.status = "order_received";
+      this.assignmentStatus = "NONE";
+      this.currentOfferDriverId = null;
+      this.offeredRiderId = null;
+      this.offerStartedAt = null;
+      this.offerExpiresAt = null;
+      this.packedAt = undefined;
+    }
+  }
+});
+
 if (mongoose.models.StoreOrder) {
   delete mongoose.models.StoreOrder;
 }

@@ -5,6 +5,7 @@
  * Never show a system tray banner from the Flutter foreground handler —
  * inbox + badge only when open; FCM tray only when background/terminated.
  */
+import mongoose from "mongoose";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryBoyNotification from "../models/DeliveryBoyNotification.js";
 import { getIO } from "../../../socket.js";
@@ -105,7 +106,11 @@ export async function notifyRiders({
         title,
         message: text,
         body: text,
-        orderId: orderId || data.orderId || null,
+        orderId: mongoose.isValidObjectId(orderId)
+          ? orderId
+          : mongoose.isValidObjectId(data?.orderId)
+          ? data.orderId
+          : null,
         gigId: gigId || data.gigId || null,
         amount: amount != null ? Number(amount) : data.amount != null ? Number(data.amount) : null,
         priority,
@@ -347,14 +352,14 @@ export async function notifyOrdersAssigned(riderId, { orders = [], preOrder = fa
       : single
         ? `Order #${numbers[0] || ""} has been assigned to you.`
         : `Orders ${numbers.map((n) => `#${n}`).join(", ")} have been assigned to you.`,
-    orderId: single ? orders[0].orderId : null,
+    orderId: single ? (orders[0]._id || orders[0].orderId) : null,
     priority: "high",
-    dedupeKey: `${orders.map((o) => String(o.orderId)).sort().join(",")}:assigned`,
+    dedupeKey: `${orders.map((o) => String(o._id || o.orderId)).sort().join(",")}:assigned`,
     data: {
       screen: preOrder ? "preorder_deliveries" : "assigned_orders",
       badge: "new",
-      orderId: single ? String(orders[0].orderId) : "",
-      orderIds: orders.map((o) => String(o.orderId)).join(","),
+      orderId: single ? String(orders[0]._id || orders[0].orderId) : "",
+      orderIds: orders.map((o) => String(o._id || o.orderId)).join(","),
       orderNumbers: numbers.join(","),
       orderCount: String(orders.length),
       event: "order_assigned",
