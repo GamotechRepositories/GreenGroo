@@ -35,6 +35,12 @@ export const MSG91_TEMPLATES = {
   // 8. Haritsetu Login OTP for farmer app
   HARITSETU_LOGIN:
     process.env.MSG91_TEMPLATE_FARMER_LOGIN?.trim() || "6ad229e275be8e188e041062",
+
+  // 9. GreenGrocc Common OTP (GREGRC_Common_OTP) for all other / generic flows
+  COMMON_OTP:
+    process.env.MSG91_TEMPLATE_COMMON_OTP?.trim() ||
+    process.env.MSG91_TEMPLATE_GREGRC_COMMON_OTP?.trim() ||
+    "6ad710ca600b25a9f602a842",
 };
 
 export const msg91Config = {
@@ -48,7 +54,11 @@ export const msg91Config = {
     return process.env.MSG91_ENTITY_ID?.trim() || "";
   },
   get templateId() {
-    return process.env.MSG91_TEMPLATE_ID?.trim() || MSG91_TEMPLATES.USER_LOGIN;
+    return (
+      process.env.MSG91_TEMPLATE_ID?.trim() ||
+      MSG91_TEMPLATES.COMMON_OTP ||
+      "6ad710ca600b25a9f602a842"
+    );
   },
   templates: MSG91_TEMPLATES,
   otpLength: 6,

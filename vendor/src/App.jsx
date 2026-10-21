@@ -63,6 +63,7 @@ import VendorMarketPricesPage from './pages/market/VendorMarketPricesPage'
 import VendorPreOrderSlotsPage from './pages/preorders/VendorPreOrderSlotsPage'
 import VendorBulkImportExportPage from './pages/catalog/VendorBulkImportExportPage'
 import VendorCsvImportExportPage from './pages/catalog/VendorCsvImportExportPage'
+import VendorExportImportPage from './pages/catalog/VendorExportImportPage'
 import VendorMyProductsPage from './pages/products/VendorMyProductsPage'
 import VendorProductRequestPage from './pages/products/VendorProductRequestPage'
 import VendorAllCropsPage from './pages/crops/VendorAllCropsPage'
@@ -78,6 +79,8 @@ import HrRecruitmentPage from './pages/hr/HrRecruitmentPage'
 import HrAttendancePage from './pages/hr/HrAttendancePage'
 import HrMeetingsPage from './pages/hr/HrMeetingsPage'
 import VendorProfilePage from './pages/profile/VendorProfilePage'
+import VendorVacationPage from './pages/vacation/VendorVacationPage'
+import VendorReviewsPage from './pages/reviews/VendorReviewsPage'
 import { VendorSettingsProvider } from './context/VendorSettingsContext'
 
 function App() {
@@ -190,10 +193,12 @@ function App() {
                 <Route path="/pre-order-slots" element={<VendorPreOrderSlotsPage />} />
                 <Route path="/vendor/market-prices" element={<VendorMarketPricesPage />} />
                 <Route path="/market-prices" element={<VendorMarketPricesPage />} />
-                <Route path="/vendor/bulk-import-export" element={<VendorBulkImportExportPage />} />
-                <Route path="/bulk-import-export" element={<VendorBulkImportExportPage />} />
-                <Route path="/vendor/csv-import-export" element={<VendorCsvImportExportPage />} />
-                <Route path="/csv-import-export" element={<VendorCsvImportExportPage />} />
+                <Route path="/vendor/export-import" element={<VendorExportImportPage />} />
+                <Route path="/export-import" element={<VendorExportImportPage />} />
+                <Route path="/vendor/bulk-import-export" element={<VendorExportImportPage />} />
+                <Route path="/bulk-import-export" element={<VendorExportImportPage />} />
+                <Route path="/vendor/csv-import-export" element={<VendorExportImportPage />} />
+                <Route path="/csv-import-export" element={<VendorExportImportPage />} />
                 <Route path="/products" element={<Navigate to="/vendor/products" replace />} />
                 <Route path="/inventory" element={<Navigate to="/vendor/inventory" replace />} />
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
@@ -230,6 +235,10 @@ function App() {
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/vendor/settings" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/vendor/vacation" element={<VendorVacationPage />} />
+                <Route path="/vacation" element={<VendorVacationPage />} />
+                <Route path="/vendor/reviews" element={<VendorReviewsPage />} />
+                <Route path="/reviews" element={<VendorReviewsPage />} />
                 <Route path="/profile" element={<VendorProfilePage />} />
                 <Route path="/vendor/profile" element={<VendorProfilePage />} />
               </Route>

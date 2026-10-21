@@ -45,6 +45,19 @@ export const vendorApi = {
   getSettings: () => api.get("/api/vendor/settings"),
   updateSettings: (data) => api.put("/api/vendor/settings", data),
 
+  // Vacation Mode
+  getVacation: () => api.get("/api/vendor/vacation").then((res) => res.data),
+  updateVacation: (data) => api.put("/api/vendor/vacation", data).then((res) => res.data),
+
+  // Vendor Reviews
+  getReviews: (params) => api.get("/api/vendor/reviews", { params }).then((res) => res.data),
+  replyReview: (reviewId, replyText) =>
+    api.post(`/api/vendor/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText }).then((res) => res.data),
+  getPublicStoreReviews: (vendorId) =>
+    api.get(`/api/vendor/public-store/${encodeURIComponent(vendorId)}/reviews`).then((res) => res.data),
+  getPublicStoreVacation: (vendorId) =>
+    api.get(`/api/vendor/public-store/${encodeURIComponent(vendorId)}/vacation`).then((res) => res.data),
+
   // Dashboard
   getDashboard: (params) => api.get("/api/vendor/dashboard", { params }),
   getInventoryAlerts: () => api.get("/api/vendor/inventory-alerts"),
@@ -95,6 +108,7 @@ export const vendorApi = {
   reviewFarmerProduct: (farmerId, productId, decision, reason = "") =>
     api.patch(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/products/${encodeURIComponent(productId)}/review`, { decision, reason }),
   getProducts: () => api.get("/api/vendor/products"),
+  liveSearch: (params) => api.get("/api/vendor/live-search", { params }),
   getFarmerInventory: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/inventory`),
   getFarmerOrders: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/orders`),
   getFarmerEarnings: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/earnings`),

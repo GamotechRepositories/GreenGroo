@@ -35,6 +35,21 @@ const vendorSchema = new mongoose.Schema(
     password: { type: String, default: "" },
     role: { type: String, default: "VENDOR" },
     settings: { type: mongoose.Schema.Types.Mixed, default: {} },
+    vacation: {
+      enabled: { type: Boolean, default: false },
+      startDate: { type: String, default: "" },
+      returnDate: { type: String, default: "" },
+      reason: { type: String, default: "Annual Vacation" },
+      noticeMessage: {
+        type: String,
+        default: "We are currently on vacation. Store operations and deliveries will resume upon our return!",
+      },
+      offlineMode: { type: String, enum: ["full_offline", "browse_only"], default: "browse_only" },
+      autoReopen: { type: Boolean, default: true },
+      emergencyPhone: { type: String, default: "" },
+      emergencyEmail: { type: String, default: "" },
+      lastUpdated: { type: Date, default: Date.now },
+    },
   },
   { timestamps: true }
 );
@@ -800,6 +815,8 @@ const qualityInspectionSchema = new mongoose.Schema(
     rejectedQuantity: { type: Number, default: 0 },
     rejectionReason: { type: String, default: "" },
     rejectionRemarks: { type: String, default: "" },
+    packagingDate: { type: String, default: "" },
+    expiryDate: { type: String, default: "" },
     status: { type: String, enum: QUALITY_STATUSES, default: "QUALITY_PENDING" },
     inspectionStartedAt: { type: Date, default: null },
     inspectionCompletedAt: { type: Date, default: null },
@@ -1207,6 +1224,41 @@ const vendorShippingMethodSchema = new mongoose.Schema(
 export const VendorShippingMethod =
   mongoose.models.VendorShippingMethod || mongoose.model("VendorShippingMethod", vendorShippingMethodSchema);
 
+// ============================================================
+// VENDOR REVIEWS (1-5 Star Ratings & Text Feedback)
+// Protected: Reviews cannot be edited or deleted by vendors.
+// ============================================================
+const vendorReviewSchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true, index: true },
+    customerName: { type: String, required: true, trim: true },
+    customerId: { type: String, default: "" },
+    customerAvatar: { type: String, default: "" },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    title: { type: String, default: "", trim: true },
+    comment: { type: String, required: true, trim: true },
+    productName: { type: String, default: "" },
+    orderId: { type: String, default: "" },
+    isVerifiedPurchase: { type: Boolean, default: true },
+    helpfulCount: { type: Number, default: 0 },
+    aspectRatings: {
+      freshness: { type: Number, default: 5 },
+      packaging: { type: Number, default: 5 },
+      delivery: { type: Number, default: 5 },
+    },
+    vendorReply: {
+      text: { type: String, default: "" },
+      repliedAt: { type: Date, default: null },
+      vendorName: { type: String, default: "" },
+    },
+    status: { type: String, enum: ["Approved", "Pending", "Flagged"], default: "Approved" },
+  },
+  { timestamps: true }
+);
+
+export const VendorReview =
+  mongoose.models.VendorReview || mongoose.model("VendorReview", vendorReviewSchema);
+
 /**
  * Ensures all MongoDB indexes for farmer-manager service are created in background
  */
@@ -1252,6 +1304,7 @@ export async function ensureFarmerIndexes() {
       VendorProduct,
       VendorCropRequest,
       VendorCrop,
+      VendorReview,
     ];
 
     await Promise.all(

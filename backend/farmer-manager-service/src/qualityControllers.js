@@ -254,6 +254,8 @@ function gradeQualityOf(inspection = {}) {
       rejectedQuantity: qty(row.rejectedQuantity),
       rejectionReason: String(row.rejectionReason || ""),
       rejectionRemarks: String(row.rejectionRemarks || ""),
+      expiryDate: String(row.expiryDate || inspection.expiryDate || ""),
+      packagingDate: String(row.packagingDate || inspection.packagingDate || ""),
     };
   }
   const legacyParams = inspection.qualityParameters || {};
@@ -720,6 +722,21 @@ function overlayQualityOnOrder(plain = {}, inspection) {
     qualityParameters: inspection.qualityParameters || flattenGradeParams(gq),
     qualityPhotos: inspection.qualityPhotos || [],
     gradeQuality: gq,
+    packagingDate:
+      inspection.packagingDate ||
+      gq["Grade A"]?.packagingDate ||
+      gq["Grade B"]?.packagingDate ||
+      gq["Grade C"]?.packagingDate ||
+      plain.packingDetails?.packingDate ||
+      plain.packagingDate ||
+      "",
+    expiryDate:
+      inspection.expiryDate ||
+      gq["Grade A"]?.expiryDate ||
+      gq["Grade B"]?.expiryDate ||
+      gq["Grade C"]?.expiryDate ||
+      plain.expiryDate ||
+      "",
     gradingConfirmedAt: inspection.gradingConfirmedAt || null,
     finalStatement: grades,
   };
@@ -1079,6 +1096,22 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     inspectorRole: inspection.inspectorRole,
     inspectorName: inspection.inspectorName,
     gradeQuality: gq,
+    packagingDate:
+      inspection.packagingDate ||
+      gq["Grade A"]?.packagingDate ||
+      gq["Grade B"]?.packagingDate ||
+      gq["Grade C"]?.packagingDate ||
+      order?.packingDetails?.packingDate ||
+      order?.packagingDate ||
+      received.date ||
+      "",
+    expiryDate:
+      inspection.expiryDate ||
+      gq["Grade A"]?.expiryDate ||
+      gq["Grade B"]?.expiryDate ||
+      gq["Grade C"]?.expiryDate ||
+      order?.expiryDate ||
+      "",
     qualityParameters: {
       freshness: flatParams.freshness || "",
       size: flatParams.size || "",
@@ -1442,6 +1475,14 @@ export async function saveQualityParameters(req, res) {
         if (row.rejectedQuantity != null) gq[key].rejectedQuantity = qty(row.rejectedQuantity);
         if (row.rejectionReason != null) gq[key].rejectionReason = String(row.rejectionReason).trim();
         if (row.rejectionRemarks != null) gq[key].rejectionRemarks = String(row.rejectionRemarks).trim();
+        if (row.expiryDate != null) {
+          gq[key].expiryDate = String(row.expiryDate).trim();
+          if (!inspection.expiryDate) inspection.expiryDate = gq[key].expiryDate;
+        }
+        if (row.packagingDate != null) {
+          gq[key].packagingDate = String(row.packagingDate).trim();
+          if (!inspection.packagingDate) inspection.packagingDate = gq[key].packagingDate;
+        }
         if (Array.isArray(row.photos)) gq[key].photos = sanitizePhotos(row.photos);
       }
       inspection.gradeQuality = gq;
@@ -1454,6 +1495,14 @@ export async function saveQualityParameters(req, res) {
       if (gradeKey) {
         gq[gradeKey].parameters = { ...gq[gradeKey].parameters, ...next };
         if (req.body.gradeRemarks != null) gq[gradeKey].remarks = String(req.body.gradeRemarks);
+        if (req.body.expiryDate != null) {
+          gq[gradeKey].expiryDate = String(req.body.expiryDate).trim();
+          if (!inspection.expiryDate) inspection.expiryDate = gq[gradeKey].expiryDate;
+        }
+        if (req.body.packagingDate != null) {
+          gq[gradeKey].packagingDate = String(req.body.packagingDate).trim();
+          if (!inspection.packagingDate) inspection.packagingDate = gq[gradeKey].packagingDate;
+        }
         inspection.gradeQuality = gq;
         inspection.markModified("gradeQuality");
         inspection.qualityParameters = flattenGradeParams(gq);
@@ -1461,6 +1510,8 @@ export async function saveQualityParameters(req, res) {
         inspection.qualityParameters = { ...(inspection.qualityParameters || {}), ...next };
       }
     }
+    if (req.body.expiryDate) inspection.expiryDate = String(req.body.expiryDate).trim();
+    if (req.body.packagingDate) inspection.packagingDate = String(req.body.packagingDate).trim();
     if (req.body.qualityRemarks != null) inspection.qualityRemarks = String(req.body.qualityRemarks);
     recordAction(inspection, req, "SAVE_QUALITY_PARAMETERS");
     await inspection.save();
@@ -1481,6 +1532,13 @@ export async function saveQualityGrading(req, res) {
     }
     if (req.body.gradeQuality) {
       const gq = applyGradeRejectionRows(inspection, req.body.gradeQuality);
+      for (const key of GRADE_KEYS) {
+        const row = req.body.gradeQuality[key];
+        if (row && typeof row === "object") {
+          if (row.expiryDate != null) gq[key].expiryDate = String(row.expiryDate).trim();
+          if (row.packagingDate != null) gq[key].packagingDate = String(row.packagingDate).trim();
+        }
+      }
       inspection.gradeQuality = gq;
       inspection.markModified("gradeQuality");
       inspection.rejectedQuantity = gradeRejectedTotal(gq);
@@ -1492,6 +1550,8 @@ export async function saveQualityGrading(req, res) {
       inspection.rejectionReason = String(req.body.rejectionReason || "").trim();
       inspection.rejectionRemarks = String(req.body.rejectionRemarks || req.body.otherReason || "").trim();
     }
+    if (req.body.expiryDate) inspection.expiryDate = String(req.body.expiryDate).trim();
+    if (req.body.packagingDate) inspection.packagingDate = String(req.body.packagingDate).trim();
     if (req.body.qualityRemarks != null) inspection.qualityRemarks = String(req.body.qualityRemarks);
     const split = applyAssignedGradeQuantities(inspection, pickup, order, req.body);
     if (!gradeParametersComplete(inspection, split)) {
@@ -1559,6 +1619,8 @@ export async function confirmQualityGrading(req, res) {
           lastActionBy: actor.id,
           lastActionRole: actor.role,
           lastActionAt: now,
+          packagingDate: inspection.packagingDate || gradeQualityOf(inspection)["Grade A"]?.packagingDate || order?.packingDetails?.packingDate || "",
+          expiryDate: inspection.expiryDate || gradeQualityOf(inspection)["Grade A"]?.expiryDate || "",
         },
         $push: {
           actions: { action: "CONFIRM_GRADING", userId: actor.id, role: actor.role, at: now },
@@ -1601,6 +1663,8 @@ export async function confirmQualityGrading(req, res) {
     order.qualityRemarks = updated.qualityRemarks || order.qualityRemarks || "";
     order.gradeQuality = gradeQualityOf(updated);
     order.markModified("gradeQuality");
+    order.packagingDate = updated.packagingDate || inspection.packagingDate || order?.packingDetails?.packingDate || "";
+    order.expiryDate = updated.expiryDate || inspection.expiryDate || "";
     order.pickupDate = pickup?.pickupDate || pickup?.scheduledDate || order.pickupDate || "";
     order.pickupTime = pickup?.pickupTime || pickup?.scheduledTime || order.pickupTime || "";
     await applyOrderStatus(order, GRADE_CONFIRMED, "Grading confirmed.");

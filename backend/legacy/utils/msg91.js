@@ -172,7 +172,20 @@ export function resolveTemplateId(templateOrPurpose, role) {
     return MSG91_TEMPLATES.USER_LOGIN;
   }
 
-  return msg91Config.templateId;
+  // 9. GreenGrocc Common OTP (GREGRC_Common_OTP)
+  if (
+    key === "common" ||
+    key === "common_otp" ||
+    key === "gregrc_common_otp" ||
+    key === "gregrc_common" ||
+    key === "general" ||
+    key === "default"
+  ) {
+    return MSG91_TEMPLATES.COMMON_OTP;
+  }
+
+  // Fallback to GREGRC_Common_OTP for all other flows / unmapped roles
+  return MSG91_TEMPLATES.COMMON_OTP || msg91Config.templateId;
 }
 
 async function parseMsg91Response(response) {
@@ -544,6 +557,24 @@ export async function resendFarmerOtp(phone10, purpose = "login") {
     templateId: isReg
       ? MSG91_TEMPLATES.HARITSETU_REGISTRATION
       : MSG91_TEMPLATES.HARITSETU_LOGIN,
+  });
+}
+
+/** 9. GreenGrocc Common OTP (GREGRC_Common_OTP) for all other / generic flows */
+export async function sendCommonOtp(phone10, purpose = "common") {
+  return sendOtp({
+    phone: phone10,
+    purpose,
+    templateId: MSG91_TEMPLATES.COMMON_OTP,
+  });
+}
+
+export async function resendCommonOtp(phone10, retryType) {
+  return resendOtp({
+    phone: phone10,
+    purpose: "common",
+    templateId: MSG91_TEMPLATES.COMMON_OTP,
+    retryType,
   });
 }
 

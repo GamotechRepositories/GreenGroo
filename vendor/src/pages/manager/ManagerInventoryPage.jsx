@@ -127,6 +127,58 @@ function alertBreaches(row, alert) {
   return breaches;
 }
 
+function formatShortDate(val) {
+  if (!val) return "—";
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, d] = s.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function expiryBadge(expiryDate) {
+  if (!expiryDate) return <span className="text-[#9CA3AF]">—</span>;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDate);
+  exp.setHours(0, 0, 0, 0);
+  if (Number.isNaN(exp.getTime())) return <span className="font-medium text-slate-800">{expiryDate}</span>;
+  const diffDays = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const dateFormatted = formatShortDate(expiryDate);
+
+  if (diffDays < 0) {
+    return (
+      <span className="inline-flex flex-col items-center leading-tight">
+        <span className="font-semibold text-red-700 tabular-nums">{dateFormatted}</span>
+        <span className="rounded bg-red-100 px-1 py-0.5 text-[8px] font-bold text-red-800">
+          Expired ({Math.abs(diffDays)}d)
+        </span>
+      </span>
+    );
+  }
+  if (diffDays <= 3) {
+    return (
+      <span className="inline-flex flex-col items-center leading-tight">
+        <span className="font-semibold text-amber-700 tabular-nums">{dateFormatted}</span>
+        <span className="rounded bg-amber-100 px-1 py-0.5 text-[8px] font-bold text-amber-800">
+          {diffDays === 0 ? "Today" : `${diffDays}d left`}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex flex-col items-center leading-tight">
+      <span className="font-semibold text-[#1F2937] tabular-nums">{dateFormatted}</span>
+      <span className="text-[8px] font-medium text-emerald-700">
+        {diffDays}d left
+      </span>
+    </span>
+  );
+}
+
 function breachText(row, breaches) {
   const unit = row.unit || "Kg";
   return Object.entries(breaches)
@@ -172,6 +224,8 @@ export default function ManagerInventoryPage() {
       const gradeA = gradeLetterQty(row, "A");
       const gradeB = gradeLetterQty(row, "B");
       const gradeC = gradeLetterQty(row, "C");
+      const packagingDate = row.packagingDate || row.packingDate || row.receivedDate || "";
+      const expiryDate = row.expiryDate || "";
       const existing = map.get(key);
       if (!existing) {
         map.set(key, {
@@ -185,12 +239,16 @@ export default function ManagerInventoryPage() {
           gradeB,
           gradeC,
           orderId: row.orderId || row.orderDisplayId || "",
+          packagingDate,
+          expiryDate,
         });
         return;
       }
       existing.gradeA += gradeA;
       existing.gradeB += gradeB;
       existing.gradeC += gradeC;
+      if (!existing.packagingDate && packagingDate) existing.packagingDate = packagingDate;
+      if (!existing.expiryDate && expiryDate) existing.expiryDate = expiryDate;
       if (!existing.productBizId || existing.productBizId === "—") {
         existing.productBizId = formatProductBusinessId(row);
       }
@@ -276,15 +334,17 @@ export default function ManagerInventoryPage() {
         <div className="w-full overflow-hidden border border-slate-200/80 bg-white shadow-sm">
           <table className="w-full table-fixed border-collapse">
             <colgroup>
-              <col className="w-[5%]" />
-              <col className="w-[18%]" />
+              <col className="w-[4%]" />
+              <col className="w-[17%]" />
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
               <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[9%]" />
-              <col className="w-[11%]" />
-              <col className="w-[9%]" />
+              <col className="w-[13%]" />
+              <col className="w-[6%]" />
+              <col className="w-[8%]" />
+              <col className="w-[6%]" />
             </colgroup>
             <thead>
               <tr>
@@ -302,6 +362,14 @@ export default function ManagerInventoryPage() {
                 <th className={`${GRADE_TH} border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]`}>
                   <span className="sm:hidden">C</span>
                   <span className="hidden sm:inline">Grade C</span>
+                </th>
+                <th className={`${TH} text-center`}>
+                  <span className="sm:hidden">Recv</span>
+                  <span className="hidden sm:inline">Receiving Date</span>
+                </th>
+                <th className={`${TH} text-center`}>
+                  <span className="sm:hidden">Exp</span>
+                  <span className="hidden sm:inline">Expiry Date</span>
                 </th>
                 <th className={`${TH} text-center`}>Unit</th>
                 <th className={`${TH} text-center`}>Status</th>
@@ -357,6 +425,12 @@ export default function ManagerInventoryPage() {
                   </td>
                   <td className={`${GRADE_TD} align-middle border-[#FDE68A] bg-[#FFFBEB]`}>
                     {formatQty(row.gradeC, row.breaches.C)}
+                  </td>
+                  <td className={`${TD} align-middle text-center tabular-nums text-[#374151]`}>
+                    {formatShortDate(row.packagingDate)}
+                  </td>
+                  <td className={`${TD} align-middle text-center`}>
+                    {expiryBadge(row.expiryDate)}
                   </td>
                   <td className={`${TD} align-middle text-center font-semibold text-[#374151]`}>{row.unit || "Kg"}</td>
                   <td className={`${TD} align-middle text-center`}>

@@ -160,6 +160,7 @@ import {
   arriveAtCentreDriverPickup,
 } from "./pickupControllers.js";
 import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager, attachAuth } from "./middleware.js";
+import { handleVendorLiveSearch } from "./vendorLiveSearchController.js";
 import {
   listVendorDarkStoreRequests,
   createVendorDarkStoreRequest,
@@ -208,6 +209,14 @@ import {
   saveInventoryAlert,
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
+import {
+  getVendorVacation,
+  updateVendorVacation,
+  getVendorReviews,
+  replyVendorReview,
+  getPublicStoreReviews,
+  getPublicStoreVacation,
+} from "./vendorReviewVacationControllers.js";
 import {
   saveFarmerPushToken,
   deleteFarmerPushToken,
@@ -268,6 +277,7 @@ const qualityRouter = express.Router();
 // FARMER AUTH & COMMON API
 // ------------------------------------
 farmerRouter.use(attachAuth);
+farmerRouter.get("/live-search", handleVendorLiveSearch);
 farmerRouter.post("/login", farmerLogin);
 farmerRouter.post("/register", registerFarmer);
 farmerRouter.post("/otp/send", sendFarmerOtpController);
@@ -450,6 +460,17 @@ vendorRouter.put("/profile", requireVendor, updateVendorMe);
 vendorRouter.get("/settings", requireVendor, getVendorSettings);
 vendorRouter.put("/settings", requireVendor, updateVendorSettings);
 vendorRouter.patch("/settings", requireVendor, updateVendorSettings);
+
+// Vendor Vacation
+vendorRouter.get("/vacation", requireVendor, getVendorVacation);
+vendorRouter.put("/vacation", requireVendor, updateVendorVacation);
+vendorRouter.patch("/vacation", requireVendor, updateVendorVacation);
+
+// Vendor Reviews & Customer Store Page Integration
+vendorRouter.get("/reviews", requireVendor, getVendorReviews);
+vendorRouter.post("/reviews/:reviewId/reply", requireVendor, replyVendorReview);
+vendorRouter.get("/public-store/:vendorId/reviews", getPublicStoreReviews);
+vendorRouter.get("/public-store/:vendorId/vacation", getPublicStoreVacation);
 vendorAuthRouter.post("/driver/login", driverLogin);
 vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);
 vendorAuthRouter.post("/driver/push-token", requireDriver, saveDriverPushToken);
@@ -461,6 +482,7 @@ vendorRouter.post("/driver-desk/notifications/read-all", requireDriver, readAllD
 // ------------------------------------
 // VENDOR PANEL ROUTES (protected)
 // ------------------------------------
+vendorRouter.get("/live-search", attachAuth, handleVendorLiveSearch);
 vendorRouter.get("/dashboard", requireVendor, getVendorDashboard);
 vendorRouter.get("/inventory-alerts", requireVendor, listInventoryAlerts);
 vendorRouter.put("/inventory-alerts", requireVendor, saveInventoryAlert);
@@ -572,6 +594,7 @@ managerAuthRouter.get("/me", requireManager, getManagerMe);
 // MANAGER PANEL ROUTES (protected)
 // ------------------------------------
 managerRouter.use(requireManager);
+managerRouter.get("/live-search", handleVendorLiveSearch);
 managerRouter.get("/dashboard", requireManager, getManagerDashboard);
 managerRouter.get("/farmers", requireManager, getManagerFarmers);
 managerRouter.get("/products", requireManager, getManagerAllProducts);

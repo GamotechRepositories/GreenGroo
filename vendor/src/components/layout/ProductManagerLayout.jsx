@@ -21,8 +21,10 @@ import {
   Megaphone,
   Menu,
   Package,
+  Palmtree,
   ShoppingCart,
   Sprout,
+  Star,
   Store,
   Tractor,
   TrendingUp,
@@ -68,8 +70,7 @@ const navItems = [
       { to: '/vendor/products', label: 'All Products', end: true },
       { to: '/vendor/my-products', label: 'My Products' },
       { to: '/vendor/farmer-products', label: 'Farmer Products' },
-      { to: '/vendor/bulk-import-export', label: 'Bulk Import / Export' },
-      { to: '/vendor/csv-import-export', label: 'CSV Import & Export' },
+      { to: '/vendor/export-import', label: 'Export / Import Hub' },
     ],
   },
   { to: '/vendor/market-prices', label: 'Market Prices', icon: TrendingUp },
@@ -92,8 +93,7 @@ const navItems = [
       { to: '/vendor/inventory/history', label: 'History' },
     ],
   },
-  { to: '/vendor/bulk-import-export', label: 'Bulk Import / Export', icon: ArrowUpDown },
-  { to: '/vendor/csv-import-export', label: 'CSV Import & Export', icon: FileSpreadsheet },
+  { to: '/vendor/export-import', label: 'Export / Import (CSV & XML)', icon: ArrowUpDown },
   {
     id: 'dark-stores',
     label: 'Dark Stores',
@@ -102,6 +102,15 @@ const navItems = [
       { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
       { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
       { to: '/vendor/delivery-boys', label: 'Delivery Boys' },
+    ],
+  },
+  {
+    id: 'store-reputation',
+    label: 'Store & Reputation',
+    icon: Star,
+    children: [
+      { to: '/vendor/reviews', label: 'Customer Reviews (1–5★)' },
+      { to: '/vendor/vacation', label: 'Store Vacation (Offline)' },
     ],
   },
   {
@@ -351,6 +360,25 @@ export default function ProductManagerLayout() {
   const compact = collapsed && !mobileOpen
 
   const [vendorDarkStores, setVendorDarkStores] = useState([])
+  const [vacationNotice, setVacationNotice] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+    vendorApi
+      .getVacation()
+      .then((res) => {
+        if (!isMounted) return
+        if (res?.vacation?.enabled) {
+          setVacationNotice(res.vacation)
+        } else {
+          setVacationNotice(null)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      isMounted = false
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     let isMounted = true
@@ -519,6 +547,28 @@ export default function ProductManagerLayout() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Top Navbar with Searchbar */}
         <VendorTopNavbar onOpenMobileMenu={() => setMobileOpen(true)} />
+
+        {/* Global Store Vacation Banner Notification */}
+        {vacationNotice?.enabled && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-300 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 px-4 py-2 text-xs font-bold text-white shadow-xs print:hidden sm:px-6">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px] backdrop-blur-xs">
+                🌴
+              </span>
+              <span>
+                Vacation Mode Active: Your store is offline
+                {vacationNotice.returnDate ? ` until ${vacationNotice.returnDate}` : ''}.
+                {vacationNotice.offlineMode === 'browse_only' ? ' (Catalog browsing active with notice)' : ' (Full catalog hidden)'}
+              </span>
+            </div>
+            <NavLink
+              to="/vendor/vacation"
+              className="rounded-lg bg-black/20 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-black/30 transition shadow-2xs"
+            >
+              Manage Vacation →
+            </NavLink>
+          </div>
+        )}
 
         {/* Announcements & Page Content */}
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]">

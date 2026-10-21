@@ -24,6 +24,8 @@ export {
   resendDeliveryPartnerOtp,
   sendFarmerOtp,
   resendFarmerOtp,
+  sendCommonOtp,
+  resendCommonOtp,
   resolveTemplateId,
   isMsg91Configured,
   assertMsg91Configured,

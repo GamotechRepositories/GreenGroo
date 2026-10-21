@@ -13,40 +13,12 @@ import {
 } from "lucide-react";
 import { useVendorAuth } from "../../context/VendorAuthContext";
 import { useInventoryRequests } from "../../hooks/useInventoryRequests";
+import AjaxLiveSearchWidget from "../search/AjaxLiveSearchWidget";
 
 export default function VendorTopNavbar({ onOpenMobileMenu }) {
   const { vendor } = useVendorAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { requests } = useInventoryRequests();
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
-
-  const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    // If we're on the search page, sync from URL search params if present
-    if (location.pathname === "/vendor/search") {
-      const sp = new URLSearchParams(location.search);
-      setQuery(sp.get("q") || "");
-    }
-  }, [location.pathname, location.search]);
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    const q = query.trim();
-    if (q) {
-      navigate(`/vendor/search?q=${encodeURIComponent(q)}`);
-    } else {
-      navigate("/vendor/search");
-    }
-  };
-
-  const handleClear = () => {
-    setQuery("");
-    if (location.pathname === "/vendor/search") {
-      navigate("/vendor/search");
-    }
-  };
 
   const vendorName = vendor?.vendorName || vendor?.ownerName || "Vendor";
   const vendorInitial = vendorName.charAt(0).toUpperCase();
@@ -75,26 +47,13 @@ export default function VendorTopNavbar({ onOpenMobileMenu }) {
         </div>
       </div>
 
-      {/* Center: Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="relative min-w-0 flex-1 max-w-xl">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search farmers, managers, crops, products, orders..."
-          className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-8 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-50 sm:text-sm"
+      {/* Center: Ajax Live Search Bar */}
+      <div className="relative min-w-0 flex-1 max-w-xl">
+        <AjaxLiveSearchWidget
+          mode="navbar"
+          placeholder="Search farmers, crops, products, varieties (e.g. tamatar, aloo)..."
         />
-        {query ? (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
-      </form>
+      </div>
 
       {/* Right: Actions & User Profile */}
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

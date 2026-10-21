@@ -29,6 +29,9 @@ import {
   Wallet,
   X,
   XCircle,
+  GripVertical,
+  Move,
+  Layers,
 } from "lucide-react";
 import { PageShell } from "../../components/layout/ProductManagerLayout";
 import { vendorApi } from "../../api/vendorApi";
@@ -37,6 +40,7 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PANEL, EXCEL_HEAD, EXCEL_CELL } from "../../utils/excelStyles";
 import { useVendorSettings } from "../../context/VendorSettingsContext";
+import AjaxLiveSearchWidget from "../../components/search/AjaxLiveSearchWidget";
 
 function formatWhen(value) {
   if (!value) return "—";
@@ -119,6 +123,26 @@ export default function DashboardPage() {
   const [customApplied, setCustomApplied] = useState(false);
   // Filter the data is loaded for; custom dates only count once applied, not while typing.
   const [applied, setApplied] = useState({ range: "all", start: "", end: "" });
+
+  // Drag & Drop Live Search Widget Dock State
+  const [searchWidgetDock, setSearchWidgetDock] = useState(() => {
+    try {
+      return localStorage.getItem("greengroo_vendor_search_widget_dock") || "hero";
+    } catch {
+      return "hero";
+    }
+  });
+  const [isOverHeroDrop, setIsOverHeroDrop] = useState(false);
+  const [isOverBottomDrop, setIsOverBottomDrop] = useState(false);
+
+  const handleWidgetDrop = (targetZone) => {
+    setSearchWidgetDock(targetZone);
+    setIsOverHeroDrop(false);
+    setIsOverBottomDrop(false);
+    try {
+      localStorage.setItem("greengroo_vendor_search_widget_dock", targetZone);
+    } catch {}
+  };
 
   const loadAll = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
@@ -362,6 +386,54 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Drag & Drop Ajax Live Search Widget – Hero Zone */}
+      {searchWidgetDock === "hero" ? (
+        <div className="mb-4">
+          <div className="flex items-center justify-between pb-1.5 px-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Ajax Live Search • Produce & Farmer Radar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 hidden sm:inline">
+                Drag grip handle to reposition widget
+              </span>
+              <button
+                type="button"
+                onClick={() => handleWidgetDrop("bottom")}
+                className="text-[11px] font-semibold text-emerald-700 hover:underline"
+              >
+                Dock Below Cards ↓
+              </button>
+            </div>
+          </div>
+          <AjaxLiveSearchWidget
+            mode="card"
+            isDraggable={true}
+            placeholder="Instant produce search (e.g. 'tamatar', 'aloo', 'shimla apple', farmer name)..."
+          />
+        </div>
+      ) : (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsOverHeroDrop(true);
+          }}
+          onDragLeave={() => setIsOverHeroDrop(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleWidgetDrop("hero");
+          }}
+          className={`mb-4 rounded-2xl border-2 border-dashed p-3 text-center transition ${
+            isOverHeroDrop
+              ? "border-emerald-500 bg-emerald-50/70 text-emerald-800 scale-[1.01]"
+              : "border-slate-200 bg-slate-50/40 text-slate-400 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold">Drop Ajax Live Search Widget here (Top Hero Zone)</p>
+        </div>
+      )}
+
       {/* 10 Detailed Summary Cards Grid */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {/* Card 1 – Total Farmer Managers */}
@@ -495,6 +567,54 @@ export default function DashboardPage() {
           ]}
         />
       </div>
+
+      {/* Drag & Drop Ajax Live Search Widget – Bottom Zone */}
+      {searchWidgetDock === "bottom" ? (
+        <div className="mb-4">
+          <div className="flex items-center justify-between pb-1.5 px-1">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Ajax Live Search • Produce & Farmer Radar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 hidden sm:inline">
+                Drag grip handle to reposition widget
+              </span>
+              <button
+                type="button"
+                onClick={() => handleWidgetDrop("hero")}
+                className="text-[11px] font-semibold text-emerald-700 hover:underline"
+              >
+                Dock at Top ↑
+              </button>
+            </div>
+          </div>
+          <AjaxLiveSearchWidget
+            mode="card"
+            isDraggable={true}
+            placeholder="Instant produce search (e.g. 'tamatar', 'aloo', 'shimla apple', farmer name)..."
+          />
+        </div>
+      ) : (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsOverBottomDrop(true);
+          }}
+          onDragLeave={() => setIsOverBottomDrop(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleWidgetDrop("bottom");
+          }}
+          className={`mb-4 rounded-2xl border-2 border-dashed p-3 text-center transition ${
+            isOverBottomDrop
+              ? "border-emerald-500 bg-emerald-50/70 text-emerald-800 scale-[1.01]"
+              : "border-slate-200/80 bg-slate-50/30 text-slate-400 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold">Drop Ajax Live Search Widget here (Below Summary Cards)</p>
+        </div>
+      )}
 
       {/* Operational Pipeline Tracker Banner */}
       <div className={`${EXCEL_PANEL} overflow-hidden p-4 sm:p-5`}>

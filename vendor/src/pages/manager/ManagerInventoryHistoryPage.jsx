@@ -182,6 +182,17 @@ function HistoryMobileCard({ row, index, onOpen }) {
         <IdOneLine label="C:" value={row.collectionCentreId} />
       </div>
 
+      {(row.packagingDate || row.expiryDate) && (
+        <div className="mt-1 flex items-center justify-between border-t border-[#F3F4F6] pt-1 text-[8.5px]">
+          <span className="text-[#6B7280]">
+            Recv: <span className="font-semibold text-[#1F2937]">{shortDate(row.packagingDate)}</span>
+          </span>
+          <span className="text-[#6B7280]">
+            Exp: <span className="font-semibold text-emerald-800">{shortDate(row.expiryDate)}</span>
+          </span>
+        </div>
+      )}
+
       <div className="mt-auto grid grid-cols-2 gap-1 pt-1.5 text-center">
         <div className="rounded border border-[#A7F3D0] bg-[#ECFDF5] px-0.5 py-1">
           <p className="text-[8px] font-semibold text-[#065F46]">A</p>
@@ -472,58 +483,68 @@ export default function ManagerInventoryHistoryPage() {
           </div>
 
           <div className="hidden w-full overflow-hidden border border-[#E5E7EB] bg-white shadow-sm md:block">
-          <table className="w-full table-fixed border-collapse">
+            <table className="w-full table-fixed border-collapse">
             <colgroup>
-              <col className="w-[3%] sm:w-[3.5%] md:w-[4%]" />
-              <col className="w-[10%] sm:w-[9%] md:w-[8%]" />
-              <col className="w-[11%] sm:w-[10%] md:w-[11%]" />
+              <col className="w-[3%] sm:w-[3%] md:w-[3%]" />
+              <col className="w-[9%] sm:w-[8%] md:w-[7%]" />
+              <col className="w-[10%] sm:w-[9%] md:w-[9%]" />
+              <col className="w-[8%] sm:w-[7%] md:w-[7%]" />
+              <col className="w-[8%] sm:w-[7%] md:w-[7%]" />
               <col className="w-[9%] sm:w-[8%] md:w-[8%]" />
-              <col className="w-[9%] sm:w-[8%] md:w-[8%]" />
-              <col className="w-[11%] sm:w-[11%] md:w-[11%]" />
-              <col className="w-[6%] sm:w-[7%] md:w-[7%]" />
-              <col className="w-[6%] sm:w-[7%] md:w-[7%]" />
-              <col className="w-[8%] sm:w-[9%] md:w-[9%]" />
-              <col className="w-[8%] sm:w-[9%] md:w-[9%]" />
-              <col className="w-[8%] sm:w-[9%] md:w-[9%]" />
-              <col className="w-[6%] sm:w-[6%] md:w-[5.5%]" />
-              <col className="w-[5%] sm:w-[3.5%] md:w-[4%]" />
+              <col className="w-[6%] sm:w-[6.5%] md:w-[6.5%]" />
+              <col className="w-[6%] sm:w-[6%] md:w-[6%]" />
+              <col className="w-[6%] sm:w-[6.5%] md:w-[6.5%]" />
+              <col className="w-[6%] sm:w-[6.5%] md:w-[6.5%]" />
+              <col className="w-[6%] sm:w-[6.5%] md:w-[6.5%]" />
+              <col className="w-[5%] sm:w-[5%] md:w-[5%]" />
+              <col className="w-[7%] sm:w-[7.5%] md:w-[8%]" />
+              <col className="w-[7%] sm:w-[7.5%] md:w-[8%]" />
+              <col className="w-[4%] sm:w-[3.5%] md:w-[3.5%]" />
             </colgroup>
             <thead>
               <tr>
-                <th className={`${TH} w-[3%] text-center sm:w-[3.5%] md:w-[4%]`}>#</th>
-                <th className={`${TH} w-[10%] sm:w-[9%] md:w-[8%]`}>Date</th>
-                <th className={`${TH} w-[11%] sm:w-[10%] md:w-[11%]`}>Farmer</th>
-                <th className={`${TH} w-[9%] sm:w-[8%]`}>
+                <th className={`${TH} text-center`}>#</th>
+                <th className={TH}>Date</th>
+                <th className={TH}>Farmer</th>
+                <th className={TH}>
                   <span className="sm:hidden">Order</span>
                   <span className="hidden sm:inline">Order ID</span>
                 </th>
-                <th className={`${TH} w-[9%] sm:w-[8%]`}>
+                <th className={TH}>
                   <span className="sm:hidden">Batch</span>
                   <span className="hidden sm:inline">Batch ID</span>
                 </th>
-                <th className={`${TH} w-[11%]`}>
+                <th className={TH}>
                   <span className="sm:hidden">CC ID</span>
                   <span className="hidden sm:inline">Collection Centre ID</span>
                 </th>
-                <th className={`${TH} w-[6%] sm:w-[7%]`}>Product</th>
-                <th className={`${TH} w-[6%] sm:w-[7%]`}>Variety</th>
-                <th className={`${TH} w-[8%] border-[#A7F3D0] bg-[#D1FAE5] text-center text-[#065F46] sm:w-[9%]`}>
+                <th className={TH}>Product</th>
+                <th className={TH}>Variety</th>
+                <th className={`${TH} border-[#A7F3D0] bg-[#D1FAE5] text-center text-[#065F46]`}>
                   <span className="sm:hidden">A</span>
                   <span className="hidden sm:inline">Grade A</span>
                 </th>
-                <th className={`${TH} w-[8%] border-[#BFDBFE] bg-[#DBEAFE] text-center text-[#1E40AF] sm:w-[9%]`}>
+                <th className={`${TH} border-[#BFDBFE] bg-[#DBEAFE] text-center text-[#1E40AF]`}>
                   <span className="sm:hidden">B</span>
                   <span className="hidden sm:inline">Grade B</span>
                 </th>
-                <th className={`${TH} w-[8%] border-[#FDE68A] bg-[#FEF3C7] text-center text-[#92400E] sm:w-[9%]`}>
+                <th className={`${TH} border-[#FDE68A] bg-[#FEF3C7] text-center text-[#92400E]`}>
                   <span className="sm:hidden">C</span>
                   <span className="hidden sm:inline">Grade C</span>
                 </th>
-                <th className={`${TH} w-[6%] border-[#FECACA] bg-[#FEE2E2] text-center text-[#991B1B] sm:w-[6%] md:w-[5.5%]`}>
+                <th className={`${TH} border-[#FECACA] bg-[#FEE2E2] text-center text-[#991B1B]`}>
                   <span className="sm:hidden">R</span>
                   <span className="hidden sm:inline">Rejected</span>
                 </th>
-                <th className={`${TH} w-[5%] text-center sm:w-[3.5%] md:w-[4%]`}>Unit</th>
+                <th className={`${TH} text-center`}>
+                  <span className="sm:hidden">Recv</span>
+                  <span className="hidden sm:inline">Receiving Date</span>
+                </th>
+                <th className={`${TH} text-center`}>
+                  <span className="sm:hidden">Exp</span>
+                  <span className="hidden sm:inline">Expiry Date</span>
+                </th>
+                <th className={`${TH} text-center`}>Unit</th>
               </tr>
             </thead>
             <tbody>
@@ -591,6 +612,12 @@ export default function ManagerInventoryHistoryPage() {
                     </td>
                     <td className={`${GRADE_TD} border-[#FECACA] bg-[#FEF2F2] text-[#DC2626]`}>
                       {row.rejected.toLocaleString("en-IN")}
+                    </td>
+                    <td className={`${TD} text-center tabular-nums text-[#374151]`}>
+                      {shortDate(row.packagingDate)}
+                    </td>
+                    <td className={`${TD} text-center tabular-nums font-semibold text-emerald-800`}>
+                      {shortDate(row.expiryDate)}
                     </td>
                     <td className={`${TD} text-center font-semibold`}>{row.unit}</td>
                   </tr>

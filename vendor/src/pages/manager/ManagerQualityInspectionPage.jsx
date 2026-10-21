@@ -47,13 +47,45 @@ const GRADE_TONE = {
   "Grade C": "border-[#FDE68A] bg-[#FFFBEB]",
 };
 
+function formatExpiryStatus(expiryDate) {
+  if (!expiryDate) return "";
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const exp = new Date(expiryDate);
+  exp.setHours(0, 0, 0, 0);
+  if (Number.isNaN(exp.getTime())) return "";
+  const diffDays = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return `⚠️ Expired (${Math.abs(diffDays)}d ago)`;
+  if (diffDays === 0) return "⚠️ Expires Today";
+  if (diffDays === 1) return "⏳ Expires Tomorrow";
+  if (diffDays <= 3) return `⏳ ${diffDays} days left`;
+  return `✅ Valid (${diffDays} days)`;
+}
+
 function emptyGradeRow() {
-  return { parameters: {}, photos: [], remarks: "", rejectedQuantity: "", rejectionReason: "", rejectionRemarks: "" };
+  return {
+    parameters: {},
+    photos: [],
+    remarks: "",
+    rejectedQuantity: "",
+    rejectionReason: "",
+    rejectionRemarks: "",
+    packagingDate: "",
+    expiryDate: "",
+  };
 }
 
 function hydrateGradeQuality(d = {}) {
   const src = d.gradeQuality && typeof d.gradeQuality === "object" ? d.gradeQuality : {};
   const out = {};
+  const defaultPackaging =
+    d.packagingDate ||
+    d.packingDate ||
+    d.packingDetails?.packingDate ||
+    d.receivedDate ||
+    new Date().toISOString().slice(0, 10);
+  const defaultExpiry = d.expiryDate || "";
+
   GRADE_ROWS.forEach(({ label }) => {
     const row = src[label] && typeof src[label] === "object" ? src[label] : {};
     out[label] = {
@@ -63,6 +95,8 @@ function hydrateGradeQuality(d = {}) {
       rejectedQuantity: row.rejectedQuantity ?? "",
       rejectionReason: row.rejectionReason || "",
       rejectionRemarks: row.rejectionRemarks || "",
+      packagingDate: row.packagingDate || defaultPackaging || "",
+      expiryDate: row.expiryDate || defaultExpiry || "",
     };
   });
   const aParams = out["Grade A"].parameters;
@@ -471,10 +505,14 @@ export default function ManagerQualityInspectionPage() {
           rejectedQuantity: num(form.gradeQuality[row.label]?.rejectedQuantity),
           rejectionReason: form.gradeQuality[row.label]?.rejectionReason || "",
           rejectionRemarks: form.gradeQuality[row.label]?.rejectionRemarks || "",
+          packagingDate: form.gradeQuality[row.label]?.packagingDate || "",
+          expiryDate: form.gradeQuality[row.label]?.expiryDate || "",
         },
       ])
     ),
     qualityRemarks: form.qualityRemarks,
+    packagingDate: form.gradeQuality["Grade A"]?.packagingDate || form.gradeQuality["Grade B"]?.packagingDate || "",
+    expiryDate: form.gradeQuality["Grade A"]?.expiryDate || form.gradeQuality["Grade B"]?.expiryDate || "",
   });
 
   const saveGradeCheck = async (label) => {
@@ -489,8 +527,12 @@ export default function ManagerQualityInspectionPage() {
               rejectedQuantity: num(gq.rejectedQuantity),
               rejectionReason: gq.rejectionReason || "",
               rejectionRemarks: gq.rejectionRemarks || "",
+              packagingDate: gq.packagingDate || "",
+              expiryDate: gq.expiryDate || "",
             },
           },
+          packagingDate: gq.packagingDate || "",
+          expiryDate: gq.expiryDate || "",
         }),
         { keepForm: true }
       );
@@ -534,10 +576,14 @@ export default function ManagerQualityInspectionPage() {
               rejectedQuantity: num(form.gradeQuality[row.label]?.rejectedQuantity),
               rejectionReason: form.gradeQuality[row.label]?.rejectionReason || "",
               rejectionRemarks: form.gradeQuality[row.label]?.rejectionRemarks || "",
+              packagingDate: form.gradeQuality[row.label]?.packagingDate || "",
+              expiryDate: form.gradeQuality[row.label]?.expiryDate || "",
             },
           ])
         ),
         qualityRemarks: form.qualityRemarks,
+        packagingDate: form.gradeQuality["Grade A"]?.packagingDate || form.gradeQuality["Grade B"]?.packagingDate || "",
+        expiryDate: form.gradeQuality["Grade A"]?.expiryDate || form.gradeQuality["Grade B"]?.expiryDate || "",
       })
     );
     setConfirmOpen(true);
@@ -597,6 +643,8 @@ export default function ManagerQualityInspectionPage() {
             <Info label="Collection Centre" value={data.collectionCentre} />
             <Info label="Received Date" value={data.receivedDate} />
             <Info label="Received Time" value={data.receivedTime} />
+            <Info label="Receiving Date" value={data.packagingDate || "—"} />
+            <Info label="Expiry Date" value={data.expiryDate ? `${data.expiryDate} (${formatExpiryStatus(data.expiryDate)})` : "—"} />
             <Info label="Weight Verified" value={data.weightVerified ? "Yes" : "No"} />
           </div>
           {weightRows.length ? (
@@ -706,6 +754,85 @@ export default function ManagerQualityInspectionPage() {
                       ) : null}
                     </div>
                   ) : null}
+                  <div className="mt-2 rounded-lg border border-slate-200/90 bg-white p-2.5 shadow-xs">
+                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-semibold text-[#374151]">
+                            Receiving Date
+                          </label>
+                          {!locked && (
+                            <button
+                              type="button"
+                              onClick={() => setGradePatch(row.label, { packagingDate: new Date().toISOString().slice(0, 10) })}
+                              className="text-[9px] font-semibold text-emerald-700 hover:underline"
+                            >
+                              Today
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="date"
+                          disabled={locked}
+                          value={gq.packagingDate || ""}
+                          onChange={(e) => setGradePatch(row.label, { packagingDate: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-semibold text-[#374151]">
+                            Expiry Date *
+                          </label>
+                          {gq.expiryDate ? (
+                            <span className="text-[9px] font-bold text-slate-600">
+                              {formatExpiryStatus(gq.expiryDate)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <input
+                          type="date"
+                          disabled={locked}
+                          value={gq.expiryDate || ""}
+                          onChange={(e) => setGradePatch(row.label, { expiryDate: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                        />
+                      </div>
+                    </div>
+
+                    {!locked && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-slate-100 pt-1.5">
+                        <span className="text-[9px] font-semibold text-slate-400">Quick Expiry:</span>
+                        {[
+                          { label: "+3 Days", days: 3 },
+                          { label: "+7 Days", days: 7 },
+                          { label: "+15 Days", days: 15 },
+                          { label: "+30 Days", days: 30 },
+                          { label: "+60 Days", days: 60 },
+                        ].map((preset) => {
+                          const base = gq.packagingDate ? new Date(gq.packagingDate) : new Date();
+                          const target = new Date(base.getTime() + preset.days * 24 * 60 * 60 * 1000)
+                            .toISOString()
+                            .slice(0, 10);
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setGradePatch(row.label, { expiryDate: target })}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${
+                                gq.expiryDate === target
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <div className="mt-1.5">
                     <p className="mb-1 text-[10px] font-semibold text-[#4B5563]">Photos</p>
                     <QualityPhotos
@@ -744,18 +871,31 @@ export default function ManagerQualityInspectionPage() {
       <section id="final-report" className={EXCEL_PANEL}>
         <div className={EXCEL_PANEL_HEAD}>4. Final Summary</div>
         <div className="p-3">
-          <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Info label="Order ID" value={data.orderDisplayId} />
             <Info label="Product" value={data.productName} />
+            <Info label="Receiving Date" value={data.packagingDate || form.gradeQuality["Grade A"]?.packagingDate || "—"} />
+            <Info
+              label="Expiry Date"
+              value={
+                data.expiryDate || form.gradeQuality["Grade A"]?.expiryDate
+                  ? `${data.expiryDate || form.gradeQuality["Grade A"]?.expiryDate} (${formatExpiryStatus(
+                      data.expiryDate || form.gradeQuality["Grade A"]?.expiryDate
+                    )})`
+                  : "—"
+              }
+            />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-left text-[10px] md:text-xs">
+            <table className="w-full min-w-[620px] border-collapse text-left text-[10px] md:text-xs">
               <thead>
                 <tr className="bg-[#F8FAF8] text-[9px] font-bold uppercase tracking-wide text-[#6B7280] md:text-[10px]">
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2">Grade</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Ordered</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Rejected</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Final Qty</th>
+                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-center md:px-2 md:py-2">Receiving Date</th>
+                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-center md:px-2 md:py-2">Expiry Date</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Rate</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Amount</th>
                 </tr>
@@ -774,6 +914,21 @@ export default function ManagerQualityInspectionPage() {
                       <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
                         {row.finalReceived} {unit}
                       </td>
+                      <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-center text-[#374151] md:px-2 md:py-2">
+                        {form.gradeQuality[row.label]?.packagingDate || data.packagingDate || "—"}
+                      </td>
+                      <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-center font-medium md:px-2 md:py-2">
+                        {form.gradeQuality[row.label]?.expiryDate || data.expiryDate ? (
+                          <span className="inline-flex flex-wrap items-center justify-center gap-1">
+                            <span>{form.gradeQuality[row.label]?.expiryDate || data.expiryDate}</span>
+                            <span className="text-[9px] text-[#6B7280]">
+                              {formatExpiryStatus(form.gradeQuality[row.label]?.expiryDate || data.expiryDate)}
+                            </span>
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
                         {row.rate > 0 ? formatMoney(row.rate) : "—"}
                       </td>
@@ -784,7 +939,7 @@ export default function ManagerQualityInspectionPage() {
                   ))
                 ) : (
                   <tr>
-                    <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-[#9CA3AF] md:px-2 md:py-2" colSpan={6}>
+                    <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-[#9CA3AF] md:px-2 md:py-2" colSpan={8}>
                       No grade quantities yet.
                     </td>
                   </tr>
@@ -800,6 +955,8 @@ export default function ManagerQualityInspectionPage() {
                   <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
                     {summaryTotals.finalReceived} {unit}
                   </td>
+                  <td className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2" />
+                  <td className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2" />
                   <td className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2" />
                   <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums text-[#217346] md:px-2 md:py-2">
                     {formatMoney(summaryTotals.amount || data.finalAmount || 0)}
