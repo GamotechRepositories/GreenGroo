@@ -39,6 +39,7 @@ api.interceptors.request.use((config) => {
 export const vendorApi = {
   // Auth & Profile
   login: (data) => api.post("/api/vendor/auth/login", data),
+  resendLoginOtp: (data) => api.post("/api/vendor/auth/login/resend-otp", data),
   me: () => api.get("/api/vendor/auth/me"),
   getProfile: () => api.get("/api/vendor/auth/me"),
   updateProfile: (data) => api.put("/api/vendor/auth/me", data),
@@ -55,6 +56,8 @@ export const vendorApi = {
     api.post(`/api/vendor/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText }).then((res) => res.data),
   getPublicStoreReviews: (vendorId) =>
     api.get(`/api/vendor/public-store/${encodeURIComponent(vendorId)}/reviews`).then((res) => res.data),
+  createPublicStoreReview: (vendorId, data) =>
+    api.post(`/api/vendor/public-store/${encodeURIComponent(vendorId)}/reviews`, data).then((res) => res.data),
   getPublicStoreVacation: (vendorId) =>
     api.get(`/api/vendor/public-store/${encodeURIComponent(vendorId)}/vacation`).then((res) => res.data),
 

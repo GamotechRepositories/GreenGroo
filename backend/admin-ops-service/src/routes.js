@@ -24,6 +24,8 @@ import {
 import {
   listVendorsAdmin,
   createVendorAdmin,
+  sendVendorVerificationOtpAdmin,
+  verifyVendorVerificationOtpAdmin,
   updateVendorAdmin,
   deleteVendorAdmin,
   getVendorAdmin,
@@ -314,6 +316,8 @@ router.get("/bulk/products", exportProductsJson);
 router.post("/bulk/products", importProductsJson);
 
 router.get("/vendors", listVendorsAdmin);
+router.post("/vendors/otp/send", sendVendorVerificationOtpAdmin);
+router.post("/vendors/otp/verify", verifyVendorVerificationOtpAdmin);
 router.post("/vendors", createVendorAdmin);
 router.get("/vendors/:id", getVendorAdmin);
 router.put("/vendors/:id", updateVendorAdmin);

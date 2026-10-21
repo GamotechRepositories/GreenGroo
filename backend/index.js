@@ -47,6 +47,7 @@ import { seedDefaultPricingRule } from "./admin-ops-service/src/pricingAttach.js
 import { seedDefaultRolePoliciesIfEmpty } from "./admin-ops-service/src/policyControllers.js";
 import { purgeLegacySeedMarketPrices } from "./admin-ops-service/src/marketPriceControllers.js";
 import { purgeLegacySeedB2bClients } from "./admin-ops-service/src/b2bControllers.js";
+import { purgeLegacySeedVendorReviews } from "./farmer-manager-service/src/vendorReviewVacationControllers.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -160,6 +161,7 @@ connectDB("server").then(async () => {
   await seedDefaultRolePoliciesIfEmpty();
   await purgeLegacySeedMarketPrices();
   await purgeLegacySeedB2bClients();
+  await purgeLegacySeedVendorReviews();
   initIncentiveCron();
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();

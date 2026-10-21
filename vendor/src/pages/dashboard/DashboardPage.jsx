@@ -41,6 +41,7 @@ import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PANEL, EXCEL_HEAD, EXCEL_CELL } from "../../utils/excelStyles";
 import { useVendorSettings } from "../../context/VendorSettingsContext";
 import AjaxLiveSearchWidget from "../../components/search/AjaxLiveSearchWidget";
+import QualityGradeRejectionChart from "../../components/dashboard/QualityGradeRejectionChart";
 
 function formatWhen(value) {
   if (!value) return "—";
@@ -227,7 +228,8 @@ export default function DashboardPage() {
   const gradeB = Number(d.grades?.gradeB || 0);
   const gradeC = Number(d.grades?.gradeC || 0);
   const rejected = Number(d.grades?.rejected || 0);
-  const totalGraded = gradeA + gradeB + gradeC + rejected;
+  const totalGraded = Number(d.grades?.total || gradeA + gradeB + gradeC + rejected);
+  const rejectionRate = Number(d.grades?.rejectionRate ?? (totalGraded > 0 ? ((rejected / totalGraded) * 100).toFixed(1) : 0));
   const gradeAPercent = totalGraded > 0 ? Math.round((gradeA / totalGraded) * 100) : 0;
   const gradeBPercent = totalGraded > 0 ? Math.round((gradeB / totalGraded) * 100) : 0;
   const gradeCPercent = totalGraded > 0 ? Math.round((gradeC / totalGraded) * 100) : 0;
@@ -562,8 +564,12 @@ export default function DashboardPage() {
           to="/vendor/quality/pending"
           subItems={[
             { label: "Pending Inspection", value: d.qualityPending ?? 0, color: "text-amber-600" },
-            { label: "In Process", value: d.qualityInProcess ?? 0, color: "text-sky-700" },
-            { label: "Completed Inspection", value: d.qualityCompleted ?? 0, color: "text-emerald-700" },
+            { label: "Completed QC", value: d.qualityCompleted ?? 0, color: "text-emerald-700" },
+            {
+              label: "Rejection Rate",
+              value: `${rejectionRate}%`,
+              color: rejectionRate > 5 ? "text-red-600" : "text-emerald-700",
+            },
           ]}
         />
       </div>
@@ -706,116 +712,16 @@ export default function DashboardPage() {
 
       {/* Two Columns: Grade Analytics & Fleet/Logistics */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Quality & Grade Analytics */}
-        <div className={`${EXCEL_PANEL} p-4 sm:p-5`}>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                <Scale className="h-4 w-4" />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Quality & Grade Distribution</h3>
-                <p className="text-xs text-slate-500">Produce graded across Grade A, B, C and Rejected</p>
-              </div>
-            </div>
-            <Link to="/vendor/quality/pending" className="text-xs font-semibold text-emerald-700 hover:underline">
-              Inspect Quality &rarr;
-            </Link>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {/* Grade A */}
-            <div>
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="flex items-center gap-1.5 text-emerald-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                  Grade A (Premium)
-                </span>
-                <span className="font-semibold text-slate-800">
-                  {gradeA.toLocaleString("en-IN")} Kg ({gradeAPercent}%)
-                </span>
-              </div>
-              <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-emerald-600 transition-all duration-500"
-                  style={{ width: `${gradeAPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Grade B */}
-            <div>
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="flex items-center gap-1.5 text-blue-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                  Grade B (Standard)
-                </span>
-                <span className="font-semibold text-slate-800">
-                  {gradeB.toLocaleString("en-IN")} Kg ({gradeBPercent}%)
-                </span>
-              </div>
-              <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                  style={{ width: `${gradeBPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Grade C */}
-            <div>
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="flex items-center gap-1.5 text-amber-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  Grade C (Fair / Commercial)
-                </span>
-                <span className="font-semibold text-slate-800">
-                  {gradeC.toLocaleString("en-IN")} Kg ({gradeCPercent}%)
-                </span>
-              </div>
-              <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all duration-500"
-                  style={{ width: `${gradeCPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Rejected */}
-            <div>
-              <div className="flex items-center justify-between text-xs font-medium">
-                <span className="flex items-center gap-1.5 text-red-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                  Rejected / Damage
-                </span>
-                <span className="font-semibold text-slate-800">
-                  {rejected.toLocaleString("en-IN")} Kg ({rejectedPercent}%)
-                </span>
-              </div>
-              <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-red-500 transition-all duration-500"
-                  style={{ width: `${rejectedPercent}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center">
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="text-[10px] text-slate-500">Inspection Queue</p>
-              <p className="text-sm font-bold text-slate-800">{d.qualityPending ?? 0}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="text-[10px] text-slate-500">Grading Stage</p>
-              <p className="text-sm font-bold text-slate-800">{d.qualityInProcess ?? 0}</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <p className="text-[10px] text-slate-500">Completed</p>
-              <p className="text-sm font-bold text-emerald-700">{d.qualityCompleted ?? 0}</p>
-            </div>
-          </div>
-        </div>
+        {/* Quality, Grade & Rejection Rate Analytics with Interactive Pie Chart */}
+        <QualityGradeRejectionChart
+          grades={d.grades || {}}
+          byProduct={d.byProduct || []}
+          rejectionByProduct={d.rejectionByProduct || []}
+          rejectionReasonsOverall={d.rejectionReasonsOverall || []}
+          qualityPending={d.qualityPending ?? 0}
+          qualityInProcess={d.qualityInProcess ?? 0}
+          qualityCompleted={d.qualityCompleted ?? 0}
+        />
 
         {/* Fleet & Logistics Overview */}
         <div className={`${EXCEL_PANEL} p-4 sm:p-5`}>

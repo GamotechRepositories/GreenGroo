@@ -88,9 +88,28 @@ export default function MultiVendor() {
   const [form, setForm] = useState(DEFAULTS);
   const [docFiles, setDocFiles] = useState({});
   const [docError, setDocError] = useState('');
+
+  // Mobile OTP Verification State (9. GreenGrocc Common OTP)
+  const [mobileVerified, setMobileVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [otpError, setOtpError] = useState('');
+
   const navigate = useNavigate();
   const location = useLocation();
   const pendingEdit = useRef(location.state?.editId ? location.state : null);
+
+  useEffect(() => {
+    if (otpTimer <= 0) return;
+    const interval = setInterval(() => {
+      setOtpTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [otpTimer]);
 
   // All Products Catalog State
   const [catalogProducts, setCatalogProducts] = useState([]);
@@ -190,7 +209,74 @@ export default function MultiVendor() {
     setForm(DEFAULTS);
     setDocFiles({});
     setDocError('');
+    setMobileVerified(false);
+    setOtpSent(false);
+    setOtpValue('');
+    setSendingOtp(false);
+    setVerifyingOtp(false);
+    setOtpTimer(0);
+    setOtpMsg('');
+    setOtpError('');
     setModal({ mode: 'create' });
+  };
+
+  const handleMobileChange = (e) => {
+    const raw = e.target.value;
+    const clean = raw.replace(/\D/g, '').slice(0, 10);
+    setForm((prev) => ({ ...prev, mobile: clean }));
+    if (mobileVerified) {
+      setMobileVerified(false);
+      setOtpSent(false);
+      setOtpValue('');
+      setOtpMsg('');
+    }
+  };
+
+  const handleSendMobileOtp = async () => {
+    const cleanMobile = String(form.mobile || '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      setOtpError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    setSendingOtp(true);
+    setOtpError('');
+    setOtpMsg('');
+    try {
+      const res = await apiClient.post('/admin-ops/vendors/otp/send', { mobile: cleanMobile });
+      setOtpSent(true);
+      setOtpTimer(30);
+      setOtpMsg(res.data?.message || 'OTP sent successfully via 9. GreenGrocc Common OTP');
+      if (res.data?.code) {
+        setOtpMsg(`OTP sent via 9. GreenGrocc Common OTP (Dev: ${res.data.code})`);
+      }
+    } catch (err) {
+      setOtpError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    const cleanMobile = String(form.mobile || '').replace(/\D/g, '').slice(-10);
+    const cleanOtp = String(otpValue || '').trim();
+    if (!cleanOtp) {
+      setOtpError('Please enter the OTP');
+      return;
+    }
+    setVerifyingOtp(true);
+    setOtpError('');
+    setOtpMsg('');
+    try {
+      const res = await apiClient.post('/admin-ops/vendors/otp/verify', { mobile: cleanMobile, otp: cleanOtp });
+      if (res.data?.verified) {
+        setMobileVerified(true);
+        setOtpMsg('Mobile verified successfully via 9. GreenGrocc Common OTP');
+      }
+    } catch (err) {
+      setOtpError(err.response?.data?.message || 'Invalid or expired OTP');
+    } finally {
+      setVerifyingOtp(false);
+    }
   };
 
   const openEdit = useCallback((row, returnTo = null) => {
@@ -201,6 +287,11 @@ export default function MultiVendor() {
     setForm(next);
     setDocFiles({});
     setDocError('');
+    setMobileVerified(true);
+    setOtpSent(false);
+    setOtpValue('');
+    setOtpError('');
+    setOtpMsg('');
     setModal({ mode: 'edit', row, returnTo });
   }, []);
 
@@ -268,6 +359,10 @@ export default function MultiVendor() {
 
   const handleSave = async (event) => {
     event.preventDefault();
+    if (isCreate && !mobileVerified) {
+      setError('Please verify the vendor mobile number with 9. GreenGrocc Common OTP before creating.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -756,7 +851,98 @@ export default function MultiVendor() {
                 <input value={form.ownerName} onChange={setField('ownerName')} className={INPUT} required />
               </Field>
               <Field label="Mobile" required>
-                <input value={form.mobile} onChange={setField('mobile')} className={INPUT} required />
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={form.mobile}
+                  onChange={isCreate ? handleMobileChange : setField('mobile')}
+                  placeholder="10-digit mobile number"
+                  className={INPUT}
+                  required
+                />
+                {isCreate ? (
+                  <div className="mt-2">
+                    {mobileVerified ? (
+                      <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          Verified via 9. GreenGrocc Common OTP
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMobileVerified(false);
+                            setOtpSent(false);
+                            setOtpValue('');
+                            setOtpMsg('');
+                          }}
+                          className="text-[11px] text-slate-500 hover:text-slate-800 underline"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {!otpSent ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium text-amber-700">
+                              Verify with 9. GreenGrocc Common OTP
+                            </span>
+                            <button
+                              type="button"
+                              disabled={form.mobile.replace(/\D/g, '').length !== 10 || sendingOtp || otpTimer > 0}
+                              onClick={handleSendMobileOtp}
+                              className="flex items-center gap-1 rounded-lg border border-emerald-600 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                            >
+                              {sendingOtp ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                              Send OTP
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5">
+                            <div className="flex items-center justify-between text-[11px] font-medium text-emerald-800">
+                              <span>Enter 9. GreenGrocc Common OTP</span>
+                              {otpTimer > 0 ? (
+                                <span className="text-slate-500">Resend in {otpTimer}s</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={sendingOtp}
+                                  onClick={handleSendMobileOtp}
+                                  className="font-semibold text-emerald-700 hover:underline"
+                                >
+                                  Resend OTP
+                                </button>
+                              )}
+                            </div>
+                            <div className="mt-1.5 flex gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                placeholder="6-digit OTP"
+                                value={otpValue}
+                                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold tracking-widest text-slate-900 outline-none focus:border-emerald-500"
+                              />
+                              <button
+                                type="button"
+                                disabled={verifyingOtp || otpValue.length < 4}
+                                onClick={handleVerifyMobileOtp}
+                                className="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                {verifyingOtp ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                                Verify
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {otpError ? <p className="text-[11px] font-medium text-rose-600">{otpError}</p> : null}
+                        {otpMsg ? <p className="text-[11px] font-medium text-emerald-700">{otpMsg}</p> : null}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </Field>
               <Field label="Email">
                 <input type="email" value={form.email} onChange={setField('email')} className={INPUT} />

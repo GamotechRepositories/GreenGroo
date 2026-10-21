@@ -86,6 +86,7 @@ import {
   deleteHarvestOrder,
   // Vendor auth
   vendorLogin,
+  vendorResendLoginOtp,
   getVendorMe,
   updateVendorMe,
   getVendorSettings,
@@ -215,6 +216,7 @@ import {
   getVendorReviews,
   replyVendorReview,
   getPublicStoreReviews,
+  createPublicStoreReview,
   getPublicStoreVacation,
 } from "./vendorReviewVacationControllers.js";
 import {
@@ -453,6 +455,7 @@ vendorManagerRouter.patch("/:managerId/status", setManagerStatus);
 // VENDOR AUTH ROUTES
 // ------------------------------------
 vendorAuthRouter.post("/login", vendorLogin);
+vendorAuthRouter.post("/login/resend-otp", vendorResendLoginOtp);
 vendorAuthRouter.get("/me", requireVendor, getVendorMe);
 vendorAuthRouter.put("/me", requireVendor, updateVendorMe);
 vendorAuthRouter.patch("/me", requireVendor, updateVendorMe);
@@ -470,6 +473,7 @@ vendorRouter.patch("/vacation", requireVendor, updateVendorVacation);
 vendorRouter.get("/reviews", requireVendor, getVendorReviews);
 vendorRouter.post("/reviews/:reviewId/reply", requireVendor, replyVendorReview);
 vendorRouter.get("/public-store/:vendorId/reviews", getPublicStoreReviews);
+vendorRouter.post("/public-store/:vendorId/reviews", createPublicStoreReview);
 vendorRouter.get("/public-store/:vendorId/vacation", getPublicStoreVacation);
 vendorAuthRouter.post("/driver/login", driverLogin);
 vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);

@@ -42,7 +42,8 @@ import {
 } from "../../utils/excelStyles";
 
 function StarDisplay({ rating, max = 5, size = "w-4 h-4", showNumber = false }) {
-  const rounded = Math.round(rating * 10) / 10;
+  const num = Number(rating) || 0;
+  const rounded = Math.round(num * 10) / 10;
   return (
     <div className="flex items-center gap-1">
       <div className="flex items-center text-amber-400">
@@ -50,7 +51,7 @@ function StarDisplay({ rating, max = 5, size = "w-4 h-4", showNumber = false }) 
           <Star
             key={s}
             className={`${size} ${
-              s <= Math.round(rating)
+              num > 0 && s <= Math.round(num)
                 ? "fill-amber-400 text-amber-400"
                 : "fill-slate-100 text-slate-300"
             }`}
@@ -58,7 +59,9 @@ function StarDisplay({ rating, max = 5, size = "w-4 h-4", showNumber = false }) 
         ))}
       </div>
       {showNumber && (
-        <span className="ml-1 text-xs font-bold text-slate-800">{rounded.toFixed(1)}</span>
+        <span className="ml-1 text-xs font-bold text-slate-800">
+          {num > 0 ? rounded.toFixed(1) : "0.0"}
+        </span>
       )}
     </div>
   );
@@ -77,13 +80,13 @@ export default function VendorReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [stats, setStats] = useState({
-    averageRating: 5.0,
+    averageRating: 0,
     totalReviews: 0,
     starCounts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-    recommendationRate: 100,
+    recommendationRate: 0,
     repliedCount: 0,
     pendingReplyCount: 0,
-    aspectAverages: { freshness: 5.0, packaging: 5.0, delivery: 5.0 },
+    aspectAverages: { freshness: 0, packaging: 0, delivery: 0 },
   });
 
   // Filters
@@ -170,7 +173,9 @@ export default function VendorReviewsPage() {
             <h1 className={EXCEL_PAGE_TITLE}>Vendor Ratings & Reviews</h1>
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800">
               <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-              {stats.averageRating.toFixed(1)} / 5.0 ({stats.totalReviews} Reviews)
+              {stats.totalReviews > 0
+                ? `${stats.averageRating.toFixed(1)} / 5.0 (${stats.totalReviews} ${stats.totalReviews === 1 ? "Review" : "Reviews"})`
+                : "0.0 / 5.0 (0 Reviews)"}
             </span>
           </div>
           <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
@@ -265,9 +270,13 @@ export default function VendorReviewsPage() {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-0.5">
                       <StarDisplay rating={stats.averageRating} size="w-3.5 h-3.5" showNumber />
                       <span>•</span>
-                      <span>{stats.totalReviews} customer ratings</span>
+                      <span>
+                        {stats.totalReviews} {stats.totalReviews === 1 ? "customer rating" : "customer ratings"}
+                      </span>
                       <span>•</span>
-                      <span className="text-emerald-700 font-semibold">{stats.recommendationRate}% recommended</span>
+                      <span className={stats.totalReviews > 0 ? "text-emerald-700 font-semibold" : "text-slate-400 font-medium"}>
+                        {stats.totalReviews > 0 ? `${stats.recommendationRate}% recommended` : "No ratings yet"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -282,7 +291,7 @@ export default function VendorReviewsPage() {
               {/* Dedicated Navigation Tabs on the Store Page */}
               <div className="mt-6 flex items-center gap-4 border-b border-slate-200 text-xs font-bold sm:text-sm">
                 <button type="button" className="pb-3 text-slate-400 hover:text-slate-600">
-                  Products (42)
+                  Products
                 </button>
                 <button type="button" className="pb-3 text-slate-400 hover:text-slate-600">
                   About Store
@@ -305,16 +314,18 @@ export default function VendorReviewsPage() {
                 <div className="grid grid-cols-1 gap-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 md:grid-cols-3">
                   <div className="flex flex-col items-center justify-center border-b border-slate-200 pb-4 md:border-b-0 md:border-r md:pb-0">
                     <span className="text-4xl font-extrabold text-slate-900 sm:text-5xl">
-                      {stats.averageRating.toFixed(1)}
+                      {stats.totalReviews > 0 ? stats.averageRating.toFixed(1) : "0.0"}
                     </span>
                     <div className="mt-1.5">
                       <StarDisplay rating={stats.averageRating} size="w-4 h-4" />
                     </div>
                     <p className="mt-1 text-xs font-semibold text-slate-500">
-                      Based on {stats.totalReviews} verified reviews
+                      {stats.totalReviews > 0
+                        ? `Based on ${stats.totalReviews} verified review${stats.totalReviews === 1 ? "" : "s"}`
+                        : "No customer reviews yet"}
                     </p>
                     <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                      <ThumbsUp className="h-3 w-3" /> {stats.recommendationRate}% Recommend
+                      <ThumbsUp className="h-3 w-3" /> {stats.totalReviews > 0 ? `${stats.recommendationRate}% Recommend` : "0% Recommend"}
                     </span>
                   </div>
 
@@ -345,82 +356,103 @@ export default function VendorReviewsPage() {
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Aspect Ratings</p>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 font-medium">Farm Freshness</span>
-                      <span className="font-bold text-emerald-800">{stats.aspectAverages.freshness} / 5.0</span>
+                      <span className="font-bold text-emerald-800">
+                        {stats.aspectAverages.freshness > 0 ? `${stats.aspectAverages.freshness.toFixed(1)} / 5.0` : "—"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 font-medium">Crate Packaging</span>
-                      <span className="font-bold text-emerald-800">{stats.aspectAverages.packaging} / 5.0</span>
+                      <span className="font-bold text-emerald-800">
+                        {stats.aspectAverages.packaging > 0 ? `${stats.aspectAverages.packaging.toFixed(1)} / 5.0` : "—"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 font-medium">On-Time Fulfillment</span>
-                      <span className="font-bold text-emerald-800">{stats.aspectAverages.delivery} / 5.0</span>
+                      <span className="font-bold text-emerald-800">
+                        {stats.aspectAverages.delivery > 0 ? `${stats.aspectAverages.delivery.toFixed(1)} / 5.0` : "—"}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Customer Reviews Feed (Public View) */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-900">Verified Customer Feedback</h3>
-                  {reviews.map((rev) => (
-                    <div key={rev._id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={rev.customerAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"}
-                            alt={rev.customerName}
-                            className="h-10 w-10 rounded-full border border-slate-200 object-cover"
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs font-bold text-slate-900 sm:text-sm">{rev.customerName}</p>
-                              {rev.isVerifiedPurchase && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                  <CheckCircle2 className="h-3 w-3" /> Verified Purchase
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Verified Customer Feedback ({reviews.length})
+                    </h3>
+                  </div>
+
+                  {reviews.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+                      <Store className="mx-auto h-10 w-10 text-slate-300" />
+                      <h4 className="mt-2 text-sm font-bold text-slate-800">No customer reviews yet</h4>
+                      <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                        This store currently has no customer reviews. Ratings and comments from verified buyers will appear here once orders are delivered.
+                      </p>
+                    </div>
+                  ) : (
+                    reviews.map((rev) => (
+                      <div key={rev._id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={rev.customerAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"}
+                              alt={rev.customerName}
+                              className="h-10 w-10 rounded-full border border-slate-200 object-cover"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-slate-900 sm:text-sm">{rev.customerName}</p>
+                                {rev.isVerifiedPurchase && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="h-3 w-3" /> Verified Purchase
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <StarDisplay rating={rev.rating} size="w-3.5 h-3.5" />
+                                <span className="text-[11px] text-slate-400">
+                                  {new Date(rev.createdAt).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
                                 </span>
-                              )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <StarDisplay rating={rev.rating} size="w-3.5 h-3.5" />
-                              <span className="text-[11px] text-slate-400">
-                                {new Date(rev.createdAt).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
+                          </div>
+
+                          {rev.productName && (
+                            <span className="hidden rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 sm:inline-block border border-slate-200">
+                              {rev.productName}
+                            </span>
+                          )}
+                        </div>
+
+                        {rev.title && (
+                          <h4 className="mt-3 text-xs font-bold text-slate-800 sm:text-sm">{rev.title}</h4>
+                        )}
+                        <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">{rev.comment}</p>
+
+                        {/* Official Vendor Response if present */}
+                        {rev.vendorReply?.text && (
+                          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                                <Store className="h-3.5 w-3.5" />
+                                Official Response from {rev.vendorReply.vendorName || storeName}
+                              </span>
+                              <span className="text-[10px] text-emerald-700">
+                                {new Date(rev.vendorReply.repliedAt).toLocaleDateString()}
                               </span>
                             </div>
+                            <p className="mt-1 leading-relaxed text-emerald-950">{rev.vendorReply.text}</p>
                           </div>
-                        </div>
-
-                        {rev.productName && (
-                          <span className="hidden rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 sm:inline-block border border-slate-200">
-                            {rev.productName}
-                          </span>
                         )}
                       </div>
-
-                      {rev.title && (
-                        <h4 className="mt-3 text-xs font-bold text-slate-800 sm:text-sm">{rev.title}</h4>
-                      )}
-                      <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">{rev.comment}</p>
-
-                      {/* Official Vendor Response if present */}
-                      {rev.vendorReply?.text && (
-                        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                              <Store className="h-3.5 w-3.5" />
-                              Official Response from {rev.vendorReply.vendorName || storeName}
-                            </span>
-                            <span className="text-[10px] text-emerald-700">
-                              {new Date(rev.vendorReply.repliedAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="mt-1 leading-relaxed text-emerald-950">{rev.vendorReply.text}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -438,15 +470,17 @@ export default function VendorReviewsPage() {
               <span className="text-xs font-semibold text-slate-500">Overall Rating</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
-                  {stats.averageRating.toFixed(1)}
+                  {stats.totalReviews > 0 ? stats.averageRating.toFixed(1) : "0.0"}
                 </span>
                 <span className="text-xs font-semibold text-slate-400">/ 5.0</span>
               </div>
               <div className="mt-1.5">
-                <StarDisplay rating={stats.averageRating} size="w-4 h-4" />
+                <StarDisplay rating={stats.totalReviews > 0 ? stats.averageRating : 0} size="w-4 h-4" />
               </div>
               <p className="mt-2 text-[11px] font-semibold text-emerald-700">
-                ★ 98th percentile in Produce Quality
+                {stats.totalReviews > 0
+                  ? `★ Based on ${stats.totalReviews} verified rating${stats.totalReviews === 1 ? "" : "s"}`
+                  : "Awaiting customer ratings"}
               </p>
             </div>
 
@@ -458,14 +492,16 @@ export default function VendorReviewsPage() {
                   {stats.totalReviews}
                 </span>
                 <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                  100% Verified
+                  {stats.totalReviews > 0 ? "100% Verified" : "0 Received"}
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                Submitted by dark stores, retail buyers, and consumers
+                {stats.totalReviews > 0
+                  ? "Submitted by dark stores, retail buyers, and consumers"
+                  : "Ratings submitted after order fulfillment"}
               </p>
               <p className="mt-2 text-[11px] font-medium text-slate-400">
-                Publicly displayed on store page
+                {stats.totalReviews > 0 ? "Publicly displayed on store page" : "Genuine marketplace data"}
               </p>
             </div>
 
@@ -474,15 +510,17 @@ export default function VendorReviewsPage() {
               <span className="text-xs font-semibold text-slate-500">Customer Recommendation</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-emerald-800 sm:text-4xl">
-                  {stats.recommendationRate}%
+                  {stats.totalReviews > 0 ? `${stats.recommendationRate}%` : "0%"}
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                Rated 4 or 5 stars out of total feedback
+                {stats.totalReviews > 0
+                  ? "Rated 4 or 5 stars out of total feedback"
+                  : "Calculated from 4★ and 5★ buyer reviews"}
               </p>
               <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
                 <ThumbsUp className="h-3.5 w-3.5" />
-                <span>High Customer Loyalty</span>
+                <span>{stats.totalReviews > 0 ? "Calculated from completed orders" : "No recommendations yet"}</span>
               </div>
             </div>
 
@@ -493,7 +531,7 @@ export default function VendorReviewsPage() {
                 <span className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
                   {stats.totalReviews > 0
                     ? Math.round((stats.repliedCount / stats.totalReviews) * 100)
-                    : 100}
+                    : 0}
                   %
                 </span>
                 <span className="text-xs text-slate-500">
@@ -501,7 +539,9 @@ export default function VendorReviewsPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                {stats.pendingReplyCount > 0 ? (
+                {stats.totalReviews === 0 ? (
+                  <span className="text-slate-400">No reviews to answer</span>
+                ) : stats.pendingReplyCount > 0 ? (
                   <span className="font-semibold text-amber-700">
                     {stats.pendingReplyCount} review(s) await your response
                   </span>
@@ -509,13 +549,15 @@ export default function VendorReviewsPage() {
                   <span className="font-semibold text-emerald-700">All customer reviews answered</span>
                 )}
               </p>
-              <button
-                type="button"
-                onClick={() => setReplyFilter(replyFilter === "pending" ? "all" : "pending")}
-                className="mt-2 text-[11px] font-bold text-emerald-700 hover:underline"
-              >
-                {replyFilter === "pending" ? "Show All Reviews →" : "View Pending Replies →"}
-              </button>
+              {stats.totalReviews > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReplyFilter(replyFilter === "pending" ? "all" : "pending")}
+                  className="mt-2 text-[11px] font-bold text-emerald-700 hover:underline"
+                >
+                  {replyFilter === "pending" ? "Show All Reviews →" : "View Pending Replies →"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -624,21 +666,34 @@ export default function VendorReviewsPage() {
           ) : reviews.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
               <MessageSquare className="mx-auto h-12 w-12 text-slate-300" />
-              <h3 className="mt-3 text-sm font-bold text-slate-800">No reviews match your filters</h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Try selecting a different star rating or clearing your search term.
+              <h3 className="mt-3 text-sm font-bold text-slate-800">
+                {stats.totalReviews === 0
+                  ? "No customer reviews received yet"
+                  : "No reviews match your filters"}
+              </h3>
+              <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
+                {stats.totalReviews === 0
+                  ? "Customer reviews and 1–5★ ratings will automatically appear here once buyers place and complete orders from your store."
+                  : "Try selecting a different star rating or clearing your search term."}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStarFilter("all");
-                  setReplyFilter("all");
-                }}
-                className="mt-3 text-xs font-bold text-emerald-700 hover:underline"
-              >
-                Reset All Filters
-              </button>
+              {stats.totalReviews === 0 ? (
+                <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1 text-xs font-medium text-emerald-800">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <span>Verified Purchases Only • Zero Dummy Data Policy</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStarFilter("all");
+                    setReplyFilter("all");
+                  }}
+                  className="mt-3 text-xs font-bold text-emerald-700 hover:underline"
+                >
+                  Reset All Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">

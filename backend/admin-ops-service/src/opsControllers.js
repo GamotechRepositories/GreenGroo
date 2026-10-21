@@ -38,6 +38,14 @@ import CatalogProduct from "../../legacy/models/Product.js";
 import { createCentreForVendor, createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { checkPhoneConflict } from "../../shared/utils/phoneCheck.js";
+import {
+  sendCommonOtp,
+  verifyOtp,
+  markPhoneOtpVerified,
+  consumeVerifiedPhone,
+  isPhoneOtpVerified,
+  MSG91_TEMPLATES,
+} from "@greengrocc/shared";
 import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
 import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
 import {
@@ -672,12 +680,75 @@ export async function getCollectionDashboardAdmin(req, res, next) {
   }
 }
 
+export async function sendVendorVerificationOtpAdmin(req, res, next) {
+  try {
+    const mobile = String(req.body.mobile || "").replace(/\D/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return fail(res, 400, "Enter a valid 10-digit Indian mobile number");
+    }
+
+    const existing = await Vendor.findOne({ mobile });
+    if (existing) {
+      return fail(res, 409, "A vendor with this mobile number already exists");
+    }
+
+    const result = await sendCommonOtp(mobile, "vendor_create_verification");
+    return res.json({
+      success: true,
+      message: "Verification OTP sent successfully via 9. GreenGrocc Common OTP",
+      template: "9. GreenGrocc Common OTP",
+      templateId: MSG91_TEMPLATES.COMMON_OTP,
+      devMock: result.devMock,
+      code: result.devMock ? result.code : undefined,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyVendorVerificationOtpAdmin(req, res, next) {
+  try {
+    const mobile = String(req.body.mobile || "").replace(/\D/g, "").slice(-10);
+    const otp = String(req.body.otp || "").trim();
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return fail(res, 400, "Enter a valid 10-digit Indian mobile number");
+    }
+    if (!otp) {
+      return fail(res, 400, "Please enter the 6-digit OTP");
+    }
+
+    const result = await verifyOtp({
+      phone: mobile,
+      otp,
+      purpose: "vendor_create_verification",
+    });
+
+    if (!result.ok) {
+      return fail(res, 400, result.message || "Invalid or expired OTP");
+    }
+
+    markPhoneOtpVerified(mobile);
+    return res.json({
+      success: true,
+      verified: true,
+      message: "Mobile number verified successfully via 9. GreenGrocc Common OTP",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createVendorAdmin(req, res, next) {
   try {
     const ownerName = String(req.body.ownerName || req.body.vendorName || "").trim();
     const mobile = String(req.body.mobile || "").replace(/\D/g, "").slice(-10);
     if (!ownerName) return fail(res, 400, "Owner / vendor name is required");
     if (!/^[6-9]\d{9}$/.test(mobile)) return fail(res, 400, "Enter a valid 10-digit mobile number");
+
+    if (!isPhoneOtpVerified(mobile)) {
+      return fail(res, 400, "Mobile number must be verified via 9. GreenGrocc Common OTP before creating vendor");
+    }
+
     let documents;
     try {
       documents = validateVendorDocuments(req.body.documents);
@@ -705,6 +776,7 @@ export async function createVendorAdmin(req, res, next) {
       password: hashedPassword,
       role: "VENDOR",
     });
+    consumeVerifiedPhone(mobile);
     let centre;
     try {
       centre = await createCentreForVendor(id, {

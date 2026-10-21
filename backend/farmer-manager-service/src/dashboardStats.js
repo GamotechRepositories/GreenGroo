@@ -2,6 +2,7 @@ import {
   Farmer,
   FarmerManager,
   FarmerProduct,
+  FarmerOrder,
   FarmerHarvestOrder,
   FarmerEarning,
   FarmerCrop,
@@ -215,10 +216,10 @@ const PRODUCT_FACET = {
               in: {
                 $switch: {
                   branches: [
-                    { case: containsText("$$l", "A"), then: "A" },
-                    { case: containsText("$$l", "B"), then: "B" },
-                    { case: containsText("$$l", "C"), then: "C" },
-                    { case: containsText("$$l", "REJECT"), then: "R" },
+                    { case: { $or: [containsText("$$l", "REJECT"), containsText("$$l", "DAMAGE")] }, then: "R" },
+                    { case: { $or: [containsText("$$l", "GRADE A"), { $eq: ["$$l", "A"] }] }, then: "A" },
+                    { case: { $or: [containsText("$$l", "GRADE B"), { $eq: ["$$l", "B"] }] }, then: "B" },
+                    { case: { $or: [containsText("$$l", "GRADE C"), { $eq: ["$$l", "C"] }] }, then: "C" },
                   ],
                   default: "",
                 },
@@ -255,7 +256,19 @@ const ORDER_FACET = {
             statusIn(["Completed", "COMPLETED", "GRADE_CONFIRMED", "ORDER_COMPLETED", "Received", "RECEIVED"])
           ),
           inProgressOrders: countIf(
-            statusIn(["IN_TRANSIT", "ARRIVED", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "DISPATCHED"])
+            statusIn([
+              "IN_TRANSIT",
+              "ARRIVED",
+              "ARRIVED_AT_CENTRE",
+              "COLLECTION_CENTRE_RECEIVED",
+              "RECEIVED_AT_COLLECTION_CENTRE",
+              "DISPATCHED",
+              "DRIVER_ASSIGNED",
+              "DRIVER_ARRIVED",
+              "INSPECTION",
+              "PICKED_UP",
+              "ON_THE_WAY",
+            ])
           ),
           totalOrderValue: { $sum: toNumber(firstTruthy(["$totalAmount", "$orderValue", "$amount"], 0), 0) },
         },
@@ -356,6 +369,206 @@ async function farmerStats(scope, window) {
   return { any: Boolean(row?.any?.length), stats: row?.stats?.[0] || {} };
 }
 
+async function computeVendorQualityAndRejectionStats(vendorScope, window) {
+  const [qis, orders, harvestOrders, prods] = await Promise.all([
+    QualityInspection.find(vendorScope).lean().catch(() => []),
+    FarmerOrder.find({ ...vendorScope, isDeleted: { $ne: true } }).lean().catch(() => []),
+    FarmerHarvestOrder.find({ ...vendorScope, isDeleted: { $ne: true } }).lean().catch(() => []),
+    FarmerProduct.find(vendorScope).lean().catch(() => []),
+  ]);
+
+  // Date window filters
+  const filteredQis = qis.filter((q) =>
+    matchesDashboardDate(q.gradingConfirmedAt || q.inspectionCompletedAt || q.createdAt, window)
+  );
+  const filteredOrders = orders.filter((o) =>
+    matchesDashboardDate(o.orderDate || o.harvestDate || o.createdAt, window)
+  );
+  const filteredHarvestOrders = harvestOrders.filter((o) =>
+    matchesDashboardDate(o.date || o.orderDate || o.createdAt, window)
+  );
+  const filteredProds = prods.filter((p) =>
+    matchesDashboardDate(p.harvestDate || p.createdAt, window)
+  );
+
+  // Map orderId -> productName
+  const orderProductMap = new Map();
+  filteredOrders.forEach((o) => {
+    const name = o.productName || (o.products && o.products[0]?.name) || "";
+    if (o.id) orderProductMap.set(String(o.id), name);
+    if (o.orderId) orderProductMap.set(String(o.orderId), name);
+  });
+  filteredHarvestOrders.forEach((o) => {
+    const name = o.productName || "";
+    if (o.id) orderProductMap.set(String(o.id), name);
+    if (o.orderId) orderProductMap.set(String(o.orderId), name);
+  });
+
+  const productStats = new Map();
+  function ensureProduct(name, unit = "Kg") {
+    const n = String(name || "Other Produce").trim() || "Other Produce";
+    if (!productStats.has(n)) {
+      productStats.set(n, {
+        productName: n,
+        unit,
+        gradeA: 0,
+        gradeB: 0,
+        gradeC: 0,
+        rejected: 0,
+        rejectionReasons: {},
+      });
+    }
+    return productStats.get(n);
+  }
+
+  // 1. Process Quality Inspections (highest fidelity for quality & rejections)
+  const inspectedOrderIds = new Set();
+  for (const qi of filteredQis) {
+    if (qi.orderId) inspectedOrderIds.add(String(qi.orderId));
+    const pName = qi.productName || orderProductMap.get(String(qi.orderId)) || "Other Produce";
+    const p = ensureProduct(pName);
+    const a = Number(qi.gradeAQuantity || 0);
+    const b = Number(qi.gradeBQuantity || 0);
+    const c = Number(qi.gradeCQuantity || 0);
+    let rej = Number(qi.rejectedQuantity || 0);
+
+    if (qi.gradeQuality && typeof qi.gradeQuality === "object") {
+      let gqRej = 0;
+      for (const [, gVal] of Object.entries(qi.gradeQuality)) {
+        const rQty = Number(gVal?.rejectedQuantity || 0);
+        if (rQty > 0) {
+          gqRej += rQty;
+          const reason = String(gVal.rejectionReason || "Damaged").trim();
+          p.rejectionReasons[reason] = (p.rejectionReasons[reason] || 0) + rQty;
+        }
+      }
+      if (gqRej > rej) rej = gqRej;
+    } else if (rej > 0 && qi.rejectionReason) {
+      const reason = String(qi.rejectionReason).trim();
+      p.rejectionReasons[reason] = (p.rejectionReasons[reason] || 0) + rej;
+    }
+
+    p.gradeA += a;
+    p.gradeB += b;
+    p.gradeC += c;
+    p.rejected += rej;
+  }
+
+  // 2. Process Orders that haven't been counted in Quality Inspection
+  const allOrders = [...filteredOrders, ...filteredHarvestOrders];
+  for (const o of allOrders) {
+    const orderKey = String(o.id || o.orderId || "");
+    if (orderKey && inspectedOrderIds.has(orderKey)) continue;
+
+    const pName = o.productName || (o.products && o.products[0]?.name) || "Other Produce";
+    const pUnit = o.unit || (o.products && o.products[0]?.unit) || "Kg";
+    const p = ensureProduct(pName, pUnit);
+
+    if (Array.isArray(o.grades) && o.grades.length > 0) {
+      for (const g of o.grades) {
+        const gLabel = String(g.label || g.name || "").toUpperCase();
+        const qty = Number(g.quantity || 0);
+        const rej = Number(g.rejectedQuantity || 0);
+        if (gLabel.includes("GRADE A") || gLabel === "A" || gLabel.startsWith("A ")) p.gradeA += qty;
+        else if (gLabel.includes("GRADE B") || gLabel === "B" || gLabel.startsWith("B ")) p.gradeB += qty;
+        else if (gLabel.includes("GRADE C") || gLabel === "C" || gLabel.startsWith("C ")) p.gradeC += qty;
+        else p.gradeA += qty;
+        p.rejected += rej;
+      }
+    }
+    if (Number(o.rejectionQty || 0) > 0) {
+      const rQty = Number(o.rejectionQty);
+      p.rejected += rQty;
+      p.rejectionReasons["Harvest Rejection"] = (p.rejectionReasons["Harvest Rejection"] || 0) + rQty;
+    }
+  }
+
+  // 3. Fallback to product catalog if no orders/inspections exist for that product
+  for (const prod of filteredProds) {
+    const pName = prod.name;
+    if (!productStats.has(pName)) {
+      const p = ensureProduct(pName, prod.unit || "Kg");
+      if (Array.isArray(prod.grades)) {
+        for (const g of prod.grades) {
+          const gLabel = String(g.label || g.name || g.grade || "").toUpperCase();
+          const qty = Number(g.quantity || g.stock || 0);
+          if (gLabel.includes("GRADE A") || gLabel === "A" || gLabel.startsWith("A ")) p.gradeA += qty;
+          else if (gLabel.includes("GRADE B") || gLabel === "B" || gLabel.startsWith("B ")) p.gradeB += qty;
+          else if (gLabel.includes("GRADE C") || gLabel === "C" || gLabel.startsWith("C ")) p.gradeC += qty;
+        }
+      }
+    }
+  }
+
+  const byProduct = Array.from(productStats.values())
+    .map((p) => {
+      const total = p.gradeA + p.gradeB + p.gradeC + p.rejected;
+      const rejectionRate = total > 0 ? Number(((p.rejected / total) * 100).toFixed(1)) : 0;
+      return {
+        ...p,
+        total,
+        rejectionRate,
+      };
+    })
+    .filter((p) => p.total > 0 || p.rejected > 0)
+    .sort((a, b) => b.total - a.total);
+
+  const totalGradeA = byProduct.reduce((sum, p) => sum + p.gradeA, 0);
+  const totalGradeB = byProduct.reduce((sum, p) => sum + p.gradeB, 0);
+  const totalGradeC = byProduct.reduce((sum, p) => sum + p.gradeC, 0);
+  const totalRejected = byProduct.reduce((sum, p) => sum + p.rejected, 0);
+  const totalProduce = totalGradeA + totalGradeB + totalGradeC + totalRejected;
+  const overallRejectionRate = totalProduce > 0 ? Number(((totalRejected / totalProduce) * 100).toFixed(1)) : 0;
+
+  // Rejection share by product
+  const rejectionByProduct = byProduct
+    .filter((p) => p.rejected > 0)
+    .map((p) => ({
+      productName: p.productName,
+      unit: p.unit,
+      rejected: p.rejected,
+      rejectionRate: p.rejectionRate,
+      shareOfRejections: totalRejected > 0 ? Number(((p.rejected / totalRejected) * 100).toFixed(1)) : 0,
+      reasons: Object.entries(p.rejectionReasons).map(([r, q]) => ({ reason: r, quantity: q })),
+    }))
+    .sort((a, b) => b.rejected - a.rejected);
+
+  // Overall rejection reasons breakdown
+  const reasonsAgg = {};
+  byProduct.forEach((p) => {
+    Object.entries(p.rejectionReasons).forEach(([r, q]) => {
+      reasonsAgg[r] = (reasonsAgg[r] || 0) + q;
+    });
+  });
+  const rejectionReasonsOverall = Object.entries(reasonsAgg)
+    .map(([reason, quantity]) => ({
+      reason,
+      quantity,
+      percentage: totalRejected > 0 ? Number(((quantity / totalRejected) * 100).toFixed(1)) : 0,
+    }))
+    .sort((a, b) => b.quantity - a.quantity);
+
+  const grades = {
+    gradeA: totalGradeA,
+    gradeB: totalGradeB,
+    gradeC: totalGradeC,
+    rejected: totalRejected,
+    total: totalProduce,
+    rejectionRate: overallRejectionRate,
+    gradeAPercent: totalProduce > 0 ? Math.round((totalGradeA / totalProduce) * 100) : 0,
+    gradeBPercent: totalProduce > 0 ? Math.round((totalGradeB / totalProduce) * 100) : 0,
+    gradeCPercent: totalProduce > 0 ? Math.round((totalGradeC / totalProduce) * 100) : 0,
+    rejectedPercent: totalProduce > 0 ? Math.round((totalRejected / totalProduce) * 100) : 0,
+  };
+
+  return {
+    grades,
+    byProduct,
+    rejectionByProduct,
+    rejectionReasonsOverall,
+  };
+}
+
 const firstRow = (rows) => rows?.[0] || {};
 const orEmpty = (promise) => promise.catch(() => null);
 
@@ -370,7 +583,14 @@ export async function buildVendorDashboard(vendorId, query) {
     : { vendorId: "__NONE__", isDeleted: { $ne: true } };
   const earningScope = vendorId ? { vendorId } : { vendorId: "__NONE__" };
 
-  const [vendorFarmerStats, managerRows, cropRows, productRows, orderRows, earningRows, pickupRows, driverRows, qualityRows] =
+  // Select primary order model (FarmerOrder has active orders in app; fallback to FarmerHarvestOrder)
+  const [farmerOrderCount, harvestOrderCount] = await Promise.all([
+    FarmerOrder.countDocuments(orderScope).catch(() => 0),
+    FarmerHarvestOrder.countDocuments(orderScope).catch(() => 0),
+  ]);
+  const primaryOrderModel = farmerOrderCount >= harvestOrderCount ? FarmerOrder : FarmerHarvestOrder;
+
+  const [vendorFarmerStats, managerRows, cropRows, productRows, orderRows, earningRows, pickupRows, driverRows, qualityRows, qualityStats] =
     await Promise.all([
       farmerStats(vendorScope, window),
       orEmpty(aggregateInRange(FarmerManager, managerScope, { window }, [MANAGER_GROUP])),
@@ -378,7 +598,7 @@ export async function buildVendorDashboard(vendorId, query) {
       orEmpty(aggregateInRange(FarmerProduct, productScope, { window }, [PRODUCT_FACET])),
       orEmpty(
         aggregateInRange(
-          FarmerHarvestOrder,
+          primaryOrderModel,
           orderScope,
           { window, dateFields: ["orderDate", "createdAt"], stringDates: true },
           [ORDER_FACET]
@@ -395,6 +615,7 @@ export async function buildVendorDashboard(vendorId, query) {
       ),
       orEmpty(aggregateInRange(PickupDriver, vendorScope, { window }, [DRIVER_GROUP])),
       orEmpty(aggregateInRange(QualityInspection, vendorScope, { window }, [QUALITY_GROUP])),
+      computeVendorQualityAndRejectionStats(vendorScope, window).catch(() => null),
     ]);
 
   const f = vendorFarmerStats.stats;
@@ -491,7 +712,20 @@ export async function buildVendorDashboard(vendorId, query) {
     qualityCompleted: q.qualityCompleted || 0,
     totalEarnings: e.totalEarnings || 0,
     pendingEarnings: e.pendingEarnings || 0,
-    paidEarnings: e.paidEarnings || 0,
-    grades: { gradeA: g.gradeA || 0, gradeB: g.gradeB || 0, gradeC: g.gradeC || 0, rejected: g.rejected || 0 },
+    grades: qualityStats?.grades || {
+      gradeA: g.gradeA || 0,
+      gradeB: g.gradeB || 0,
+      gradeC: g.gradeC || 0,
+      rejected: g.rejected || 0,
+      total: (g.gradeA || 0) + (g.gradeB || 0) + (g.gradeC || 0) + (g.rejected || 0),
+      rejectionRate: 0,
+      gradeAPercent: 0,
+      gradeBPercent: 0,
+      gradeCPercent: 0,
+      rejectedPercent: 0,
+    },
+    byProduct: qualityStats?.byProduct || [],
+    rejectionByProduct: qualityStats?.rejectionByProduct || [],
+    rejectionReasonsOverall: qualityStats?.rejectionReasonsOverall || [],
   };
 }
