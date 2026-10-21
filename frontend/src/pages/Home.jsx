@@ -13,12 +13,15 @@ import FreshProduceStoreSection from "../components/home/FreshProduceStoreSectio
 import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
-import Ready2CookHotPickBanners from "../components/home/Ready2CookHotPickBanners";
 import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
-import HeroTrustBadges from "../components/home/HeroTrustBadges";
+import FarmTraceabilityBanner from "../components/home/FarmTraceabilityBanner";
 import TrustFeatureBanners from "../components/home/TrustFeatureBanners";
+import PreorderHeroCarousel from "../components/home/PreorderHeroCarousel";
+import Ready2CookHeroCarousel from "../components/home/Ready2CookHeroCarousel";
+import InstantOrderHeroCarousel from "../components/home/InstantOrderHeroCarousel";
+import WhatMakesUsDifferent from "../components/home/WhatMakesUsDifferent";
 
 function StoreContent() {
   const [searchParams] = useSearchParams();
@@ -42,12 +45,11 @@ function StoreContent() {
       <ZeptoFestiveHeroSection />
       {store === "main" && (
         <div className="lg:hidden">
-          <HeroTrustBadges />
           <MovingOfferMarquee />
         </div>
       )}
-      <Ready2CookHotPickBanners />
       <ShopByCategory />
+      {store === "main" && <FarmTraceabilityBanner />}
       <TrustFeatureBanners />
       <HotSelling />
       <JustArrived />
@@ -66,6 +68,7 @@ function StoreContent() {
       <SuggestedForYouSection />
       <TopPaymentOffersSection />
       <HomeAllCategoryProducts limitPerCategory={20} />
+      <WhatMakesUsDifferent />
     </>
   );
 }
@@ -81,17 +84,26 @@ function Home() {
         <StoreContent />
       </div>
 
-      {/* Full-width PreOrder Hero Banner for Desktop — touches subnavbar directly, edge-to-edge, no curved edges */}
+      {/* Full-width PreOrder Hero Banner Carousel for Desktop — touches subnavbar directly, edge-to-edge, no curved edges */}
       {store === "main" && (
         <section className="hidden lg:block w-full bg-white">
-          <Link to="/product" className="block w-full">
-            <img
-              src="/assets/payment/heroBaner.png"
-              alt="PreOrder — शेतकऱ्यांच्या मेहनतीतून, तुमच्या कुटुंबाच्या ताटापर्यंत!"
-              className="w-full h-auto object-cover block rounded-none cursor-pointer"
-            />
-          </Link>
-          <HeroTrustBadges />
+          <PreorderHeroCarousel />
+          <MovingOfferMarquee />
+        </section>
+      )}
+
+      {/* Full-width Ready2Cook Hero Banner Carousel for Desktop */}
+      {store === "festive" && (
+        <section className="hidden lg:block w-full bg-white">
+          <Ready2CookHeroCarousel />
+          <MovingOfferMarquee />
+        </section>
+      )}
+
+      {/* Full-width InstantOrder Hero Banner Carousel for Desktop */}
+      {store === "mall" && (
+        <section className="hidden lg:block w-full bg-white">
+          <InstantOrderHeroCarousel />
           <MovingOfferMarquee />
         </section>
       )}

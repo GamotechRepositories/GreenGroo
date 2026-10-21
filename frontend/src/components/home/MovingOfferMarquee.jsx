@@ -1,88 +1,117 @@
+import React from "react";
 import { Link } from "react-router-dom";
 import { Sparkles, Leaf, Zap, CreditCard } from "lucide-react";
 
-const TICKER_OFFERS = [
+export const STRIP_OFFERS = [
   {
+    id: "welcome50",
     icon: Sparkles,
-    badge: "SPECIAL",
-    badgeBg: "bg-gray-100 text-gray-700",
-    iconColor: "text-amber-500",
-    text: "FLAT 50% OFF on First 3 Orders",
-    code: "USE: FRESH50",
+    highlight: "Flat 50% Off",
+    description: "on your first 3 orders",
+    code: "CODE: FRESH50",
     link: "/coupons",
   },
   {
+    id: "organic-coop",
     icon: Leaf,
-    badge: "FARMERS",
-    badgeBg: "bg-gray-100 text-gray-700",
-    iconColor: "text-emerald-600",
-    text: "Nashik Farmers Co-op Harvest",
-    code: "100% ORGANIC",
+    highlight: "100% Certified Organic",
+    description: "direct from Nashik farmers co-op",
+    code: "FARM FRESH",
     link: "/product?categoryName=Organic",
   },
   {
+    id: "express-free",
     icon: Zap,
-    badge: "EXPRESS",
-    badgeBg: "bg-gray-100 text-gray-700",
-    iconColor: "text-blue-500",
-    text: "FREE 10-Min Delivery on ₹99+",
+    highlight: "Free 10-Min Delivery",
+    description: "on all orders above ₹99",
     code: "NO CODE",
     link: "/product",
   },
   {
+    id: "sbi-bank",
     icon: CreditCard,
-    badge: "BANK DEAL",
-    badgeBg: "bg-gray-100 text-gray-700",
-    iconColor: "text-indigo-600",
-    text: "10% Instant Discount on SBI Cards",
-    code: "SAVE UP TO ₹100",
+    highlight: "10% Instant Discount",
+    description: "with SBI Cards up to ₹100",
+    code: "AUTO-APPLY",
     link: "/coupons",
   },
 ];
 
 export default function MovingOfferMarquee() {
+  // Quadruple the array to ensure perfectly seamless, infinite continuous flow across any screen width
+  const loopedOffers = [
+    ...STRIP_OFFERS,
+    ...STRIP_OFFERS,
+    ...STRIP_OFFERS,
+    ...STRIP_OFFERS,
+  ];
+
   return (
-    <div className="relative overflow-hidden bg-white/80 backdrop-blur-xl py-2 shadow-sm border-y border-gray-100">
+    <section className="relative w-full overflow-hidden bg-[#f4f9f4] border-y border-[#dbeef0]/80 py-2 sm:py-2.5 select-none">
       <style>{`
-        @keyframes offerMarquee {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
+        @keyframes continuousStripFlow {
+          0% {
+            transform: translate3d(0, 0, 0);
+          }
+          100% {
+            transform: translate3d(-50%, 0, 0);
+          }
         }
-        .animate-offer-marquee {
+        .animate-continuous-strip {
           display: flex;
+          align-items: center;
           width: max-content;
-          animation: offerMarquee 30s linear infinite;
+          animation: continuousStripFlow 36s linear infinite;
+          will-change: transform;
         }
-        .animate-offer-marquee:hover {
+        .animate-continuous-strip:hover {
           animation-play-state: paused;
         }
       `}</style>
 
-      <div className="animate-offer-marquee flex items-center gap-6">
-        {[...TICKER_OFFERS, ...TICKER_OFFERS].map((offer, index) => {
-          const IconComponent = offer.icon;
+      {/* Infinite Continuous Flowing Ribbon (No Boxed Cards) */}
+      <div className="animate-continuous-strip">
+        {loopedOffers.map((offer, index) => {
+          const Icon = offer.icon;
+
           return (
-            <Link
-              key={`${offer.badge}-${index}`}
-              to={offer.link || "/coupons"}
-              className="flex items-center gap-2.5 shrink-0 px-2 py-1 transition-transform cursor-pointer hover:scale-[1.02]"
-            >
-              <div className="flex items-center justify-center bg-gray-50 rounded-full h-7 w-7 border border-gray-100">
-                <IconComponent className={`h-3.5 w-3.5 ${offer.iconColor}`} strokeWidth={2.5} />
-              </div>
-              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${offer.badgeBg}`}>
-                {offer.badge}
+            <React.Fragment key={`${offer.id}-${index}`}>
+              <Link
+                to={offer.link}
+                className="inline-flex items-center gap-2 px-2 py-0.5 text-neutral-900 hover:text-[#14532d] transition-colors cursor-pointer shrink-0"
+              >
+                {/* Micro Icon */}
+                <span className="flex h-5 w-5 sm:h-5.5 sm:w-5.5 items-center justify-center rounded-full bg-[#15803d]/12 text-[#15803d] shrink-0">
+                  <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 stroke-[2.4]" />
+                </span>
+
+                {/* Bold Highlight */}
+                <span className="text-[11.5px] sm:text-[13px] font-bold text-neutral-900 tracking-tight whitespace-nowrap">
+                  {offer.highlight}
+                </span>
+
+                {/* Subtle Description */}
+                <span className="text-[11px] sm:text-[12.5px] font-medium text-neutral-600 whitespace-nowrap">
+                  {offer.description}
+                </span>
+
+                {/* Clean Code Pill Tag */}
+                <span className="ml-1 inline-flex items-center rounded-full bg-[#14532d] px-2 py-0.5 text-[9.5px] sm:text-[10px] font-extrabold uppercase tracking-wider text-white whitespace-nowrap shadow-xs">
+                  {offer.code}
+                </span>
+              </Link>
+
+              {/* Clean separator bullet between items */}
+              <span
+                className="mx-4 sm:mx-6 text-[#15803d]/35 font-bold select-none text-xs sm:text-sm shrink-0"
+                aria-hidden="true"
+              >
+                •
               </span>
-              <span className="text-[13px] font-semibold text-gray-700 whitespace-nowrap">
-                {offer.text}
-              </span>
-              <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white whitespace-nowrap">
-                {offer.code}
-              </span>
-            </Link>
+            </React.Fragment>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

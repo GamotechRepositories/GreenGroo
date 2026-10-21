@@ -39,9 +39,7 @@ function MobileLayout({ children }) {
 
       {isHome || pathname === "/categories" ? <FloatingCartBar /> : null}
 
-      <div className={isHome || isShop ? "hidden lg:block" : ""}>
-        <Footer />
-      </div>
+      <Footer />
 
       {!hideNavs && <BottomNav />}
     </div>

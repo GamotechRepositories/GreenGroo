@@ -9,7 +9,9 @@ import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
 import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
-import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
+import InstantOrderHeroCarousel from "./InstantOrderHeroCarousel";
+import Ready2CookHeroCarousel from "./Ready2CookHeroCarousel";
+import MovingOfferMarquee from "./MovingOfferMarquee";
 import {
   sectionToStoreKey,
   storeToSection,
@@ -85,25 +87,18 @@ function FestiveStoreSection() {
     <div className="space-y-2 pb-2 pt-0">
       <ZeptoFestiveHeroSection />
 
-      <section className="px-4 pt-2 sm:px-6 lg:px-6">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-[1.35rem]">
-          <img
-            src={
-              isInstant
-                ? "/assets/payment/instantOrderHeroImageMobile.png"
-                : "/assets/payment/ready2cookHeroSectionMobile.png"
-            }
-            alt={
-              isInstant
-                ? "InstantOrder — essentials delivered in minutes"
-                : "Ready2Cook — chopped, cleaned, cook-ready veggies and meal mixes"
-            }
-            className="block h-auto w-full object-cover object-center"
-          />
-        </div>
-      </section>
-
-      <Ready2CookHotPickBanners />
+      {/* Hero Banner: Carousel for Ready2Cook / InstantOrder on mobile, followed by flowing marquee */}
+      {!isInstant ? (
+        <section className="w-full px-0 pt-0 pb-0 lg:hidden">
+          <Ready2CookHeroCarousel isMobile={true} />
+          <MovingOfferMarquee />
+        </section>
+      ) : (
+        <section className="w-full px-0 pt-0 pb-0 lg:hidden">
+          <InstantOrderHeroCarousel isMobile={true} />
+          <MovingOfferMarquee />
+        </section>
+      )}
 
       <section className="px-4 py-3 sm:px-6">
         <div className="mb-3.5 flex items-end justify-between gap-3">

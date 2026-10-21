@@ -1,8 +1,8 @@
 import React from "react";
-import HomeSlidingBanners from "../../../components/home/HomeSlidingBanners";
+import Ready2CookHeroCarousel from "../../../components/home/Ready2CookHeroCarousel";
 
 export function Ready2CookHero() {
-  return <HomeSlidingBanners />;
+  return <Ready2CookHeroCarousel />;
 }
 
 export default Ready2CookHero;
