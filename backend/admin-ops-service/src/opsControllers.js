@@ -695,8 +695,8 @@ export async function sendVendorVerificationOtpAdmin(req, res, next) {
     const result = await sendCommonOtp(mobile, "vendor_create_verification");
     return res.json({
       success: true,
-      message: "Verification OTP sent successfully via 9. GreenGrocc Common OTP",
-      template: "9. GreenGrocc Common OTP",
+      message: "Verification OTP sent successfully via GreenGrocc Common OTP (GREGRC_Common_OTP)",
+      template: "GreenGrocc Common OTP (GREGRC_Common_OTP)",
       templateId: MSG91_TEMPLATES.COMMON_OTP,
       devMock: result.devMock,
       code: result.devMock ? result.code : undefined,
@@ -731,7 +731,7 @@ export async function verifyVendorVerificationOtpAdmin(req, res, next) {
     return res.json({
       success: true,
       verified: true,
-      message: "Mobile number verified successfully via 9. GreenGrocc Common OTP",
+      message: "Mobile number verified successfully via GreenGrocc Common OTP (GREGRC_Common_OTP)",
     });
   } catch (error) {
     next(error);
@@ -746,7 +746,7 @@ export async function createVendorAdmin(req, res, next) {
     if (!/^[6-9]\d{9}$/.test(mobile)) return fail(res, 400, "Enter a valid 10-digit mobile number");
 
     if (!isPhoneOtpVerified(mobile)) {
-      return fail(res, 400, "Mobile number must be verified via 9. GreenGrocc Common OTP before creating vendor");
+      return fail(res, 400, "Mobile number must be verified via GreenGrocc Common OTP (GREGRC_Common_OTP) before registering vendor");
     }
 
     let documents;

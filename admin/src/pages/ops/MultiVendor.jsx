@@ -245,9 +245,9 @@ export default function MultiVendor() {
       const res = await apiClient.post('/admin-ops/vendors/otp/send', { mobile: cleanMobile });
       setOtpSent(true);
       setOtpTimer(30);
-      setOtpMsg(res.data?.message || 'OTP sent successfully via 9. GreenGrocc Common OTP');
+      setOtpMsg(res.data?.message || 'OTP sent successfully via GreenGrocc Common OTP (GREGRC_Common_OTP)');
       if (res.data?.code) {
-        setOtpMsg(`OTP sent via 9. GreenGrocc Common OTP (Dev: ${res.data.code})`);
+        setOtpMsg(`OTP sent via GreenGrocc Common OTP (GREGRC_Common_OTP) (Dev: ${res.data.code})`);
       }
     } catch (err) {
       setOtpError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
@@ -270,7 +270,7 @@ export default function MultiVendor() {
       const res = await apiClient.post('/admin-ops/vendors/otp/verify', { mobile: cleanMobile, otp: cleanOtp });
       if (res.data?.verified) {
         setMobileVerified(true);
-        setOtpMsg('Mobile verified successfully via 9. GreenGrocc Common OTP');
+        setOtpMsg('Mobile verified successfully via GreenGrocc Common OTP (GREGRC_Common_OTP)');
       }
     } catch (err) {
       setOtpError(err.response?.data?.message || 'Invalid or expired OTP');
@@ -360,7 +360,7 @@ export default function MultiVendor() {
   const handleSave = async (event) => {
     event.preventDefault();
     if (isCreate && !mobileVerified) {
-      setError('Please verify the vendor mobile number with 9. GreenGrocc Common OTP before creating.');
+      setError('Please verify the vendor mobile number with GreenGrocc Common OTP (GREGRC_Common_OTP) before registering.');
       return;
     }
     setSaving(true);
@@ -411,7 +411,7 @@ export default function MultiVendor() {
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </button>
           <button type="button" onClick={openCreate} className={`${BTN_PRIMARY} gap-1.5 text-xs`}>
-            <Plus className="h-3.5 w-3.5" /> Add Multi Vendor
+            <Plus className="h-3.5 w-3.5" /> Register Multi Vendor
           </button>
         </div>
       </div>
@@ -836,9 +836,16 @@ export default function MultiVendor() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <form onSubmit={handleSave} className={`max-h-[90vh] w-full max-w-2xl overflow-y-auto ${PANEL} p-5`}>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
-                {isCreate ? 'Add Multi Vendor / Collection Centre' : 'Edit Collection Centre'}
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isCreate ? 'Multi Vendor Registration / Collection Centre' : 'Edit Collection Centre'}
+                </h2>
+                {isCreate ? (
+                  <p className="text-xs text-slate-500">
+                    Register a new multi vendor. Mobile number OTP verification is required via GreenGrocc Common OTP (GREGRC_Common_OTP).
+                  </p>
+                ) : null}
+              </div>
               <button type="button" onClick={closeModal} className="text-slate-400">
                 <X className="h-5 w-5" />
               </button>
@@ -866,7 +873,7 @@ export default function MultiVendor() {
                       <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
                         <span className="flex items-center gap-1.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          Verified via 9. GreenGrocc Common OTP
+                          Verified via GreenGrocc Common OTP (GREGRC_Common_OTP)
                         </span>
                         <button
                           type="button"
@@ -886,7 +893,7 @@ export default function MultiVendor() {
                         {!otpSent ? (
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[11px] font-medium text-amber-700">
-                              Verify with 9. GreenGrocc Common OTP
+                              Verify via GreenGrocc Common OTP (GREGRC_Common_OTP)
                             </span>
                             <button
                               type="button"
@@ -901,7 +908,7 @@ export default function MultiVendor() {
                         ) : (
                           <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5">
                             <div className="flex items-center justify-between text-[11px] font-medium text-emerald-800">
-                              <span>Enter 9. GreenGrocc Common OTP</span>
+                              <span>Enter GreenGrocc Common OTP (GREGRC_Common_OTP)</span>
                               {otpTimer > 0 ? (
                                 <span className="text-slate-500">Resend in {otpTimer}s</span>
                               ) : (

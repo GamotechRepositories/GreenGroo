@@ -9,6 +9,8 @@ import {
   normalizeIndianPhone,
   sendCommonOtp,
   MSG91_TEMPLATES,
+  isPhoneOtpVerified,
+  consumeVerifiedPhone,
 } from "@greengrocc/shared";
 import {
   Vendor,
@@ -6305,6 +6307,16 @@ export async function getVendors(req, res) {
 export async function createVendor(req, res) {
   try {
     const payload = req.body;
+    const cleanMobile = String(payload.mobile || "").replace(/\D/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return res.status(400).json({ message: "Valid 10-digit mobile number required" });
+    }
+    if (!isPhoneOtpVerified(cleanMobile)) {
+      return res.status(400).json({
+        message: "Mobile number must be verified via GreenGrocc Common OTP (GREGRC_Common_OTP) before registering vendor",
+      });
+    }
+    consumeVerifiedPhone(cleanMobile);
     const id = `vendor-${Date.now()}`;
     const rawPassword = payload.password || "vendor123";
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
@@ -6312,6 +6324,7 @@ export async function createVendor(req, res) {
       id,
       vendorCode: `VND-${Math.floor(1000 + Math.random() * 9000)}`,
       ...payload,
+      mobile: cleanMobile,
       password: hashedPassword,
       role: "VENDOR",
     });
