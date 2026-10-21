@@ -1,7 +1,6 @@
 import { useSearchParams, Link } from "react-router-dom";
 import FreshPromoBanner from "../components/grocery/FreshPromoBanner";
-import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
-import CategoryPills from "../components/grocery/CategoryPills";
+import ShopByCategory from "../components/home/ShopByCategory";
 import HomeCategoryProducts from "../components/grocery/HomeCategoryProducts";
 import HomeAllCategoryProducts from "../components/grocery/HomeAllCategoryProducts";
 import BestDeals from "../components/mobile/BestDeals";
@@ -15,10 +14,11 @@ import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import Ready2CookHotPickBanners from "../components/home/Ready2CookHotPickBanners";
-import DesktopHeroFeatureCards from "../components/home/DesktopHeroFeatureCards";
 import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
+import HeroTrustBadges from "../components/home/HeroTrustBadges";
+import TrustFeatureBanners from "../components/home/TrustFeatureBanners";
 
 function StoreContent() {
   const [searchParams] = useSearchParams();
@@ -41,12 +41,14 @@ function StoreContent() {
     <>
       <ZeptoFestiveHeroSection />
       {store === "main" && (
-        <div className="lg:hidden px-3.5 my-2.5">
-          <DesktopHeroFeatureCards />
+        <div className="lg:hidden">
+          <HeroTrustBadges />
+          <MovingOfferMarquee />
         </div>
       )}
       <Ready2CookHotPickBanners />
-      <CategoryPills />
+      <ShopByCategory />
+      <TrustFeatureBanners />
       <HotSelling />
       <JustArrived />
       <MostViewedProducts />
@@ -89,22 +91,9 @@ function Home() {
               className="w-full h-auto object-cover block rounded-none cursor-pointer"
             />
           </Link>
-        </section>
-      )}
-
-      {/* Desktop store view content */}
-      <div className="mx-auto max-w-7xl lg:px-8 pt-4">
-        {store === "main" && (
-          <div className="hidden lg:block space-y-4 mb-4">
-            <DesktopHeroFeatureCards />
-          </div>
-        )}
-      </div>
-
-      {store === "main" && (
-        <div className="hidden lg:block mb-8">
+          <HeroTrustBadges />
           <MovingOfferMarquee />
-        </div>
+        </section>
       )}
 
       <div className="mx-auto max-w-7xl lg:px-8 lg:pb-8">

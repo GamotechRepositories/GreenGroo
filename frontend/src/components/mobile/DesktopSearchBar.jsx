@@ -94,7 +94,7 @@ function DesktopSearchBar({ className = "" }) {
 
   return (
     <form
-      className={`group flex h-10 w-full max-w-[260px] items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50/90 px-3.5 transition-all duration-200 hover:border-gray-300 hover:bg-gray-100/70 focus-within:border-[#0C831F] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0C831F]/15 xl:max-w-[340px] ${className}`}
+      className={`group flex h-10 w-full max-w-[270px] xl:max-w-[340px] items-center gap-2.5 rounded-xl border border-gray-200/90 bg-[#F4F6F8] px-3.5 transition-all duration-200 hover:border-gray-300 hover:bg-[#EEF1F4] focus-within:border-[#0C831F] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0C831F]/15 ${className}`}
       onSubmit={handleSubmit}
     >
       <svg

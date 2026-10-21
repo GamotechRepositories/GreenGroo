@@ -83,8 +83,8 @@ function TopNav() {
 
   const addressLine = hasLocation
     ? [location.area || location.label, location.city, location.pincode].filter(Boolean).join(", ") ||
-      location.address ||
-      "Delivery location"
+    location.address ||
+    "Delivery location"
     : "Select your delivery location";
 
   const setStore = (storeKey) => {
@@ -139,14 +139,42 @@ function TopNav() {
             className="relative mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-5 xl:px-8"
             style={{ height: UPPER_BAR_H }}
           >
-            {/* Left corner: Logo (clean and properly sized) */}
-            <div className="relative z-10 flex shrink-0 items-center">
+            {/* Left corner: Logo + User Address next to Logo */}
+            <div className="relative z-10 flex shrink-0 items-center gap-3">
               <Link to="/" className="flex shrink-0 items-center hover:opacity-90 transition-opacity">
                 <img
                   src={LOGO_URL}
                   alt="GreenGrocc"
                   className="h-8 xl:h-9 max-h-9 w-auto object-contain"
                 />
+              </Link>
+
+              {/* Subtle vertical separator */}
+              <div className="h-6 w-px bg-gray-200" aria-hidden="true" />
+
+              {/* User Address next to Logo: "Delivery Address" on line 1, selected address on line 2 */}
+              <Link
+                to="/location"
+                className="group flex flex-col justify-center max-w-[190px] xl:max-w-[260px] text-left transition-colors cursor-pointer select-none"
+                title={`Delivery location: ${addressLine}`}
+              >
+                <div className="flex items-center gap-1 leading-none">
+                  <span className="text-[12px] xl:text-[13px] font-bold text-gray-900 group-hover:text-[#0C831F] transition-colors">
+                    Delivery Address
+                  </span>
+                  <svg
+                    className="h-3 w-3 shrink-0 text-gray-400 group-hover:text-[#0C831F] transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                <p className="truncate text-[11px] xl:text-[12px] text-gray-500 font-medium mt-0.5 leading-tight group-hover:text-gray-700 transition-colors">
+                  {addressLine}
+                </p>
               </Link>
             </div>
 
@@ -170,11 +198,10 @@ function TopNav() {
                       key={sec._id || sec.slug || storeKey}
                       type="button"
                       onClick={() => setStore(storeKey)}
-                      className={`relative shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-semibold tracking-tight transition-all duration-200 ${
-                        isActive
-                          ? "bg-[#0C831F] text-white shadow-[0_1px_3px_rgba(12,131,31,0.35)]"
-                          : "text-gray-600 hover:text-gray-900"
-                      }`}
+                      className={`relative shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-semibold tracking-tight transition-all duration-200 ${isActive
+                        ? "bg-[#0C831F] text-white shadow-[0_1px_3px_rgba(12,131,31,0.35)]"
+                        : "text-gray-600 hover:text-gray-900"
+                        }`}
                     >
                       {label}
                     </button>
@@ -183,55 +210,50 @@ function TopNav() {
               </nav>
             </div>
 
-            {/* Right corner: Search Bar + Cart Icon + Address Icon + Profile Icon */}
-            <div className="relative z-10 flex shrink-0 items-center gap-2.5">
+            {/* Right corner: Search Bar + Solid Green Cart CTA + Account Button */}
+            <div className="relative z-10 flex shrink-0 items-center gap-3">
               <DesktopSearchBar />
 
-              {/* 1. Cart Icon Only */}
+              {/* 1. Solid Green Quick-Commerce Cart CTA */}
               <Link
                 to="/cart"
                 data-cart-target="desktop"
-                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                className="relative flex h-10 items-center gap-2 rounded-xl bg-[#0C831F] hover:bg-[#0A6F1A] active:scale-[0.97] px-4 text-white shadow-sm transition-all duration-150 font-bold text-xs shrink-0 cursor-pointer"
                 aria-label={cartLabel}
                 title={cartLabel}
               >
-                <CartIcon className="h-5 w-5" />
+                <CartIcon className="h-4.5 w-4.5 text-white" />
+
                 {cartCount > 0 ? (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#0C831F] px-1 text-[9px] font-extrabold tabular-nums text-white shadow-xs">
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1.5 text-[10px] font-extrabold tabular-nums text-white">
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 ) : null}
               </Link>
 
-              {/* 2. Address Icon (at the right of Cart) */}
-              <Link
-                to="/location"
-                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
-                aria-label="Delivery location"
-                title={`Delivery location: ${addressLine}`}
-              >
-                <MapPinIcon className="h-5 w-5" />
-              </Link>
-
-              {/* 3. Profile Icon (at right of Address icon) */}
+              {/* 2. Sleek Account/Profile Button */}
               {user ? (
                 <Link
                   to="/profile"
-                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                  className="flex h-10 items-center gap-2 rounded-xl border border-gray-200/90 bg-white hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] px-3.5 text-gray-800 text-xs font-semibold transition-all shadow-2xs shrink-0 cursor-pointer"
                   aria-label={`Profile (${user.name || "Account"})`}
                   title={`Account: ${user.name || "Profile"}`}
                 >
-                  <UserIcon className="h-5 w-5" />
+                  <UserIcon className="h-4 w-4 text-gray-600" />
+                  <span className="truncate max-w-[85px] whitespace-nowrap">
+                    {user.name?.split(" ")[0] || "Account"}
+                  </span>
                 </Link>
               ) : (
                 <button
                   type="button"
                   onClick={() => openAuthModal("login")}
-                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200/90 bg-white text-gray-700 shadow-xs transition-all hover:border-[#0C831F]/40 hover:bg-[#0C831F]/5 hover:text-[#0C831F] active:scale-[0.96]"
+                  className="flex h-10 items-center gap-2 rounded-xl border border-gray-200/90 bg-white hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] px-3.5 text-gray-800 text-xs font-semibold transition-all shadow-2xs shrink-0 cursor-pointer"
                   aria-label="Login / Sign Up"
                   title="Login / Sign Up"
                 >
-                  <UserIcon className="h-5 w-5" />
+                  <UserIcon className="h-4 w-4 text-gray-600" />
+                  <span className="whitespace-nowrap">Login</span>
                 </button>
               )}
             </div>
@@ -240,18 +262,16 @@ function TopNav() {
 
         {/* Attached lower chrome (Subnavbar) */}
         <div
-          className={`relative transition-[height] duration-300 ease-out ${
-            compactChrome ? "pointer-events-none" : ""
-          }`}
+          className={`relative transition-[height] duration-300 ease-out ${compactChrome ? "pointer-events-none" : ""
+            }`}
           style={{ height: lowerHeight }}
         >
           {/* Expanded: full main bar, flat bottom, fused to upper (no black line) */}
           <div
-            className={`absolute inset-x-0 top-0 bg-white transition-all duration-300 ease-out ${
-              compactChrome
-                ? "pointer-events-none invisible h-0 overflow-hidden opacity-0"
-                : "h-full overflow-visible rounded-b-none opacity-100"
-            }`}
+            className={`absolute inset-x-0 top-0 bg-white transition-all duration-300 ease-out ${compactChrome
+              ? "pointer-events-none invisible h-0 overflow-hidden opacity-0"
+              : "h-full overflow-visible rounded-b-none opacity-100"
+              }`}
           >
             <div
               className="mx-auto flex h-full max-w-[1400px] items-center justify-center px-5 xl:px-8"
@@ -267,11 +287,10 @@ function TopNav() {
           {/* Compact: clean category pill fused under upper — no side ears */}
           {showNavCategories ? (
             <div
-              className={`absolute inset-x-0 top-0 flex justify-center transition-all duration-300 ease-out ${
-                compactChrome
-                  ? "pointer-events-auto translate-y-0 opacity-100"
-                  : "pointer-events-none -translate-y-2 opacity-0"
-              }`}
+              className={`absolute inset-x-0 top-0 flex justify-center transition-all duration-300 ease-out ${compactChrome
+                ? "pointer-events-auto translate-y-0 opacity-100"
+                : "pointer-events-none -translate-y-2 opacity-0"
+                }`}
             >
               <div
                 className="relative flex w-fit max-w-[min(960px,94vw)] items-center rounded-b-2xl bg-white px-2.5 pb-1.5 pt-1"
