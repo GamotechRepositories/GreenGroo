@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/app_colors.dart';
+import 'core/push_notification_service.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PushNotificationService.instance.init();
   runApp(const GreenGrooStaffApp());
 }
 

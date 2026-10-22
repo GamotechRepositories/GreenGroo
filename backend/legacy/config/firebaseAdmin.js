@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const _state = {
   delivery: { app: null, attempted: false, error: null },
   customer: { app: null, attempted: false, error: null },
+  staff: { app: null, attempted: false, error: null },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -212,6 +213,50 @@ export function getFirebaseMessaging() {
 /** FCM Messaging for the CUSTOMER project. */
 export function getCustomerFirebaseMessaging() {
   const app = getCustomerFirebaseAdmin();
+  return app ? getMessaging(app) : null;
+}
+
+/**
+ * Staff project credentials — uses STAFF_FIREBASE_* env vars.
+ * Falls back to main project (greengrocc-27df8) if STAFF_FIREBASE_* is empty.
+ */
+function loadStaffCredentials() {
+  const projectId   = env("STAFF_FIREBASE_PROJECT_ID");
+  const clientEmail = env("STAFF_FIREBASE_CLIENT_EMAIL");
+  let   privateKey  = env("STAFF_FIREBASE_PRIVATE_KEY");
+
+  if (projectId && clientEmail && privateKey) {
+    privateKey = privateKey.replace(/\\n/g, "\n");
+    return {
+      serviceAccount: {
+        type:                        env("STAFF_FIREBASE_TYPE") || "service_account",
+        project_id:                  projectId,
+        private_key_id:              env("STAFF_FIREBASE_PRIVATE_KEY_ID"),
+        private_key:                 privateKey,
+        client_email:                clientEmail,
+        client_id:                   env("STAFF_FIREBASE_CLIENT_ID"),
+        auth_uri:                    env("STAFF_FIREBASE_AUTH_URI")                     || "https://accounts.google.com/o/oauth2/auth",
+        token_uri:                   env("STAFF_FIREBASE_TOKEN_URI")                    || "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: env("STAFF_FIREBASE_AUTH_PROVIDER_X509_CERT_URL") || "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url:        env("STAFF_FIREBASE_CLIENT_X509_CERT_URL"),
+        universe_domain:             env("STAFF_FIREBASE_UNIVERSE_DOMAIN") || "googleapis.com",
+      },
+      source: "STAFF_FIREBASE_* env vars",
+    };
+  }
+
+  // Fallback to shared GreenGrocc project if staff app is registered there
+  return loadDeliveryCredentials();
+}
+
+/** Firebase Admin app for the STAFF project. */
+export function getStaffFirebaseAdmin() {
+  return initApp("staff", loadStaffCredentials, "staff");
+}
+
+/** FCM Messaging for the STAFF project. */
+export function getStaffFirebaseMessaging() {
+  const app = getStaffFirebaseAdmin();
   return app ? getMessaging(app) : null;
 }
 

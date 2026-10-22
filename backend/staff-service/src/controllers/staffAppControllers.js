@@ -12,6 +12,7 @@ import {
   HrShift,
 } from "../../../admin-ops-service/src/models.js";
 import { ROLE_LABELS } from "../constants/roles.js";
+import { getStaffFirebaseMessaging } from "../../../legacy/config/firebaseAdmin.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -540,5 +541,95 @@ export async function markStaffNotificationRead(req, res, next) {
     return ok(res, { id, isRead: true });
   } catch (error) {
     next(error);
+  }
+}
+
+/** Save / register staff device FCM token */
+export async function updateStaffFcmToken(req, res, next) {
+  try {
+    const { token } = req.body;
+    if (!token) return fail(res, 400, "Device token is required");
+
+    await Staff.findByIdAndUpdate(req.user.id, {
+      $addToSet: { fcmTokens: token },
+    });
+
+    return ok(res, null, { message: "FCM token registered successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** Helper function to send push notification to staff (single staff, by role, or all staff) */
+export async function sendStaffPushNotification(target, { title, body, data = {} }) {
+  try {
+    const messaging = getStaffFirebaseMessaging();
+    if (!messaging) return;
+
+    let query = { isActive: true };
+    if (typeof target === "string") {
+      query._id = target;
+    } else if (target && typeof target === "object") {
+      if (target.targetType === "staff" && target.targetStaffId) {
+        query._id = target.targetStaffId;
+      } else if (target.targetType === "role" && target.targetRole && target.targetRole !== "all") {
+        query.role = target.targetRole;
+      } else if (Array.isArray(target.targetRoles) && target.targetRoles.length > 0) {
+        if (!target.targetRoles.includes("all")) {
+          query.role = { $in: target.targetRoles };
+        }
+      }
+    }
+
+    const staffMembers = await Staff.find(query).select("fcmTokens").lean();
+    const tokens = (staffMembers || [])
+      .flatMap((s) => s.fcmTokens || [])
+      .filter((t) => typeof t === "string" && t.trim().length > 0);
+
+    if (!tokens.length) return;
+
+    const uniqueTokens = [...new Set(tokens)];
+
+    const response = await messaging.sendEachForMulticast({
+      tokens: uniqueTokens,
+      notification: { title, body },
+      android: {
+        priority: "high",
+        notification: {
+          sound: "default",
+          channelId: "staff_notifications",
+          priority: "high",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+      data: Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v ?? "")])
+      ),
+    });
+    console.log(`[StaffPush] Sent push notification: ${response?.successCount || 0} succeeded, ${response?.failureCount || 0} failed`);
+
+    if (response && response.responses) {
+      const deadTokens = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success && resp.error) {
+          const code = resp.error.code;
+          if (
+            code === "messaging/registration-token-not-registered" ||
+            code === "messaging/invalid-registration-token"
+          ) {
+            deadTokens.push(uniqueTokens[idx]);
+          }
+        }
+      });
+      if (deadTokens.length > 0) {
+        Staff.updateMany(
+          { fcmTokens: { $in: deadTokens } },
+          { $pull: { fcmTokens: { $in: deadTokens } } }
+        ).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("[StaffPush] Notification delivery error:", err.message);
   }
 }

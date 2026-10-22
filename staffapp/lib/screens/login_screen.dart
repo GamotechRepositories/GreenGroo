@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../core/session_manager.dart';
+import '../core/push_notification_service.dart';
 import 'main_navigation_shell.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -70,6 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
           token: response['token'],
           staff: response['staff'] ?? {},
         );
+
+        PushNotificationService.instance.syncTokenWithBackend();
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(

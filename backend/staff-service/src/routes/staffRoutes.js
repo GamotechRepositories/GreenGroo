@@ -20,6 +20,7 @@ import {
   getStaffMeetings,
   getStaffNotifications,
   markStaffNotificationRead,
+  updateStaffFcmToken,
 } from "../controllers/staffAppControllers.js";
 import {
   listAllInventoryRequests,
@@ -56,6 +57,7 @@ router.get("/my/salary", getStaffSalary);
 router.get("/my/meetings", getStaffMeetings);
 router.get("/my/notifications", getStaffNotifications);
 router.post("/my/notifications/:id/read", markStaffNotificationRead);
+router.post("/my/fcm-token", updateStaffFcmToken);
 router.get("/", listStaff);
 router.post("/", createAccount);
 router.get(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dashboard_screen.dart';
 import 'attendance_screen.dart';
+import 'services_screen.dart';
 import 'leave_screen.dart';
 import 'profile_screen.dart';
 
@@ -20,11 +21,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final screens = [
       DashboardScreen(
         onSwitchToAttendance: () => setState(() => _currentIndex = 1),
-        onSwitchToLeave: () => setState(() => _currentIndex = 2),
+        onSwitchToLeave: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaveScreen()));
+        },
         onSwitchToProfile: () => setState(() => _currentIndex = 3),
       ),
       const AttendanceScreen(showBackButton: false),
-      const LeaveScreen(showBackButton: false),
+      ServicesScreen(
+        onSwitchToAttendance: () => setState(() => _currentIndex = 1),
+      ),
       const ProfileScreen(showBackButton: false),
     ];
 
@@ -60,9 +65,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               label: 'Attendance',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.event_available_outlined),
-              activeIcon: Icon(Icons.event_available_rounded),
-              label: 'Leave',
+              icon: Icon(Icons.grid_view_outlined),
+              activeIcon: Icon(Icons.grid_view_rounded),
+              label: 'Services',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline_rounded),

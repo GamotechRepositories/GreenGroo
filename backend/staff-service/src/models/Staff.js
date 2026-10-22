@@ -47,6 +47,7 @@ const staffSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    fcmTokens: [{ type: String, trim: true }],
     meta: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

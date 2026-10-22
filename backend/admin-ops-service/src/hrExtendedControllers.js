@@ -14,6 +14,7 @@ import {
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
 import CustomRole from "../../staff-service/src/models/CustomRole.js";
+import { sendStaffPushNotification } from "../../staff-service/src/controllers/staffAppControllers.js";
 import { loadScopedHrPeople } from "./opsControllers.js";
 import {
   VENDOR_HR_ROLE_KEYS,
@@ -357,6 +358,14 @@ export async function createHrAnnouncement(req, res, next) {
     });
     if (row.status === "published") {
       notifyDeliveryBoysAnnouncement(row).catch(() => {});
+      sendStaffPushNotification(
+        row.roleKey && row.roleKey !== "all" ? { targetType: "role", targetRole: row.roleKey } : { targetType: "all" },
+        {
+          title: `📢 ${row.title}`,
+          body: row.body || "New company announcement published.",
+          data: { type: "announcement", id: row._id.toString() },
+        }
+      ).catch(() => {});
     }
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
@@ -388,6 +397,14 @@ export async function updateHrAnnouncement(req, res, next) {
     await row.save();
     if (row.status === "published") {
       notifyDeliveryBoysAnnouncement(row).catch(() => {});
+      sendStaffPushNotification(
+        row.roleKey && row.roleKey !== "all" ? { targetType: "role", targetRole: row.roleKey } : { targetType: "all" },
+        {
+          title: `📢 ${row.title}`,
+          body: row.body || "New company announcement published.",
+          data: { type: "announcement", id: row._id.toString() },
+        }
+      ).catch(() => {});
     }
     return ok(res, row);
   } catch (error) {
@@ -593,6 +610,21 @@ export async function updateHrLeave(req, res, next) {
             category: "general",
             sentBy: row.assignedBy || "HR Management",
           });
+
+          sendStaffPushNotification(
+            String(row.employeeId),
+            {
+              title: isRej ? "Leave Request Rejected" : "Leave Request Approved",
+              body: isRej
+                ? `Your ${String(row.leaveType || "leave").toUpperCase()} request (${row.fromDate} to ${row.toDate}) was rejected.`
+                : `Your ${String(row.leaveType || "leave").toUpperCase()} request (${row.fromDate} to ${row.toDate}) was approved!`,
+              data: {
+                type: "leave",
+                leaveId: row._id.toString(),
+                status: req.body.status,
+              },
+            }
+          ).catch((e) => console.error("[StaffPush] Leave push error:", e.message));
         }
       } catch (_) {}
     }
@@ -656,6 +688,20 @@ export async function createHrShift(req, res, next) {
       notes: String(req.body.notes || "").trim(),
       status,
     });
+    if ((!row.employeeType || row.employeeType === "staff") && row.employeeId) {
+      sendStaffPushNotification(
+        String(row.employeeId),
+        {
+          title: "📅 New Shift Assigned",
+          body: `You have been assigned to ${row.shiftName || "a shift"} on ${row.date} (${row.startTime} - ${row.endTime}).`,
+          data: {
+            type: "shift",
+            shiftId: row._id.toString(),
+            date: row.date,
+          },
+        }
+      ).catch((e) => console.error("[StaffPush] Shift push error:", e.message));
+    }
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
     next(error);
@@ -677,6 +723,20 @@ export async function updateHrShift(req, res, next) {
       row.status = status;
     }
     await row.save();
+    if ((!row.employeeType || row.employeeType === "staff") && row.employeeId) {
+      sendStaffPushNotification(
+        String(row.employeeId),
+        {
+          title: "📅 Shift Schedule Updated",
+          body: `Your shift (${row.shiftName || "Shift"}) on ${row.date} is updated to ${row.startTime} - ${row.endTime}.`,
+          data: {
+            type: "shift",
+            shiftId: row._id.toString(),
+            date: row.date,
+          },
+        }
+      ).catch((e) => console.error("[StaffPush] Shift update push error:", e.message));
+    }
     return ok(res, row);
   } catch (error) {
     next(error);
@@ -1360,6 +1420,21 @@ export async function createHrMeeting(req, res, next) {
       createdBy: req.user?._id || req.user?.id || "",
       vendorId: hrOwnerId(req),
     });
+    const isAll = roleList.includes("all") || roleList.length === 0;
+    sendStaffPushNotification(
+      isAll ? { targetType: "all" } : { targetRoles: roleList },
+      {
+        title: "👥 New Meeting Scheduled",
+        body: meeting.note
+          ? `Team meeting scheduled: ${meeting.note}`
+          : "A new team meeting has been scheduled. Check meeting details in app.",
+        data: {
+          type: "meeting",
+          meetingId: meeting._id.toString(),
+          link: meeting.link || "",
+        },
+      }
+    ).catch((e) => console.error("[StaffPush] Meeting push error:", e.message));
     return ok(res, meeting);
   } catch (error) {
     next(error);

@@ -5,6 +5,7 @@ import StaffNotification from "../../staff-service/src/models/StaffNotification.
 import Staff from "../../staff-service/src/models/Staff.js";
 import { HrEmployment } from "./models.js";
 import { ROLE_LABELS, STAFF_ROLES } from "../../staff-service/src/constants/roles.js";
+import { sendStaffPushNotification } from "../../staff-service/src/controllers/staffAppControllers.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -324,6 +325,20 @@ export async function sendCustomStaffNotification(req, res, next) {
       category,
       sentBy: req.user?.name || req.user?.email || "Admin Operations",
     });
+
+    // Dispatch live push notification to matching staff devices
+    sendStaffPushNotification(
+      { targetType, targetRole, targetStaffId },
+      {
+        title,
+        body: message,
+        data: {
+          category,
+          priority,
+          notificationId: notif._id.toString(),
+        },
+      }
+    ).catch((err) => console.error("[StaffPush] Custom notification failed:", err.message));
 
     return ok(res, notif, { message: "Custom notification sent successfully" });
   } catch (error) {

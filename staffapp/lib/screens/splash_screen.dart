@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/app_colors.dart';
 import '../core/session_manager.dart';
+import '../core/push_notification_service.dart';
 import 'login_screen.dart';
 import 'main_navigation_shell.dart';
 
@@ -40,6 +41,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     if (token != null && token.isNotEmpty) {
+      PushNotificationService.instance.syncTokenWithBackend();
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigationShell()),
       );
