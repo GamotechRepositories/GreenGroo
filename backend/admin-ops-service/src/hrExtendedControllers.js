@@ -13,6 +13,7 @@ import {
   HrVendorLeavePolicy,
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
+import CustomRole from "../../staff-service/src/models/CustomRole.js";
 import { loadScopedHrPeople } from "./opsControllers.js";
 import {
   VENDOR_HR_ROLE_KEYS,
@@ -145,6 +146,20 @@ export async function listHrRoles(req, res, next) {
       ...role,
       count: counts[role.value] || 0,
     }));
+
+    if (!isVendorScope(req)) {
+      const customRoles = await CustomRole.find({ isActive: true }).lean().catch(() => []);
+      customRoles.forEach((cr) => {
+        roles.push({
+          value: cr.roleKey,
+          label: cr.displayName,
+          department: cr.department || "Operations",
+          isCustom: true,
+          count: counts[cr.roleKey] || 0,
+        });
+      });
+    }
+
     return ok(res, roles, { stats: { total: people.length } });
   } catch (error) {
     next(error);

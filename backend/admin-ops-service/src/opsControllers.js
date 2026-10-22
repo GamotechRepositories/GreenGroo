@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import Staff from "../../staff-service/src/models/Staff.js";
+import CustomRole from "../../staff-service/src/models/CustomRole.js";
 import { ROLE_LABELS, STAFF_ROLES } from "../../staff-service/src/constants/roles.js";
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
@@ -1519,6 +1520,12 @@ export async function listHrDirectory(req, res, next) {
         ? VENDOR_HR_DIRECTORY_ROLES
         : [
             ...OFFICE_STAFF_ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] || role, employeeType: "staff" })),
+            ...(await CustomRole.find({ isActive: true }).lean().catch(() => [])).map((cr) => ({
+              value: cr.roleKey,
+              label: cr.displayName,
+              employeeType: "staff",
+              isCustom: true,
+            })),
             { value: "pickup_driver", label: "Pickup Driver", employeeType: "pickup_driver" },
             { value: "delivery_manager", label: "Delivery Manager", employeeType: "delivery_manager" },
             { value: "delivery_boy", label: "Delivery Boy", employeeType: "delivery_boy" },
@@ -1660,7 +1667,8 @@ export async function createHrStaff(req, res, next) {
       employeeType = "delivery_boy";
       payload = boy.toSafeJSON ? boy.toSafeJSON() : { id: employeeId, name, phone };
     } else {
-      if (!OFFICE_STAFF_ROLES.includes(role)) return fail(res, 400, "Invalid staff role");
+      const isCustomRole = await CustomRole.exists({ roleKey: role });
+      if (!OFFICE_STAFF_ROLES.includes(role) && !isCustomRole) return fail(res, 400, "Invalid staff role");
       if (!/^\S+@\S+\.\S+$/.test(email)) return fail(res, 400, "Valid email is required");
       const staff = await Staff.create({
         name,
@@ -1677,7 +1685,9 @@ export async function createHrStaff(req, res, next) {
       payload = staff.toSafeJSON();
     }
 
-    await attachEmployment(employeeId, employeeType, name, ROLE_LABELS[role] || role, req.body);
+    const customRoleDoc = await CustomRole.findOne({ roleKey: role }).lean().catch(() => null);
+    const roleTitle = customRoleDoc ? customRoleDoc.displayName : (ROLE_LABELS[role] || role);
+    await attachEmployment(employeeId, employeeType, name, roleTitle, req.body);
     return res.status(201).json({ success: true, data: payload });
   } catch (error) {
     if (error.code === 11000) return fail(res, 409, "Email or phone already registered");

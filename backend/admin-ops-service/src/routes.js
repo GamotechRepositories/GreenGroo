@@ -227,6 +227,18 @@ import {
 } from "./inventoryControllers.js";
 import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
 import { attachVendorHrScope } from "./hrScope.js";
+import {
+  listStaffRoles,
+  createCustomRole,
+  deleteCustomRole,
+  listStaffUsers,
+  createStaffUser,
+  toggleStaffStatus,
+  resetStaffPassword,
+  sendCustomStaffNotification,
+  listStaffNotifications,
+  deleteStaffNotification,
+} from "./staffManagementControllers.js";
 
 const router = express.Router();
 
@@ -396,6 +408,18 @@ router.get("/hr/payroll", listHrPayroll);
 router.post("/hr/payroll/run", runHrPayroll);
 router.put("/hr/payroll/:id", updateHrPayroll);
 router.put("/hr/:id", updateHrStaff);
+
+// Staff Management & Custom Roles & Custom Notifications
+router.get("/staff-management/roles", listStaffRoles);
+router.post("/staff-management/roles", createCustomRole);
+router.delete("/staff-management/roles/:id", deleteCustomRole);
+router.get("/staff-management/staff", listStaffUsers);
+router.post("/staff-management/staff", createStaffUser);
+router.put("/staff-management/staff/:id/status", toggleStaffStatus);
+router.put("/staff-management/staff/:id/password", resetStaffPassword);
+router.post("/staff-management/notifications", sendCustomStaffNotification);
+router.get("/staff-management/notifications", listStaffNotifications);
+router.delete("/staff-management/notifications/:id", deleteStaffNotification);
 
 router.get("/hr/b2b-clients", listB2bClients);
 router.get("/hr/b2b-clients/registered-users", listRegisteredBulkUsers);

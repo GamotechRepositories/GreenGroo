@@ -32,7 +32,6 @@ const staffSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: STAFF_ROLES,
       required: true,
       index: true,
     },

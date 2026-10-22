@@ -34,6 +34,7 @@ import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
 import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
 import VendorCropRequestsPage from './pages/ops/VendorCropRequestsPage';
 import CentreFarmerManagersPage from './pages/ops/CentreFarmerManagersPage';
+import StaffManagementPage from './pages/ops/StaffManagementPage';
 import HrManagement from './pages/ops/HrManagement';
 import HrB2bUsersPage from './pages/hr/HrB2bUsersPage';
 import HrCalendarPage from './pages/hr/HrCalendarPage';
@@ -137,6 +138,7 @@ export default function App() {
               <Route path="vendor-crop-requests" element={<VendorCropRequestsPage />} />
               <Route path="collection-farmers" element={<CentreFarmersPage />} />
               <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />
+              <Route path="staff-management" element={<StaffManagementPage />} />
               <Route path="hr-management" element={<HrManagement />} />
               <Route path="hr-management/b2b-users" element={<HrB2bUsersPage />} />
               <Route path="hr-management/calendar" element={<HrCalendarPage />} />

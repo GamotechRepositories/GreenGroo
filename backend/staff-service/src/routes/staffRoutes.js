@@ -9,6 +9,19 @@ import {
   getVendorBatches,
 } from "../controllers/staffController.js";
 import {
+  getStaffOverview,
+  getStaffFeed,
+  getStaffShifts,
+  getStaffAttendance,
+  punchStaffAttendance,
+  getStaffLeaves,
+  applyStaffLeave,
+  getStaffSalary,
+  getStaffMeetings,
+  getStaffNotifications,
+  markStaffNotificationRead,
+} from "../controllers/staffAppControllers.js";
+import {
   listAllInventoryRequests,
   reviewInventoryRequest,
 } from "../../../delivery-service/src/controllers/inventoryRequestController.js";
@@ -29,6 +42,19 @@ router.post("/login", login);
 router.use(protect);
 
 router.get("/me", me);
+
+// Staff Mobile App Endpoints
+router.get("/my/overview", getStaffOverview);
+router.get("/my/feed", getStaffFeed);
+router.get("/my/shifts", getStaffShifts);
+router.get("/my/attendance", getStaffAttendance);
+router.post("/my/attendance/punch", punchStaffAttendance);
+router.get("/my/leaves", getStaffLeaves);
+router.post("/my/leaves", applyStaffLeave);
+router.get("/my/salary", getStaffSalary);
+router.get("/my/meetings", getStaffMeetings);
+router.get("/my/notifications", getStaffNotifications);
+router.post("/my/notifications/:id/read", markStaffNotificationRead);
 router.get("/", listStaff);
 router.post("/", createAccount);
 router.get(

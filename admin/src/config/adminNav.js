@@ -552,6 +552,19 @@ export const NAV_GROUPS = [
         ],
       },
       {
+        name: 'Staff Management',
+        href: '/staff-management',
+        icon: UserRound,
+        implemented: true,
+        description: 'Staff logins, custom roles, custom notifications, and HR app operations.',
+        capabilities: [
+          'Create staff accounts and custom role logins',
+          'Define custom roles that sync into HR Management',
+          'Send targeted custom notifications to staff members',
+          'Manage mobile staff app operations and access',
+        ],
+      },
+      {
         name: 'HR Management',
         href: '/hr-management',
         icon: Users,
