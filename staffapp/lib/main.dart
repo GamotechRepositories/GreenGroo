@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/app_colors.dart';
+import 'core/notification_navigator.dart';
 import 'core/push_notification_service.dart';
 import 'screens/splash_screen.dart';
 
@@ -16,6 +17,7 @@ class GreenGrooStaffApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'GreenGroo Staff',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

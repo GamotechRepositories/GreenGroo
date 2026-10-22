@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../core/app_colors.dart';
 import '../core/api_client.dart';
+import '../core/notification_navigator.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -57,6 +58,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           } catch (_) {}
         }
 
+        final data = n['data'] is Map ? Map<String, dynamic>.from(n['data']) : <String, dynamic>{};
+        final type = (data['type'] ?? categoryStr).toString().toLowerCase().trim();
+
         final isUrgent = priority == 'urgent' || priority == 'high';
         final isPersonal = categoryStr.toLowerCase() == 'personal' || categoryStr.toLowerCase() == 'staff';
 
@@ -70,19 +74,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         IconData icon = Icons.notifications_none_rounded;
         Color iconBg = const Color(0xFFDBEAFE);
         Color iconColor = const Color(0xFF2563EB);
+        String typeLabel = 'Notice';
 
-        if (isUrgent) {
+        if (type == 'announcement') {
+          icon = Icons.campaign_rounded;
+          iconBg = const Color(0xFFFEF3C7);
+          iconColor = const Color(0xFFD97706);
+          typeLabel = 'Announcement';
+        } else if (type == 'meeting') {
+          icon = Icons.groups_rounded;
+          iconBg = const Color(0xFFEFF6FF);
+          iconColor = const Color(0xFF2563EB);
+          typeLabel = 'Meeting';
+        } else if (type == 'leave') {
+          icon = Icons.event_note_rounded;
+          iconBg = const Color(0xFFDCFCE7);
+          iconColor = const Color(0xFF16A34A);
+          typeLabel = 'Leave';
+        } else if (type == 'shift') {
+          icon = Icons.schedule_rounded;
+          iconBg = const Color(0xFFF3E8FF);
+          iconColor = const Color(0xFF7E22CE);
+          typeLabel = 'Shift';
+        } else if (type == 'salary') {
+          icon = Icons.account_balance_wallet_rounded;
+          iconBg = const Color(0xFFECFDF5);
+          iconColor = const Color(0xFF059669);
+          typeLabel = 'Salary';
+        } else if (type == 'holiday') {
+          icon = Icons.celebration_rounded;
+          iconBg = const Color(0xFFFEE2E2);
+          iconColor = const Color(0xFFDC2626);
+          typeLabel = 'Holiday';
+        } else if (isUrgent) {
           icon = Icons.campaign_rounded;
           iconBg = const Color(0xFFFEE2E2);
           iconColor = const Color(0xFFDC2626);
-        } else if (categoryStr.toLowerCase() == 'leave') {
-          icon = Icons.check_circle_outline_rounded;
-          iconBg = const Color(0xFFDCFCE7);
-          iconColor = const Color(0xFF16A34A);
-        } else if (categoryStr.toLowerCase() == 'salary' || categoryStr.toLowerCase() == 'incentive') {
-          icon = Icons.savings_outlined;
-          iconBg = const Color(0xFFFEF3C7);
-          iconColor = const Color(0xFFD97706);
+          typeLabel = 'Urgent';
         }
 
         mapped.add({
@@ -94,6 +122,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           'iconBg': iconBg,
           'iconColor': iconColor,
           'category': category,
+          'type': type,
+          'typeLabel': typeLabel,
+          'data': data,
           'isRead': isRead,
         });
       }
@@ -120,8 +151,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  void _onNotificationTap(Map<String, dynamic> n) {
+    _markAsRead(n);
+    final type = (n['type'] ?? '').toString().toLowerCase().trim();
+    if (type.isNotEmpty && type != 'general' && type != 'notice') {
+      NotificationNavigator.navigateByType(context, type: type, data: n['data']);
+    } else {
+      _showNotificationDetail(n);
+    }
+  }
+
   void _showNotificationDetail(Map<String, dynamic> n) {
     _markAsRead(n);
+    final type = (n['type'] ?? '').toString().toLowerCase().trim();
+    final hasTargetPage = type.isNotEmpty && type != 'general' && type != 'notice';
 
     showDialog(
       context: context,
@@ -150,11 +193,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ],
         ),
         actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it', style: TextStyle(color: Colors.white)),
+            child: const Text('Close'),
           ),
+          if (hasTargetPage)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () {
+                Navigator.pop(ctx);
+                NotificationNavigator.navigateByType(context, type: type, data: n['data']);
+              },
+              child: Text('Open ${n['typeLabel']}', style: const TextStyle(color: Colors.white)),
+            ),
         ],
       ),
     );
@@ -255,7 +306,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               final n = filtered[index];
 
                               return GestureDetector(
-                                onTap: () => _showNotificationDetail(n),
+                                onTap: () => _onNotificationTap(n),
                                 child: Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
@@ -307,10 +358,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                   ),
                                               ],
                                             ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              n['sender'],
-                                              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: n['iconBg'],
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    n['typeLabel'],
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: n['iconColor'],
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    n['sender'],
+                                                    style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                             const SizedBox(height: 6),
                                             Text(
@@ -320,8 +394,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 14),
                                     ],
                                   ),
                                 ),

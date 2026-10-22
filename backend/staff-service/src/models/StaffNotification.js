@@ -38,9 +38,13 @@ const staffNotificationSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["general", "salary", "meeting", "policy", "shift", "holiday"],
+      enum: ["general", "salary", "meeting", "policy", "shift", "holiday", "announcement", "leave"],
       default: "general",
       index: true,
+    },
+    data: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     readBy: {
       type: [String],

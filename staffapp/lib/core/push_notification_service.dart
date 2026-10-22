@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'api_client.dart';
+import 'notification_navigator.dart';
 import 'session_manager.dart';
 
 @pragma('vm:entry-point')
@@ -50,6 +51,32 @@ class PushNotificationService {
       // Listen for foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('[StaffPush] Foreground notification: ${message.notification?.title}');
+      });
+
+      // Handle notification click when app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('[StaffPush] Notification opened from background: ${message.data}');
+        final type = (message.data['type'] ?? message.data['category'] ?? '').toString();
+        NotificationNavigator.navigateByType(
+          null,
+          type: type,
+          data: message.data,
+        );
+      });
+
+      // Handle notification click when app launched from terminated state
+      messaging.getInitialMessage().then((RemoteMessage? message) {
+        if (message != null) {
+          debugPrint('[StaffPush] App launched via notification: ${message.data}');
+          final type = (message.data['type'] ?? message.data['category'] ?? '').toString();
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            NotificationNavigator.navigateByType(
+              null,
+              type: type,
+              data: message.data,
+            );
+          });
+        }
       });
 
       // Token refresh listener

@@ -517,6 +517,7 @@ export async function getStaffNotifications(req, res, next) {
       message: n.message,
       priority: n.priority,
       category: n.category,
+      data: n.data || {},
       sentBy: n.sentBy,
       createdAt: n.createdAt,
       isRead: (n.readBy || []).includes(staffId),
