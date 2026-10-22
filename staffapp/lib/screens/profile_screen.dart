@@ -16,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic> _staff = {};
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -26,18 +27,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final s = await SessionManager.getStaff();
     if (mounted && s != null) {
-      setState(() => _staff = s);
+      setState(() {
+        _staff = s;
+        _isLoading = false;
+      });
     }
 
-    // Refresh from live backend
     try {
       final res = await ApiClient.get('/api/staff/my/overview');
       if (res != null && res['profile'] != null && mounted) {
         final profile = res['profile'] as Map<String, dynamic>;
-        setState(() => _staff = profile);
+        setState(() {
+          _staff = profile;
+          _isLoading = false;
+        });
         await SessionManager.saveStaff(profile);
       }
     } catch (_) {}
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -45,14 +55,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out of your staff account?'),
+        title: Text('Log Out', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to log out of your staff account?', style: GoogleFonts.inter()),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Log Out', style: TextStyle(color: Colors.white)),
+            child: Text('Log Out', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -68,56 +85,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showInfoSheet(String title, List<Map<String, String>> fields) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...fields.map((f) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(f['label']!, style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
-                      Flexible(
-                        child: Text(
-                          f['value']!,
-                          textAlign: TextAlign.right,
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final rawName = (_staff['name'] ?? '').toString().trim();
-    final name = rawName.isNotEmpty ? rawName : (_staff['email'] ?? 'Staff Member');
-    final staffId = _staff['staffId'] ?? (_staff['id'] != null ? 'GG${_staff['id'].toString().substring(0, 4).toUpperCase()}' : 'GG-STAFF');
-    final role = _staff['roleLabel'] ?? _staff['roleTitle'] ?? (_staff['role'] ?? 'Operations').toString().replaceAll('_', ' ').toUpperCase();
-    final email = (_staff['email'] ?? '—').toString();
-    final phone = (_staff['phone'] ?? '—').toString();
-    final dept = _staff['department'] ?? 'Operations';
+    final name = (_staff['name'] ?? '').toString().trim();
+    final email = (_staff['email'] ?? '').toString().trim();
+    final phone = (_staff['phone'] ?? '').toString().trim();
+    final role = (_staff['roleLabel'] ?? _staff['designation'] ?? _staff['roleTitle'] ?? _staff['role'] ?? '')
+        .toString()
+        .trim();
+    final department = (_staff['department'] ?? '').toString().trim();
+    final joiningDate = (_staff['joiningDate'] ?? '').toString().trim();
+    final isActive = _staff['isActive'] != false;
+
+    final displayName = name.isNotEmpty ? name : (email.isNotEmpty ? email : 'Staff Member');
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
@@ -135,222 +116,299 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontSize: 18,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () {
-              _showInfoSheet('App Configuration', [
-                {'label': 'App Version', 'value': 'v1.0.0 (GreenGroo Staff)'},
-                {'label': 'Push Notifications', 'value': 'Enabled ✓'},
-                {'label': 'Live Attendance GPS', 'value': 'Active during punch ✓'},
-                {'label': 'Sync Status', 'value': 'Connected to Server'},
-              ]);
-            },
-          ),
-        ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadProfile,
-        color: AppColors.primary,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Column(
-            children: [
-              // Profile Card (Matches Screen 12)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : RefreshIndicator(
+              onRefresh: _loadProfile,
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // 1. Staff Header Profile Card
                     Container(
-                      width: 54,
-                      height: 54,
+                      padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFDBEAFE),
-                        border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: Center(
-                        child: Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1A56DB),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            name,
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF0F172A),
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFDBEAFE),
+                              border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+                            ),
+                            child: Center(
+                              child: Text(
+                                initial,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF1A56DB),
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Staff ID: $staffId',
-                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            role,
-                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                if (role.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    role,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF475569),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        isActive ? 'Active Staff' : 'Inactive',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isActive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                                        ),
+                                      ),
+                                    ),
+                                    if (department.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFEFF6FF),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          department,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF1A56DB),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
+
+                    const SizedBox(height: 18),
+
+                    // 2. Personal & Employment Information Card (Only Available Data)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Account Details',
+                            style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (name.isNotEmpty) _buildDetailRow('Full Name', name),
+                          if (role.isNotEmpty) _buildDetailRow('Designation / Role', role),
+                          if (department.isNotEmpty) _buildDetailRow('Department', department),
+                          if (email.isNotEmpty) _buildDetailRow('Email Address', email),
+                          if (phone.isNotEmpty) _buildDetailRow('Phone Number', phone),
+                          if (joiningDate.isNotEmpty) _buildDetailRow('Joining Date', joiningDate),
+                          _buildDetailRow('Account Status', isActive ? 'Active' : 'Inactive'),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 3. Navigation Links (Real destinations)
+                    _buildActionCard(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Salary & Compensation',
+                      subtitle: 'View monthly pay slips, salary breakdown & bank details',
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen()));
+                      },
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    _buildActionCard(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Change Password',
+                      subtitle: 'Request a password reset link to your email',
+                      onTap: () {
+                        if (email.isNotEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Password reset instructions sent to $email'),
+                              backgroundColor: AppColors.primary,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Contact HR admin to reset your password.'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // 4. Logout Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _handleLogout,
+                        icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
+                        label: Text(
+                          'Logout',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFDC2626),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          side: const BorderSide(color: Color(0xFFFCA5A5)),
+                          backgroundColor: const Color(0xFFFEF2F2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
+            ),
+    );
+  }
 
-              const SizedBox(height: 18),
-
-              // Settings Menu List (Matches Screen 12)
-              _buildMenuItem(
-                Icons.person_outline_rounded,
-                'Personal Information',
-                onTap: () {
-                  _showInfoSheet('Personal Information', [
-                    {'label': 'Full Name', 'value': name},
-                    {'label': 'Staff ID', 'value': staffId},
-                    {'label': 'Email', 'value': email},
-                    {'label': 'Phone', 'value': phone},
-                    {'label': 'Designation', 'value': role},
-                    {'label': 'Department', 'value': dept},
-                  ]);
-                },
-              ),
-              _buildMenuItem(
-                Icons.account_balance_outlined,
-                'Bank Details',
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SalaryScreen()));
-                },
-              ),
-              _buildMenuItem(
-                Icons.phone_outlined,
-                'Emergency Contact',
-                onTap: () {
-                  _showInfoSheet('Emergency Support Contacts', [
-                    {'label': 'Registered Phone', 'value': phone.isNotEmpty ? phone : 'Not specified'},
-                    {'label': 'HR Support Hotline', 'value': '+91 80000 12345'},
-                    {'label': 'HR Desk Email', 'value': 'hr@greengroo.in'},
-                    {'label': 'Support Hours', 'value': '9:00 AM - 6:00 PM (Mon-Sat)'},
-                  ]);
-                },
-              ),
-              _buildMenuItem(
-                Icons.description_outlined,
-                'Documents & KYC',
-                onTap: () {
-                  _showInfoSheet('KYC Verification', [
-                    {'label': 'Employee Profile', 'value': 'Verified ✓'},
-                    {'label': 'Mobile Number Verification', 'value': phone.isNotEmpty ? 'Verified ✓ ($phone)' : 'Pending'},
-                    {'label': 'Staff Identity', 'value': 'Active ($staffId)'},
-                    {'label': 'HR Agreement', 'value': 'On Record ✓'},
-                  ]);
-                },
-              ),
-              _buildMenuItem(
-                Icons.lock_outline_rounded,
-                'Change Password',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Password reset link sent to $email'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                },
-              ),
-              _buildMenuItem(
-                Icons.settings_outlined,
-                'App Settings',
-                onTap: () {
-                  _showInfoSheet('App Configuration', [
-                    {'label': 'App Version', 'value': 'v1.0.0 (GreenGroo Staff)'},
-                    {'label': 'Push Notifications', 'value': 'Active ✓'},
-                    {'label': 'Auto Shift Sync', 'value': 'Enabled ✓'},
-                  ]);
-                },
-              ),
-              _buildMenuItem(
-                Icons.help_outline_rounded,
-                'Help & Support',
-                onTap: () {
-                  _showInfoSheet('HR & Operations Help Desk', [
-                    {'label': 'HR Desk', 'value': 'hr@greengroo.in'},
-                    {'label': 'Operations Helpline', 'value': '+91 80000 12345'},
-                    {'label': 'Support Hours', 'value': '9:00 AM - 6:00 PM (Mon-Sat)'},
-                  ]);
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // Logout Button (Soft Red Background & Red Border matching Screen 12)
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _handleLogout,
-                  icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
-                  label: Text(
-                    'Logout',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFFDC2626),
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    backgroundColor: const Color(0xFFFEF2F2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
           ),
-        ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, {required VoidCallback onTap}) {
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
-        child: ListTile(
-          dense: true,
-          leading: Icon(icon, color: const Color(0xFF475569), size: 20),
-          title: Text(
-            title,
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF1E293B)),
-          ),
-          trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 20),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+              ],
+            ),
+          ),
         ),
       ),
     );

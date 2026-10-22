@@ -83,7 +83,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.celebration_rounded, color: Color(0xFF1A56DB), size: 28),
+                const Icon(Icons.celebration_rounded, color: Color(0xFFDC2626), size: 28),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -118,7 +118,14 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
   @override
   Widget build(BuildContext context) {
     final currentYear = DateTime.now().year;
-    final monthName = DateFormat('MMMM yyyy').format(DateTime(currentYear, _monthIndex + 1, 1));
+    final activeMonth = _monthIndex + 1;
+    final monthName = DateFormat('MMMM yyyy').format(DateTime(currentYear, activeMonth, 1));
+
+    // Filter holidays for the active/selected calendar month
+    final currentMonthHolidays = _holidays.where((h) {
+      final hDate = h['dateTime'] as DateTime?;
+      return hDate != null && hDate.year == currentYear && hDate.month == activeMonth;
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
@@ -144,121 +151,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Upcoming Holidays Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Upcoming Holidays',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    '${_holidays.length} Listed',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1A56DB),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Upcoming Holidays List (Dynamically populated from backend)
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_holidays.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'No upcoming holidays published by HR',
-                      style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8)),
-                    ),
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _holidays.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final h = _holidays[index];
-
-                    return GestureDetector(
-                      onTap: () => _showHolidayDetail(h),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.celebration_outlined, color: Color(0xFF1A56DB), size: 22),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    h['name'],
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    h['date'],
-                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                h['daysLeft'],
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF15803D),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-
-              const SizedBox(height: 24),
-
-              // Holiday Calendar Section
+              // 1. Holiday Calendar Section (Top)
               Text(
                 'Holiday Calendar',
                 style: GoogleFonts.outfit(
@@ -305,12 +198,55 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    // Legend: Today, Holiday & Sunday
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF1A56DB),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Today',
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1A56DB)),
+                          ),
+                          const SizedBox(width: 14),
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFFDC2626), width: 1.2),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Holiday',
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            'Sun: Weekend',
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
 
                     // Weekdays
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
+                        final isSun = day == 'Sun';
                         return SizedBox(
                           width: 36,
                           child: Text(
@@ -319,7 +255,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF94A3B8),
+                              color: isSun ? const Color(0xFFDC2626) : const Color(0xFF94A3B8),
                             ),
                           ),
                         );
@@ -333,6 +269,127 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // 2. Upcoming Holidays (Placed Under Holiday Calendar)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Holidays in $monthName',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${currentMonthHolidays.length} Listed',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF1A56DB),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Current Month Holidays List
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (currentMonthHolidays.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No holidays in $monthName',
+                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: currentMonthHolidays.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final h = currentMonthHolidays[index];
+
+                    return GestureDetector(
+                      onTap: () => _showHolidayDetail(h),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.celebration_outlined, color: Color(0xFFDC2626), size: 22),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    h['name'],
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    h['date'],
+                                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                h['daysLeft'],
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF15803D),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               const SizedBox(height: 20),
             ],
           ),
@@ -345,14 +402,19 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
     final firstDay = DateTime(year, month, 1);
     final daysInMonth = DateTime(year, month + 1, 0).day;
     final leadOffset = firstDay.weekday - 1; // Mon = 1 -> offset 0
+    final today = DateTime.now();
 
     final days = <Widget>[];
 
     for (int i = 0; i < leadOffset; i++) {
-      days.add(const SizedBox(width: 36, height: 36));
+      days.add(const SizedBox(width: 36, height: 38));
     }
 
     for (int day = 1; day <= daysInMonth; day++) {
+      final dateObj = DateTime(year, month, day);
+      final isToday = today.year == year && today.month == month && today.day == day;
+      final isSunday = dateObj.weekday == DateTime.sunday;
+
       final matchingHoliday = _holidays.firstWhere(
         (h) {
           final hDate = h['dateTime'] as DateTime?;
@@ -364,6 +426,40 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
       final isHoliday = matchingHoliday.isNotEmpty;
       final isSelected = day == _selectedDay;
 
+      Color bgColor;
+      Border? border;
+      Color textColor;
+      FontWeight fontWeight;
+
+      if (isToday) {
+        // Today is highlighted prominently with primary blue
+        bgColor = const Color(0xFF1A56DB);
+        textColor = Colors.white;
+        fontWeight = FontWeight.bold;
+        border = isHoliday ? Border.all(color: const Color(0xFFDC2626), width: 2) : null;
+      } else if (isHoliday) {
+        // Modern, executive holiday style: soft warm rose tint with refined ruby border & text
+        bgColor = const Color(0xFFFEF2F2);
+        textColor = const Color(0xFFDC2626);
+        fontWeight = FontWeight.bold;
+        border = Border.all(color: const Color(0xFFFCA5A5), width: 1.2);
+      } else if (isSelected) {
+        bgColor = const Color(0xFFEFF6FF);
+        textColor = const Color(0xFF1A56DB);
+        fontWeight = FontWeight.bold;
+        border = Border.all(color: const Color(0xFF93C5FD), width: 1.5);
+      } else if (isSunday) {
+        bgColor = Colors.transparent;
+        textColor = const Color(0xFFEF4444);
+        fontWeight = FontWeight.w600;
+        border = null;
+      } else {
+        bgColor = Colors.transparent;
+        textColor = const Color(0xFF334155);
+        fontWeight = FontWeight.w500;
+        border = null;
+      }
+
       days.add(
         GestureDetector(
           onTap: () {
@@ -374,24 +470,35 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
           },
           child: Container(
             width: 36,
-            height: 36,
+            height: 38,
             decoration: BoxDecoration(
-              color: isHoliday
-                  ? const Color(0xFF1A56DB)
-                  : (isSelected ? const Color(0xFFDBEAFE) : Colors.transparent),
+              color: bgColor,
               shape: BoxShape.circle,
+              border: border,
             ),
-            child: Center(
-              child: Text(
-                '$day',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: (isHoliday || isSelected) ? FontWeight.bold : FontWeight.w500,
-                  color: isHoliday
-                      ? Colors.white
-                      : (isSelected ? const Color(0xFF1A56DB) : const Color(0xFF334155)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$day',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: fontWeight,
+                    color: textColor,
+                    height: 1.0,
+                  ),
                 ),
-              ),
+                if (isHoliday)
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isToday ? Colors.white : const Color(0xFFDC2626),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

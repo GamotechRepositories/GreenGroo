@@ -84,7 +84,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
     String leaveType = 'casual';
     final reasonController = TextEditingController();
     DateTime fromDate = DateTime.now().add(const Duration(days: 1));
-    DateTime toDate = DateTime.now().add(const Duration(days: 2));
+    DateTime toDate = DateTime.now().add(const Duration(days: 1));
     bool isSubmitting = false;
 
     showModalBottomSheet(
@@ -94,126 +94,163 @@ class _LeaveScreenState extends State<LeaveScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Apply for Leave', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: leaveType,
-                decoration: InputDecoration(
-                  labelText: 'Leave Category',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'casual', child: Text('Casual Leave (CL)')),
-                  DropdownMenuItem(value: 'sick', child: Text('Sick Leave (SL)')),
-                  DropdownMenuItem(value: 'earned', child: Text('Earned Leave (EL)')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setSheetState(() => leaveType = val);
-                },
-              ),
-              const SizedBox(height: 14),
+        builder: (ctx, setSheetState) {
+          final durationDays = toDate.difference(fromDate).inDays + 1;
+          final available = leaveType == 'casual'
+              ? _clCount
+              : (leaveType == 'sick' ? _slCount : _elCount);
 
-              // Date Range Picker row
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: fromDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setSheetState(() {
-                            fromDate = picked;
-                            if (toDate.isBefore(fromDate)) toDate = fromDate;
-                          });
-                        }
-                      },
-                      child: Text('From: ${DateFormat('dd MMM').format(fromDate)}', style: GoogleFonts.inter(fontSize: 12)),
-                    ),
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Apply for Leave', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: leaveType,
+                  decoration: InputDecoration(
+                    labelText: 'Leave Category',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: toDate,
-                          firstDate: fromDate,
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setSheetState(() => toDate = picked);
-                        }
-                      },
-                      child: Text('To: ${DateFormat('dd MMM').format(toDate)}', style: GoogleFonts.inter(fontSize: 12)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
+                  items: [
+                    DropdownMenuItem(value: 'casual', child: Text('Casual Leave (CL) - $_clCount left')),
+                    DropdownMenuItem(value: 'sick', child: Text('Sick Leave (SL) - $_slCount left')),
+                    DropdownMenuItem(value: 'earned', child: Text('Earned Leave (EL) - $_elCount left')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setSheetState(() => leaveType = val);
+                  },
+                ),
+                const SizedBox(height: 14),
 
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Reason for leave',
-                  hintText: 'Describe reason for leave request...',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isSubmitting ? const Color(0xFF94A3B8) : const Color(0xFF1A56DB),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: isSubmitting
-                    ? null
-                    : () async {
-                        final reason = reasonController.text.trim();
-                        if (reason.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter a reason for leave')),
+                // Date Range Picker row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: fromDate,
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
                           );
-                          return;
-                        }
+                          if (picked != null) {
+                            setSheetState(() {
+                              fromDate = picked;
+                              if (toDate.isBefore(fromDate)) toDate = fromDate;
+                            });
+                          }
+                        },
+                        child: Text('From: ${DateFormat('dd MMM').format(fromDate)}', style: GoogleFonts.inter(fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: toDate.isBefore(fromDate) ? fromDate : toDate,
+                            firstDate: fromDate,
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (picked != null) {
+                            setSheetState(() => toDate = picked);
+                          }
+                        },
+                        child: Text('To: ${DateFormat('dd MMM').format(toDate)}', style: GoogleFonts.inter(fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
 
-                        // Immediately disable button
-                        setSheetState(() => isSubmitting = true);
+                // Duration Indicator
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Duration to deduct:', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF475569))),
+                      Text(
+                        '$durationDays day${durationDays > 1 ? "s" : ""}',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF1A56DB)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Reason for leave',
+                    hintText: 'Describe reason for leave request...',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isSubmitting ? const Color(0xFF94A3B8) : const Color(0xFF1A56DB),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final reason = reasonController.text.trim();
+                          if (reason.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter a reason for leave')),
+                            );
+                            return;
+                          }
+
+                          if (durationDays > available) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: const Color(0xFFDC2626),
+                                content: Text('Insufficient balance. You only have $available day(s) for ${leaveType.toUpperCase()} leave.'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Immediately disable button
+                          setSheetState(() => isSubmitting = true);
 
                         try {
                           try {
@@ -274,10 +311,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

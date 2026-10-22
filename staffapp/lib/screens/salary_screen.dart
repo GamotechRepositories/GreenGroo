@@ -44,6 +44,8 @@ class _SalaryScreenState extends State<SalaryScreen> {
         final List<Map<String, dynamic>> mapped = [];
         final List<String> monthLabels = [];
 
+        final inrFormatter = NumberFormat('#,##,###');
+
         if (payrolls.isNotEmpty) {
           for (final p in payrolls) {
             final monthStr = p['month'] ?? '';
@@ -56,10 +58,10 @@ class _SalaryScreenState extends State<SalaryScreen> {
             } catch (_) {}
 
             final gross = (p['gross'] as num?)?.toDouble() ?? 0;
-            final deductions = (p['deductions'] as num?)?.toDouble() ?? 0;
-            final net = (p['net'] as num?)?.toDouble() ?? (gross - deductions);
             final tax = (p['tax'] as num?)?.toDouble() ?? 0;
-            final incentives = (p['incentives'] as num?)?.toDouble() ?? 0;
+            final deductions = (p['deductions'] as num?)?.toDouble() ?? 0;
+            final net = (p['net'] as num?)?.toDouble() ?? (gross - tax - deductions);
+            final notes = p['notes']?.toString() ?? '';
 
             String paidOn = 'Disbursed';
             if (p['paidAt'] != null) {
@@ -69,47 +71,39 @@ class _SalaryScreenState extends State<SalaryScreen> {
               } catch (_) {}
             }
 
-            final basic = (gross * 0.65).round();
-            final hra = (gross * 0.20).round();
-            final conveyance = (gross * 0.10).round();
-            final other = (gross - basic - hra - conveyance).clamp(0, double.infinity).round();
-
             monthLabels.add(displayMonth);
             mapped.add({
-              'net': NumberFormat('#,##,###').format(net.round()),
-              'total': NumberFormat('#,##,###').format(gross.round()),
-              'basic': NumberFormat('#,##,###').format(basic),
-              'hra': NumberFormat('#,##,###').format(hra),
-              'conveyance': NumberFormat('#,##,###').format(conveyance),
-              'other': NumberFormat('#,##,###').format(other),
-              'pf': NumberFormat('#,##,###').format((deductions * 0.6).round()),
-              'tds': NumberFormat('#,##,###').format(tax.round()),
-              'deductions': NumberFormat('#,##,###').format(deductions.round()),
-              'incentives': NumberFormat('#,##,###').format(incentives.round()),
+              'grossNum': inrFormatter.format(gross.round()),
+              'taxNum': inrFormatter.format(tax.round()),
+              'deductionsNum': inrFormatter.format(deductions.round()),
+              'netNum': inrFormatter.format(net.round()),
+              'grossRaw': gross,
+              'taxRaw': tax,
+              'deductionsRaw': deductions,
+              'netRaw': net,
+              'notes': notes,
               'paidOn': paidOn,
               'status': p['status'] ?? 'paid',
             });
           }
         } else if (employment != null && (employment['monthlySalary'] as num? ?? 0) > 0) {
           final salary = (employment['monthlySalary'] as num).toDouble();
+          final tax = (employment['salaryTax'] as num?)?.toDouble() ?? 0;
+          final net = (salary - tax).clamp(0, double.infinity);
+          final notes = employment['workNotes']?.toString() ?? '';
           final currentMonthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
-          final basic = (salary * 0.65).round();
-          final hra = (salary * 0.20).round();
-          final conveyance = (salary * 0.10).round();
-          final other = (salary - basic - hra - conveyance).clamp(0, double.infinity).round();
 
           monthLabels.add(currentMonthLabel);
           mapped.add({
-            'net': NumberFormat('#,##,###').format(salary.round()),
-            'total': NumberFormat('#,##,###').format(salary.round()),
-            'basic': NumberFormat('#,##,###').format(basic),
-            'hra': NumberFormat('#,##,###').format(hra),
-            'conveyance': NumberFormat('#,##,###').format(conveyance),
-            'other': NumberFormat('#,##,###').format(other),
-            'pf': '0',
-            'tds': '0',
-            'deductions': '0',
-            'incentives': '0',
+            'grossNum': inrFormatter.format(salary.round()),
+            'taxNum': inrFormatter.format(tax.round()),
+            'deductionsNum': '0',
+            'netNum': inrFormatter.format(net.round()),
+            'grossRaw': salary,
+            'taxRaw': tax,
+            'deductionsRaw': 0.0,
+            'netRaw': net,
+            'notes': notes,
             'paidOn': 'Due on ${employment['salaryDate'] ?? "1st of next month"}',
             'status': 'upcoming',
           });
@@ -207,10 +201,13 @@ class _SalaryScreenState extends State<SalaryScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            _payslipRow('Total Gross Earnings', '₹ ${d['total']}', isBold: true),
-            _payslipRow('Total Deductions', '₹ ${d['deductions']}'),
+            _payslipRow('Monthly Salary', '₹ ${d['grossNum']}', isBold: true),
+            if ((d['taxRaw'] as num) > 0)
+              _payslipRow('Tax Deducted', '- ₹ ${d['taxNum']}'),
+            if ((d['deductionsRaw'] as num) > 0)
+              _payslipRow('Other Deductions', '- ₹ ${d['deductionsNum']}'),
             const Divider(),
-            _payslipRow('Net Salary Disbursed', '₹ ${d['net']}', isBold: true, isHighlight: true),
+            _payslipRow('Final Salary Disbursed', '₹ ${d['netNum']}', isBold: true, isHighlight: true),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -257,7 +254,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
           centerTitle: true,
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
-            'Salary & Incentives',
+            'Salary Details',
             style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
           ),
         ),
@@ -269,6 +266,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
     final d = hasData ? _records[_selectedMonthIndex] : null;
     final bankAccount = _employment?['bankAccount'] ?? 'Not configured';
     final ifsc = _employment?['ifsc'] ?? 'Not configured';
+    final upi = _employment?['upi']?.toString().trim();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
@@ -278,7 +276,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          'Salary & Incentives',
+          'Salary Details',
           style: GoogleFonts.outfit(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -331,10 +329,13 @@ class _SalaryScreenState extends State<SalaryScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Net Pay', style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary)),
+                            Text(
+                              d!['status'] == 'paid' ? 'Final Salary Disbursed' : 'Expected Final Salary',
+                              style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                            ),
                             const SizedBox(height: 4),
                             Text(
-                              '₹ ${d!['net']}',
+                              '₹ ${d['netNum']}',
                               style: GoogleFonts.outfit(
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
@@ -363,7 +364,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
 
                 const SizedBox(height: 16),
 
-                // 2. Salary Breakdown Card
+                // 2. Salary Breakdown Card (Shows only admin-entered fields, nothing more)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -374,34 +375,51 @@ class _SalaryScreenState extends State<SalaryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Salary Breakdown', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Salary Breakdown', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: d['status'] == 'paid' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              d['status'] == 'paid' ? 'Paid' : 'Pending',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: d['status'] == 'paid' ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 14),
 
-                      _buildRow('Basic Pay', d['basic']),
-                      _buildRow('HRA', d['hra']),
-                      _buildRow('Conveyance', d['conveyance']),
-                      _buildRow('Other Allowance', d['other']),
+                      _buildRow('Monthly Salary', d['grossNum']),
+
+                      if ((d['taxRaw'] as num) > 0)
+                        _buildRow('Tax', d['taxNum'], isDeduction: true),
+
+                      if ((d['deductionsRaw'] as num) > 0)
+                        _buildRow('Deductions', d['deductionsNum'], isDeduction: true),
 
                       const SizedBox(height: 8),
                       const Divider(color: Color(0xFFF1F5F9)),
                       const SizedBox(height: 6),
 
-                      _buildRow('Total Earnings', d['total'], isBold: true),
+                      _buildRow('Final Salary', d['netNum'], isBold: true, isNet: true),
 
-                      const SizedBox(height: 12),
-                      Text('Deductions', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
-                      const SizedBox(height: 8),
-
-                      _buildRow('PF', d['pf'], isDeduction: true),
-                      _buildRow('TDS', d['tds'], isDeduction: true),
-                      if (d['deductions'] != '0' && d['deductions'] != '0.00')
-                        _buildRow('Other Deductions', d['deductions'], isDeduction: true),
-
-                      const SizedBox(height: 8),
-                      const Divider(color: Color(0xFFF1F5F9)),
-                      const SizedBox(height: 6),
-
-                      _buildRow('Net Pay', d['net'], isBold: true, isNet: true),
+                      if (d['notes'] != null && d['notes'].toString().trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        const Divider(color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 6),
+                        Text('Remarks / Notes', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(d['notes'].toString().trim(), style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF334155), height: 1.3)),
+                      ],
                     ],
                   ),
                 ),
@@ -419,12 +437,12 @@ class _SalaryScreenState extends State<SalaryScreen> {
                       const Icon(Icons.account_balance_wallet_outlined, size: 54, color: AppColors.textMuted),
                       const SizedBox(height: 14),
                       Text(
-                        'No Payroll Records Yet',
+                        'No Salary Records Yet',
                         style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Salary disbursements and payslips will appear here once processed by HR.',
+                        'Salary details will appear here once entered by admin in HR Management.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
                       ),
@@ -435,7 +453,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
 
               const SizedBox(height: 16),
 
-              // 3. Bank Details Card
+              // 3. Bank & Account Details Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -457,12 +475,14 @@ class _SalaryScreenState extends State<SalaryScreen> {
                           child: const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 20),
                         ),
                         const SizedBox(width: 10),
-                        Text('Bank Details', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text('Bank & Payment Details', style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const SizedBox(height: 14),
                     _buildBankRow('Account No.', bankAccount),
                     _buildBankRow('IFSC', ifsc),
+                    if (upi != null && upi.isNotEmpty && upi != '—')
+                      _buildBankRow('UPI ID', upi),
                     _buildBankRow('Disbursement Day', _employment?['salaryDate'] ?? '1st of every month'),
                   ],
                 ),

@@ -31,7 +31,10 @@ export async function getStaffOverview(req, res, next) {
     if (!staff) return fail(res, 404, "Staff not found");
 
     const roleKey = staff.role;
-    const customRole = await CustomRole.findOne({ roleKey }).lean();
+    const [customRole, employment] = await Promise.all([
+      CustomRole.findOne({ roleKey }).lean(),
+      HrEmployment.findOne({ employeeId: staffId, employeeType: "staff" }).lean(),
+    ]);
     const roleLabel = customRole ? customRole.displayName : (ROLE_LABELS[roleKey] || roleKey.replace(/_/g, " "));
 
     const today = todayYmd();
@@ -84,12 +87,16 @@ export async function getStaffOverview(req, res, next) {
     return ok(res, {
       profile: {
         id: staff._id.toString(),
-        name: staff.name,
-        email: staff.email,
-        phone: staff.phone,
+        name: staff.name || "",
+        email: staff.email || "",
+        phone: staff.phone || "",
         role: roleKey,
         roleLabel,
-        department: customRole?.department || "Operations",
+        department: employment?.department || customRole?.department || "",
+        designation: employment?.designation || roleLabel,
+        joiningDate: employment?.joiningDate || "",
+        isActive: staff.isActive !== false,
+        createdAt: staff.createdAt || null,
         isCustomRole: Boolean(customRole),
       },
       today: {
@@ -442,11 +449,14 @@ export async function getStaffSalary(req, res, next) {
       employment: employment
         ? {
             monthlySalary: employment.monthlySalary || 0,
+            salaryTax: employment.salaryTax || 0,
             salaryDate: employment.salaryDate || "1st of every month",
             department: employment.department || "",
             joiningDate: employment.joiningDate || "",
             bankAccount: employment.bankAccount ? `•••• ${employment.bankAccount.slice(-4)}` : "—",
             ifsc: employment.ifsc || "—",
+            upi: employment.upi || "—",
+            workNotes: employment.workNotes || "",
           }
         : null,
       payrolls: payrolls.map((p) => ({
@@ -456,7 +466,6 @@ export async function getStaffSalary(req, res, next) {
         deductions: p.deductions || 0,
         net: p.net,
         tax: p.tax || 0,
-        incentives: Math.max(0, p.net - (p.gross - (p.deductions || 0))),
         status: p.status,
         paidAt: p.paidAt,
         notes: p.notes,
