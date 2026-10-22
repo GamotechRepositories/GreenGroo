@@ -13,6 +13,9 @@ const DEFAULT_FALLBACK_VALUE = {
   setLocation: () => {},
   hasLocation: false,
   locationKey: deliveryLocationKey(DEFAULT_LOCATION),
+  isLocationModalOpen: false,
+  openLocationModal: () => {},
+  closeLocationModal: () => {},
 };
 
 const LocationContext = createContext(DEFAULT_FALLBACK_VALUE);
@@ -38,10 +41,20 @@ export function locationIsSet(location) {
 
 export function LocationProvider({ children }) {
   const [location, setLocationState] = useState(() => readStoredLocation() || DEFAULT_LOCATION);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  const openLocationModal = useCallback(() => {
+    setIsLocationModalOpen(true);
+  }, []);
+
+  const closeLocationModal = useCallback(() => {
+    setIsLocationModalOpen(false);
+  }, []);
 
   const setLocation = useCallback((next) => {
     setLocationState(next);
     localStorage.setItem(DELIVERY_LOCATION_KEY, JSON.stringify(next));
+    setIsLocationModalOpen(false);
     queryClient.invalidateQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["categories"] });
     queryClient.invalidateQueries({ queryKey: ["sections"] });
@@ -61,8 +74,11 @@ export function LocationProvider({ children }) {
       setLocation,
       hasLocation: locationIsSet(location),
       locationKey: deliveryLocationKey(location),
+      isLocationModalOpen,
+      openLocationModal,
+      closeLocationModal,
     }),
-    [location, setLocation]
+    [location, setLocation, isLocationModalOpen, openLocationModal, closeLocationModal]
   );
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;

@@ -8,7 +8,7 @@ import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
 
 function MobileLayout({ children }) {
   const { pathname } = useRouterLocation();
-  const isHome = pathname === "/";
+  const isHome = pathname === "/" || pathname === "/login" || pathname === "/signup";
   const isProductDetail = /^\/product\/[^/]+/.test(pathname);
   const isShop = pathname === "/product";
   const hideNavs = pathname === "/cart" || pathname === "/checkout";
@@ -31,7 +31,7 @@ function MobileLayout({ children }) {
 
       <main
         className={`mx-auto w-full flex-1 pt-0 ${
-          isHome ? "pb-24 lg:pb-0" : isShop ? "pb-[56px] pt-0 lg:pb-0" : "pb-24 lg:pb-8"
+          isHome ? "pb-0 lg:pb-0" : isShop ? "pb-[56px] pt-0 lg:pb-0" : "pb-24 lg:pb-8"
         }`}
       >
         {children}

@@ -17,7 +17,6 @@ import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
 import FarmTraceabilityBanner from "../components/home/FarmTraceabilityBanner";
-import TrustFeatureBanners from "../components/home/TrustFeatureBanners";
 import PreorderHeroCarousel from "../components/home/PreorderHeroCarousel";
 import Ready2CookHeroCarousel from "../components/home/Ready2CookHeroCarousel";
 import InstantOrderHeroCarousel from "../components/home/InstantOrderHeroCarousel";
@@ -50,7 +49,6 @@ function StoreContent() {
       )}
       <ShopByCategory />
       {store === "main" && <FarmTraceabilityBanner />}
-      <TrustFeatureBanners />
       <HotSelling />
       <JustArrived />
       <MostViewedProducts />
@@ -68,7 +66,10 @@ function StoreContent() {
       <SuggestedForYouSection />
       <TopPaymentOffersSection />
       <HomeAllCategoryProducts limitPerCategory={20} />
-      <WhatMakesUsDifferent />
+      {/* Mobile view of WhatMakesUsDifferent */}
+      <div className="lg:hidden">
+        <WhatMakesUsDifferent />
+      </div>
     </>
   );
 }
@@ -112,6 +113,11 @@ function Home() {
         <div className="hidden space-y-6 lg:block">
           <StoreContent />
         </div>
+      </div>
+
+      {/* Full-width What Makes Us Different for Desktop — edge-to-edge without container side padding */}
+      <div className="hidden lg:block w-full">
+        <WhatMakesUsDifferent />
       </div>
     </div>
   );

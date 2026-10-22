@@ -1,51 +1,93 @@
-import React, { useState, useEffect } from "react";
-import { useLocation as useRouterLocation, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useLocation as useRouterLocation } from "react-router-dom";
 import { useLocation } from "../../context/LocationContext";
-import { useAuth } from "../../context/AuthContext";
-import { getAddresses, getActiveDarkStores } from "../../api/api";
+import { getActiveDarkStores } from "../../api/api";
 import { detectCurrentLocation, formatDeliveryLine } from "../../utils/detectCurrentLocation";
-import { formatAddressLine, getAddressFullName, getAddressTypeTag, sortAddressesByLatest } from "../../utils/addressDisplay";
-import AddressTagBadge from "../address/AddressTagBadge";
-import MapLocationPicker from "../address/MapLocationPicker";
-import { MapPin, Navigation, Compass, Check } from "lucide-react";
+import toast from "react-hot-toast";
+
+// Supported Delivery Cities with their primary coordinates & default delivery hubs
+const SUPPORTED_CITIES = [
+  {
+    name: "Pune",
+    state: "Maharashtra",
+    lat: 18.5958889,
+    lng: 73.7183078,
+    pincode: "411057",
+    area: "Hinjewadi Phase 2",
+    address: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
+    isStoreActive: true,
+    storeTag: "Active Dark Store",
+    areas: ["Hinjewadi", "Wakad", "Baner", "Kothrud", "Aundh", "Viman Nagar", "Magarpatta", "Shivaji Nagar"],
+  },
+  {
+    name: "Mumbai",
+    state: "Maharashtra",
+    lat: 19.076,
+    lng: 72.8777,
+    pincode: "400069",
+    area: "Andheri East",
+    address: "Andheri East, Mumbai, Maharashtra, 400069",
+    isStoreActive: true,
+    storeTag: "Quick Delivery",
+    areas: ["Andheri", "Bandra", "Borivali", "Dadar", "Powai", "Goregaon", "Ghatkopar", "Juhu"],
+  },
+  {
+    name: "Thane",
+    state: "Maharashtra",
+    lat: 19.2183,
+    lng: 72.9781,
+    pincode: "400601",
+    area: "Thane West",
+    address: "Thane West, Maharashtra, 400601",
+    isStoreActive: true,
+    storeTag: "Delivery Available",
+    areas: ["Thane West", "Majiwada", "Ghodbunder Road", "Naupada", "Vartak Nagar"],
+  },
+  {
+    name: "Navi Mumbai",
+    state: "Maharashtra",
+    lat: 19.033,
+    lng: 73.0297,
+    pincode: "400703",
+    area: "Vashi",
+    address: "Vashi, Navi Mumbai, Maharashtra, 400703",
+    isStoreActive: true,
+    storeTag: "Delivery Available",
+    areas: ["Vashi", "Nerul", "Kharghar", "Seawoods", "CBD Belapur", "Kopar Khairane"],
+  },
+  {
+    name: "Nashik",
+    state: "Maharashtra",
+    lat: 19.9975,
+    lng: 73.7898,
+    pincode: "422005",
+    area: "College Road",
+    address: "College Road, Nashik, Maharashtra, 422005",
+    isStoreActive: true,
+    storeTag: "Fresh Farm Hub",
+    areas: ["College Road", "Indira Nagar", "Gangapur Road", "Panchavati", "Mahatma Nagar"],
+  },
+];
 
 export default function MandatoryLocationModal() {
   const routerLocation = useRouterLocation();
-  const navigate = useNavigate();
-  const { location, hasLocation, setLocation } = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const {
+    location,
+    hasLocation,
+    setLocation,
+    isLocationModalOpen,
+    closeLocationModal,
+  } = useLocation();
 
-  const [savedLocations, setSavedLocations] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState("");
-  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [darkStores, setDarkStores] = useState([]);
 
-  // Load saved locations for logged-in user
-  useEffect(() => {
-    let isMounted = true;
-    if (user) {
-      getAddresses()
-        .then((res) => {
-          if (!isMounted) return;
-          const addrs = res.data?.data || res.data || [];
-          const list = sortAddressesByLatest(Array.isArray(addrs) ? addrs : []);
-          setSavedLocations(list);
-          if (list.length > 0) {
-            setSelectedId(list[0]._id || list[0].id);
-          }
-        })
-        .catch(console.error);
-    } else {
-      setSavedLocations([]);
-      setSelectedId("");
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
+  const dropdownRef = useRef(null);
 
+  // Fetch active dark stores from backend to enrich cities
   useEffect(() => {
     let isMounted = true;
     getActiveDarkStores()
@@ -62,303 +104,274 @@ export default function MandatoryLocationModal() {
     };
   }, []);
 
-  const isAuthOrLocationPage = [
+  // Close dropdown when clicked outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowCityDropdown(false);
+      }
+    };
+    if (showCityDropdown) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [showCityDropdown]);
+
+  // Don't show modal on auth pages to avoid overlapping modals
+  const isAuthPage = [
     "/login",
     "/signup",
     "/signin",
     "/register",
-    "/location",
   ].some((path) => routerLocation.pathname.startsWith(path));
 
-  // If user already picked location or auth is still loading or on auth/location route, do not render modal
-  if (hasLocation || authLoading || isAuthOrLocationPage) {
+  // Modal MUST display if user has not selected a location yet, OR if manually opened
+  // Location selection is strictly mandatory - user cannot enter without selecting location!
+  const shouldShow = !isAuthPage && (!hasLocation || isLocationModalOpen);
+
+  if (!shouldShow) {
     return null;
   }
 
-  const applyLocation = (next) => {
+  const applyLocationData = (next) => {
     setLocation({
       label: next.label || next.area || next.city || "Delivery location",
       address: next.address || formatDeliveryLine(next),
       pincode: next.pincode || "",
       city: next.city || "",
-      state: next.state || "",
+      state: next.state || "Maharashtra",
       area: next.area || "",
       lat: next.lat ?? next.latitude,
       lng: next.lng ?? next.longitude,
       shopName: next.shopName || "",
       landmark: next.landmark || "",
-      fullAddress: next.fullAddress || "",
+      fullAddress: next.fullAddress || next.address || "",
     });
+    setShowCityDropdown(false);
+    setError("");
+    closeLocationModal();
   };
 
-  const handleUseCurrentLocation = async () => {
+  // --- 1. Detect my location (GPS Geolocation) ---
+  const handleDetectLocation = async () => {
     setError("");
     setDetecting(true);
     try {
       const detected = await detectCurrentLocation();
-      applyLocation(detected);
+      applyLocationData(detected);
+      toast.success(
+        `Location set: ${detected.city || detected.area || "Current Location"}`
+      );
     } catch (err) {
-      setError(err.message || "Allow location access to check local store inventory");
+      setError(
+        err.message ||
+          "Could not detect location. Please choose your city from 'Select City ▾'."
+      );
     } finally {
       setDetecting(false);
     }
   };
 
-  const handleMapConfirm = (mapLocation) => {
-    setIsMapOpen(false);
-    applyLocation({
-      ...mapLocation,
-      label: mapLocation.label || mapLocation.area || mapLocation.city || "Pinned Location",
-    });
+  // --- 2. Select City Click ---
+  const handleSelectCity = (cityItem) => {
+    // Check if there is an active dark store in this city
+    const matchedStore = darkStores.find(
+      (s) =>
+        s.city?.toLowerCase() === cityItem.name.toLowerCase() ||
+        cityItem.name.toLowerCase().includes(s.city?.toLowerCase() || "")
+    );
+
+    if (matchedStore) {
+      applyLocationData({
+        label: `${cityItem.name} (${matchedStore.area || "Store"})`,
+        city: matchedStore.city || cityItem.name,
+        area: matchedStore.area || cityItem.area,
+        address: matchedStore.address || cityItem.address,
+        pincode: matchedStore.pincode || cityItem.pincode,
+        state: matchedStore.state || cityItem.state,
+        lat: matchedStore.latitude || cityItem.lat,
+        lng: matchedStore.longitude || cityItem.lng,
+        shopName: matchedStore.storeName || "",
+        fullAddress: matchedStore.address || cityItem.address,
+      });
+    } else {
+      applyLocationData({
+        label: cityItem.name,
+        city: cityItem.name,
+        area: cityItem.area,
+        address: cityItem.address,
+        pincode: cityItem.pincode,
+        state: cityItem.state,
+        lat: cityItem.lat,
+        lng: cityItem.lng,
+        shopName: cityItem.storeTag || "",
+        fullAddress: cityItem.address,
+      });
+    }
+
+    toast.success(`Delivery city set to ${cityItem.name}`);
   };
 
-  const handleConfirmSaved = () => {
-    const loc = savedLocations.find((item) => (item._id || item.id) === selectedId);
-    if (loc) {
-      applyLocation({
-        label: loc.label || getAddressFullName(loc),
-        address: loc.fullAddress || formatAddressLine(loc),
-        city: loc.city,
-        area: loc.area || loc.streetArea,
-        pincode: loc.pincode,
-        state: loc.state,
-        lat: loc.location?.lat,
-        lng: loc.location?.lng,
-        shopName: loc.shopName,
-        landmark: loc.landmark,
-        fullAddress: loc.fullAddress,
-      });
+  // Filter cities by search query
+  const filteredCities = SUPPORTED_CITIES.filter((c) =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.areas?.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const handleBackdropClick = (e) => {
+    // Only allow closing via backdrop if user ALREADY has a location set and opened modal manually
+    if (e.target === e.currentTarget && hasLocation && isLocationModalOpen) {
+      closeLocationModal();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-700 via-primary to-emerald-600 px-6 py-5 text-white">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md">
-              <MapPin className="h-5 w-5 text-white" />
-            </span>
-            <div>
-              <h2 className="text-lg font-extrabold tracking-tight">Choose Delivery Location</h2>
-              <p className="text-xs text-white/80">To view instant grocery stock & delivery times</p>
-            </div>
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 transition-all duration-200 select-none"
+      aria-modal="true"
+      role="dialog"
+    >
+      {/* Centered Modal Card matching the screenshot - Cross button removed */}
+      <div 
+        onClick={(e) => e.stopPropagation()} 
+        className="relative w-full max-w-[480px] bg-white rounded-[26px] shadow-[0_20px_60px_rgba(0,0,0,0.25)] border border-gray-100 p-6 sm:p-7 text-left transition-all"
+      >
+        {/* 1. Welcome to GreenGrocc Heading */}
+        <h2 className="text-[19px] sm:text-[21px] font-bold text-gray-800 tracking-tight">
+          Welcome to <span className="text-[#1da851] font-bold">GreenGrocc</span>
+        </h2>
+
+        {/* 2. Location Pin and Message Row */}
+        <div className="mt-4 sm:mt-5 flex items-center gap-3.5 sm:gap-4">
+          {/* Black Location Pin Icon with circle cutout */}
+          <div className="shrink-0">
+            <svg
+              className="w-6 h-8 text-black fill-current"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
           </div>
+
+          <p className="text-[13px] sm:text-[14px] text-gray-600 leading-[1.35] font-medium">
+            Please provide your location to see products available for the location
+          </p>
         </div>
 
-        {/* Content Body */}
-        <div className="overflow-y-auto p-5 sm:p-6 space-y-5">
-          {isMapOpen ? (
-            /* Map Picker Mode */
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900">Pin your location on map</span>
-                <button
-                  type="button"
-                  onClick={() => setIsMapOpen(false)}
-                  className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
-                >
-                  Cancel map
-                </button>
-              </div>
-              <MapLocationPicker
-                initialLocation={location?.lat && location?.lng ? location : null}
-                onConfirm={handleMapConfirm}
-                onCancel={() => setIsMapOpen(false)}
-              />
-            </div>
-          ) : (
-            /* Location Selection Options (Accessible to ALL users, logged in or guest) */
-            <>
-              {error ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
-                  {error}
+        {/* Error notice if location detection fails */}
+        {error && (
+          <div className="mt-3.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs text-rose-700 font-medium">
+            {error}
+          </div>
+        )}
+
+        {/* 3. Action Buttons Row (Detect my location -- OR -- Select City ▾) */}
+        <div className="mt-6 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 relative">
+          {/* Detect my location green pill button */}
+          <button
+            type="button"
+            onClick={handleDetectLocation}
+            disabled={detecting}
+            className="h-11 px-5 sm:px-6 rounded-full bg-[#1ea751] hover:bg-[#189345] active:scale-[0.98] text-white text-[13.5px] font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 whitespace-nowrap"
+          >
+            {detecting ? (
+              <>
+                <svg className="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Detecting...</span>
+              </>
+            ) : (
+              <span>Detect my location</span>
+            )}
+          </button>
+
+          {/* OR divider */}
+          <div className="flex items-center gap-1.5 shrink-0 select-none">
+            <div className="w-3.5 sm:w-5 h-[1px] bg-gray-200" />
+            <span className="h-5.5 px-2 rounded-full border border-gray-200 text-gray-400 text-[10px] font-bold flex items-center justify-center uppercase tracking-wider">
+              OR
+            </span>
+            <div className="w-3.5 sm:w-5 h-[1px] bg-gray-200" />
+          </div>
+
+          {/* Select City ▾ Dropdown Trigger */}
+          <div className="relative shrink-0" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowCityDropdown(!showCityDropdown)}
+              className="text-[13.5px] sm:text-[14px] font-bold text-gray-800 hover:text-[#1ea751] transition-colors flex items-center gap-1 cursor-pointer select-none py-1.5 whitespace-nowrap"
+            >
+              <span>{location?.city && location?.city !== "Select your delivery location" ? location.city : "Select City"}</span>
+              <svg
+                className={`w-3.5 h-3.5 text-gray-600 transition-transform duration-200 ${
+                  showCityDropdown ? "rotate-180 text-[#1ea751]" : ""
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* City Dropdown Menu */}
+            {showCityDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 animate-fadeIn">
+                {/* Search box within dropdown */}
+                <div className="px-2 pt-1 pb-2 border-b border-gray-100 mb-1">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search city or area..."
+                    className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-emerald-600 focus:outline-none"
+                    autoFocus
+                  />
                 </div>
-              ) : null}
 
-              {/* Action Buttons: Current Location & Select on Map */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={detecting}
-                  className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-emerald-50/60 p-4 text-left transition hover:bg-emerald-100/70 disabled:opacity-60 shadow-xs cursor-pointer"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-                    <Navigation className={`h-5 w-5 ${detecting ? "animate-spin" : ""}`} />
-                  </span>
-                  <div className="min-w-0">
-                    <span className="block text-sm font-bold text-slate-900">
-                      {detecting ? "Locating…" : "Current location"}
-                    </span>
-                    <span className="block truncate text-xs text-slate-500">
-                      Auto-detect GPS
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsMapOpen(true)}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-primary/40 hover:bg-white hover:shadow-sm cursor-pointer"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-white shadow-sm">
-                    <Compass className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <span className="block text-sm font-bold text-slate-900">Select on map</span>
-                    <span className="block truncate text-xs text-slate-500">Pin exact address</span>
-                  </div>
-                </button>
-              </div>
-
-              {/* Active Dark Stores / Service Areas */}
-              {darkStores.length > 0 && (
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Or select by Dark Store / Area
-                    </p>
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      {darkStores.length} Stores Available
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {darkStores.map((store) => (
-                      <button
-                        key={store.id || store.storeName}
-                        type="button"
-                        onClick={() => {
-                          applyLocation({
-                            label: store.storeName || `${store.area} Dark Store`,
-                            address: store.address || `${store.area}, ${store.city}`,
-                            area: store.area,
-                            city: store.city,
-                            pincode: store.pincode,
-                            lat: store.latitude,
-                            lng: store.longitude,
-                            fullAddress: store.address || `${store.area}, ${store.city}`,
-                          });
-                        }}
-                        className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 text-left transition hover:border-emerald-500 hover:bg-emerald-50/50 cursor-pointer"
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-base">
-                          🏪
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-900 truncate">
-                            {store.area || store.storeName}
-                          </p>
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {store.storeName} · {store.inStockCount > 0 ? `${store.inStockCount} items in stock` : "Active"}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Fallback if no dark stores found */}
-              {darkStores.length === 0 && (
-                <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Quick Select Area
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      applyLocation({
-                        label: "Pune / Hinjewadi",
-                        address: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
-                        area: "Hinjewadi Phase 2",
-                        city: "Pune",
-                        state: "Maharashtra",
-                        pincode: "411057",
-                        lat: 18.5958889,
-                        lng: 73.7183078,
-                        fullAddress: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
-                      });
-                    }}
-                    className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-500 hover:bg-emerald-50/50 cursor-pointer"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-base">
-                      📍
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-900">Browse Pune / Hinjewadi Area</p>
-                      <p className="text-[10px] text-slate-500">Quickly explore fresh produce & delivery catalog</p>
-                    </div>
-                  </button>
-                </div>
-              )}
-
-              {/* Saved Locations for Logged-in User */}
-              {user && savedLocations.length > 0 ? (
-                <div>
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Or select from saved locations
-                    </p>
-                    <span className="text-[11px] font-medium text-slate-400">
-                      Latest 3 addresses
-                    </span>
-                  </div>
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {savedLocations.slice(0, 3).map((loc, index) => {
-                      const id = loc._id || loc.id;
-                      const isSelected = selectedId === id;
-                      const tag = getAddressTypeTag(loc, index);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setSelectedId(id)}
-                          className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition cursor-pointer ${
-                            isSelected
-                              ? "border-primary bg-emerald-50/60 ring-2 ring-primary/20"
-                              : "border-slate-200 bg-white hover:border-slate-300"
-                          }`}
-                        >
-                          <span
-                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                              isSelected ? "border-primary bg-primary text-white" : "border-slate-300"
-                            }`}
-                          >
-                            {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
+                {/* Cities list */}
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {filteredCities.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => handleSelectCity(c)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-emerald-50/70 transition-colors cursor-pointer group"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400 group-hover:text-emerald-600 text-xs">📍</span>
+                          <span className="text-[13px] font-bold text-gray-800 group-hover:text-emerald-700">
+                            {c.name}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <AddressTagBadge tag={tag} />
-                              <p className="text-sm font-bold text-slate-900">
-                                {getAddressFullName(loc) || loc.label || tag}
-                              </p>
-                            </div>
-                            <p className="mt-0.5 text-xs text-slate-500 truncate">
-                              {formatAddressLine(loc)}
-                            </p>
-                            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                              {[loc.area || loc.streetArea, loc.city, loc.pincode ? `PIN ${loc.pincode}` : ""].filter(Boolean).join(" · ")}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 group-hover:text-emerald-600/80 truncate pl-4">
+                          {c.areas.slice(0, 3).join(", ")}...
+                        </p>
+                      </div>
 
-                  <button
-                    type="button"
-                    onClick={handleConfirmSaved}
-                    disabled={!selectedId}
-                    className="mt-4 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    Confirm & Enter Store
-                  </button>
+                      {c.isStoreActive && (
+                        <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded-full shrink-0">
+                          Active
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  {filteredCities.length === 0 && (
+                    <div className="py-3 text-center text-xs text-gray-400">
+                      No matching city found
+                    </div>
+                  )}
                 </div>
-              ) : null}
-            </>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

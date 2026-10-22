@@ -1,47 +1,35 @@
-import { useState } from "react";
-import { Navigate, useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from "../api/api";
-import AuthSplitLayout, {
-  AuthHeader,
-  AuthSection,
-  AuthField,
-  AuthSubmitButton,
-  AuthFooterLink,
-  AuthError,
-  authInputClass,
-  authPhoneWrapClass,
-} from "../components/auth/AuthSplitLayout";
+import api, { sendOtpLogin, resendOtpLogin } from "../api/api";
+import toast from "react-hot-toast";
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 
-function EyeIcon({ open }) {
-  if (open) {
-    return (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
-
 export default function Login() {
-  const { login, user } = useAuth();
+  const { login, loginWithOtp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // "otp" (default) or "password"
+  const [authMode, setAuthMode] = useState("otp");
+  
+  // OTP flow states
+  const [otpStep, setOtpStep] = useState("phone"); // "phone" | "verify"
   const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+
+  // Password flow states
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // Status & modal states
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  // Blocked account & unblock request states
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [showUnblockModal, setShowUnblockModal] = useState(false);
@@ -51,42 +39,169 @@ export default function Login() {
   const [unblockSuccess, setUnblockSuccess] = useState("");
   const [unblockError, setUnblockError] = useState("");
 
+  const otpInputRef = useRef(null);
+  const timerRef = useRef(null);
   const redirectTo = location.state?.from || "/";
+
+  // Countdown timer for OTP
+  useEffect(() => {
+    if (otpStep === "verify" && timer > 0) {
+      timerRef.current = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [otpStep, timer]);
+
+  // Escape key closes modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleClose = () => {
+    if (location.state?.from && location.state.from !== "/login" && location.state.from !== "/signup") {
+      navigate(location.state.from);
+    } else {
+      navigate("/");
+    }
+  };
 
   if (user) {
     return <Navigate to={redirectTo} replace />;
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  // --- OTP Flow: Send OTP ---
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    const cleanPhone = phone.trim().replace(/\D/g, "").slice(-10);
 
-    if (!PHONE_PATTERN.test(phone.trim())) {
-      setError("Phone must be 10 digits starting with 6, 7, 8, or 9");
+    if (!PHONE_PATTERN.test(cleanPhone)) {
+      setError("Please enter a valid 10-digit mobile number");
       return;
     }
+
+    setSubmitting(true);
+    try {
+      // Uses MSG91 template: GreenGrocc Customer Login OTP (template 3)
+      const res = await sendOtpLogin({ phone: cleanPhone, purpose: "login" });
+      setOtpStep("verify");
+      setTimer(30);
+      setCanResend(false);
+      setOtp("");
+      toast.success(res.data?.message || "OTP sent to your mobile number");
+      setTimeout(() => otpInputRef.current?.focus(), 150);
+    } catch (err) {
+      const respData = err.response?.data;
+      if (respData?.isBlocked) {
+        setIsBlocked(true);
+        setBlockReason(respData?.blockReason || "");
+        setUnblockPhone(cleanPhone);
+      }
+      setError(respData?.message || err.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- OTP Flow: Resend OTP ---
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    setError("");
+    const cleanPhone = phone.trim().replace(/\D/g, "").slice(-10);
+
+    setSubmitting(true);
+    try {
+      const res = await resendOtpLogin({ phone: cleanPhone, purpose: "login" });
+      setTimer(30);
+      setCanResend(false);
+      toast.success(res.data?.message || "New OTP sent successfully");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to resend OTP");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- OTP Flow: Verify OTP & Login ---
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    const cleanPhone = phone.trim().replace(/\D/g, "").slice(-10);
+    const cleanOtp = otp.trim().replace(/\D/g, "");
+
+    if (cleanOtp.length < 4 || cleanOtp.length > 6) {
+      setError("Please enter the 6-digit OTP code");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await loginWithOtp({ phone: cleanPhone, otp: cleanOtp });
+      toast.success("Signed in successfully!");
+      navigate("/location", { replace: true, state: { returnTo: redirectTo } });
+    } catch (err) {
+      setError(err.response?.data?.message || "Invalid OTP code. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- Password Flow: Login ---
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setIsBlocked(false);
+
+    const cleanInput = identifier.trim();
+    if (!cleanInput) {
+      setError("Please enter your email or phone number");
+      return;
+    }
+
+    const isEmail = cleanInput.includes("@");
+    let loginPayload = {};
+
+    if (isEmail) {
+      loginPayload = { email: cleanInput.toLowerCase(), password };
+    } else {
+      const cleanPhone = cleanInput.replace(/\D/g, "").slice(-10);
+      if (!PHONE_PATTERN.test(cleanPhone)) {
+        setError("Please enter a valid 10-digit mobile number or email");
+        return;
+      }
+      loginPayload = { phone: cleanPhone, password };
+    }
+
     if (!password || password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
 
     setSubmitting(true);
-    setError("");
-    setIsBlocked(false);
-
     try {
-      await login({ phone: phone.trim(), password });
+      await login(loginPayload);
+      toast.success("Signed in successfully!");
       navigate("/location", { replace: true, state: { returnTo: redirectTo } });
     } catch (err) {
       const respData = err.response?.data;
-      const blocked = respData?.isBlocked || err.response?.status === 403;
-      if (blocked) {
+      if (respData?.isBlocked) {
         setIsBlocked(true);
         setBlockReason(respData?.blockReason || "");
-        setUnblockPhone(phone.trim());
+        setUnblockPhone(cleanInput.replace(/\D/g, "").slice(-10));
       }
-      setError(
-        respData?.message || err.message || "Sign in failed. Please try again."
-      );
+      setError(respData?.message || err.message || "Sign in failed. Please check credentials.");
     } finally {
       setSubmitting(false);
     }
@@ -114,7 +229,8 @@ export default function Login() {
         reason: unblockReason.trim(),
       });
       setUnblockSuccess(
-        res.data?.message || "Unblock request submitted successfully. Our team will review your account."
+        res.data?.message ||
+          "Unblock request submitted successfully. Our team will review your account."
       );
       setUnblockReason("");
     } catch (err) {
@@ -126,229 +242,423 @@ export default function Login() {
     }
   };
 
+  const handleGoogleClick = () => {
+    toast("Google sign-in will be available soon!", { icon: "ℹ️" });
+  };
+
   return (
-    <>
-      <AuthSplitLayout mode="login">
-        <AuthHeader
-          eyebrow="Welcome back"
-          title="Sign in to GreenGroo"
-          subtitle="Enter your phone number and password to continue."
-        />
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Modal Box: Clean, Responsive Popup (Zero Images, Proper Only Form) */}
+      <div
+        className="relative my-auto w-full max-w-[420px] bg-white rounded-3xl shadow-2xl p-5 sm:p-7 z-[121] max-h-[94vh] overflow-y-auto flex flex-col justify-between animate-in zoom-in-95 duration-200 select-none border border-gray-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button (X) */}
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all cursor-pointer z-30"
+          aria-label="Close Modal"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <AuthSection>
-            <AuthField label="Phone number" htmlFor="login-phone">
-              <div className={authPhoneWrapClass}>
-                <div className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-[13px] font-medium text-gray-600">
-                  +91
-                </div>
-                <input
-                  id="login-phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(event) => {
-                    setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
-                    setError("");
-                    setIsBlocked(false);
-                  }}
-                  placeholder="10-digit mobile number"
-                  maxLength={10}
-                  className="min-w-0 flex-1 bg-white px-3.5 py-2.5 text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
-                  required
-                  autoComplete="tel"
-                />
-              </div>
-            </AuthField>
+        {/* Top Header Section: Logo + Tab Switcher */}
+        <div className="flex flex-col items-center text-center">
+          {/* Brand Logo */}
+          <Link to="/" onClick={handleClose} className="inline-block transition-transform active:scale-98">
+            <img
+              src="/assets/payment/logo.png"
+              alt="GreenGrocc Logo"
+              className="h-10 sm:h-11 w-auto object-contain mx-auto"
+            />
+          </Link>
 
-            <AuthField label="Password" htmlFor="login-password">
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => {
-                    setPassword(event.target.value);
-                    setError("");
-                    setIsBlocked(false);
-                  }}
-                  placeholder="Enter your password"
-                  className={`${authInputClass} pr-10`}
-                  required
-                  minLength={6}
-                  autoComplete="current-password"
-                />
+          {/* Navigation Tab Switcher: Sign In / Sign Up */}
+          <div className="flex items-center justify-center mt-3.5 mb-2 w-full">
+            <div className="inline-flex p-1 rounded-full border border-gray-200 bg-gray-50/90 w-full max-w-[260px]">
+              <Link
+                to="/login"
+                className="flex-1 py-1.5 text-center text-xs font-bold rounded-full bg-[#075e34] text-white shadow-xs transition-all"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/signup"
+                className="flex-1 py-1.5 text-center text-xs font-bold rounded-full text-gray-600 hover:text-gray-900 transition-all"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+
+          {/* Heading */}
+          <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight mt-1">
+            {otpStep === "verify" ? "Verify Mobile OTP" : "Welcome Back!"}
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5 max-w-xs mx-auto leading-relaxed">
+            {otpStep === "verify"
+              ? `Enter 6-digit code sent to +91 ${phone}`
+              : "Sign in to continue your fresh & healthy shopping"}
+          </p>
+
+          {/* Login Mode Toggle: OTP vs Password */}
+          {otpStep === "phone" && (
+            <div className="flex items-center justify-center gap-4 mt-3 pt-1 border-t border-gray-100 w-full text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("otp");
+                  setError("");
+                }}
+                className={`pb-1 font-bold transition-all cursor-pointer border-b-2 ${
+                  authMode === "otp"
+                    ? "border-[#075e34] text-[#075e34]"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                📱 Login with OTP
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode("password");
+                  setError("");
+                }}
+                className={`pb-1 font-bold transition-all cursor-pointer border-b-2 ${
+                  authMode === "password"
+                    ? "border-[#075e34] text-[#075e34]"
+                    : "border-transparent text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                🔒 Password Login
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Center Form Section (Proper Only Form, Zero Images) */}
+        <div className="my-auto py-2.5 w-full">
+          {error && (
+            <div className="mb-3 p-2.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium">
+              {error}
+              {isBlocked && (
                 <button
                   type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowUnblockModal(true)}
+                  className="block mt-1.5 text-xs font-bold text-red-700 underline cursor-pointer"
                 >
-                  <EyeIcon open={showPassword} />
+                  Request Account Review
                 </button>
-              </div>
-            </AuthField>
-          </AuthSection>
-
-          {isBlocked && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-4 text-xs text-rose-800 shadow-sm space-y-2">
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-rose-100 p-1 text-rose-600 mt-0.5 shrink-0">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-rose-900 text-sm">Account Deactivated / Blocked</p>
-                  <p className="mt-0.5 text-rose-700">
-                    Your account has been blocked or deactivated by administration.
-                    {blockReason ? ` (Reason: ${blockReason})` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowUnblockModal(true);
-                    setUnblockPhone(phone.trim());
-                    setUnblockError("");
-                    setUnblockSuccess("");
-                  }}
-                  className="w-full inline-flex items-center justify-center rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-sm"
-                >
-                  Request to Unblock Account
-                </button>
-              </div>
+              )}
             </div>
           )}
 
-          {!isBlocked && <AuthError message={error} />}
-          <AuthSubmitButton submitting={submitting}>Sign in</AuthSubmitButton>
-        </form>
+          {/* Flow 1: Login with OTP */}
+          {authMode === "otp" ? (
+            otpStep === "phone" ? (
+              // Step 1: Mobile Number Input
+              <form onSubmit={handleSendOtp} className="space-y-3">
+                <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                  <span className="text-[13.5px] font-bold text-gray-600 mr-2 border-r border-gray-200 pr-2">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                      setError("");
+                    }}
+                    placeholder="Enter 10-digit mobile number"
+                    maxLength={10}
+                    className="w-full bg-transparent text-[14px] text-gray-900 placeholder:text-gray-400 focus:outline-none font-medium"
+                    autoComplete="tel"
+                    required
+                    autoFocus
+                  />
+                </div>
 
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setShowUnblockModal(true);
-              setUnblockPhone(phone.trim() || unblockPhone);
-              setUnblockError("");
-              setUnblockSuccess("");
-            }}
-            className="text-xs font-medium text-slate-500 hover:text-emerald-700 underline underline-offset-2 transition"
-          >
-            Account blocked? Request to unblock
-          </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full h-11 bg-[#075e34] hover:bg-[#064e2b] active:scale-[0.98] text-white font-bold text-[14.5px] rounded-full flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                >
+                  <span>{submitting ? "Sending OTP..." : "Get OTP"}</span>
+                  {!submitting && (
+                    <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  )}
+                </button>
+              </form>
+            ) : (
+              // Step 2: OTP Verification Screen
+              <form onSubmit={handleVerifyOtp} className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-gray-500 pb-0.5">
+                  <span>Mobile: <strong className="text-gray-900">+91 {phone}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpStep("phone");
+                      setError("");
+                    }}
+                    className="font-bold text-[#075e34] hover:underline cursor-pointer"
+                  >
+                    Edit Number
+                  </button>
+                </div>
+
+                <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                  <svg className="w-5 h-5 text-gray-400 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  <input
+                    ref={otpInputRef}
+                    type="text"
+                    value={otp}
+                    onChange={(e) => {
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
+                      setError("");
+                    }}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                    className="w-full bg-transparent text-[16px] tracking-widest text-gray-900 placeholder:text-gray-400 placeholder:tracking-normal focus:outline-none font-bold"
+                    autoComplete="one-time-code"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-0.5">
+                  {timer > 0 ? (
+                    <span>Resend OTP in <strong className="text-gray-800">{timer}s</strong></span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={submitting}
+                      className="font-bold text-[#075e34] hover:underline cursor-pointer"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting || otp.length < 4}
+                  className="w-full h-11 bg-[#075e34] hover:bg-[#064e2b] active:scale-[0.98] text-white font-bold text-[14.5px] rounded-full flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                >
+                  <span>{submitting ? "Verifying..." : "Verify & Sign In"}</span>
+                  {!submitting && (
+                    <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  )}
+                </button>
+              </form>
+            )
+          ) : (
+            // Flow 2: Password Login
+            <form onSubmit={handlePasswordSubmit} className="space-y-3">
+              {/* Email / Mobile Field */}
+              <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                <svg className="w-4.5 h-4.5 text-gray-400 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => {
+                    setIdentifier(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Email Address or Mobile"
+                  className="w-full bg-transparent text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+
+              {/* Password Field */}
+              <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+                <svg className="w-4.5 h-4.5 text-gray-400 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Password"
+                  className="w-full bg-transparent text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none pr-2"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer flex-shrink-0"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {/* Remember me & Forgot Password */}
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex items-center gap-2 text-[12px] text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-600 border-gray-300 cursor-pointer"
+                  />
+                  <span>Remember me</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowUnblockModal(true)}
+                  className="text-[12px] font-bold text-[#075e34] hover:underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full h-11 bg-[#075e34] hover:bg-[#064e2b] active:scale-[0.98] text-white font-bold text-[14.5px] rounded-full flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+              >
+                <span>{submitting ? "Signing in..." : "Sign In with Password"}</span>
+                {!submitting && (
+                  <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                )}
+              </button>
+            </form>
+          )}
         </div>
 
-        <AuthFooterLink
-          prompt="Don't have an account?"
-          to="/signup"
-          label="Create account"
-          state={location.state}
-        />
-      </AuthSplitLayout>
+        {/* Bottom Social (Google Only, Apple Removed!) & Footer Section */}
+        <div className="w-full pt-1 pb-0.5">
+          <div className="flex items-center gap-3 mb-2.5">
+            <div className="h-[1px] flex-1 bg-gray-200" />
+            <span className="text-[11px] font-bold text-gray-400 tracking-wider">OR</span>
+            <div className="h-[1px] flex-1 bg-gray-200" />
+          </div>
 
-      {/* Unblock Request Modal */}
+          {/* Social: Google Only (Apple Removed as Requested) */}
+          <button
+            type="button"
+            onClick={handleGoogleClick}
+            className="w-full h-10.5 rounded-full border border-gray-200 hover:bg-gray-50 active:scale-[0.98] flex items-center justify-center gap-2.5 text-[13px] font-semibold text-gray-800 transition-all cursor-pointer bg-white"
+          >
+            <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          {/* Footer Link */}
+          <div className="text-center pt-3 pb-0.5 text-[12.5px] text-gray-500">
+            Don't have an account?{" "}
+            <Link to="/signup" className="font-bold text-[#075e34] hover:underline">
+              Sign Up
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Forgot Password / Unblock Modal */}
       {showUnblockModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-gray-100">
-            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Request Account Unblock</h3>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  Submit an appeal to the administration team to review and reactivate your account.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowUnblockModal(false)}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900">Account Recovery</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Enter your registered mobile number and reason. Our support team will assist you.
+            </p>
             {unblockSuccess ? (
-              <div className="py-6 text-center space-y-3">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h4 className="text-base font-bold text-gray-900">Request Submitted</h4>
-                <p className="text-xs text-gray-600 leading-relaxed px-4">
-                  {unblockSuccess}
-                </p>
+              <div className="mt-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-medium">
+                {unblockSuccess}
                 <button
                   type="button"
                   onClick={() => setShowUnblockModal(false)}
-                  className="mt-2 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition"
+                  className="mt-3 block w-full rounded-full bg-[#075e34] py-2 text-white font-bold cursor-pointer"
                 >
                   Close
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleUnblockSubmit} className="mt-4 space-y-4">
+              <form onSubmit={handleUnblockSubmit} className="mt-4 space-y-3">
                 {unblockError && (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
-                    {unblockError}
-                  </div>
+                  <p className="p-2.5 rounded-lg bg-red-50 text-red-600 text-xs">{unblockError}</p>
                 )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Registered Mobile Number
-                  </label>
-                  <div className={authPhoneWrapClass}>
-                    <div className="flex items-center border-r border-gray-200 bg-gray-50 px-3 text-[13px] font-medium text-gray-600">
-                      +91
-                    </div>
-                    <input
-                      type="tel"
-                      value={unblockPhone}
-                      onChange={(e) => setUnblockPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                      placeholder="10-digit number"
-                      maxLength={10}
-                      className="min-w-0 flex-1 bg-white px-3.5 py-2 text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Reason / Explanation for Unblock
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={unblockReason}
-                    onChange={(e) => setUnblockReason(e.target.value)}
-                    placeholder="Describe why your account was deactivated or why it should be restored..."
-                    className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none resize-none"
-                    required
-                  />
-                  <p className="mt-1 text-[11px] text-gray-400">
-                    Provide relevant details to help administrators verify your account quickly.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <input
+                  type="tel"
+                  value={unblockPhone}
+                  onChange={(e) => setUnblockPhone(e.target.value)}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm"
+                  required
+                />
+                <textarea
+                  value={unblockReason}
+                  onChange={(e) => setUnblockReason(e.target.value)}
+                  placeholder="Tell us what you need help with..."
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm"
+                  required
+                />
+                <div className="flex gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowUnblockModal(false)}
-                    className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition"
+                    className="flex-1 rounded-full border border-gray-200 py-2.5 text-xs font-bold text-gray-600 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={unblockSubmitting}
-                    className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition disabled:opacity-60"
+                    className="flex-1 rounded-full bg-[#075e34] py-2.5 text-xs font-bold text-white disabled:opacity-60 cursor-pointer"
                   >
-                    {unblockSubmitting ? "Submitting..." : "Send Request"}
+                    {unblockSubmitting ? "Submitting..." : "Submit Request"}
                   </button>
                 </div>
               </form>
@@ -356,6 +666,6 @@ export default function Login() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

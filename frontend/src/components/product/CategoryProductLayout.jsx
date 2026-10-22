@@ -464,8 +464,8 @@ function CategoryProductMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-2 py-2 lg:px-3 lg:py-3 pb-24">
-        <div className="mb-3">
+      <div className="px-2 pt-1 pb-24 lg:px-3 lg:pt-1">
+        <div className="mb-2">
           <ShopTopSlidingBanners />
           <CategoryHeaderSection
             category={activeCategoryDoc}
@@ -509,8 +509,8 @@ function AllProductsMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-2 py-3 lg:px-3 lg:py-4 pb-24">
-        <div className="mb-3">
+      <div className="px-2 pt-1 pb-24 lg:px-3 lg:pt-1">
+        <div className="mb-2">
           <ShopTopSlidingBanners />
         </div>
         <ProductResultsGrid
@@ -545,8 +545,8 @@ function ProductPageTwoBoxLayout({ categories, activeCategory, children }) {
       <div
         className="sticky z-30 overflow-hidden rounded-br-2xl border-r border-gray-100 bg-white transition-[top,height] duration-300 ease-out"
         style={{
-          top: "var(--gg-nav-offset, 96px)",
-          height: "calc(100vh - var(--gg-nav-offset, 96px))",
+          top: "var(--gg-nav-offset, 56px)",
+          height: "calc(100vh - var(--gg-nav-offset, 56px))",
         }}
       >
         <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />

@@ -62,8 +62,24 @@ import {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+      <Route
+        path="/login"
+        element={
+          <MobileLayout>
+            <Home />
+            <Login />
+          </MobileLayout>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <MobileLayout>
+            <Home />
+            <Signup />
+          </MobileLayout>
+        }
+      />
       <Route path="/signin" element={<Navigate to="/login" replace />} />
       <Route path="/register" element={<Navigate to="/signup" replace />} />
 

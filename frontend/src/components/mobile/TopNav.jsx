@@ -67,7 +67,7 @@ const upperProfileBtnClass =
 function TopNav() {
   const { user, openAuthModal } = useAuth();
   const { cartCount } = useCart();
-  const { location, hasLocation } = useDeliveryLocation();
+  const { location, hasLocation, openLocationModal } = useDeliveryLocation();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -108,11 +108,11 @@ function TopNav() {
 
   const cartLabel = `My Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`;
   const compactChrome = chromeHidden && scrolled;
-  const lowerHeight = compactChrome
-    ? showNavCategories
+  const lowerHeight = showNavCategories
+    ? compactChrome
       ? CATEGORY_TAB_H
-      : 0
-    : MAIN_BAR_H;
+      : MAIN_BAR_H
+    : 0;
   const navOffset = UPPER_BAR_H + lowerHeight;
 
   useEffect(() => {
@@ -153,8 +153,9 @@ function TopNav() {
               <div className="h-6 w-px bg-gray-200" aria-hidden="true" />
 
               {/* User Address next to Logo: "Delivery Address" on line 1, selected address on line 2 */}
-              <Link
-                to="/location"
+              <button
+                type="button"
+                onClick={openLocationModal}
                 className="group flex flex-col justify-center max-w-[190px] xl:max-w-[260px] text-left transition-colors cursor-pointer select-none"
                 title={`Delivery location: ${addressLine}`}
               >
@@ -175,7 +176,7 @@ function TopNav() {
                 <p className="truncate text-[11px] xl:text-[12px] text-gray-500 font-medium mt-0.5 leading-tight group-hover:text-gray-700 transition-colors">
                   {addressLine}
                 </p>
-              </Link>
+              </button>
             </div>
 
             {/* Exact Center: PreOrder, Ready2Cook, InstantOrder */}
@@ -303,8 +304,8 @@ function TopNav() {
         </div>
       </div>
 
-      {/* Spacer always reserves full chrome height so content doesn't jump */}
-      <div style={{ height: UPPER_BAR_H + MAIN_BAR_H }} aria-hidden="true" />
+      {/* Spacer reserves the actual chrome height */}
+      <div style={{ height: showNavCategories ? UPPER_BAR_H + MAIN_BAR_H : UPPER_BAR_H }} aria-hidden="true" />
     </header>
   );
 }

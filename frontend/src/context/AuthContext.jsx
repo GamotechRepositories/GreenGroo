@@ -1,6 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { loginWithPhone, signupUser, updateMe } from "../api/api";
+import api, {
+  loginWithPhone,
+  signupUser,
+  updateMe,
+  sendOtpLogin,
+  resendOtpLogin,
+  verifyOtpLogin,
+  completeOtpSignup,
+} from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
 import { reconnectRealtime } from "../realtime/liveClient";
 
@@ -112,10 +120,24 @@ export function AuthProvider({ children }) {
     persistCustomerAuth(authUser, authToken);
   };
 
-  const login = async ({ phone, password }) => {
-    const res = await loginWithPhone({ phone, password });
+  const login = async ({ phone, password, email }) => {
+    let res;
+    if (email) {
+      res = await api.post("/api/users/login", { email, password });
+    } else {
+      res = await loginWithPhone({ phone, password });
+    }
     const { user: authUser, token: authToken } = res.data.data;
     persistAuthSession(authUser, authToken);
+    return res.data;
+  };
+
+  const loginWithOtp = async ({ phone, otp }) => {
+    const res = await verifyOtpLogin({ phone, otp });
+    const payload = res.data?.data;
+    if (payload?.token && payload?.user) {
+      persistAuthSession(payload.user, payload.token);
+    }
     return res.data;
   };
 
@@ -123,6 +145,15 @@ export function AuthProvider({ children }) {
     const res = await signupUser(payload);
     const { user: authUser, token: authToken } = res.data.data;
     persistAuthSession(authUser, authToken);
+    return res.data;
+  };
+
+  const signupWithOtp = async ({ phone, name, email, password, accountType = "retail" }) => {
+    const res = await completeOtpSignup({ phone, name, email, password, accountType });
+    const payload = res.data?.data;
+    if (payload?.token && payload?.user) {
+      persistAuthSession(payload.user, payload.token);
+    }
     return res.data;
   };
 
@@ -144,7 +175,9 @@ export function AuthProvider({ children }) {
         token,
         loading,
         login,
+        loginWithOtp,
         signup,
+        signupWithOtp,
         logout,
         updateProfile,
         authModal: null,

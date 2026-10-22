@@ -4,13 +4,17 @@ import { useNearestStore } from "../../hooks/useNearestStore";
 import { formatDeliveryLine } from "../../utils/detectCurrentLocation";
 
 function HomeDeliveryHeader() {
-  const { location, hasLocation } = useLocation();
+  const { location, hasLocation, openLocationModal } = useLocation();
   const { data: nearest } = useNearestStore();
   const storeName = nearest?.store?.storeName;
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-      <Link to="/location" className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={openLocationModal}
+        className="min-w-0 flex-1 text-left cursor-pointer"
+      >
         <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
           Deliver to
         </p>
@@ -30,7 +34,7 @@ function HomeDeliveryHeader() {
                 .join(" · ")
             : "Use current location to see this store’s inventory"}
         </p>
-      </Link>
+      </button>
 
       <Link
         to="/profile"
