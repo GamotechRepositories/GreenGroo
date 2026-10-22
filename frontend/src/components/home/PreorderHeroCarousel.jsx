@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
-export const PREORDER_BANNERS = [
+const PREORDER_BANNERS = [
   {
     id: "banner-1",
     desktopImage: "/assets/payment/heroBaner.png",
@@ -21,39 +20,28 @@ export const PREORDER_BANNERS = [
 
 export default function PreorderHeroCarousel({ isMobile = false }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
-  // Auto rotate banners every 4.5s when playing and not hovered
+  // Auto rotate banners every 4.5s when not hovered
   useEffect(() => {
-    if (!isPlaying || isHovered) return undefined;
+    if (isHovered) return undefined;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % PREORDER_BANNERS.length);
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isHovered]);
+  }, [isHovered]);
 
-  const handlePrev = (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
+  const handlePrev = () => {
     setCurrentIndex(
       (prev) => (prev - 1 + PREORDER_BANNERS.length) % PREORDER_BANNERS.length
     );
   };
 
-  const handleNext = (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
+  const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % PREORDER_BANNERS.length);
-  };
-
-  const togglePlayPause = (e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    setIsPlaying((prev) => !prev);
   };
 
   // Touch Swipe Handlers for mobile
@@ -112,57 +100,8 @@ export default function PreorderHeroCarousel({ isMobile = false }) {
         })}
       </div>
 
-      {/* Bottom Left Navigation Bar: Pause/Play + Prev/Next Controls */}
-      <div className="absolute bottom-2.5 left-3 sm:bottom-4 sm:left-6 lg:left-8 z-20 flex items-center">
-        <div className="flex items-center gap-1 rounded-full bg-black/55 backdrop-blur-md px-2 py-1 text-white shadow-lg border border-white/20 transition-all hover:bg-black/70">
-          {/* Pause / Play Button */}
-          <button
-            type="button"
-            onClick={togglePlayPause}
-            aria-label={isPlaying ? "Pause auto slide" : "Play auto slide"}
-            title={isPlaying ? "Pause" : "Play"}
-            className="flex h-6 w-6 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
-          >
-            {isPlaying ? (
-              <Pause className="h-3 w-3 fill-current" />
-            ) : (
-              <Play className="h-3 w-3 fill-current ml-0.5" />
-            )}
-          </button>
-
-          <div className="h-3.5 w-px bg-white/25 mx-0.5" aria-hidden="true" />
-
-          {/* Left Arrow (Prev) */}
-          <button
-            type="button"
-            onClick={handlePrev}
-            aria-label="Previous slide"
-            title="Previous"
-            className="flex h-6 w-6 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
-          >
-            <ChevronLeft className="h-3.5 w-3.5 stroke-[2.5]" />
-          </button>
-
-          {/* Slide Counter */}
-          <span className="text-[10.5px] sm:text-[11px] font-bold text-white/95 tabular-nums px-1 select-none">
-            {currentIndex + 1}/{PREORDER_BANNERS.length}
-          </span>
-
-          {/* Right Arrow (Next) */}
-          <button
-            type="button"
-            onClick={handleNext}
-            aria-label="Next slide"
-            title="Next"
-            className="flex h-6 w-6 items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
-          >
-            <ChevronRight className="h-3.5 w-3.5 stroke-[2.5]" />
-          </button>
-        </div>
-      </div>
-
-      {/* Pagination Indicators (Right / Center) */}
-      <div className="absolute bottom-2.5 sm:bottom-4 right-3 sm:right-6 lg:right-8 flex items-center gap-1.5 z-10">
+      {/* Pagination Indicators (Bottom Center) */}
+      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
         {PREORDER_BANNERS.map((_, idx) => (
           <button
             key={idx}
