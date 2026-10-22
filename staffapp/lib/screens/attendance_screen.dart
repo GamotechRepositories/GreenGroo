@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../core/api_client.dart';
+import '../core/user_friendly_error.dart';
 import 'shift_roster_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -102,7 +103,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Punch failed: $e')),
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text(UserFriendlyError.toHumanMessage(e, defaultMessage: 'Unable to record attendance. Please try again.')),
+          ),
         );
       }
     } finally {

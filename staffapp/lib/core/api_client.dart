@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'session_manager.dart';
+import 'user_friendly_error.dart';
 
 class ApiClient {
   static const String defaultBaseUrl = 'https://api.greengrocc.com';
@@ -32,12 +33,16 @@ class ApiClient {
   }
 
   static Future<dynamic> get(String endpoint, {bool needsAuth = true}) async {
-    final base = await getBaseUrl();
-    final url = Uri.parse('$base$endpoint');
-    final headers = await _headers(needsAuth: needsAuth);
+    try {
+      final base = await getBaseUrl();
+      final url = Uri.parse('$base$endpoint');
+      final headers = await _headers(needsAuth: needsAuth);
 
-    final res = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
-    return _handleResponse(res);
+      final res = await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
+      return _handleResponse(res);
+    } catch (e) {
+      throw Exception(UserFriendlyError.toHumanMessage(e));
+    }
   }
 
   static Future<dynamic> post(
@@ -45,38 +50,50 @@ class ApiClient {
     dynamic bodyOrOptions,
     dynamic maybeOptions,
   ]) async {
-    final base = await getBaseUrl();
-    final url = Uri.parse('$base$endpoint');
+    try {
+      final base = await getBaseUrl();
+      final url = Uri.parse('$base$endpoint');
 
-    Map<String, dynamic> body = {};
-    bool needsAuth = true;
+      Map<String, dynamic> body = {};
+      bool needsAuth = true;
 
-    if (bodyOrOptions is Map<String, dynamic>) {
-      body = bodyOrOptions;
-      if (maybeOptions is bool) needsAuth = maybeOptions;
+      if (bodyOrOptions is Map<String, dynamic>) {
+        body = bodyOrOptions;
+        if (maybeOptions is bool) needsAuth = maybeOptions;
+      }
+
+      final headers = await _headers(needsAuth: needsAuth);
+      final res = await http.post(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
+      return _handleResponse(res);
+    } catch (e) {
+      throw Exception(UserFriendlyError.toHumanMessage(e));
     }
-
-    final headers = await _headers(needsAuth: needsAuth);
-    final res = await http.post(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
-    return _handleResponse(res);
   }
 
   static Future<dynamic> put(String endpoint, Map<String, dynamic> body, {bool needsAuth = true}) async {
-    final base = await getBaseUrl();
-    final url = Uri.parse('$base$endpoint');
-    final headers = await _headers(needsAuth: needsAuth);
+    try {
+      final base = await getBaseUrl();
+      final url = Uri.parse('$base$endpoint');
+      final headers = await _headers(needsAuth: needsAuth);
 
-    final res = await http.put(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
-    return _handleResponse(res);
+      final res = await http.put(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
+      return _handleResponse(res);
+    } catch (e) {
+      throw Exception(UserFriendlyError.toHumanMessage(e));
+    }
   }
 
   static Future<dynamic> delete(String endpoint, {bool needsAuth = true}) async {
-    final base = await getBaseUrl();
-    final url = Uri.parse('$base$endpoint');
-    final headers = await _headers(needsAuth: needsAuth);
+    try {
+      final base = await getBaseUrl();
+      final url = Uri.parse('$base$endpoint');
+      final headers = await _headers(needsAuth: needsAuth);
 
-    final res = await http.delete(url, headers: headers).timeout(const Duration(seconds: 15));
-    return _handleResponse(res);
+      final res = await http.delete(url, headers: headers).timeout(const Duration(seconds: 15));
+      return _handleResponse(res);
+    } catch (e) {
+      throw Exception(UserFriendlyError.toHumanMessage(e));
+    }
   }
 
   static dynamic _handleResponse(http.Response res) {
@@ -94,9 +111,9 @@ class ApiClient {
       return jsonBody;
     }
 
-    final message = jsonBody is Map<String, dynamic> && jsonBody['message'] != null
+    final rawMessage = jsonBody is Map<String, dynamic> && jsonBody['message'] != null
         ? jsonBody['message'].toString()
-        : 'Request failed with status ${res.statusCode}';
-    throw Exception(message);
+        : 'status ${res.statusCode}';
+    throw Exception(UserFriendlyError.toHumanMessage(rawMessage));
   }
 }

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import {
   HR_ROLE_KEYS,
   HrAnnouncement,
@@ -14,6 +15,7 @@ import {
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
 import CustomRole from "../../staff-service/src/models/CustomRole.js";
+import StaffNotification from "../../staff-service/src/models/StaffNotification.js";
 import { sendStaffPushNotification } from "../../staff-service/src/controllers/staffAppControllers.js";
 import { loadScopedHrPeople } from "./opsControllers.js";
 import {

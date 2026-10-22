@@ -4,6 +4,7 @@ import '../core/app_colors.dart';
 import '../core/api_client.dart';
 import '../core/session_manager.dart';
 import '../core/push_notification_service.dart';
+import '../core/user_friendly_error.dart';
 import 'main_navigation_shell.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -66,10 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final response = await ApiClient.post('/api/staff/login', body);
 
-      if (response['success'] == true && response['token'] != null) {
+      final token = response is Map ? (response['token'] ?? response['data']?['token']) : null;
+      final staffData = response is Map ? (response['staff'] ?? response['data']?['staff'] ?? {}) : {};
+
+      if (token != null) {
         await SessionManager.saveSession(
-          token: response['token'],
-          staff: response['staff'] ?? {},
+          token: token.toString(),
+          staff: staffData is Map<String, dynamic> ? staffData : {},
         );
 
         PushNotificationService.instance.syncTokenWithBackend();
@@ -80,12 +84,15 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = response['message'] ?? 'Invalid login credentials';
+          _errorMessage = UserFriendlyError.toHumanMessage(
+            response is Map ? response['message'] : null,
+            defaultMessage: 'Incorrect mobile/email or password. Please verify and try again.',
+          );
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Could not connect to server at ${_serverUrlController.text}. Please check network connection or server status.';
+        _errorMessage = UserFriendlyError.toHumanMessage(e);
       });
     } finally {
       if (mounted) {
@@ -179,11 +186,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             otpSent = true;
                             isVerifying = false;
                           });
-                        } catch (_) {
-                          setDialogState(() {
-                            otpSent = true;
-                            isVerifying = false;
-                          });
+                        } catch (e) {
+                          setDialogState(() => isVerifying = false);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFFEF4444),
+                              content: Text(UserFriendlyError.toHumanMessage(
+                                e,
+                                defaultMessage: 'Unable to send OTP. Please check your mobile number.',
+                              )),
+                            ),
+                          );
                         }
                       } else {
                         final otp = otpController.text.trim();
@@ -195,10 +209,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             'otp': otp,
                           });
                           if (!mounted) return;
-                          if (res['success'] == true && res['token'] != null) {
+                          final token = res is Map ? (res['token'] ?? res['data']?['token']) : null;
+                          final staffData = res is Map ? (res['staff'] ?? res['data']?['staff'] ?? {}) : {};
+
+                          if (token != null) {
                             await SessionManager.saveSession(
-                              token: res['token'],
-                              staff: res['staff'] ?? {},
+                              token: token.toString(),
+                              staff: staffData is Map<String, dynamic> ? staffData : {},
                             );
                             if (ctx.mounted) {
                               Navigator.pop(ctx);
@@ -211,14 +228,26 @@ class _LoginScreenState extends State<LoginScreen> {
                             setDialogState(() => isVerifying = false);
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(res['message'] ?? 'Invalid OTP')),
+                              SnackBar(
+                                backgroundColor: const Color(0xFFEF4444),
+                                content: Text(UserFriendlyError.toHumanMessage(
+                                  res is Map ? res['message'] : null,
+                                  defaultMessage: 'The OTP entered is incorrect. Please check and try again.',
+                                )),
+                              ),
                             );
                           }
                         } catch (e) {
                           setDialogState(() => isVerifying = false);
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Failed to verify OTP with server')),
+                            SnackBar(
+                              backgroundColor: const Color(0xFFEF4444),
+                              content: Text(UserFriendlyError.toHumanMessage(
+                                e,
+                                defaultMessage: 'The OTP entered is incorrect. Please check and try again.',
+                              )),
+                            ),
                           );
                         }
                       }

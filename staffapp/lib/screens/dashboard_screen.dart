@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/api_client.dart';
 import '../core/session_manager.dart';
+import '../core/user_friendly_error.dart';
 import 'attendance_screen.dart';
 import 'shift_roster_screen.dart';
 import 'leave_screen.dart';
@@ -90,7 +91,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Attendance action failed: $e')),
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text(UserFriendlyError.toHumanMessage(e, defaultMessage: 'Unable to record attendance. Please try again.')),
+          ),
         );
       }
     } finally {

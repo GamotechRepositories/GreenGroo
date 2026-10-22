@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../core/api_client.dart';
+import '../core/user_friendly_error.dart';
 
 class LeaveScreen extends StatefulWidget {
   final bool showBackButton;
@@ -289,7 +290,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: const Color(0xFFDC2626),
-                              content: Text('Submission failed: ${e.toString().replaceAll("Exception:", "").trim()}'),
+                              content: Text(UserFriendlyError.toHumanMessage(
+                                e,
+                                defaultMessage: 'Unable to submit leave application. Please try again.',
+                              )),
                             ),
                           );
                         }
