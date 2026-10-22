@@ -360,19 +360,16 @@ export async function createHrAnnouncement(req, res, next) {
     });
     if (row.status === "published") {
       notifyDeliveryBoysAnnouncement(row).catch(() => {});
-      const StaffNotification = mongoose.models.StaffNotification;
-      if (StaffNotification) {
-        StaffNotification.create({
-          title: `📢 ${row.title}`,
-          message: row.body || "New company announcement published.",
-          targetType: row.roleKey && row.roleKey !== "all" ? "role" : "all",
-          targetRole: row.roleKey && row.roleKey !== "all" ? row.roleKey : "",
-          priority: "important",
-          category: "announcement",
-          data: { type: "announcement", id: row._id.toString() },
-          sentBy: row.createdBy || "Admin",
-        }).catch(() => {});
-      }
+      StaffNotification.create({
+        title: `📢 ${row.title}`,
+        message: row.body || "New company announcement published.",
+        targetType: row.roleKey && row.roleKey !== "all" ? "role" : "all",
+        targetRole: row.roleKey && row.roleKey !== "all" ? row.roleKey : "",
+        priority: "important",
+        category: "announcement",
+        data: { type: "announcement", id: row._id.toString() },
+        sentBy: row.createdBy || "Admin",
+      }).catch((e) => console.error("[StaffNotif] Announcement create error:", e.message));
       sendStaffPushNotification(
         row.roleKey && row.roleKey !== "all" ? { targetType: "role", targetRole: row.roleKey } : { targetType: "all" },
         {
@@ -412,19 +409,16 @@ export async function updateHrAnnouncement(req, res, next) {
     await row.save();
     if (row.status === "published") {
       notifyDeliveryBoysAnnouncement(row).catch(() => {});
-      const StaffNotification = mongoose.models.StaffNotification;
-      if (StaffNotification) {
-        StaffNotification.create({
-          title: `📢 ${row.title}`,
-          message: row.body || "New company announcement published.",
-          targetType: row.roleKey && row.roleKey !== "all" ? "role" : "all",
-          targetRole: row.roleKey && row.roleKey !== "all" ? row.roleKey : "",
-          priority: "important",
-          category: "announcement",
-          data: { type: "announcement", id: row._id.toString() },
-          sentBy: "Admin",
-        }).catch(() => {});
-      }
+      StaffNotification.create({
+        title: `📢 ${row.title}`,
+        message: row.body || "New company announcement published.",
+        targetType: row.roleKey && row.roleKey !== "all" ? "role" : "all",
+        targetRole: row.roleKey && row.roleKey !== "all" ? row.roleKey : "",
+        priority: "important",
+        category: "announcement",
+        data: { type: "announcement", id: row._id.toString() },
+        sentBy: "Admin",
+      }).catch((e) => console.error("[StaffNotif] Announcement update error:", e.message));
       sendStaffPushNotification(
         row.roleKey && row.roleKey !== "all" ? { targetType: "role", targetRole: row.roleKey } : { targetType: "all" },
         {
@@ -722,19 +716,16 @@ export async function createHrShift(req, res, next) {
       status,
     });
     if ((!row.employeeType || row.employeeType === "staff") && row.employeeId) {
-      const StaffNotification = mongoose.models.StaffNotification;
-      if (StaffNotification) {
-        StaffNotification.create({
-          title: "📅 New Shift Assigned",
-          message: `You have been assigned to ${row.shiftName || "a shift"} on ${row.date} (${row.startTime} - ${row.endTime}).`,
-          targetType: "staff",
-          targetStaffId: String(row.employeeId),
-          priority: "important",
-          category: "shift",
-          data: { type: "shift", shiftId: row._id.toString(), date: row.date },
-          sentBy: "HR Management",
-        }).catch(() => {});
-      }
+      StaffNotification.create({
+        title: "📅 New Shift Assigned",
+        message: `You have been assigned to ${row.shiftName || "a shift"} on ${row.date} (${row.startTime} - ${row.endTime}).`,
+        targetType: "staff",
+        targetStaffId: String(row.employeeId),
+        priority: "important",
+        category: "shift",
+        data: { type: "shift", shiftId: row._id.toString(), date: row.date },
+        sentBy: "HR Management",
+      }).catch((e) => console.error("[StaffNotif] Shift create error:", e.message));
       sendStaffPushNotification(
         String(row.employeeId),
         {
@@ -770,19 +761,16 @@ export async function updateHrShift(req, res, next) {
     }
     await row.save();
     if ((!row.employeeType || row.employeeType === "staff") && row.employeeId) {
-      const StaffNotification = mongoose.models.StaffNotification;
-      if (StaffNotification) {
-        StaffNotification.create({
-          title: "📅 Shift Schedule Updated",
-          message: `Your shift (${row.shiftName || "Shift"}) on ${row.date} is updated to ${row.startTime} - ${row.endTime}.`,
-          targetType: "staff",
-          targetStaffId: String(row.employeeId),
-          priority: "important",
-          category: "shift",
-          data: { type: "shift", shiftId: row._id.toString(), date: row.date },
-          sentBy: "HR Management",
-        }).catch(() => {});
-      }
+      StaffNotification.create({
+        title: "📅 Shift Schedule Updated",
+        message: `Your shift (${row.shiftName || "Shift"}) on ${row.date} is updated to ${row.startTime} - ${row.endTime}.`,
+        targetType: "staff",
+        targetStaffId: String(row.employeeId),
+        priority: "important",
+        category: "shift",
+        data: { type: "shift", shiftId: row._id.toString(), date: row.date },
+        sentBy: "HR Management",
+      }).catch((e) => console.error("[StaffNotif] Shift update error:", e.message));
       sendStaffPushNotification(
         String(row.employeeId),
         {
@@ -1480,25 +1468,22 @@ export async function createHrMeeting(req, res, next) {
       vendorId: hrOwnerId(req),
     });
     const isAll = roleList.includes("all") || roleList.length === 0;
-    const StaffNotification = mongoose.models.StaffNotification;
-    if (StaffNotification) {
-      StaffNotification.create({
-        title: "👥 New Meeting Scheduled",
-        message: meeting.note
-          ? `Team meeting scheduled: ${meeting.note}`
-          : "A new team meeting has been scheduled. Check meeting details in app.",
-        targetType: isAll ? "all" : (roleList.length === 1 ? "role" : "all"),
-        targetRole: !isAll && roleList.length === 1 ? roleList[0] : "",
-        priority: "important",
-        category: "meeting",
-        data: {
-          type: "meeting",
-          meetingId: meeting._id.toString(),
-          link: meeting.link || "",
-        },
-        sentBy: "HR Management",
-      }).catch(() => {});
-    }
+    StaffNotification.create({
+      title: "👥 New Meeting Scheduled",
+      message: meeting.note
+        ? `Team meeting scheduled: ${meeting.note}`
+        : "A new team meeting has been scheduled. Check meeting details in app.",
+      targetType: isAll ? "all" : (roleList.length === 1 ? "role" : "all"),
+      targetRole: !isAll && roleList.length === 1 ? roleList[0] : "",
+      priority: "important",
+      category: "meeting",
+      data: {
+        type: "meeting",
+        meetingId: meeting._id.toString(),
+        link: meeting.link || "",
+      },
+      sentBy: "HR Management",
+    }).catch((e) => console.error("[StaffNotif] Meeting create error:", e.message));
     sendStaffPushNotification(
       isAll ? { targetType: "all" } : { targetRoles: roleList },
       {

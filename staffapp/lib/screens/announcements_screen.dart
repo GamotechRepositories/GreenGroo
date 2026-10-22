@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/api_client.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
-  const AnnouncementsScreen({super.key});
+  final String? highlightId;
+  const AnnouncementsScreen({super.key, this.highlightId});
 
   @override
   State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
@@ -26,25 +27,45 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     try {
       final res = await ApiClient.get('/api/staff/my/feed');
       if (res != null && mounted) {
-        final list = res['announcements'] as List?;
-        if (list != null) {
-          final mapped = list.map((a) {
-            return {
-              'id': a['id']?.toString() ?? '',
-              'title': a['title'] ?? 'Notice',
-              'dept': a['createdBy'] ?? 'HR Operations',
-              'time': a['publishedAt'] != null ? a['publishedAt'].toString().split('T').first : 'Recent',
-              'category': a['category'] ?? 'HR',
-              'body': a['body'] ?? '',
-            };
-          }).toList();
+        final list = (res is Map
+            ? (res['announcements'] ?? res['data']?['announcements'])
+            : (res is List ? res : null)) as List? ?? [];
 
-          setState(() {
-            _announcements = mapped;
-            _isLoading = false;
-          });
-          return;
+        final mapped = list.map((a) {
+          if (a is! Map) return <String, dynamic>{};
+          String cat = (a['category'] ?? 'Company').toString();
+          if (cat.toLowerCase() == 'announcement' || cat.isEmpty) {
+            cat = 'Company';
+          }
+          return {
+            'id': a['id']?.toString() ?? a['_id']?.toString() ?? '',
+            'title': a['title'] ?? 'Notice',
+            'dept': a['createdBy'] ?? 'HR Operations',
+            'time': a['publishedAt'] != null
+                ? a['publishedAt'].toString().split('T').first
+                : (a['createdAt'] != null ? a['createdAt'].toString().split('T').first : 'Recent'),
+            'category': cat,
+            'body': a['body'] ?? '',
+          };
+        }).where((a) => a.isNotEmpty).toList();
+
+        setState(() {
+          _announcements = mapped;
+          _isLoading = false;
+        });
+
+        if (widget.highlightId != null && widget.highlightId!.isNotEmpty) {
+          final target = mapped.firstWhere(
+            (a) => a['id'] == widget.highlightId,
+            orElse: () => mapped.isNotEmpty ? mapped.first : {},
+          );
+          if (target.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _showAnnouncementDetail(target);
+            });
+          }
         }
+        return;
       }
     } catch (_) {}
 
@@ -93,7 +114,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget build(BuildContext context) {
     final filtered = _selectedCategory == 'All'
         ? _announcements
-        : _announcements.where((a) => a['category'] == _selectedCategory || a['dept'] == _selectedCategory).toList();
+        : _announcements.where((a) {
+            final cat = (a['category'] ?? '').toString().toLowerCase();
+            final dept = (a['dept'] ?? '').toString().toLowerCase();
+            final sel = _selectedCategory.toLowerCase();
+            return cat.contains(sel) || dept.contains(sel);
+          }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),

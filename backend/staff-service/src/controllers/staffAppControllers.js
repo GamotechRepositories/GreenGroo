@@ -153,7 +153,13 @@ export async function getStaffFeed(req, res, next) {
     const roleKey = req.user.role || "";
     const items = await HrAnnouncement.find({
       status: "published",
-      roleKey: { $in: [roleKey, "all"] },
+      $or: [
+        { roleKey: "all" },
+        { roleKey: roleKey },
+        { roleKey: "" },
+        { roleKey: null },
+        { roleKey: { $exists: false } },
+      ],
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -500,18 +506,61 @@ export async function getStaffNotifications(req, res, next) {
     const staffId = req.user.id;
     const roleKey = req.user.role || "";
 
-    const notifications = await StaffNotification.find({
-      $or: [
-        { targetType: "all" },
-        { targetType: "role", targetRole: roleKey },
-        { targetType: "staff", targetStaffId: staffId },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
+    const [notifications, recentAnnouncements] = await Promise.all([
+      StaffNotification.find({
+        $or: [
+          { targetType: "all" },
+          { targetRole: "all" },
+          { targetRole: roleKey },
+          { targetType: "role", targetRole: roleKey },
+          { targetType: "staff", targetStaffId: staffId },
+          { targetStaffId: staffId },
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean(),
+      HrAnnouncement.find({
+        status: "published",
+        $or: [
+          { roleKey: "all" },
+          { roleKey: roleKey },
+          { roleKey: "" },
+          { roleKey: null },
+          { roleKey: { $exists: false } },
+        ],
+      })
+        .sort({ publishedAt: -1, createdAt: -1 })
+        .limit(20)
+        .lean(),
+    ]);
 
-    const results = notifications.map((n) => ({
+    const existingAnnouncementIds = new Set(
+      notifications
+        .filter((n) => n.category === "announcement" && n.data?.id)
+        .map((n) => n.data.id.toString())
+    );
+
+    const merged = [...notifications];
+    recentAnnouncements.forEach((a) => {
+      if (!existingAnnouncementIds.has(a._id.toString())) {
+        merged.push({
+          _id: a._id,
+          title: `📢 ${a.title}`,
+          message: a.body || "New company announcement published.",
+          priority: "important",
+          category: "announcement",
+          data: { type: "announcement", id: a._id.toString() },
+          sentBy: a.createdBy || "HR Operations",
+          createdAt: a.publishedAt || a.createdAt,
+          readBy: [],
+        });
+      }
+    });
+
+    merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const results = merged.map((n) => ({
       id: n._id.toString(),
       title: n.title,
       message: n.message,

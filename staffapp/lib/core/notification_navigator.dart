@@ -28,7 +28,7 @@ class NotificationNavigator {
     switch (cleanType) {
       case 'announcement':
       case 'announcements':
-        targetScreen = const AnnouncementsScreen();
+        targetScreen = AnnouncementsScreen(highlightId: data?['id']?.toString());
         break;
       case 'meeting':
       case 'meetings':
