@@ -35,13 +35,6 @@ function Location() {
   // If redirected from login/signup or has state return path
   const returnTo = routerLocation.state?.returnTo || "/";
 
-  // Require auth before selecting location
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/login", { replace: true, state: { from: "/location", returnTo } });
-    }
-  }, [authLoading, user, navigate, returnTo]);
-
   useEffect(() => {
     let isMounted = true;
     if (user) {
@@ -85,9 +78,6 @@ function Location() {
       })
       .catch(() => {
         if (isMounted) setDarkStores([]);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingStores(false);
       });
     return () => {
       isMounted = false;
@@ -150,10 +140,28 @@ function Location() {
         landmark: loc.landmark,
         fullAddress: loc.fullAddress,
       });
-    } else {
+      return;
+    }
+    if (hasLocation) {
       const target = (!returnTo || returnTo === "/location") ? "/" : returnTo;
       navigate(target, { replace: true });
+      return;
     }
+    if (darkStores.length > 0) {
+      const store = darkStores[0];
+      applyLocation({
+        label: store.storeName || `${store.area} Dark Store`,
+        address: store.address || `${store.area}, ${store.city}`,
+        area: store.area,
+        city: store.city,
+        pincode: store.pincode,
+        lat: store.latitude,
+        lng: store.longitude,
+        fullAddress: store.address || `${store.area}, ${store.city}`,
+      });
+      return;
+    }
+    toast.error("Please detect your location or select a store above");
   };
 
   const handleUpdateAddress = async (formData) => {

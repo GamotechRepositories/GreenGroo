@@ -86,6 +86,7 @@ import {
   deleteHarvestOrder,
   // Vendor auth
   vendorLogin,
+  vendorSendLoginOtp,
   vendorResendLoginOtp,
   getVendorMe,
   updateVendorMe,
@@ -455,6 +456,7 @@ vendorManagerRouter.patch("/:managerId/status", setManagerStatus);
 // VENDOR AUTH ROUTES
 // ------------------------------------
 vendorAuthRouter.post("/login", vendorLogin);
+vendorAuthRouter.post("/login/send-otp", vendorSendLoginOtp);
 vendorAuthRouter.post("/login/resend-otp", vendorResendLoginOtp);
 vendorAuthRouter.get("/me", requireVendor, getVendorMe);
 vendorAuthRouter.put("/me", requireVendor, updateVendorMe);

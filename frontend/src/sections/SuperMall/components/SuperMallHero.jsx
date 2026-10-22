@@ -1,8 +1,8 @@
 import React from "react";
-import HomeSlidingBanners from "../../../components/home/HomeSlidingBanners";
+import InstantOrderHeroCarousel from "../../../components/home/InstantOrderHeroCarousel";
 
 export function SuperMallHero() {
-  return <HomeSlidingBanners />;
+  return <InstantOrderHeroCarousel />;
 }
 
 export default SuperMallHero;

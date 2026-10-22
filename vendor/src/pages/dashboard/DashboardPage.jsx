@@ -716,7 +716,9 @@ export default function DashboardPage() {
         <QualityGradeRejectionChart
           grades={d.grades || {}}
           byProduct={d.byProduct || []}
+          byFarmer={d.byFarmer || []}
           rejectionByProduct={d.rejectionByProduct || []}
+          rejectionByFarmer={d.rejectionByFarmer || []}
           rejectionReasonsOverall={d.rejectionReasonsOverall || []}
           qualityPending={d.qualityPending ?? 0}
           qualityInProcess={d.qualityInProcess ?? 0}

@@ -7,12 +7,12 @@ import { detectCurrentLocation, formatDeliveryLine } from "../../utils/detectCur
 import { formatAddressLine, getAddressFullName, getAddressTypeTag, sortAddressesByLatest } from "../../utils/addressDisplay";
 import AddressTagBadge from "../address/AddressTagBadge";
 import MapLocationPicker from "../address/MapLocationPicker";
-import { MapPin, Navigation, Compass, Check, ArrowRight, ShieldCheck } from "lucide-react";
+import { MapPin, Navigation, Compass, Check } from "lucide-react";
 
 export default function MandatoryLocationModal() {
   const routerLocation = useRouterLocation();
   const navigate = useNavigate();
-  const { hasLocation, setLocation } = useLocation();
+  const { location, hasLocation, setLocation } = useLocation();
   const { user, loading: authLoading } = useAuth();
 
   const [savedLocations, setSavedLocations] = useState([]);
@@ -149,37 +149,7 @@ export default function MandatoryLocationModal() {
 
         {/* Content Body */}
         <div className="overflow-y-auto p-5 sm:p-6 space-y-5">
-          {/* If NOT logged in, require login first */}
-          {!user ? (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">Sign in to Enter GreenGroo</h3>
-              <p className="mt-1 text-xs text-slate-600">
-                Please sign in to your account first so you can select your location and view fresh produce in your area.
-              </p>
-
-              <div className="mt-5 flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => navigate("/login", { state: { from: routerLocation.pathname || "/" } })}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 px-4 text-sm font-bold text-white shadow-md shadow-primary/25 transition hover:bg-emerald-700 active:scale-[0.98] cursor-pointer"
-                >
-                  Sign In to Continue
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/signup", { state: { from: routerLocation.pathname || "/" } })}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600/40 bg-white py-2.5 px-4 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 active:scale-[0.98] cursor-pointer"
-                >
-                  Create New Account
-                </button>
-              </div>
-            </div>
-          ) : isMapOpen ? (
+          {isMapOpen ? (
             /* Map Picker Mode */
             <div>
               <div className="mb-3 flex items-center justify-between">
@@ -187,7 +157,7 @@ export default function MandatoryLocationModal() {
                 <button
                   type="button"
                   onClick={() => setIsMapOpen(false)}
-                  className="text-xs font-semibold text-rose-600 hover:underline"
+                  className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
                 >
                   Cancel map
                 </button>
@@ -199,7 +169,7 @@ export default function MandatoryLocationModal() {
               />
             </div>
           ) : (
-            /* Logged in Location Selection Options */
+            /* Location Selection Options (Accessible to ALL users, logged in or guest) */
             <>
               {error ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
@@ -213,7 +183,7 @@ export default function MandatoryLocationModal() {
                   type="button"
                   onClick={handleUseCurrentLocation}
                   disabled={detecting}
-                  className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-emerald-50/60 p-4 text-left transition hover:bg-emerald-100/70 disabled:opacity-60 shadow-xs"
+                  className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-emerald-50/60 p-4 text-left transition hover:bg-emerald-100/70 disabled:opacity-60 shadow-xs cursor-pointer"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
                     <Navigation className={`h-5 w-5 ${detecting ? "animate-spin" : ""}`} />
@@ -231,7 +201,7 @@ export default function MandatoryLocationModal() {
                 <button
                   type="button"
                   onClick={() => setIsMapOpen(true)}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-primary/40 hover:bg-white hover:shadow-sm"
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-primary/40 hover:bg-white hover:shadow-sm cursor-pointer"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-white shadow-sm">
                     <Compass className="h-5 w-5" />
@@ -290,8 +260,42 @@ export default function MandatoryLocationModal() {
                 </div>
               )}
 
-              {/* Saved Locations */}
-              {savedLocations.length > 0 ? (
+              {/* Fallback if no dark stores found */}
+              {darkStores.length === 0 && (
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Quick Select Area
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyLocation({
+                        label: "Pune / Hinjewadi",
+                        address: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
+                        area: "Hinjewadi Phase 2",
+                        city: "Pune",
+                        state: "Maharashtra",
+                        pincode: "411057",
+                        lat: 18.5958889,
+                        lng: 73.7183078,
+                        fullAddress: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
+                      });
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-emerald-500 hover:bg-emerald-50/50 cursor-pointer"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-base">
+                      📍
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900">Browse Pune / Hinjewadi Area</p>
+                      <p className="text-[10px] text-slate-500">Quickly explore fresh produce & delivery catalog</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* Saved Locations for Logged-in User */}
+              {user && savedLocations.length > 0 ? (
                 <div>
                   <div className="mb-2.5 flex items-center justify-between">
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -311,7 +315,7 @@ export default function MandatoryLocationModal() {
                           key={id}
                           type="button"
                           onClick={() => setSelectedId(id)}
-                          className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${
+                          className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition cursor-pointer ${
                             isSelected
                               ? "border-primary bg-emerald-50/60 ring-2 ring-primary/20"
                               : "border-slate-200 bg-white hover:border-slate-300"
@@ -347,7 +351,7 @@ export default function MandatoryLocationModal() {
                     type="button"
                     onClick={handleConfirmSaved}
                     disabled={!selectedId}
-                    className="mt-4 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition hover:bg-emerald-700 disabled:opacity-50"
+                    className="mt-4 w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
                   >
                     Confirm & Enter Store
                   </button>

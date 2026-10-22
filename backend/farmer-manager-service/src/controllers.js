@@ -6027,57 +6027,52 @@ export async function deleteManager(req, res) {
 export async function vendorLogin(req, res) {
   try {
     const { mobile, password, otp } = req.body;
-    if (!mobile || !password) {
-      return res.status(400).json({ message: "Mobile and password are required" });
+    if (!mobile) {
+      return res.status(400).json({ message: "Mobile number is required" });
     }
     const cleanMobile = String(mobile).replace(/\D/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return res.status(400).json({ message: "Enter a valid 10-digit mobile number" });
+    }
+
     const vendor = await Vendor.findOne({
       $or: [{ mobile: cleanMobile }, { mobile: String(mobile).trim() }],
     });
     if (!vendor) {
-      return res.status(401).json({ message: "Invalid mobile or password" });
+      return res.status(401).json({ message: "Vendor account not found with this mobile number" });
     }
     if (vendor.status !== "Active") {
       return res.status(403).json({ message: `Vendor account is ${vendor.status.toLowerCase()}` });
     }
-    let isMatch = false;
-    if (vendor.password && (vendor.password.startsWith("$2a$") || vendor.password.startsWith("$2b$"))) {
-      isMatch = await bcrypt.compare(password, vendor.password);
-    } else {
-      isMatch = vendor.password === password;
-      if (isMatch) {
-        vendor.password = await bcrypt.hash(password, 10);
-        await vendor.save();
+
+    // MODE 1: Login with OTP
+    if (otp) {
+      const verifyResult = await verifyOtp({
+        phone: cleanMobile,
+        otp: String(otp).trim(),
+        purpose: "vendor_login",
+      });
+      if (!verifyResult.ok) {
+        return res.status(400).json({ message: verifyResult.message || "Invalid or expired OTP" });
       }
     }
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid mobile or password" });
-    }
-
-    // Step 1: If no OTP provided, send 9. GreenGrocc Common OTP and request verification
-    if (!otp) {
-      const otpResult = await sendCommonOtp(cleanMobile, "vendor_login");
-      return res.json({
-        success: true,
-        requireOtp: true,
-        mobile: cleanMobile,
-        message: "Verification OTP sent via 9. GreenGrocc Common OTP",
-        template: "9. GreenGrocc Common OTP",
-        templateId: MSG91_TEMPLATES.COMMON_OTP,
-        devMock: otpResult.devMock,
-        code: otpResult.devMock ? otpResult.code : undefined,
-      });
-    }
-
-    // Step 2: Verify OTP
-    const verifyResult = await verifyOtp({
-      phone: cleanMobile,
-      otp: String(otp).trim(),
-      purpose: "vendor_login",
-    });
-
-    if (!verifyResult.ok) {
-      return res.status(400).json({ message: verifyResult.message || "Invalid or expired OTP" });
+    // MODE 2: Login with Password
+    else if (password) {
+      let isMatch = false;
+      if (vendor.password && (vendor.password.startsWith("$2a$") || vendor.password.startsWith("$2b$"))) {
+        isMatch = await bcrypt.compare(password, vendor.password);
+      } else {
+        isMatch = vendor.password === password;
+        if (isMatch) {
+          vendor.password = await bcrypt.hash(password, 10);
+          await vendor.save();
+        }
+      }
+      if (!isMatch) {
+        return res.status(401).json({ message: "Invalid mobile or password" });
+      }
+    } else {
+      return res.status(400).json({ message: "Either password or OTP is required to sign in" });
     }
 
     const token = signToken({
@@ -6088,52 +6083,51 @@ export async function vendorLogin(req, res) {
       vendorName: vendor.vendorName,
     });
     const { password: _pw, ...vendorData } = vendor.toObject();
-    res.json({ success: true, token, vendor: vendorData });
+    return res.json({ success: true, token, vendor: vendorData });
   } catch (err) {
     res.status(500).json({ message: err.message || "Vendor login failed" });
   }
 }
 
-export async function vendorResendLoginOtp(req, res) {
+export async function vendorSendLoginOtp(req, res) {
   try {
-    const { mobile, password } = req.body;
+    const { mobile } = req.body;
     if (!mobile) {
       return res.status(400).json({ message: "Mobile number is required" });
     }
     const cleanMobile = String(mobile).replace(/\D/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return res.status(400).json({ message: "Enter a valid 10-digit mobile number" });
+    }
+
     const vendor = await Vendor.findOne({
       $or: [{ mobile: cleanMobile }, { mobile: String(mobile).trim() }],
     });
     if (!vendor) {
-      return res.status(401).json({ message: "Vendor account not found" });
+      return res.status(401).json({ message: "No active vendor found with this mobile number" });
     }
     if (vendor.status !== "Active") {
       return res.status(403).json({ message: `Vendor account is ${vendor.status.toLowerCase()}` });
-    }
-    if (password) {
-      let isMatch = false;
-      if (vendor.password && (vendor.password.startsWith("$2a$") || vendor.password.startsWith("$2b$"))) {
-        isMatch = await bcrypt.compare(password, vendor.password);
-      } else {
-        isMatch = vendor.password === password;
-      }
-      if (!isMatch) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
     }
 
     const otpResult = await sendCommonOtp(cleanMobile, "vendor_login");
     return res.json({
       success: true,
-      message: "New OTP sent successfully via 9. GreenGrocc Common OTP",
-      template: "9. GreenGrocc Common OTP",
+      requireOtp: true,
+      mobile: cleanMobile,
+      message: "Verification OTP sent successfully via GreenGrocc Common OTP (GREGRC_Common_OTP)",
+      template: "GreenGrocc Common OTP (GREGRC_Common_OTP)",
       templateId: MSG91_TEMPLATES.COMMON_OTP,
       devMock: otpResult.devMock,
       code: otpResult.devMock ? otpResult.code : undefined,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to resend OTP" });
+    res.status(500).json({ message: err.message || "Failed to send OTP" });
   }
+}
+
+export async function vendorResendLoginOtp(req, res) {
+  return vendorSendLoginOtp(req, res);
 }
 
 export async function getVendorMe(req, res) {

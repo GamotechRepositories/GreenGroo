@@ -370,12 +370,20 @@ async function farmerStats(scope, window) {
 }
 
 async function computeVendorQualityAndRejectionStats(vendorScope, window) {
-  const [qis, orders, harvestOrders, prods] = await Promise.all([
+  const [qis, orders, harvestOrders, prods, farmers] = await Promise.all([
     QualityInspection.find(vendorScope).lean().catch(() => []),
     FarmerOrder.find({ ...vendorScope, isDeleted: { $ne: true } }).lean().catch(() => []),
     FarmerHarvestOrder.find({ ...vendorScope, isDeleted: { $ne: true } }).lean().catch(() => []),
     FarmerProduct.find(vendorScope).lean().catch(() => []),
+    Farmer.find(vendorScope).lean().catch(() => []),
   ]);
+
+  // Build farmer map for fast lookup
+  const farmerMap = new Map();
+  farmers.forEach((f) => {
+    if (f.id) farmerMap.set(String(f.id), f);
+    if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+  });
 
   // Date window filters
   const filteredQis = qis.filter((q) =>
@@ -391,17 +399,21 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
     matchesDashboardDate(p.harvestDate || p.createdAt, window)
   );
 
-  // Map orderId -> productName
-  const orderProductMap = new Map();
+  // Map orderId -> { productName, farmerId, farmerName }
+  const orderInfoMap = new Map();
   filteredOrders.forEach((o) => {
     const name = o.productName || (o.products && o.products[0]?.name) || "";
-    if (o.id) orderProductMap.set(String(o.id), name);
-    if (o.orderId) orderProductMap.set(String(o.orderId), name);
+    const fId = o.farmerId || "";
+    const fName = o.farmerName || farmerMap.get(String(fId))?.name || "";
+    if (o.id) orderInfoMap.set(String(o.id), { name, fId, fName });
+    if (o.orderId) orderInfoMap.set(String(o.orderId), { name, fId, fName });
   });
   filteredHarvestOrders.forEach((o) => {
     const name = o.productName || "";
-    if (o.id) orderProductMap.set(String(o.id), name);
-    if (o.orderId) orderProductMap.set(String(o.orderId), name);
+    const fId = o.farmerId || "";
+    const fName = o.farmerName || farmerMap.get(String(fId))?.name || "";
+    if (o.id) orderInfoMap.set(String(o.id), { name, fId, fName });
+    if (o.orderId) orderInfoMap.set(String(o.orderId), { name, fId, fName });
   });
 
   const productStats = new Map();
@@ -415,18 +427,52 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
         gradeB: 0,
         gradeC: 0,
         rejected: 0,
+        farmers: new Set(),
         rejectionReasons: {},
       });
     }
     return productStats.get(n);
   }
 
+  const farmerStats = new Map();
+  function ensureFarmer(fId, fallbackName = "") {
+    const key = String(fId || "unknown");
+    const fDoc = farmerMap.get(key);
+    const name = fDoc?.name || fallbackName || "Unknown Farmer";
+    const code = fDoc?.farmerId || fDoc?.id || key;
+    const mobile = fDoc?.mobile || "";
+    const location = fDoc?.farmLocation || fDoc?.farmGeo?.village || fDoc?.location || "";
+    if (!farmerStats.has(key)) {
+      farmerStats.set(key, {
+        farmerId: key,
+        farmerCode: code,
+        farmerName: name,
+        mobile,
+        location,
+        unit: "Kg",
+        gradeA: 0,
+        gradeB: 0,
+        gradeC: 0,
+        rejected: 0,
+        products: new Set(),
+        rejectionReasons: {},
+      });
+    }
+    return farmerStats.get(key);
+  }
+
   // 1. Process Quality Inspections (highest fidelity for quality & rejections)
   const inspectedOrderIds = new Set();
   for (const qi of filteredQis) {
     if (qi.orderId) inspectedOrderIds.add(String(qi.orderId));
-    const pName = qi.productName || orderProductMap.get(String(qi.orderId)) || "Other Produce";
+    const ordInfo = orderInfoMap.get(String(qi.orderId)) || {};
+    const pName = qi.productName || ordInfo.name || "Other Produce";
+    const fId = qi.farmerId || ordInfo.fId || "";
+    const fName = qi.farmerName || ordInfo.fName || "";
+
     const p = ensureProduct(pName);
+    const f = ensureFarmer(fId, fName);
+
     const a = Number(qi.gradeAQuantity || 0);
     const b = Number(qi.gradeBQuantity || 0);
     const c = Number(qi.gradeCQuantity || 0);
@@ -440,18 +486,27 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
           gqRej += rQty;
           const reason = String(gVal.rejectionReason || "Damaged").trim();
           p.rejectionReasons[reason] = (p.rejectionReasons[reason] || 0) + rQty;
+          f.rejectionReasons[reason] = (f.rejectionReasons[reason] || 0) + rQty;
         }
       }
       if (gqRej > rej) rej = gqRej;
     } else if (rej > 0 && qi.rejectionReason) {
       const reason = String(qi.rejectionReason).trim();
       p.rejectionReasons[reason] = (p.rejectionReasons[reason] || 0) + rej;
+      f.rejectionReasons[reason] = (f.rejectionReasons[reason] || 0) + rej;
     }
 
     p.gradeA += a;
     p.gradeB += b;
     p.gradeC += c;
     p.rejected += rej;
+    if (f.farmerName && f.farmerName !== "Unknown Farmer") p.farmers.add(f.farmerName);
+
+    f.gradeA += a;
+    f.gradeB += b;
+    f.gradeC += c;
+    f.rejected += rej;
+    f.products.add(pName);
   }
 
   // 2. Process Orders that haven't been counted in Quality Inspection
@@ -462,25 +517,46 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
 
     const pName = o.productName || (o.products && o.products[0]?.name) || "Other Produce";
     const pUnit = o.unit || (o.products && o.products[0]?.unit) || "Kg";
-    const p = ensureProduct(pName, pUnit);
+    const fId = o.farmerId || "";
+    const fName = o.farmerName || farmerMap.get(String(fId))?.name || "";
 
+    const p = ensureProduct(pName, pUnit);
+    const f = ensureFarmer(fId, fName);
+
+    let oA = 0,
+      oB = 0,
+      oC = 0,
+      oRej = 0;
     if (Array.isArray(o.grades) && o.grades.length > 0) {
       for (const g of o.grades) {
         const gLabel = String(g.label || g.name || "").toUpperCase();
         const qty = Number(g.quantity || 0);
         const rej = Number(g.rejectedQuantity || 0);
-        if (gLabel.includes("GRADE A") || gLabel === "A" || gLabel.startsWith("A ")) p.gradeA += qty;
-        else if (gLabel.includes("GRADE B") || gLabel === "B" || gLabel.startsWith("B ")) p.gradeB += qty;
-        else if (gLabel.includes("GRADE C") || gLabel === "C" || gLabel.startsWith("C ")) p.gradeC += qty;
-        else p.gradeA += qty;
-        p.rejected += rej;
+        if (gLabel.includes("GRADE A") || gLabel === "A" || gLabel.startsWith("A ")) oA += qty;
+        else if (gLabel.includes("GRADE B") || gLabel === "B" || gLabel.startsWith("B ")) oB += qty;
+        else if (gLabel.includes("GRADE C") || gLabel === "C" || gLabel.startsWith("C ")) oC += qty;
+        else oA += qty;
+        oRej += rej;
       }
     }
     if (Number(o.rejectionQty || 0) > 0) {
       const rQty = Number(o.rejectionQty);
-      p.rejected += rQty;
+      oRej += rQty;
       p.rejectionReasons["Harvest Rejection"] = (p.rejectionReasons["Harvest Rejection"] || 0) + rQty;
+      f.rejectionReasons["Harvest Rejection"] = (f.rejectionReasons["Harvest Rejection"] || 0) + rQty;
     }
+
+    p.gradeA += oA;
+    p.gradeB += oB;
+    p.gradeC += oC;
+    p.rejected += oRej;
+    if (f.farmerName && f.farmerName !== "Unknown Farmer") p.farmers.add(f.farmerName);
+
+    f.gradeA += oA;
+    f.gradeB += oB;
+    f.gradeC += oC;
+    f.rejected += oRej;
+    f.products.add(pName);
   }
 
   // 3. Fallback to product catalog if no orders/inspections exist for that product
@@ -497,20 +573,61 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
           else if (gLabel.includes("GRADE C") || gLabel === "C" || gLabel.startsWith("C ")) p.gradeC += qty;
         }
       }
+      if (prod.farmerId) {
+        const f = ensureFarmer(prod.farmerId);
+        if (f.farmerName && f.farmerName !== "Unknown Farmer") p.farmers.add(f.farmerName);
+        f.products.add(pName);
+      }
     }
   }
 
+  // Product-wise output
   const byProduct = Array.from(productStats.values())
     .map((p) => {
       const total = p.gradeA + p.gradeB + p.gradeC + p.rejected;
       const rejectionRate = total > 0 ? Number(((p.rejected / total) * 100).toFixed(1)) : 0;
       return {
-        ...p,
+        productName: p.productName,
+        unit: p.unit,
+        gradeA: p.gradeA,
+        gradeB: p.gradeB,
+        gradeC: p.gradeC,
+        rejected: p.rejected,
         total,
         rejectionRate,
+        farmerCount: p.farmers.size,
+        farmers: Array.from(p.farmers),
+        rejectionReasons: p.rejectionReasons,
       };
     })
     .filter((p) => p.total > 0 || p.rejected > 0)
+    .sort((a, b) => b.total - a.total);
+
+  // Farmer-wise output
+  const byFarmer = Array.from(farmerStats.values())
+    .map((f) => {
+      const total = f.gradeA + f.gradeB + f.gradeC + f.rejected;
+      const rejectionRate = total > 0 ? Number(((f.rejected / total) * 100).toFixed(1)) : 0;
+      return {
+        farmerId: f.farmerId,
+        farmerCode: f.farmerCode,
+        farmerName: f.farmerName,
+        mobile: f.mobile,
+        location: f.location,
+        unit: f.unit,
+        gradeA: f.gradeA,
+        gradeB: f.gradeB,
+        gradeC: f.gradeC,
+        rejected: f.rejected,
+        total,
+        rejectionRate,
+        products: Array.from(f.products),
+        productCount: f.products.size,
+        rejectionReasons: f.rejectionReasons,
+        reasons: Object.entries(f.rejectionReasons).map(([r, q]) => ({ reason: r, quantity: q })),
+      };
+    })
+    .filter((f) => f.total > 0 || f.rejected > 0)
     .sort((a, b) => b.total - a.total);
 
   const totalGradeA = byProduct.reduce((sum, p) => sum + p.gradeA, 0);
@@ -530,6 +647,24 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
       rejectionRate: p.rejectionRate,
       shareOfRejections: totalRejected > 0 ? Number(((p.rejected / totalRejected) * 100).toFixed(1)) : 0,
       reasons: Object.entries(p.rejectionReasons).map(([r, q]) => ({ reason: r, quantity: q })),
+    }))
+    .sort((a, b) => b.rejected - a.rejected);
+
+  // Rejection share by farmer
+  const rejectionByFarmer = byFarmer
+    .filter((f) => f.rejected > 0)
+    .map((f) => ({
+      farmerId: f.farmerId,
+      farmerCode: f.farmerCode,
+      farmerName: f.farmerName,
+      mobile: f.mobile,
+      products: f.products,
+      rejected: f.rejected,
+      total: f.total,
+      rejectionRate: f.rejectionRate,
+      unit: f.unit,
+      shareOfRejections: totalRejected > 0 ? Number(((f.rejected / totalRejected) * 100).toFixed(1)) : 0,
+      reasons: f.reasons,
     }))
     .sort((a, b) => b.rejected - a.rejected);
 
@@ -564,7 +699,9 @@ async function computeVendorQualityAndRejectionStats(vendorScope, window) {
   return {
     grades,
     byProduct,
+    byFarmer,
     rejectionByProduct,
+    rejectionByFarmer,
     rejectionReasonsOverall,
   };
 }
@@ -725,7 +862,9 @@ export async function buildVendorDashboard(vendorId, query) {
       rejectedPercent: 0,
     },
     byProduct: qualityStats?.byProduct || [],
+    byFarmer: qualityStats?.byFarmer || [],
     rejectionByProduct: qualityStats?.rejectionByProduct || [],
+    rejectionByFarmer: qualityStats?.rejectionByFarmer || [],
     rejectionReasonsOverall: qualityStats?.rejectionReasonsOverall || [],
   };
 }

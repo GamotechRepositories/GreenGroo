@@ -6,14 +6,14 @@ export const READY2COOK_BANNERS = [
   {
     id: "ready2cook-banner-1",
     desktopImage: "/assets/payment/ready2cook 1.webp",
-    mobileImage: "/assets/payment/ready2cook 1.webp",
+    mobileImage: "/assets/payment/ready2%20cook%20mobile%20view%201.png",
     alt: "Ready to Cook — Fresh Ingredients | Cleaned | Chopped | Ready in Minutes",
     link: "/product?store=festive",
   },
   {
     id: "ready2cook-banner-2",
     desktopImage: "/assets/payment/ready to cook 2.webp",
-    mobileImage: "/assets/payment/ready to cook 2.webp",
+    mobileImage: "/assets/payment/ready2%20cook%20mobile%20view%202.png",
     alt: "Ready to Cook — Freshly Chopped, Ready for You!",
     link: "/product?store=festive",
   },
@@ -96,12 +96,16 @@ export default function Ready2CookHeroCarousel({ isMobile = false }) {
           return (
             <div key={banner.id} className="w-full shrink-0">
               <Link to={banner.link} className="block w-full">
-                <img
-                  src={imageSrc}
-                  alt={banner.alt}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  className="block w-full h-auto object-cover object-center rounded-none cursor-pointer"
-                />
+                <picture className="block w-full">
+                  <source media="(max-width: 1023px)" srcSet={banner.mobileImage} />
+                  <source media="(min-width: 1024px)" srcSet={banner.desktopImage} />
+                  <img
+                    src={imageSrc}
+                    alt={banner.alt}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    className="block w-full h-auto object-cover object-center rounded-none cursor-pointer"
+                  />
+                </picture>
               </Link>
             </div>
           );

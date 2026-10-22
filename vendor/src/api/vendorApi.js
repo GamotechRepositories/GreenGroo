@@ -39,6 +39,7 @@ api.interceptors.request.use((config) => {
 export const vendorApi = {
   // Auth & Profile
   login: (data) => api.post("/api/vendor/auth/login", data),
+  sendLoginOtp: (data) => api.post("/api/vendor/auth/login/send-otp", data),
   resendLoginOtp: (data) => api.post("/api/vendor/auth/login/resend-otp", data),
   me: () => api.get("/api/vendor/auth/me"),
   getProfile: () => api.get("/api/vendor/auth/me"),
