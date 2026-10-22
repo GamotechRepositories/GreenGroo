@@ -277,12 +277,20 @@ export async function punchStaffAttendance(req, res, next) {
 /** Get staff leave balances & history */
 export async function getStaffLeaves(req, res, next) {
   try {
-    const staffId = req.user.id;
-    const roleKey = req.user.role || "";
+    const staffId = String(req.user?.id || req.user?._id || "");
+    const roleKey = req.user?.role || "";
 
     const [policy, requests] = await Promise.all([
       HrLeavePolicy.findOne({ roleKey }).lean(),
-      HrLeaveRequest.find({ employeeId: staffId }).sort({ createdAt: -1 }).lean(),
+      HrLeaveRequest.find({
+        $or: [
+          { employeeId: staffId },
+          ...(req.user?.id ? [{ employeeId: req.user.id }] : []),
+          ...(req.user?._id ? [{ employeeId: req.user._id }] : []),
+        ],
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
     ]);
 
     const casualTotal = policy?.casualDays ?? 12;
@@ -290,23 +298,59 @@ export async function getStaffLeaves(req, res, next) {
     const earnedTotal = policy?.earnedDays ?? 15;
 
     // Calculate leaves taken this year
-    let casualUsed = 0;
-    let sickUsed = 0;
-    let earnedUsed = 0;
+    // Approved & Pending requests deduct from the remaining balance.
+    // If Admin REJECTS a request (status === 'rejected'), it is EXCLUDED here,
+    // which automatically adds the days back into the remaining leave balance.
+    let casualApproved = 0;
+    let sickApproved = 0;
+    let earnedApproved = 0;
+
+    let casualPending = 0;
+    let sickPending = 0;
+    let earnedPending = 0;
 
     requests.forEach((reqRow) => {
+      const days = Number(reqRow.days) || 1;
       if (reqRow.status === "approved") {
-        if (reqRow.leaveType === "casual") casualUsed += reqRow.days || 1;
-        if (reqRow.leaveType === "sick") sickUsed += reqRow.days || 1;
-        if (reqRow.leaveType === "earned") earnedUsed += reqRow.days || 1;
+        if (reqRow.leaveType === "casual") casualApproved += days;
+        if (reqRow.leaveType === "sick") sickApproved += days;
+        if (reqRow.leaveType === "earned") earnedApproved += days;
+      } else if (reqRow.status === "pending") {
+        if (reqRow.leaveType === "casual") casualPending += days;
+        if (reqRow.leaveType === "sick") sickPending += days;
+        if (reqRow.leaveType === "earned") earnedPending += days;
       }
+      // Note: If reqRow.status === "rejected", it is excluded from used/pending,
+      // so the rejected leave days are fully available / added back to the balance.
     });
+
+    const casualUsed = casualApproved + casualPending;
+    const sickUsed = sickApproved + sickPending;
+    const earnedUsed = earnedApproved + earnedPending;
 
     return ok(res, {
       balances: {
-        casual: { total: casualTotal, used: casualUsed, remaining: Math.max(0, casualTotal - casualUsed) },
-        sick: { total: sickTotal, used: sickUsed, remaining: Math.max(0, sickTotal - sickUsed) },
-        earned: { total: earnedTotal, used: earnedUsed, remaining: Math.max(0, earnedTotal - earnedUsed) },
+        casual: {
+          total: casualTotal,
+          approved: casualApproved,
+          pending: casualPending,
+          used: casualUsed,
+          remaining: Math.max(0, casualTotal - casualUsed),
+        },
+        sick: {
+          total: sickTotal,
+          approved: sickApproved,
+          pending: sickPending,
+          used: sickUsed,
+          remaining: Math.max(0, sickTotal - sickUsed),
+        },
+        earned: {
+          total: earnedTotal,
+          approved: earnedApproved,
+          pending: earnedPending,
+          used: earnedUsed,
+          remaining: Math.max(0, earnedTotal - earnedUsed),
+        },
       },
       requests: requests.map((r) => ({
         id: r._id.toString(),
@@ -351,6 +395,19 @@ export async function applyStaffLeave(req, res, next) {
       1,
       Math.round((new Date(`${toDate}T00:00:00`) - new Date(`${fromDate}T00:00:00`)) / 86400000) + 1
     );
+
+    // Deduplication check: prevent accidental double-clicks within 15 seconds
+    const existing = await HrLeaveRequest.findOne({
+      employeeId: String(staffId),
+      fromDate,
+      toDate,
+      status: "pending",
+      createdAt: { $gte: new Date(Date.now() - 15000) },
+    }).lean();
+
+    if (existing) {
+      return ok(res, existing, { message: "Leave application already submitted" });
+    }
 
     const leave = await HrLeaveRequest.create({
       employeeId: String(staffId),

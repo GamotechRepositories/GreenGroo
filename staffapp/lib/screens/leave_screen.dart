@@ -85,6 +85,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
     final reasonController = TextEditingController();
     DateTime fromDate = DateTime.now().add(const Duration(days: 1));
     DateTime toDate = DateTime.now().add(const Duration(days: 2));
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -196,61 +197,80 @@ class _LeaveScreenState extends State<LeaveScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A56DB),
+                  backgroundColor: isSubmitting ? const Color(0xFF94A3B8) : const Color(0xFF1A56DB),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: () async {
-                  final reason = reasonController.text.trim();
-                  if (reason.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a reason for leave')),
-                    );
-                    return;
-                  }
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final reason = reasonController.text.trim();
+                        if (reason.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a reason for leave')),
+                          );
+                          return;
+                        }
 
-                  try {
-                    try {
-                      await ApiClient.post('/api/staff/my/leaves', {
-                        'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
-                        'toDate': DateFormat('yyyy-MM-dd').format(toDate),
-                        'leaveType': leaveType,
-                        'reason': reason,
-                      });
-                    } catch (_) {
-                      await ApiClient.post('/api/staff/my/leaves/apply', {
-                        'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
-                        'toDate': DateFormat('yyyy-MM-dd').format(toDate),
-                        'leaveType': leaveType,
-                        'reason': reason,
-                      });
-                    }
+                        // Immediately disable button
+                        setSheetState(() => isSubmitting = true);
 
-                    if (ctx.mounted) {
-                      Navigator.pop(ctx);
-                    }
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: Color(0xFF15803D),
-                        content: Text('Leave application submitted to HR!'),
-                      ),
-                    );
-                    _loadLeaves();
-                  } catch (e) {
-                    if (ctx.mounted) {
-                      Navigator.pop(ctx);
-                    }
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFFDC2626),
-                        content: Text('Submission failed: ${e.toString().replaceAll("Exception:", "").trim()}'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Submit Application', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        try {
+                          try {
+                            await ApiClient.post('/api/staff/my/leaves', {
+                              'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
+                              'toDate': DateFormat('yyyy-MM-dd').format(toDate),
+                              'leaveType': leaveType,
+                              'reason': reason,
+                            });
+                          } catch (_) {
+                            await ApiClient.post('/api/staff/my/leaves/apply', {
+                              'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
+                              'toDate': DateFormat('yyyy-MM-dd').format(toDate),
+                              'leaveType': leaveType,
+                              'reason': reason,
+                            });
+                          }
+
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: Color(0xFF15803D),
+                              content: Text('Leave application submitted to HR!'),
+                            ),
+                          );
+                          _loadLeaves();
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            setSheetState(() => isSubmitting = false);
+                            Navigator.pop(ctx);
+                          }
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFFDC2626),
+                              content: Text('Submission failed: ${e.toString().replaceAll("Exception:", "").trim()}'),
+                            ),
+                          );
+                        }
+                      },
+                child: isSubmitting
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                          SizedBox(width: 10),
+                          Text('Submitting...', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ],
+                      )
+                    : const Text('Submit Application', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

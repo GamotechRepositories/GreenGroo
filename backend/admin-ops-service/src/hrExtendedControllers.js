@@ -577,6 +577,24 @@ export async function updateHrLeave(req, res, next) {
     if (req.body.status === "approved" || req.body.status === "rejected") {
       row.assignedBy =
         req.user?.email || req.user?.name || row.assignedBy || (isVendorScope(req) ? "vendor" : "admin");
+
+      try {
+        const StaffNotification = mongoose.models.StaffNotification;
+        if (StaffNotification && row.employeeId) {
+          const isRej = req.body.status === "rejected";
+          await StaffNotification.create({
+            title: isRej ? "Leave Request Rejected" : "Leave Request Approved",
+            message: isRej
+              ? `Your ${String(row.leaveType || "leave").toUpperCase()} request (${row.fromDate} to ${row.toDate}) for ${row.days || 1} day(s) was rejected. The days have been credited back to your leave balance.`
+              : `Your ${String(row.leaveType || "leave").toUpperCase()} request (${row.fromDate} to ${row.toDate}) for ${row.days || 1} day(s) has been approved.`,
+            targetType: "staff",
+            targetStaffId: String(row.employeeId),
+            priority: isRej ? "urgent" : "important",
+            category: "general",
+            sentBy: row.assignedBy || "HR Management",
+          });
+        }
+      } catch (_) {}
     }
     await row.save();
     return ok(res, row);
