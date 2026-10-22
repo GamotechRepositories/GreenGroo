@@ -328,9 +328,14 @@ export async function getStaffLeaves(req, res, next) {
 /** Apply for leave */
 export async function applyStaffLeave(req, res, next) {
   try {
-    const staffId = req.user.id;
-    const staff = await Staff.findById(staffId).lean();
-    if (!staff) return fail(res, 404, "Staff not found");
+    const staffId = req.user?.id || req.user?._id;
+    let staff = null;
+    try {
+      staff = await Staff.findById(staffId).lean();
+    } catch (_) {}
+
+    const staffName = staff?.name || req.user?.name || req.user?.email || "Staff Member";
+    const staffRole = staff?.role || req.user?.role || "staff";
 
     const fromDate = String(req.body.fromDate || "").trim().slice(0, 10);
     const toDate = String(req.body.toDate || fromDate).trim().slice(0, 10);
@@ -348,11 +353,11 @@ export async function applyStaffLeave(req, res, next) {
     );
 
     const leave = await HrLeaveRequest.create({
-      employeeId: staffId,
+      employeeId: String(staffId),
       employeeType: "staff",
-      name: staff.name,
-      role: staff.role,
-      roleKey: staff.role,
+      name: staffName,
+      role: staffRole,
+      roleKey: staffRole,
       leaveType,
       fromDate,
       toDate,

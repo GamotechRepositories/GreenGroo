@@ -51,6 +51,7 @@ router.get("/my/attendance", getStaffAttendance);
 router.post("/my/attendance/punch", punchStaffAttendance);
 router.get("/my/leaves", getStaffLeaves);
 router.post("/my/leaves", applyStaffLeave);
+router.post("/my/leaves/apply", applyStaffLeave);
 router.get("/my/salary", getStaffSalary);
 router.get("/my/meetings", getStaffMeetings);
 router.get("/my/notifications", getStaffNotifications);

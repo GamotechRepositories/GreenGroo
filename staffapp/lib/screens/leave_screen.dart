@@ -209,31 +209,45 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     return;
                   }
 
-                  Navigator.pop(ctx);
-
                   try {
-                    await ApiClient.post('/api/staff/my/leaves/apply', {
-                      'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
-                      'toDate': DateFormat('yyyy-MM-dd').format(toDate),
-                      'leaveType': leaveType,
-                      'reason': reason,
-                    });
+                    try {
+                      await ApiClient.post('/api/staff/my/leaves', {
+                        'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
+                        'toDate': DateFormat('yyyy-MM-dd').format(toDate),
+                        'leaveType': leaveType,
+                        'reason': reason,
+                      });
+                    } catch (_) {
+                      await ApiClient.post('/api/staff/my/leaves/apply', {
+                        'fromDate': DateFormat('yyyy-MM-dd').format(fromDate),
+                        'toDate': DateFormat('yyyy-MM-dd').format(toDate),
+                        'leaveType': leaveType,
+                        'reason': reason,
+                      });
+                    }
 
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          backgroundColor: Color(0xFF15803D),
-                          content: Text('Leave application submitted to HR!'),
-                        ),
-                      );
-                      _loadLeaves();
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
                     }
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        backgroundColor: Color(0xFF15803D),
+                        content: Text('Leave application submitted to HR!'),
+                      ),
+                    );
+                    _loadLeaves();
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Submission failed: $e')),
-                      );
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
                     }
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: const Color(0xFFDC2626),
+                        content: Text('Submission failed: ${e.toString().replaceAll("Exception:", "").trim()}'),
+                      ),
+                    );
                   }
                 },
                 child: const Text('Submit Application', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
