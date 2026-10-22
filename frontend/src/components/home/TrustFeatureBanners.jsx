@@ -5,16 +5,20 @@ import {
   ShieldCheck,
   X,
   ArrowRight,
-  Sparkles,
   MapPin,
-  Clock,
-  Thermometer,
-  FileCheck2,
-  CheckCircle2,
-  ScanLine,
+  Calendar,
+  Snowflake,
   Sprout,
+  Truck,
   Check,
-  Award,
+  ScanLine,
+  FlaskConical,
+  Droplets,
+  Cog,
+  FileText,
+  Leaf,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 export default function TrustFeatureBanners() {
@@ -22,90 +26,103 @@ export default function TrustFeatureBanners() {
 
   return (
     <>
-      <section className="w-full py-4 sm:py-6 bg-transparent select-none">
+      <section className="w-full py-5 sm:py-8 bg-transparent select-none">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
-          <div className="flex gap-4 sm:gap-5 overflow-x-auto no-scrollbar scroll-smooth pb-2 pt-1 lg:grid lg:grid-cols-3">
+          <div className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth pb-3 pt-1 lg:grid lg:grid-cols-3">
             {/* ========================================================
-                CARD 1: 100% Certified Organic (Space Fully Utilized)
+                CARD 1: 100% Certified Organic (Light UI)
                ======================================================== */}
-            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-3xl border border-emerald-500/30 bg-[#04190e] text-white p-5 sm:p-6 shadow-xl shadow-black/30">
-              {/* Full-bleed Background Image with Multi-stop Mask */}
-              <div className="absolute inset-0 z-0">
-                <img
-                  src="/assets/features/organic_soil_sprout.jpg"
-                  alt="Organic Living Soil and Seedling"
-                  className="w-full h-full object-cover object-center opacity-40"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#04190e] via-[#04190e]/90 to-[#04190e]/65" />
-              </div>
+            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-[32px] border border-emerald-100/90 bg-white text-slate-900 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_14px_40px_rgba(16,185,129,0.08)] transition-all">
+              <div>
+                {/* Header: Badges */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/90 text-emerald-800 text-xs font-black tracking-wide">
+                    <Leaf className="w-4 h-4 fill-emerald-600 text-emerald-600" />
+                    <span>100% CERTIFIED ORGANIC</span>
+                  </span>
 
-              {/* Card Header: Floating Badges */}
-              <div className="relative z-10 flex items-center justify-between mb-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-400/40 text-emerald-300 text-[11px] font-black tracking-wider shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>100% CERTIFIED ORGANIC</span>
-                </div>
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-950/80 backdrop-blur-md text-[8.5px] font-black text-emerald-300 text-center leading-tight">
-                  JAIVIK<br />BHARAT
-                </div>
-              </div>
-
-              {/* Middle Section: Living Soil & Natural Standards Grid */}
-              <div className="relative z-10 my-2 space-y-2.5">
-                <div className="p-3.5 rounded-2xl bg-black/60 backdrop-blur-md border border-emerald-500/25 space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-white">
-                      <Sprout className="w-4 h-4 text-emerald-400" />
-                      <span>Natural Cultivation Standard</span>
+                  {/* Jaivik Bharat Seal */}
+                  <div className="flex flex-col items-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 shadow-xs">
+                      <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5l-4-4 1.41-1.41L11 13.67l6.59-6.59L19 8.5l-8 8z" />
+                      </svg>
                     </div>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                      NPOP Verified
+                    <span className="text-[7.5px] font-black text-emerald-800 tracking-wider uppercase mt-0.5 leading-tight text-center">
+                      JAIVIK<br />BHARAT
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fresh Produce Image */}
+                <div className="relative w-full rounded-2xl overflow-hidden aspect-[16/9] border border-emerald-100 shadow-xs my-2.5 bg-slate-50">
+                  <img
+                    src="/assets/features/organic_fresh_produce.jpg"
+                    alt="100% Certified Organic Fresh Produce"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Two Stat Cards */}
+                <div className="grid grid-cols-2 gap-2.5 my-2.5">
+                  <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <FlaskConical className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-sm font-black text-emerald-950 leading-tight">0.00%</span>
+                      <span className="block text-[10px] font-medium text-slate-500 leading-tight truncate">Synthetic Pesticides</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <Sprout className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-sm font-black text-emerald-950 leading-tight">100%</span>
+                      <span className="block text-[10px] font-medium text-slate-500 leading-tight truncate">Living Soil Tested</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Checklist Rows */}
+                <div className="space-y-1.5 my-2.5">
+                  <div className="flex items-center justify-between py-1 text-xs font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Leaf className="w-4 h-4 text-emerald-600 fill-emerald-600/30 shrink-0" />
+                      <span>Non-GMO Heirloom Seeds</span>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                      Certified
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="flex flex-col p-2.5 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
-                      <span className="text-emerald-400 font-black text-base">0.00%</span>
-                      <span className="text-neutral-300 text-[10px] font-medium leading-tight mt-0.5">Synthetic Pesticides</span>
+                  <div className="flex items-center justify-between py-1 text-xs font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Leaf className="w-4 h-4 text-emerald-600 fill-emerald-600/30 shrink-0" />
+                      <span>Artificial Ripening Agents</span>
                     </div>
-                    <div className="flex flex-col p-2.5 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
-                      <span className="text-emerald-400 font-black text-base">100%</span>
-                      <span className="text-neutral-300 text-[10px] font-medium leading-tight mt-0.5">Living Soil Tested</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 pt-1 text-[11px]">
-                    <div className="flex items-center justify-between text-neutral-300">
-                      <span className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Non-GMO Heirloom Seeds</span>
-                      </span>
-                      <span className="font-bold text-emerald-300">Certified</span>
-                    </div>
-                    <div className="flex items-center justify-between text-neutral-300">
-                      <span className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Artificial Ripening Agents</span>
-                      </span>
-                      <span className="font-bold text-emerald-300">Zero Used</span>
-                    </div>
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                      Zero Used
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Section: Headline, Text & Aligned CTA */}
-              <div className="relative z-10 mt-3 pt-1">
-                <h3 className="text-xl sm:text-[22px] font-black text-white tracking-tight leading-tight mb-1.5">
-                  Purity You Can Taste, Guaranteed.
+              {/* Bottom: Headline, Subtitle & Action */}
+              <div className="mt-3 pt-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+                  Purity You Can Taste,<br />
+                  <span className="text-emerald-600">Guaranteed.</span>
                 </h3>
-                <p className="text-xs text-emerald-100/75 font-medium leading-relaxed mb-4">
+                <p className="mt-1.5 text-xs text-slate-600 font-medium leading-relaxed mb-4">
                   Every vegetable and fruit is grown naturally without artificial ripeners or toxic sprays.
                 </p>
 
                 <Link
                   to="/about"
-                  className="inline-flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-950/50 transition-all active:scale-[0.98]"
+                  className="inline-flex items-center justify-between w-full px-5 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-700/20 transition-all active:scale-[0.98]"
                 >
                   <span>Explore Organic Sourcing</span>
                   <ArrowRight className="w-4 h-4" />
@@ -114,100 +131,101 @@ export default function TrustFeatureBanners() {
             </div>
 
             {/* ========================================================
-                CARD 2: Live Traceability (Space Fully Utilized)
+                CARD 2: Farm-to-Fork Passport (Light UI)
                ======================================================== */}
-            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-b from-[#031d16] via-[#052b20] to-[#02130e] border border-teal-500/30 text-white p-5 sm:p-6 shadow-xl shadow-black/30">
-              {/* Scanline Animation */}
-              <style>{`
-                @keyframes scannerLaser {
-                  0% { top: 8%; opacity: 0.8; }
-                  50% { top: 90%; opacity: 1; }
-                  100% { top: 8%; opacity: 0.8; }
-                }
-                .animate-laser {
-                  animation: scannerLaser 3s ease-in-out infinite;
-                }
-              `}</style>
+            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-[32px] border border-emerald-100/90 bg-white text-slate-900 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_14px_40px_rgba(16,185,129,0.08)] transition-all">
+              <div>
+                {/* Header: Badges */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/90 text-emerald-800 text-xs font-black tracking-wide">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <span>FARM-TO-FORK PASSPORT</span>
+                  </span>
 
-              {/* Card Header: Live Passport Badge */}
-              <div className="relative z-10 flex items-center justify-between mb-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-950/80 backdrop-blur-md border border-teal-400/40 text-teal-300 text-[11px] font-black tracking-wider shadow-sm">
-                  <QrCode className="w-3.5 h-3.5 text-teal-400" />
-                  <span>FARM-TO-FORK PASSPORT</span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>LIVE BATCH</span>
+                  </span>
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[9.5px] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>LIVE BATCH</span>
-                </div>
-              </div>
-
-              {/* Middle Section: Full Digital Passport Console (Space Fully Utilized) */}
-              <div className="relative z-10 my-2">
-                <div className="p-3.5 rounded-2xl bg-black/60 backdrop-blur-md border border-teal-500/30 space-y-2.5">
-                  {/* Top row: QR box + Farmer & Farm Origin */}
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-16 h-16 rounded-xl bg-white p-1 flex items-center justify-center shrink-0 shadow-md overflow-hidden">
-                      <div className="animate-laser absolute left-1 right-1 h-0.5 bg-gradient-to-r from-transparent via-teal-500 to-transparent shadow-[0_0_8px_rgba(20,184,166,1)] z-10 pointer-events-none" />
-                      <img
-                        src="/assets/features/traceability_phone_qr.jpg"
-                        alt="QR Code"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1 min-w-0 flex-1 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-teal-200 font-bold">
-                        <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                        <span className="truncate">Nashik Plot 4B (Patil Co-op)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-neutral-300 font-medium">
-                        <Clock className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                        <span>Harvest: Today 04:30 AM</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
-                        <Thermometer className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>Cold Chain: 4.2°C Continuous</span>
-                      </div>
-                    </div>
+                {/* Clamshell Produce Box */}
+                <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-emerald-50/30 border border-emerald-100/80 my-2.5">
+                  <div className="relative w-20 h-20 rounded-2xl bg-white p-1 flex items-center justify-center shrink-0 shadow-xs border border-emerald-100 overflow-hidden">
+                    <img
+                      src="/assets/features/clamshell_qr_produce.jpg"
+                      alt="Fresh produce with QR code"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
-
-                  {/* Live Progress Pipeline Steps */}
-                  <div className="pt-2 border-t border-teal-500/20">
-                    <div className="grid grid-cols-3 gap-1 text-[10px] text-center">
-                      <div className="bg-teal-950/60 border border-teal-500/25 rounded-lg py-1 px-1.5">
-                        <span className="text-teal-400 font-bold block">04:30 AM</span>
-                        <span className="text-neutral-300 text-[9px]">Harvested</span>
-                      </div>
-                      <div className="bg-teal-950/60 border border-teal-500/25 rounded-lg py-1 px-1.5">
-                        <span className="text-teal-400 font-bold block">05:15 AM</span>
-                        <span className="text-neutral-300 text-[9px]">Cold Hub</span>
-                      </div>
-                      <div className="bg-emerald-950/70 border border-emerald-500/35 rounded-lg py-1 px-1.5">
-                        <span className="text-emerald-400 font-bold block">06:00 AM</span>
-                        <span className="text-emerald-300 text-[9px]">QC Passed</span>
-                      </div>
+                  <div className="flex flex-col gap-1.5 min-w-0 flex-1 text-xs">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold truncate">
+                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="truncate">Nashik Plot 4B (Patil Co-op)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-700 font-semibold truncate">
+                      <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="truncate">Harvested: Today 04:30 AM</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-700 font-semibold truncate">
+                      <Snowflake className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="truncate">Cold Chain: <strong className="text-emerald-600 font-black">4.2°C Continuous</strong></span>
                     </div>
                   </div>
                 </div>
+
+                {/* Timeline Pipeline */}
+                <div className="relative my-4 px-2">
+                  {/* Connecting Line */}
+                  <div className="absolute top-[32px] left-[18%] right-[18%] h-0.5 bg-emerald-500 z-0" />
+
+                  <div className="relative z-10 grid grid-cols-3 text-center">
+                    {/* Step 1 */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-black text-slate-900 mb-1">04:30 AM</span>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                        <Sprout className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 mt-1">Harvested</span>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-black text-slate-900 mb-1">05:15 AM</span>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 mt-1">Cold Hub</span>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-black text-slate-900 mb-1">06:00 AM</span>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 mt-1">QC Passed</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Bottom Section: Headline, Text & Aligned CTA */}
-              <div className="relative z-10 mt-3 pt-1">
-                <h3 className="text-xl sm:text-[22px] font-black text-white tracking-tight leading-tight mb-1.5">
-                  Pure Through Traceability
+              {/* Bottom: Headline, Subtitle & Action */}
+              <div className="mt-3 pt-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+                  Pure Through<br />
+                  <span className="text-emerald-600">Traceability</span>
                 </h3>
-                <p className="text-xs text-teal-100/75 font-medium leading-relaxed mb-4">
+                <p className="mt-1.5 text-xs text-slate-600 font-medium leading-relaxed mb-4">
                   Scan any packet with your phone camera to see the farmer's name, farm location, and harvest log.
                 </p>
 
                 <button
                   type="button"
                   onClick={() => setShowQrModal(true)}
-                  className="inline-flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-950/50 transition-all active:scale-[0.98] cursor-pointer"
+                  className="inline-flex items-center justify-between w-full px-5 py-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs sm:text-sm font-bold border border-emerald-200/80 transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <ScanLine className="w-4 h-4 text-teal-200" />
+                  <span className="flex items-center gap-2">
+                    <ScanLine className="w-4 h-4 text-emerald-700" />
                     <span>Simulate Live QR Scan</span>
                   </span>
                   <ArrowRight className="w-4 h-4" />
@@ -216,100 +234,112 @@ export default function TrustFeatureBanners() {
             </div>
 
             {/* ========================================================
-                CARD 3: Lab Tested Safety (Space Fully Utilized)
+                CARD 3: 24-Point Lab Tested (Light UI)
                ======================================================== */}
-            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-b from-[#021815] via-[#04251e] to-[#01110e] border border-emerald-400/30 text-white p-5 sm:p-6 shadow-xl shadow-black/30">
-              {/* Card Header: Lab Badge */}
-              <div className="relative z-10 flex items-center justify-between mb-3">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/80 backdrop-blur-md border border-emerald-400/40 text-emerald-300 text-[11px] font-black tracking-wider shadow-sm">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>CERTIFIED LAB SAFETY</span>
+            <div className="flex-shrink-0 w-[310px] sm:w-[370px] lg:w-auto relative flex flex-col justify-between overflow-hidden rounded-[32px] border border-emerald-100/90 bg-white text-slate-900 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_14px_40px_rgba(16,185,129,0.08)] transition-all">
+              <div>
+                {/* Header: Badges */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200/90 text-emerald-800 text-xs font-black tracking-wide">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>CERTIFIED LAB SAFETY</span>
+                  </span>
+
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                    ISO 17025
+                  </span>
                 </div>
 
-                <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  ISO 17025
-                </span>
-              </div>
-
-              {/* Middle Section: Full Laboratory Console (Space Fully Utilized) */}
-              <div className="relative z-10 my-2">
-                <div className="p-3.5 rounded-2xl bg-black/60 backdrop-blur-md border border-emerald-500/25 space-y-2.5">
-                  {/* Gauge Header */}
-                  <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
-                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                          <circle
-                            cx="18"
-                            cy="18"
-                            r="15"
-                            className="text-emerald-950 stroke-current"
-                            strokeWidth="3.5"
-                            fill="none"
-                          />
-                          <circle
-                            cx="18"
-                            cy="18"
-                            r="15"
-                            className="text-emerald-400 stroke-current"
-                            strokeWidth="3.5"
-                            strokeDasharray="94.2"
-                            strokeDashoffset="2"
-                            strokeLinecap="round"
-                            fill="none"
-                          />
-                        </svg>
-                        <span className="absolute text-[10px] font-black text-white">99.8%</span>
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-white">Purity Index Score</div>
-                        <div className="text-[10px] text-emerald-300 font-semibold">Grade A+ (Safe)</div>
-                      </div>
+                {/* Circular Gauge & Score Box */}
+                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-50/30 border border-emerald-100/80 my-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          className="text-emerald-100 stroke-current"
+                          strokeWidth="3.5"
+                          fill="none"
+                        />
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="14"
+                          className="text-emerald-600 stroke-current"
+                          strokeWidth="3.5"
+                          strokeDasharray="87.96"
+                          strokeDashoffset="1.2"
+                          strokeLinecap="round"
+                          fill="none"
+                        />
+                      </svg>
+                      <span className="absolute text-xs font-black text-slate-900">99.8%</span>
                     </div>
-
-                    <span className="flex items-center gap-1 bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[9.5px] font-black">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span>PASSED</span>
-                    </span>
+                    <div>
+                      <div className="text-sm font-black text-slate-900 leading-tight">Purity Index Score</div>
+                      <div className="text-xs text-emerald-600 font-bold mt-0.5">Grade A+ (Safe)</div>
+                    </div>
                   </div>
 
-                  {/* 4 Laboratory Parameter Tracks */}
-                  <div className="space-y-1.5 text-[11px]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-300">Pesticide Residue</span>
-                      <span className="font-bold text-emerald-300">0.00 ppm (Clean)</span>
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-black">
+                    <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-600" />
+                    <span>PASSED</span>
+                  </span>
+                </div>
+
+                {/* 4 Laboratory Parameters */}
+                <div className="space-y-2.5 my-3 text-xs">
+                  <div className="flex items-center justify-between font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <FlaskConical className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Pesticide Residue</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-300">Heavy Metals (Lead/Arsenic)</span>
-                      <span className="font-bold text-emerald-300">Not Detected</span>
+                    <span className="font-extrabold text-emerald-700">0.00 ppm (Clean)</span>
+                  </div>
+
+                  <div className="flex items-center justify-between font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Heavy Metals (Lead/Arsenic)</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-300">Microbial / Pathogen Safety</span>
-                      <span className="font-bold text-emerald-300">100% Certified</span>
+                    <span className="font-extrabold text-emerald-700">Not Detected</span>
+                  </div>
+
+                  <div className="flex items-center justify-between font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Cog className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Microbial / Pathogen Safety</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-300">Water Purity & Living Soil</span>
-                      <span className="font-bold text-emerald-300">100% Certified</span>
+                    <span className="font-extrabold text-emerald-700">100% Certified</span>
+                  </div>
+
+                  <div className="flex items-center justify-between font-semibold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Droplets className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Water Purity & Living Soil</span>
                     </div>
+                    <span className="font-extrabold text-emerald-700">100% Certified</span>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Section: Headline, Text & Aligned CTA */}
-              <div className="relative z-10 mt-3 pt-1">
-                <h3 className="text-xl sm:text-[22px] font-black text-white tracking-tight leading-tight mb-1.5">
-                  24-Point Lab Tested
+              {/* Bottom: Headline, Subtitle & Action */}
+              <div className="mt-3 pt-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+                  24-Point <span className="text-emerald-600">Lab Tested</span>
                 </h3>
-                <p className="text-xs text-emerald-100/75 font-medium leading-relaxed mb-4">
+                <p className="mt-1.5 text-xs text-slate-600 font-medium leading-relaxed mb-4">
                   Every batch undergoes strict chromatographic chemical analysis in accredited labs.
                 </p>
 
                 <Link
                   to="/about"
-                  className="inline-flex items-center justify-between w-full px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-950/50 transition-all active:scale-[0.98]"
+                  className="inline-flex items-center justify-between w-full px-5 py-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 text-xs sm:text-sm font-bold border border-emerald-200/80 transition-all active:scale-[0.98]"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <FileCheck2 className="w-4 h-4 text-emerald-200" />
+                  <span className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-700" />
                     <span>View Lab Certificate #GG-2026</span>
                   </span>
                   <ArrowRight className="w-4 h-4" />
@@ -320,59 +350,59 @@ export default function TrustFeatureBanners() {
         </div>
       </section>
 
-      {/* Traceability Modal */}
+      {/* Traceability Modal (Light Mode Styled) */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-          <div className="relative w-full max-w-md bg-[#0a2318] text-white rounded-3xl shadow-2xl p-6 overflow-hidden border border-emerald-500/30">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md bg-white text-slate-900 rounded-3xl shadow-2xl p-6 overflow-hidden border border-emerald-100">
             <button
               onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 p-1.5 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+              <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <QrCode className="w-6 h-6" />
               </div>
               <div>
-                <h4 className="font-extrabold text-base text-white">
+                <h4 className="font-extrabold text-base text-slate-900">
                   Live Farm-to-Fork Passport
                 </h4>
-                <p className="text-xs text-emerald-400 font-medium">
+                <p className="text-xs text-emerald-600 font-semibold">
                   Batch #GG-NASHIK-9842 • Verified
                 </p>
               </div>
             </div>
 
-            <div className="my-4 p-4 rounded-2xl bg-black/40 border border-emerald-500/20 space-y-3">
+            <div className="my-4 p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-3">
               <div className="flex items-start gap-2.5 text-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-white">Nashik Farmers Collective:</strong>
-                  <p className="text-neutral-300 mt-0.5">Plot 4B, Dindori, Nashik (Suresh Patil & Co-op)</p>
+                  <strong className="text-slate-900">Nashik Farmers Collective:</strong>
+                  <p className="text-slate-600 mt-0.5">Plot 4B, Dindori, Nashik (Suresh Patil & Co-op)</p>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 text-xs">
-                <Clock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <Clock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-white">Harvest Timestamp:</strong>
-                  <p className="text-neutral-300 mt-0.5">Today at 04:30 AM (Sun-ripened, hand-picked)</p>
+                  <strong className="text-slate-900">Harvest Timestamp:</strong>
+                  <p className="text-slate-600 mt-0.5">Today at 04:30 AM (Sun-ripened, hand-picked)</p>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 text-xs">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-white">Lab Safety Check:</strong>
-                  <p className="text-neutral-300 mt-0.5">0.00% Pesticides Detected • Soil Certified Pure</p>
+                  <strong className="text-slate-900">Lab Safety Check:</strong>
+                  <p className="text-slate-600 mt-0.5">0.00% Pesticides Detected • Soil Certified Pure</p>
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => setShowQrModal(false)}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-950/50 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-md shadow-emerald-700/20 cursor-pointer"
             >
               Close Verification
             </button>
