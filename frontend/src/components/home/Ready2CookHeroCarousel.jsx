@@ -101,7 +101,7 @@ export default function Ready2CookHeroCarousel({ isMobile = false }) {
       </div>
 
       {/* Pagination Indicators (Bottom Center) */}
-      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-full">
         {READY2COOK_BANNERS.map((_, idx) => (
           <button
             key={idx}
@@ -111,7 +111,7 @@ export default function Ready2CookHeroCarousel({ isMobile = false }) {
             className={`transition-all duration-300 rounded-full cursor-pointer ${
               idx === currentIndex
                 ? "w-6 h-1.5 sm:h-2 bg-white shadow-sm"
-                : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/50 hover:bg-white/80"
+                : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/60 hover:bg-white/90"
             }`}
           />
         ))}

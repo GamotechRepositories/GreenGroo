@@ -71,19 +71,19 @@ export default function DesktopHeroFeatureCards() {
         >
           {cards.map((card) => {
             const cardContent = (
-              <div className="relative flex items-center bg-white border border-gray-200/90 hover:border-emerald-600 rounded-xl p-2 sm:p-2.5 lg:p-3.5 transition-all duration-150 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-sm active:scale-[0.99] h-full">
-                {/* Left Side: Photo */}
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 shrink-0 rounded-lg overflow-hidden border border-gray-150 bg-gray-50">
+              <div className="relative flex items-stretch bg-white border border-gray-200/90 hover:border-emerald-600 rounded-xl overflow-hidden transition-all duration-150 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-sm active:scale-[0.99] h-full">
+                {/* Left Side: Full-bleed Photo (No side padding) */}
+                <div className="relative w-28 sm:w-36 md:w-36 lg:w-40 xl:w-44 shrink-0 overflow-hidden bg-gray-50 self-stretch">
                   <img
                     src={card.image}
                     alt={card.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
                   />
                 </div>
 
                 {/* Right Side: Text & Action Button */}
-                <div className="flex-1 min-w-0 pl-2.5 sm:pl-3 lg:pl-3.5 flex flex-col justify-between self-stretch py-0.5">
+                <div className="flex-1 min-w-0 p-2.5 sm:p-3 lg:p-3.5 flex flex-col justify-between self-stretch">
                   <div>
                     <div className="flex items-center justify-between gap-1.5">
                       <h3 className="text-[12.5px] sm:text-[13.5px] lg:text-[15px] font-bold text-gray-900 tracking-tight leading-tight truncate">

@@ -101,7 +101,7 @@ export default function InstantOrderHeroCarousel({ isMobile = false }) {
       </div>
 
       {/* Pagination Dot Indicators (Bottom Center) */}
-      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-full">
         {INSTANT_ORDER_BANNERS.map((banner, index) => (
           <button
             key={banner.id}
@@ -111,7 +111,7 @@ export default function InstantOrderHeroCarousel({ isMobile = false }) {
             className={`transition-all duration-300 rounded-full cursor-pointer ${
               currentIndex === index
                 ? "w-6 h-1.5 bg-emerald-400 shadow-sm"
-                : "w-1.5 h-1.5 bg-white/50 hover:bg-white/80"
+                : "w-1.5 h-1.5 bg-white/60 hover:bg-white/90"
             }`}
           />
         ))}

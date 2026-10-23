@@ -69,35 +69,35 @@ export default function HeroFeatureCards({ className = "" }) {
         >
           {cards.map((card) => {
             const cardInner = (
-              <div className="relative flex items-center bg-[#f4faf6] border border-[#d2ead7] hover:border-[#0a6c38]/60 hover:bg-[#eef8f1] rounded-2xl p-2.5 sm:p-3 lg:p-3.5 transition-all duration-200 cursor-pointer shadow-[0_2px_6px_rgba(10,108,56,0.04)] hover:shadow-md active:scale-[0.99] h-full">
-                {/* Left Side: Thumbnail Photo */}
-                <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 shrink-0 rounded-xl overflow-hidden border border-[#c3e3cb] bg-white shadow-xs">
+              <div className="group relative flex items-stretch bg-[#f4faf6] border border-[#d2ead7] hover:border-[#0a6c38]/60 hover:bg-[#eef8f1] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer shadow-[0_2px_6px_rgba(10,108,56,0.04)] hover:shadow-md active:scale-[0.99] h-full">
+                {/* Left Side: Full-bleed Photo (No side padding) */}
+                <div className="relative w-28 sm:w-36 md:w-36 lg:w-40 xl:w-44 shrink-0 overflow-hidden bg-gray-100 self-stretch">
                   <img
                     src={card.image}
                     alt={card.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
                   />
                 </div>
 
                 {/* Right Side: Text & Green Pill Action Button */}
-                <div className="flex-1 min-w-0 pl-3 sm:pl-3.5 flex flex-col justify-between self-stretch py-0.5">
+                <div className="flex-1 min-w-0 p-3 sm:p-3.5 lg:p-4 flex flex-col justify-between self-stretch">
                   <div>
-                    <h3 className="text-[13px] sm:text-[14.5px] lg:text-[16px] font-extrabold text-[#113821] tracking-tight leading-tight truncate">
+                    <h3 className="text-[13.5px] sm:text-[15px] lg:text-[16.5px] font-extrabold text-[#113821] tracking-tight leading-tight truncate">
                       {card.title}
                     </h3>
-                    <p className="text-[11.5px] sm:text-[12.5px] lg:text-[13.5px] font-bold text-[#0a6c38] mt-0.5 leading-snug truncate">
+                    <p className="text-[12px] sm:text-[13px] lg:text-[14px] font-bold text-[#0a6c38] mt-0.5 sm:mt-1 leading-snug truncate">
                       {card.subtitle}
                     </p>
-                    <p className="text-[10px] sm:text-[11px] lg:text-[11.5px] text-gray-600 mt-1 leading-snug line-clamp-2">
+                    <p className="text-[10.5px] sm:text-[11.5px] lg:text-[12px] text-gray-600 mt-1 sm:mt-1.5 leading-snug line-clamp-2">
                       {card.description}
                     </p>
                   </div>
 
-                  <div className="mt-2 sm:mt-2.5">
-                    <span className="inline-flex items-center gap-1 px-3 py-1 sm:py-1.5 rounded-full bg-[#0a6c38] hover:bg-[#07522a] text-white text-[10px] sm:text-[11px] font-semibold transition-all duration-150 shadow-xs">
+                  <div className="mt-2.5 sm:mt-3">
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0a6c38] hover:bg-[#07522a] text-white text-[10.5px] sm:text-[11.5px] lg:text-[12px] font-semibold transition-all duration-150 shadow-xs">
                       <span>{card.btnText}</span>
-                      <ArrowRight className="w-3 h-3 shrink-0" />
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </span>
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export default function HeroFeatureCards({ className = "" }) {
                 <Link
                   key={card.id}
                   to={card.link}
-                  className="block no-underline shrink-0 w-[85vw] max-w-[330px] snap-start md:w-auto md:max-w-none md:shrink"
+                  className="block no-underline shrink-0 w-[88vw] max-w-[360px] snap-start md:w-auto md:max-w-none md:shrink"
                 >
                   {cardInner}
                 </Link>
@@ -122,7 +122,7 @@ export default function HeroFeatureCards({ className = "" }) {
                 onClick={card.onClick}
                 role="button"
                 tabIndex={0}
-                className="shrink-0 w-[85vw] max-w-[330px] snap-start md:w-auto md:max-w-none md:shrink"
+                className="shrink-0 w-[88vw] max-w-[360px] snap-start md:w-auto md:max-w-none md:shrink"
               >
                 {cardInner}
               </div>

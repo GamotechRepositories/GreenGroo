@@ -22,6 +22,7 @@ import PreorderHeroCarousel from "../components/home/PreorderHeroCarousel";
 import Ready2CookHeroCarousel from "../components/home/Ready2CookHeroCarousel";
 import InstantOrderHeroCarousel from "../components/home/InstantOrderHeroCarousel";
 import WhatMakesUsDifferent from "../components/home/WhatMakesUsDifferent";
+import HomeMidBannerSlider from "../components/home/HomeMidBannerSlider";
 
 function StoreContent() {
   const [searchParams] = useSearchParams();
@@ -51,15 +52,8 @@ function StoreContent() {
       <MostViewedProducts />
       <BestDeals title="Previously bought" viewAllTo="/orders" />
       <MostVisitedCategoryProducts />
-      <FarmerTestimonials />
 
-      <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
-        <img 
-          src="/assets/payment/image.png" 
-          alt="Promotional Banner" 
-          className="w-full h-auto object-cover rounded-xl sm:rounded-2xl"
-        />
-      </section>
+      <HomeMidBannerSlider />
 
       <SuggestedForYouSection />
       <TopPaymentOffersSection />
