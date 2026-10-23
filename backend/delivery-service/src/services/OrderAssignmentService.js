@@ -845,14 +845,8 @@ export async function retryWaitingAssignmentsForStore(darkStoreId) {
     if (order.status === "offered" && order.offerExpiresAt > new Date()) continue;
     await assignNextDriver(order._id);
   }
-
-  for (const orderId of waitingOrderIds) {
-    const order = await StoreOrder.findById(orderId);
-    if (order && String(order.managerId) === storeId) {
-      await assignNextDriver(order._id);
-    }
-  }
 }
+
 
 /** @deprecated use assignNextDriver */
 export const dispatchNextRider = assignNextDriver;
