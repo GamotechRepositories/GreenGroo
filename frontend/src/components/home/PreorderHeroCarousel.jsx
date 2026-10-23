@@ -5,15 +5,15 @@ const PREORDER_BANNERS = [
   {
     id: "banner-1",
     desktopImage: "/assets/payment/heroBaner.png",
-    mobileImage: "/assets/payment/preorder%20banner%20mobile%20view%201.png",
-    alt: "शेतकऱ्यांच्या मेहनतीतून, तुमच्या कुटुंबाच्या ताटापर्यंत!",
+    mobileImage: "/assets/payment/heroMobileBaner.jpg",
+    alt: "शेतातून थेट तुमच्या घरापर्यंत !",
     link: "/product",
   },
   {
     id: "banner-2",
     desktopImage: "/assets/payment/heroBaner2.png",
-    mobileImage: "/assets/payment/preorder%20banner%20mobile%20view%202.png",
-    alt: "शुद्ध, ताजे आणि नैसर्गिक उत्पादन — शेतकऱ्यांच्या मेहनतीतून, तुमच्यासाठी!",
+    mobileImage: "/assets/payment/heroMobileBaner2.png",
+    alt: "Festive Season Special - Fresh Fruits & Veggies From ₹9",
     link: "/product",
   },
 ];
@@ -101,7 +101,7 @@ export default function PreorderHeroCarousel({ isMobile = false }) {
       </div>
 
       {/* Pagination Indicators (Bottom Center) */}
-      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+      <div className="absolute bottom-2.5 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/25 backdrop-blur-xs px-2.5 py-1 rounded-full">
         {PREORDER_BANNERS.map((_, idx) => (
           <button
             key={idx}
@@ -111,7 +111,7 @@ export default function PreorderHeroCarousel({ isMobile = false }) {
             className={`transition-all duration-300 rounded-full cursor-pointer ${
               idx === currentIndex
                 ? "w-6 h-1.5 sm:h-2 bg-white shadow-sm"
-                : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/50 hover:bg-white/80"
+                : "w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/60 hover:bg-white/90"
             }`}
           />
         ))}

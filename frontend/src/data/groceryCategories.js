@@ -5,7 +5,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Vegetables",
     items: "150+",
     bg: "#E2F0D9",
-    image: "/categories/vegetables.webp",
+    image: "/categories/category_vegetables.jpg",
   },
   {
     name: "Fruits",
@@ -13,7 +13,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Fruits",
     items: "120+",
     bg: "#F0F7ED",
-    image: "/categories/fruits.webp",
+    image: "/categories/category_fruits.jpg",
   },
   {
     name: "Dairy",
@@ -21,7 +21,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Dairy",
     items: "80+",
     bg: "#E8F5E9",
-    image: "/categories/dairy.webp",
+    image: "/categories/category_dairy_eggs.png",
   },
   {
     name: "Grains",
@@ -29,7 +29,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Grains",
     items: "90+",
     bg: "#E8F5E0",
-    image: "/categories/grains.webp",
+    image: "/categories/category_pulses_grains.jpg",
   },
   {
     name: "Pulses",
@@ -37,7 +37,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Pulses",
     items: "70+",
     bg: "#EAF5DF",
-    image: "/categories/pulses.webp",
+    image: "/categories/category_pulses_grains.jpg",
   },
   {
     name: "Grocery",
@@ -53,7 +53,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Oils",
     items: "45+",
     bg: "#F7F1DC",
-    image: "/categories/oils.webp",
+    image: "/categories/category_oils_ghee.jpg",
   },
   {
     name: "Spices",
@@ -61,7 +61,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Spices",
     items: "110+",
     bg: "#F7F1DC",
-    image: "/categories/spices.webp",
+    image: "/categories/category_spices_dry_fruits.jpg",
   },
   {
     name: "Dry Fruits",
@@ -69,7 +69,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Dry Fruits",
     items: "60+",
     bg: "#F5EDE0",
-    image: "/categories/dry-fruits.webp",
+    image: "/categories/category_spices_dry_fruits.jpg",
   },
   {
     name: "Organic",
@@ -77,7 +77,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Organic",
     items: "55+",
     bg: "#E8F5DF",
-    image: "/categories/organic.webp",
+    image: "/categories/category_organic_range.jpg",
   },
   {
     name: "Beverages",
@@ -85,7 +85,7 @@ export const GROCERY_CATEGORIES = [
     slug: "Beverages",
     items: "85+",
     bg: "#E8F4FC",
-    image: "/categories/beverages.webp",
+    image: "/categories/category_beverages.jpg",
   },
   {
     name: "Bakery",

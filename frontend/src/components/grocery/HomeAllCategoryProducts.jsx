@@ -10,6 +10,8 @@ import { useNearestStore } from "../../hooks/useNearestStore";
 import { getMostVisitedCategories } from "../../utils/categoryVisits";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { storeToSection } from "../../utils/storeSection";
+import FarmerGrowthBanner from "../home/FarmerGrowthBanner";
+import FarmerTestimonials from "../home/FarmerTestimonials";
 
 function CategoryProductSection({ categoryName, limit = 20, section = null }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -101,7 +103,11 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
       .map((c) => c.categoryName)
       .filter(Boolean)
       .filter((name) => name.toLowerCase() !== "most purchase");
-    return rankHomeCategories(names);
+    const ranked = rankHomeCategories(names);
+    // Position Dairy as the final category section so it sits right above FarmerGrowthBanner and WhatMakesUsDifferent!
+    const nonDairy = ranked.filter((name) => !name.toLowerCase().includes("dairy"));
+    const dairyCategories = ranked.filter((name) => name.toLowerCase().includes("dairy"));
+    return [...nonDairy, ...dairyCategories];
   }, [apiCategories]);
 
   return (
@@ -119,19 +125,6 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
         </div>
       ) : null}
 
-      {!needsLocation && storeName ? (
-        <div className="mx-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 lg:mx-0">
-          <p className="font-semibold">
-            {nearest?.store?.area
-              ? `${nearest.store.area} · ${storeName}`
-              : storeName}
-          </p>
-          <p className="mt-0.5 text-emerald-800">
-            Catalog from admin. Items not stocked at this dark store are marked out of stock
-            {nearest?.inStockCount ? ` · ${nearest.inStockCount} items in stock nearby` : ""}.
-          </p>
-        </div>
-      ) : null}
 
       {noStore ? (
         <div className="mx-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:mx-0">
@@ -139,14 +132,28 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
         </div>
       ) : null}
 
-      {categories.map((category) => (
-        <CategoryProductSection
-          key={category}
-          categoryName={category}
-          limit={limitPerCategory}
-          section={targetSection}
-        />
-      ))}
+      {categories.map((category) => {
+        const isDairy = category.toLowerCase().includes("dairy");
+        return (
+          <div key={category} className="space-y-4">
+            <CategoryProductSection
+              categoryName={category}
+              limit={limitPerCategory}
+              section={targetSection}
+            />
+            {isDairy && (
+              <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
+            )}
+          </div>
+        );
+      })}
+
+      {!categories.some((c) => c.toLowerCase().includes("dairy")) && (
+        <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
+      )}
+
+      {/* शेतकऱ्यांसोबत वाढणारा भारत - Placed below Dairy / Testimonials section */}
+      <FarmerGrowthBanner />
     </div>
   );
 }

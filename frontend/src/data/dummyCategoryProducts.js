@@ -2,15 +2,15 @@ import { getDealProductById } from "../components/home/DealsStartingAt9Section";
 import { GROCERY_CATEGORIES } from "./groceryCategories";
 
 const SHOP_SIDEBAR_IMAGES = {
-  Vegetables: "/categories/shop_vegetables.jpg",
-  Fruits: "/categories/shop_fruits.jpg",
-  Dairy: "/categories/shop_dairy.jpg",
-  Grains: "/categories/shop_grains.jpg",
-  Pulses: "/categories/shop_pulses.jpg",
+  Vegetables: "/categories/category_vegetables.jpg",
+  Fruits: "/categories/category_fruits.jpg",
+  Dairy: "/categories/category_dairy_eggs.png",
+  Grains: "/categories/category_pulses_grains.jpg",
+  Pulses: "/categories/category_pulses_grains.jpg",
   Grocery: "/categories/shop_grocery.jpg",
-  Oils: "/categories/shop_oils.jpg",
-  Spices: "/categories/shop_spices.jpg",
-  "Dry Fruits": "/categories/shop_dry_fruits.jpg",
+  Oils: "/categories/category_oils_ghee.jpg",
+  Spices: "/categories/category_spices_dry_fruits.jpg",
+  "Dry Fruits": "/categories/category_spices_dry_fruits.jpg",
 };
 
 /** Full shop left-rail list (Vegetables, Fruits, Dairy, … Bakery). */

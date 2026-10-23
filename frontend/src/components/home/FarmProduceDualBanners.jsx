@@ -7,13 +7,13 @@ export default function FarmProduceDualBanners({ className = "" }) {
 
   return (
     <>
-      <section className={`w-full py-2 sm:py-3.5 ${className}`}>
+      <section className={`w-full py-2 sm:py-3.5 px-3 sm:px-4 lg:px-0 ${className}`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4 lg:gap-5">
           {/* Banner 1: आज शेतात काय आहे? (Single Banner - 2nd Image) */}
           <Link
             to="/categories"
             aria-label="आज शेतात काय आहे? - या आठवड्यातील ताजी उत्पादने"
-            className="relative h-44 sm:h-52 md:h-52 lg:h-56 xl:h-60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group border border-[#cde8d5] block"
+            className="relative h-32 sm:h-44 md:h-52 lg:h-56 xl:h-60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group border border-[#cde8d5] block"
           >
             <img
               src="/assets/features/farm_fresh_slide_2.png"
@@ -36,7 +36,7 @@ export default function FarmProduceDualBanners({ className = "" }) {
             role="button"
             tabIndex={0}
             aria-label="Play farmer story video"
-            className="relative h-44 sm:h-52 md:h-52 lg:h-56 xl:h-60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-[#cde8d5] cursor-pointer bg-[#f3f9f4]"
+            className="relative h-32 sm:h-44 md:h-52 lg:h-56 xl:h-60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-[#cde8d5] cursor-pointer bg-[#f3f9f4]"
           >
             <img
               src="/assets/features/farmer_stories_banner_complete.png"
