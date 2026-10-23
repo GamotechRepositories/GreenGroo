@@ -100,11 +100,48 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     giftCardDiscount = giftResult.discountAmount;
   }
 
-  const deliveryCharges =
+  // Evaluate Dynamic Pricing Rules (Quantity discounts, Bundle deals with exceptions, Tiered volume discounts, Free/discounted add-ons, Lifetime loyalty, Heavy item fees)
+  let dynamicPricing = {
+    bundleDiscount: 0,
+    loyaltyDiscount: 0,
+    quantityDiscount: 0,
+    tieredDiscount: 0,
+    totalDiscount: 0,
+    heavyHandlingFee: 0,
+    freeAddon: null,
+    appliedRules: [],
+  };
+
+  try {
+    const { evaluateDynamicPricingForCart } = await import(
+      "../../admin-ops-service/src/pricingAttach.js"
+    );
+    dynamicPricing = await evaluateDynamicPricingForCart({
+      items: options.items || [],
+      userId: options.userId,
+      subtotal,
+    });
+  } catch (err) {
+    console.warn("Dynamic pricing evaluation warning:", err.message);
+  }
+
+  const bundleDiscount = dynamicPricing.bundleDiscount || 0;
+  const loyaltyDiscount = dynamicPricing.loyaltyDiscount || 0;
+  const quantityDiscount = (dynamicPricing.quantityDiscount || 0) + (dynamicPricing.tieredDiscount || 0);
+  const totalDynamicDiscount = dynamicPricing.totalDiscount || 0;
+  const heavyHandlingFee = dynamicPricing.heavyHandlingFee || 0;
+  const freeAddon = dynamicPricing.freeAddon || null;
+
+  const baseDeliveryCharges =
     normalizeFulfillmentType(options.fulfillmentType) === "pickup"
       ? 0
       : calculateShippingCharge(subtotal, storeSettings);
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount - giftCardDiscount);
+  const deliveryCharges = baseDeliveryCharges + heavyHandlingFee;
+
+  const discountedSubtotal = Math.max(
+    0,
+    subtotal - couponDiscount - rewardDiscount - giftCardDiscount - totalDynamicDiscount
+  );
   const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
 
   const rewardSettings = await getRewardSettings();
@@ -112,7 +149,8 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
 
   return {
     storeSettings,
-    deliveryCharges,
+    deliveryCharges: baseDeliveryCharges,
+    heavyHandlingFee,
     gstAmount,
     total,
     couponCode: resolvedCouponCode,
@@ -122,6 +160,12 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     rewardPointsEarned,
     giftCardCode,
     giftCardDiscount,
+    bundleDiscount,
+    loyaltyDiscount,
+    quantityDiscount,
+    dynamicDiscount: totalDynamicDiscount,
+    freeAddon,
+    dynamicPricingDetails: dynamicPricing,
   };
 }
 
@@ -695,6 +739,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     rewardPointsToUse: options.rewardPointsToUse,
     giftCardCode: options.giftCardCode,
     fulfillmentType,
+    items: orderItems,
   });
   if (pricing.error) {
     return pricing;
@@ -703,6 +748,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   const {
     storeSettings,
     deliveryCharges,
+    heavyHandlingFee,
     gstAmount,
     total,
     couponCode,
@@ -712,6 +758,12 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     rewardPointsEarned,
     giftCardCode,
     giftCardDiscount,
+    bundleDiscount,
+    loyaltyDiscount,
+    quantityDiscount,
+    dynamicDiscount,
+    freeAddon,
+    dynamicPricingDetails,
   } = pricing;
 
   if (!meetsMinimumOrder(subtotal, storeSettings)) {
@@ -783,6 +835,13 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     giftCardCode: giftCardCode || "",
     giftCardDiscount: giftCardDiscount || 0,
     deliveryCharges,
+    heavyHandlingFee: heavyHandlingFee || 0,
+    bundleDiscount: bundleDiscount || 0,
+    loyaltyDiscount: loyaltyDiscount || 0,
+    quantityDiscount: quantityDiscount || 0,
+    dynamicDiscount: dynamicDiscount || 0,
+    freeAddon: freeAddon || null,
+    dynamicPricingDetails: dynamicPricingDetails || null,
     gstAmount,
     total,
     cart,
@@ -971,6 +1030,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     rewardPointsToUse: options.rewardPointsToUse,
     giftCardCode: options.giftCardCode,
     fulfillmentType,
+    items: orderItems,
   });
   if (pricing.error) {
     return pricing;
@@ -978,6 +1038,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
 
   const {
     deliveryCharges,
+    heavyHandlingFee,
     gstAmount,
     total,
     couponCode,
@@ -987,6 +1048,12 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     rewardPointsEarned,
     giftCardCode,
     giftCardDiscount,
+    bundleDiscount,
+    loyaltyDiscount,
+    quantityDiscount,
+    dynamicDiscount,
+    freeAddon,
+    dynamicPricingDetails,
   } = pricing;
 
   return {
@@ -1027,6 +1094,12 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     giftCardCode: prepared.giftCardCode || "",
     giftCardDiscount: prepared.giftCardDiscount || 0,
     deliveryCharges: prepared.deliveryCharges,
+    heavyHandlingFee: prepared.heavyHandlingFee || 0,
+    bundleDiscount: prepared.bundleDiscount || 0,
+    loyaltyDiscount: prepared.loyaltyDiscount || 0,
+    dynamicDiscount: prepared.dynamicDiscount || 0,
+    freeAddon: prepared.freeAddon || null,
+    dynamicPricingDetails: prepared.dynamicPricingDetails || null,
     gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
     paymentMethod: normalizedPaymentMethod,
@@ -1157,6 +1230,12 @@ export async function completeAttemptedOrder({
   order.giftCardCode = giftCardCode || "";
   order.giftCardDiscount = giftCardDiscount > 0 ? giftCardDiscount : 0;
   order.deliveryCharges = deliveryCharges;
+  order.heavyHandlingFee = heavyHandlingFee > 0 ? heavyHandlingFee : 0;
+  order.bundleDiscount = bundleDiscount > 0 ? bundleDiscount : 0;
+  order.loyaltyDiscount = loyaltyDiscount > 0 ? loyaltyDiscount : 0;
+  order.dynamicDiscount = dynamicDiscount > 0 ? dynamicDiscount : 0;
+  order.freeAddon = freeAddon || null;
+  order.dynamicPricingDetails = dynamicPricingDetails || null;
   order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
   order.paymentMethod = paymentMethod;
@@ -1209,6 +1288,12 @@ export async function finalizeOrder({
   giftCardCode = "",
   giftCardDiscount = 0,
   deliveryCharges,
+  heavyHandlingFee = 0,
+  bundleDiscount = 0,
+  loyaltyDiscount = 0,
+  dynamicDiscount = 0,
+  freeAddon = null,
+  dynamicPricingDetails = null,
   gstAmount = 0,
   total,
   cart,
@@ -1242,6 +1327,12 @@ export async function finalizeOrder({
     giftCardCode,
     giftCardDiscount,
     deliveryCharges,
+    heavyHandlingFee,
+    bundleDiscount,
+    loyaltyDiscount,
+    dynamicDiscount,
+    freeAddon,
+    dynamicPricingDetails,
     gstAmount,
     total,
     cart,
@@ -1286,6 +1377,12 @@ export async function finalizeOrder({
     giftCardCode: giftCardCode || "",
     giftCardDiscount: giftCardDiscount > 0 ? giftCardDiscount : 0,
     deliveryCharges,
+    heavyHandlingFee: heavyHandlingFee > 0 ? heavyHandlingFee : 0,
+    bundleDiscount: bundleDiscount > 0 ? bundleDiscount : 0,
+    loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : 0,
+    dynamicDiscount: dynamicDiscount > 0 ? dynamicDiscount : 0,
+    freeAddon: freeAddon || null,
+    dynamicPricingDetails: dynamicPricingDetails || null,
     gstAmount: gstAmount > 0 ? gstAmount : 0,
     total,
     status,

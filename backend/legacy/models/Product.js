@@ -432,6 +432,16 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: "1 pc",
     },
+    weight: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    isHeavy: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     /** Shared id linking full-product variety siblings (clone via admin "Add variety") */
     varietyGroupId: {
       type: String,

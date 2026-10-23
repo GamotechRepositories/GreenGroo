@@ -21,18 +21,90 @@ const giftCardSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const pricingTierSlabSchema = new mongoose.Schema(
+  {
+    minQuantity: { type: Number, required: true, min: 1 },
+    maxQuantity: { type: Number, default: null },
+    discountType: { type: String, enum: ["percentage", "fixed"], default: "percentage" },
+    discountValue: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
 const dynamicPricingRuleSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    description: { type: String, default: "", trim: true },
+    ruleType: {
+      type: String,
+      enum: [
+        "quantity_discount",
+        "bundle_pricing",
+        "tiered_quantity",
+        "free_addon",
+        "loyalty_discount",
+        "heavy_handling_fee",
+      ],
+      default: "quantity_discount",
+      index: true,
+    },
     enabled: { type: Boolean, default: true, index: true },
-    minQuantity: { type: Number, required: true, min: 1, default: 10 },
-    discountType: { type: String, enum: ["percentage", "fixed"], default: "percentage" },
-    discountValue: { type: Number, required: true, min: 0, default: 5 },
-    applyTo: { type: String, enum: ["all", "products", "categories"], default: "all" },
+    applyTo: {
+      type: String,
+      enum: ["all", "products", "categories", "custom", "weight_threshold", "all_heavy"],
+      default: "all",
+    },
     productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "GreenGroccProduct" }],
     categoryNames: [{ type: String, trim: true }],
     startDate: { type: Date, default: null },
     endDate: { type: Date, default: null },
+
+    // 1. Quantity-based discounts
+    minQuantity: { type: Number, default: 1, min: 1 },
+    discountType: { type: String, enum: ["percentage", "fixed"], default: "percentage" },
+    discountValue: { type: Number, default: 0, min: 0 },
+
+    // 2. Bundle pricing (e.g., 3 t-shirts for fixed price, with exceptions)
+    bundleQuantity: { type: Number, default: 3, min: 1 },
+    bundlePrice: { type: Number, default: 0, min: 0 },
+    exceptionProductIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "GreenGroccProduct" }],
+    exceptionCategoryNames: [{ type: String, trim: true }],
+
+    // 3. Tiered quantity discounts (e.g., 2–5 units at 10%, 6+ at 20%)
+    tiers: { type: [pricingTierSlabSchema], default: [] },
+
+    // 4. Free/discounted add-on items with a purchase
+    triggerType: {
+      type: String,
+      enum: ["min_spend", "specific_products", "specific_categories", "any_order"],
+      default: "min_spend",
+    },
+    minSpend: { type: Number, default: 0, min: 0 },
+    triggerProductIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "GreenGroccProduct" }],
+    triggerCategoryNames: [{ type: String, trim: true }],
+    addonProductId: { type: mongoose.Schema.Types.ObjectId, ref: "GreenGroccProduct", default: null },
+    addonProductName: { type: String, default: "", trim: true },
+    addonQuantity: { type: Number, default: 1, min: 1 },
+    addonDiscountType: {
+      type: String,
+      enum: ["free", "percentage", "fixed_price"],
+      default: "free",
+    },
+    addonDiscountValue: { type: Number, default: 100, min: 0 },
+
+    // 5. Lifetime loyalty discounts after a set number of orders
+    minCompletedOrders: { type: Number, default: 5, min: 1 },
+    maxDiscountAmount: { type: Number, default: 0, min: 0 },
+    minOrderValue: { type: Number, default: 0, min: 0 },
+
+    // 6. Extra handling fee for heavy items
+    feeAmount: { type: Number, default: 0, min: 0 },
+    feeType: {
+      type: String,
+      enum: ["per_item", "per_order", "per_kg_over_threshold"],
+      default: "per_order",
+    },
+    heavyWeightThresholdKg: { type: Number, default: 5, min: 0 },
   },
   { timestamps: true }
 );

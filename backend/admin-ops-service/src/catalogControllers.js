@@ -6,7 +6,7 @@ import {
   BulkSellingDeal,
 } from "./models.js";
 import { generateGiftCode, previewGiftCard } from "./giftCardService.js";
-import { invalidatePricingCache } from "./pricingAttach.js";
+import { invalidatePricingCache, evaluateDynamicPricingForCart } from "./pricingAttach.js";
 import { parseCsv, toCsv } from "./csv.js";
 import {
   addProductToAllStores,
@@ -133,22 +133,32 @@ export async function listActivePricingPublic(_req, res, next) {
 }
 
 function parsePricingBody(body) {
-  const minQuantity = Number(body.minQuantity);
-  const discountValue = Number(body.discountValue);
-  if (!String(body.name || "").trim()) return { error: "Name is required" };
-  if (!Number.isFinite(minQuantity) || minQuantity < 1) return { error: "Min quantity must be at least 1" };
-  if (!Number.isFinite(discountValue) || discountValue < 0) return { error: "Discount value is required" };
-  if (body.discountType === "percentage" && discountValue > 100) {
-    return { error: "Percentage discount cannot exceed 100" };
+  if (!String(body.name || "").trim()) return { error: "Rule name is required" };
+
+  const ruleType = body.ruleType || "quantity_discount";
+  const validRuleTypes = [
+    "quantity_discount",
+    "bundle_pricing",
+    "tiered_quantity",
+    "free_addon",
+    "loyalty_discount",
+    "heavy_handling_fee",
+  ];
+  if (!validRuleTypes.includes(ruleType)) {
+    return { error: `Invalid rule type. Must be one of: ${validRuleTypes.join(", ")}` };
   }
-  return {
+
+  const payload = {
     name: String(body.name).trim(),
+    description: String(body.description || "").trim(),
+    ruleType,
     enabled: body.enabled !== false,
-    minQuantity,
-    discountType: body.discountType === "fixed" ? "fixed" : "percentage",
-    discountValue,
-    applyTo: ["all", "products", "categories"].includes(body.applyTo) ? body.applyTo : "all",
-    productIds: Array.isArray(body.productIds) ? body.productIds.filter((id) => mongoose.Types.ObjectId.isValid(id)) : [],
+    applyTo: ["all", "products", "categories", "custom", "weight_threshold", "all_heavy"].includes(body.applyTo)
+      ? body.applyTo
+      : "all",
+    productIds: Array.isArray(body.productIds)
+      ? body.productIds.filter((id) => mongoose.Types.ObjectId.isValid(id))
+      : [],
     categoryNames: Array.isArray(body.categoryNames)
       ? body.categoryNames.map((name) => String(name).trim()).filter(Boolean)
       : String(body.categoryNames || "")
@@ -158,6 +168,128 @@ function parsePricingBody(body) {
     startDate: body.startDate ? new Date(body.startDate) : null,
     endDate: body.endDate ? new Date(body.endDate) : null,
   };
+
+  if (ruleType === "quantity_discount") {
+    const minQuantity = Number(body.minQuantity);
+    const discountValue = Number(body.discountValue);
+    if (!Number.isFinite(minQuantity) || minQuantity < 1) {
+      return { error: "Min quantity must be at least 1" };
+    }
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
+      return { error: "Discount value must be at least 0" };
+    }
+    if (body.discountType === "percentage" && discountValue > 100) {
+      return { error: "Percentage discount cannot exceed 100%" };
+    }
+    payload.minQuantity = minQuantity;
+    payload.discountType = body.discountType === "fixed" ? "fixed" : "percentage";
+    payload.discountValue = discountValue;
+  } else if (ruleType === "bundle_pricing") {
+    const bundleQuantity = Number(body.bundleQuantity);
+    const bundlePrice = Number(body.bundlePrice);
+    if (!Number.isFinite(bundleQuantity) || bundleQuantity < 1) {
+      return { error: "Bundle quantity must be at least 1" };
+    }
+    if (!Number.isFinite(bundlePrice) || bundlePrice < 0) {
+      return { error: "Bundle price must be at least 0" };
+    }
+    payload.bundleQuantity = bundleQuantity;
+    payload.bundlePrice = bundlePrice;
+    payload.exceptionProductIds = Array.isArray(body.exceptionProductIds)
+      ? body.exceptionProductIds.filter((id) => mongoose.Types.ObjectId.isValid(id))
+      : [];
+    payload.exceptionCategoryNames = Array.isArray(body.exceptionCategoryNames)
+      ? body.exceptionCategoryNames.map((name) => String(name).trim()).filter(Boolean)
+      : String(body.exceptionCategoryNames || "")
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean);
+  } else if (ruleType === "tiered_quantity") {
+    const tiers = Array.isArray(body.tiers) ? body.tiers : [];
+    if (!tiers.length) {
+      return { error: "At least one pricing tier slab is required" };
+    }
+    const cleanTiers = [];
+    for (const t of tiers) {
+      const minQty = Number(t.minQuantity);
+      const val = Number(t.discountValue);
+      if (!Number.isFinite(minQty) || minQty < 1) {
+        return { error: "Each tier requires a valid min quantity >= 1" };
+      }
+      if (!Number.isFinite(val) || val < 0) {
+        return { error: "Each tier requires a valid discount value >= 0" };
+      }
+      cleanTiers.push({
+        minQuantity: minQty,
+        maxQuantity:
+          Number.isFinite(Number(t.maxQuantity)) && Number(t.maxQuantity) >= minQty
+            ? Number(t.maxQuantity)
+            : null,
+        discountType: t.discountType === "fixed" ? "fixed" : "percentage",
+        discountValue: val,
+      });
+    }
+    cleanTiers.sort((a, b) => a.minQuantity - b.minQuantity);
+    payload.tiers = cleanTiers;
+  } else if (ruleType === "free_addon") {
+    const triggerType = [
+      "min_spend",
+      "specific_products",
+      "specific_categories",
+      "any_order",
+    ].includes(body.triggerType)
+      ? body.triggerType
+      : "min_spend";
+    payload.triggerType = triggerType;
+    payload.minSpend = Number(body.minSpend) || 0;
+    payload.triggerProductIds = Array.isArray(body.triggerProductIds)
+      ? body.triggerProductIds.filter((id) => mongoose.Types.ObjectId.isValid(id))
+      : [];
+    payload.triggerCategoryNames = Array.isArray(body.triggerCategoryNames)
+      ? body.triggerCategoryNames.map((name) => String(name).trim()).filter(Boolean)
+      : String(body.triggerCategoryNames || "")
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean);
+    payload.addonProductId = mongoose.Types.ObjectId.isValid(body.addonProductId)
+      ? body.addonProductId
+      : null;
+    payload.addonProductName = String(body.addonProductName || "").trim();
+    payload.addonQuantity = Number(body.addonQuantity) >= 1 ? Number(body.addonQuantity) : 1;
+    payload.addonDiscountType = ["free", "percentage", "fixed_price"].includes(body.addonDiscountType)
+      ? body.addonDiscountType
+      : "free";
+    payload.addonDiscountValue = Number.isFinite(Number(body.addonDiscountValue))
+      ? Number(body.addonDiscountValue)
+      : 100;
+  } else if (ruleType === "loyalty_discount") {
+    const minOrders = Number(body.minCompletedOrders);
+    const discountVal = Number(body.discountValue);
+    if (!Number.isFinite(minOrders) || minOrders < 1) {
+      return { error: "Min completed orders must be at least 1" };
+    }
+    if (!Number.isFinite(discountVal) || discountVal <= 0) {
+      return { error: "Discount value must be greater than 0" };
+    }
+    payload.minCompletedOrders = minOrders;
+    payload.discountType = body.discountType === "fixed" ? "fixed" : "percentage";
+    payload.discountValue = discountVal;
+    payload.maxDiscountAmount = Number(body.maxDiscountAmount) || 0;
+    payload.minOrderValue = Number(body.minOrderValue) || 0;
+  } else if (ruleType === "heavy_handling_fee") {
+    const feeAmount = Number(body.feeAmount);
+    if (!Number.isFinite(feeAmount) || feeAmount <= 0) {
+      return { error: "Heavy handling fee amount must be greater than 0" };
+    }
+    payload.feeAmount = feeAmount;
+    payload.feeType = ["per_item", "per_order", "per_kg_over_threshold"].includes(body.feeType)
+      ? body.feeType
+      : "per_order";
+    payload.heavyWeightThresholdKg =
+      Number(body.heavyWeightThresholdKg) >= 0 ? Number(body.heavyWeightThresholdKg) : 5;
+  }
+
+  return payload;
 }
 
 export async function createPricingRule(req, res, next) {
@@ -193,6 +325,16 @@ export async function deletePricingRule(req, res, next) {
     if (!rule) return fail(res, 404, "Pricing rule not found");
     invalidatePricingCache();
     return ok(res, { id: req.params.id });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function previewPricingCalculation(req, res, next) {
+  try {
+    const { items = [], userId = null, subtotal = 0 } = req.body;
+    const result = await evaluateDynamicPricingForCart({ items, userId, subtotal });
+    return ok(res, result);
   } catch (error) {
     next(error);
   }
@@ -433,11 +575,58 @@ export async function importProductsJson(req, res, next) {
 export async function listProductsLite(_req, res, next) {
   try {
     const products = await Product.find({ isActive: true })
-      .select("name sku discountedPrice price stock")
+      .select("name sku discountedPrice price stock categories subcategory unit weight isHeavy productImages")
       .sort({ name: 1 })
       .limit(500)
       .lean();
     return ok(res, products);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listProductCategoriesLite(_req, res, next) {
+  try {
+    const products = await Product.find({ isActive: true })
+      .select("categories subcategory")
+      .lean();
+
+    const categorySet = new Set();
+    const subcategorySet = new Set();
+    const subcategoriesByCategory = {};
+
+    for (const p of products) {
+      const cats = Array.isArray(p.categories) ? p.categories : [p.category].filter(Boolean);
+      const sub = p.subcategory ? String(p.subcategory).trim() : "";
+      if (sub) subcategorySet.add(sub);
+
+      for (const c of cats) {
+        const catName = String(c || "").trim();
+        if (!catName) continue;
+        categorySet.add(catName);
+        if (!subcategoriesByCategory[catName]) {
+          subcategoriesByCategory[catName] = new Set();
+        }
+        if (sub) {
+          subcategoriesByCategory[catName].add(sub);
+        }
+      }
+    }
+
+    const categories = [...categorySet].sort();
+    const subcategories = [...subcategorySet].sort();
+    const mapping = {};
+    for (const [k, set] of Object.entries(subcategoriesByCategory)) {
+      mapping[k] = [...set].sort();
+    }
+    const all = [...new Set([...categories, ...subcategories])].sort();
+
+    return ok(res, {
+      categories,
+      subcategories,
+      subcategoriesByCategory: mapping,
+      all,
+    });
   } catch (error) {
     next(error);
   }

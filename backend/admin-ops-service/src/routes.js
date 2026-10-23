@@ -20,6 +20,8 @@ import {
   importProductsCsv,
   importProductsJson,
   listProductsLite,
+  previewPricingCalculation,
+  listProductCategoriesLite,
 } from "./catalogControllers.js";
 import {
   listVendorsAdmin,
@@ -313,6 +315,8 @@ router.patch("/support/:id", updateStoreSupport);
 
 router.get("/pricing", listPricingRules);
 router.post("/pricing", createPricingRule);
+router.post("/pricing/preview", previewPricingCalculation);
+router.get("/pricing/categories", listProductCategoriesLite);
 router.put("/pricing/:id", updatePricingRule);
 router.delete("/pricing/:id", deletePricingRule);
 
