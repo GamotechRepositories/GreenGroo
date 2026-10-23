@@ -30,6 +30,7 @@ import ShippingDetails from "../pages/ShippingDetails";
 import RolePolicies from "../pages/RolePolicies";
 import Location from "../pages/Location";
 import Categories from "../pages/Categories";
+import FarmerProfile from "../pages/FarmerProfile";
 
 // Section Views
 import {
@@ -194,6 +195,30 @@ export function AppRoutes() {
         element={
           <MobileLayout>
             <Product />
+          </MobileLayout>
+        }
+      />
+      <Route
+        path="/farmer-profile"
+        element={
+          <MobileLayout>
+            <FarmerProfile />
+          </MobileLayout>
+        }
+      />
+      <Route
+        path="/farmers"
+        element={
+          <MobileLayout>
+            <FarmerProfile />
+          </MobileLayout>
+        }
+      />
+      <Route
+        path="/farmer/:id"
+        element={
+          <MobileLayout>
+            <FarmerProfile />
           </MobileLayout>
         }
       />

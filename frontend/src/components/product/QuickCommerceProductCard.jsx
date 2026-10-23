@@ -8,6 +8,7 @@ import {
   getTotalProductStock,
   isMultiVariant,
 } from "../../utils/productPricing";
+import { getProductDisplayDetails } from "../../utils/productLocalization";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -91,6 +92,7 @@ function QuickCommerceProductCard({
     : (product.discountedPercent || 0);
 
   const unit = getProductUnit(product);
+  const displayInfo = getProductDisplayDetails(product, unit);
   const deliveryTime = getDeliveryTime(product);
   const rating = getRating(product);
   const reviewCount = getReviewCount(product);
@@ -179,14 +181,14 @@ function QuickCommerceProductCard({
               </span>
             </div>
 
-            {/* Product Name */}
-            <h3 className="mt-1 line-clamp-2 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
-              {product.name}
+            {/* Product Name (Hindi / English with unit) */}
+            <h3 className="mt-1 line-clamp-1 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
+              {displayInfo.primaryTitle}
             </h3>
 
-            {/* Quantity / Unit */}
-            <p className="mt-0.5 text-[11px] font-normal leading-tight text-[#757575]">
-              {unit}
+            {/* Marathi Name + Unit Quantity */}
+            <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-[#0a6c38] leading-tight">
+              {displayInfo.secondaryTitle}
             </p>
 
             {/* Rating (if available) */}

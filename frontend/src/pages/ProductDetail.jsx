@@ -33,6 +33,8 @@ import ProductVideo from "../components/product/ProductVideo";
 import ProductDescriptionContent from "../components/product/ProductDescriptionContent";
 import SimilarProducts from "../components/product/SimilarProducts";
 import ProductReviews from "../components/product/ProductReviews";
+import ProductFarmerTraceabilitySection from "../components/product/ProductFarmerTraceabilitySection";
+import WhatMakesUsDifferent from "../components/home/WhatMakesUsDifferent";
 import { normalizeProductImages } from "../utils/productImage";
 import ProductShareMenu from "../components/product/ProductShareMenu";
 import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
@@ -40,6 +42,7 @@ import { updateProductShareMeta } from "../utils/productShare";
 import { tryOpenProductInApp } from "../utils/openMobileApp";
 import { onCatalogEvent } from "../realtime/useCatalogSync";
 import { getDummyProductById } from "../data/dummyCategoryProducts";
+import { getProductDisplayDetails } from "../utils/productLocalization";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -1177,6 +1180,7 @@ function ProductDetail() {
     ? Math.min(variantStock, maxOrderQty)
     : minOrderQuantity;
   const unitLabel = product.sub || product.unit || product.weight || "1 pc";
+  const displayInfo = getProductDisplayDetails(product, unitLabel);
   const priceInfo = getProductListPriceInfo(product, activeVariantName);
 
   const unitOptions = showBulkGrades
@@ -1306,9 +1310,34 @@ function ProductDetail() {
                 <span className="line-clamp-1 text-slate-800">{product.name}</span>
               </nav>
 
-              <h1 className="text-[22px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[26px]">
-                {product.name}
-              </h1>
+              <div className="space-y-1 mb-2">
+                <h1 className="text-[22px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[26px]">
+                  {displayInfo.primaryTitle}
+                </h1>
+                <div
+                  onClick={() => {
+                    const unitSection = document.getElementById("product-unit-selection");
+                    if (unitSection) {
+                      unitSection.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-[15px] sm:text-[17px] font-bold text-slate-800 cursor-pointer hover:text-emerald-800 transition select-none"
+                  title="Click to select unit or variety"
+                >
+                  <span>{displayInfo.secondaryTitle}</span>
+                  <svg
+                    className="w-4 h-4 text-slate-700 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+              </div>
               {(() => {
                 const raw =
                   product.shortDescription ||
@@ -1333,7 +1362,9 @@ function ProductDetail() {
             <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 sm:p-4">
               <div className="flex items-end justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-medium text-slate-500">{unitLabel}</p>
+                  <p className="text-[12px] font-semibold text-slate-600">
+                    {displayInfo.activeUnit} <span className="text-slate-400">·</span> {displayInfo.marathiUnit}
+                  </p>
                   {canViewPrice ? (
                     <>
                       <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -1412,9 +1443,9 @@ function ProductDetail() {
               )}
             </div>
 
-            <div>
+            <div id="product-unit-selection">
               <p className="mb-2.5 text-[14px] font-semibold text-slate-900">
-                {showBulkGrades ? "Select Grade" : "Select Unit"}
+                {showBulkGrades ? "Select Grade" : "Select Unit / पॅक निवडा"}
               </p>
               {showBulkGrades ? (
                 <p className="mb-2.5 text-[12px] text-slate-500">
@@ -1475,8 +1506,6 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            <FarmerQuickCard product={product} />
-
             {availableColors.length > 0 ? (
               <div>
                 <p className="mb-2 text-[14px] font-semibold text-slate-900">Select color</p>
@@ -1502,23 +1531,17 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            <ProductDetailsSection
-              className=""
-              productType={productType}
-              detailsOpen={detailsOpen}
-              onToggleDetails={() => setDetailsOpen((v) => !v)}
+            <ProductFarmerTraceabilitySection
               product={product}
               specifications={specifications}
             />
 
-            <FarmerDetailsCard product={product} />
-
-            <ProductReviews productId={product._id} />
-
-            <div className="border-t border-slate-100 pt-5">
-              <WhyShopFromGreenGroo />
-            </div>
           </aside>
+        </div>
+
+        {/* App मध्ये खास वैशिष्ट्ये & Why Choose GreenGrocc? Section */}
+        <div className="mt-8 sm:mt-10 border-t border-slate-100 pt-6 sm:pt-8">
+          <WhatMakesUsDifferent />
         </div>
 
         <div className="mt-8 border-t border-slate-100 px-0 pt-6 sm:px-0">
