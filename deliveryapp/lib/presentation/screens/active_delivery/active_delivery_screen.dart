@@ -6,8 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/routes/app_routes.dart';
+import '../../../core/services/secure_screen.dart';
 import '../../../core/utils/image_upload_utils.dart';
-import '../../../data/services/live_tracking_service.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../utils/map_navigation.dart';
@@ -495,7 +496,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
       );
       final remaining = OrderService.instance.activeDeliveries;
       if (remaining.isEmpty) {
-        nav.pop();
+        if (mounted && nav.canPop()) {
+          nav.pop();
+        } else if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.home);
+        }
       } else {
         await _loadDelivery();
       }
@@ -505,19 +510,6 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
           content: Text(result.error ?? 'Could not complete delivery.'),
           backgroundColor: Colors.red,
         ),
-      );
-    }
-  }
-
-  Future<void> _navigateToDarkStore(ActiveDeliveryData d) async {
-    final ok = await openMapsNavigation(
-      destLat: d.darkStoreLat,
-      destLng: d.darkStoreLng,
-      fallbackAddress: d.darkStoreAddress,
-    );
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Google Maps. Install Maps or try again.')),
       );
     }
   }
@@ -653,96 +645,77 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
       headerStatus = 'Waiting for Pickup';
     }
 
-    return Scaffold(
-      backgroundColor: _kPageBg,
-      body: Column(
-        children: [
-          _OrderDetailsHeader(
-            orderNumber: d.orderNumber,
-            statusLabel: headerStatus,
-            onBack: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-              child: Column(
-                children: [
-                  if (_deliveries.length > 1) ...[
-                    _MultiStopBanner(
-                      stops: _deliveries,
-                      selectedId: d.id,
-                      onSelect: (id) {
-                        final next = _deliveries.firstWhere((e) => e.id == id);
-                        setState(() => _delivery = next);
+    return SecureScreen(
+      child: Scaffold(
+        backgroundColor: _kPageBg,
+        body: Column(
+          children: [
+            _OrderDetailsHeader(
+              orderNumber: d.orderNumber,
+              statusLabel: headerStatus,
+              onBack: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                child: Column(
+                  children: [
+                    if (_deliveries.length > 1) ...[
+                      _MultiStopBanner(
+                        stops: _deliveries,
+                        selectedId: d.id,
+                        onSelect: (id) {
+                          final next = _deliveries.firstWhere((e) => e.id == id);
+                          setState(() => _delivery = next);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _StoreInfoCard(
+                      storeName: d.darkStoreName,
+                      address: d.darkStoreAddress,
+                      onCall: () => _callStore(d.darkStorePhone),
+                    ),
+                    const SizedBox(height: 12),
+                    _OrderQrCard(
+                      searching: searching,
+                      countdown: countdown,
+                      qrScanned: qrScanned,
+                      proofPending: proofPending,
+                      isUnlocked: isUnlocked,
+                      onScanQr: () {
+                        if (!pickupQrReady || searching) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Pickup QR unlocks in $countdown — go to the dark store meanwhile.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        _openPickupQrScanner();
                       },
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  _LiveTrackingBanner(delivery: d),
-                  _StoreInfoCard(
-                    storeName: d.darkStoreName,
-                    address: d.darkStoreAddress,
-                    onCall: () => _callStore(d.darkStorePhone),
-                    infoText: isUnlocked
-                        ? 'Pickup verified. Customer address is unlocked.'
-                        : d.isPreOrder
-                            ? 'Pre-order: scan the QR on this order\'s bag to unlock the customer\'s address.'
-                        : proofPending
-                            ? 'Item photo sent. Manager is reviewing — address unlocks after approval.'
-                            : qrScanned
-                                ? 'QR scanned. Capture item photo and send to manager.'
-                                : 'At the store, ask the manager to open Show Pickup QR, then scan it below.',
-                  ),
-                  const SizedBox(height: 12),
-                  _OrderQrCard(
-                    orderNumber: d.orderNumber,
-                    placedAtLabel: _fmtClock(),
-                    totalItems: totalItems,
-                    searching: searching,
-                    countdown: countdown,
-                    qrScanned: qrScanned,
-                    proofPending: proofPending,
-                    isUnlocked: isUnlocked,
-                    onScanQr: () {
-                      if (!pickupQrReady || searching) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Pickup QR unlocks in $countdown — go to the dark store meanwhile.',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      _openPickupQrScanner();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _CustomerAddressCard(
-                    address: isUnlocked
-                        ? d.customerAddress
-                        : (d.customerAddress.isNotEmpty &&
-                                !d.customerAddress.toLowerCase().contains('unlock')
-                            ? d.customerAddress
-                            : d.isPreOrder
-                                ? 'Address unlocks when you scan this order\'s QR'
-                                : 'Address unlocks after pickup QR + manager approval'),
-                    canOpenMap: isUnlocked,
-                    onViewMap: () => _navigateToCustomer(d),
-                  ),
-                  const SizedBox(height: 12),
-                  if (d.hasCustomerPhone) ...[
-                    _CustomerContactCard(
-                      name: d.customerName,
-                      phone: d.customerPhone,
-                      onCall: () => _callNumber(d.customerPhone, 'Customer'),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (d.canReportDelay) ...[
-                    _DelayCard(delivery: d, onReport: _reportDelay),
-                    const SizedBox(height: 12),
-                  ],
+                    for (final item in (_deliveries.isNotEmpty ? _deliveries : [d])) ...[
+                      _CustomerAddressCard(
+                        orderNumber: item.orderNumber,
+                        customerName: item.customerName,
+                        address: item.customerAddressUnlocked
+                            ? item.customerAddress
+                            : 'Address unlocks after dark store pickup QR is verified',
+                        phone: item.customerAddressUnlocked ? item.customerPhone : '',
+                        isUnlocked: item.customerAddressUnlocked,
+                        onViewMap: () => _navigateToCustomer(item),
+                        onCall: () => _callNumber(item.customerPhone, 'Customer'),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (d.canReportDelay) ...[
+                      _DelayCard(delivery: d, onReport: _reportDelay),
+                      const SizedBox(height: 12),
+                    ],
                   _OrderItemsSummaryCard(
                     totalItems: totalItems,
                     itemsTotal: itemsTotal,
@@ -786,7 +759,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
             ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -881,137 +854,93 @@ class _StoreInfoCard extends StatelessWidget {
     required this.storeName,
     required this.address,
     required this.onCall,
-    required this.infoText,
   });
 
   final String storeName;
   final String address;
   final VoidCallback onCall;
-  final String infoText;
 
   @override
   Widget build(BuildContext context) {
     return _WhiteCard(
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.storefront_outlined, color: Color(0xFF126B43)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'PICKUP DARK STORE',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                          color: const Color(0xFF126B43),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      storeName,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      address,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        height: 1.35,
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 56,
-                margin: const EdgeInsets.only(left: 4, right: 12),
-                color: const Color(0xFFE5E7EB),
-              ),
-              InkWell(
-                onTap: onCall,
-                borderRadius: BorderRadius.circular(12),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.phone_rounded, color: Color(0xFF126B43), size: 20),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Call Store',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF126B43),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF059669)),
-                const SizedBox(width: 8),
-                Expanded(
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
-                    infoText,
+                    'PICKUP DARK STORE',
                     style: GoogleFonts.inter(
-                      fontSize: 12,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF065F46),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: const Color(0xFF126B43),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  storeName,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  address,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 52,
+            margin: const EdgeInsets.only(left: 6, right: 12),
+            color: const Color(0xFFE5E7EB),
+          ),
+          InkWell(
+            onTap: onCall,
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.phone_rounded, color: Color(0xFF126B43), size: 19),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Call Store',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF126B43),
                   ),
                 ),
               ],
@@ -1025,9 +954,6 @@ class _StoreInfoCard extends StatelessWidget {
 
 class _OrderQrCard extends StatelessWidget {
   const _OrderQrCard({
-    required this.orderNumber,
-    required this.placedAtLabel,
-    required this.totalItems,
     required this.searching,
     required this.countdown,
     required this.qrScanned,
@@ -1036,9 +962,6 @@ class _OrderQrCard extends StatelessWidget {
     required this.onScanQr,
   });
 
-  final String orderNumber;
-  final String placedAtLabel;
-  final int totalItems;
   final bool searching;
   final String countdown;
   final bool qrScanned;
@@ -1057,92 +980,33 @@ class _OrderQrCard extends StatelessWidget {
                 : 'Scan QR at the store to start';
 
     return _WhiteCard(
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF126B43), size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Order #$orderNumber',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Placed at $placedAtLabel • $totalItems Items',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (searching)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F3FF),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.search_rounded, size: 13, color: Color(0xFF7C3AED)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Same-route search ($countdown min)',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF7C3AED),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              qrScanned || isUnlocked
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.inventory_2_outlined,
+              color: const Color(0xFF126B43),
+              size: 20,
+            ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  qrScanned || isUnlocked
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.inventory_2_outlined,
-                  color: const Color(0xFF126B43),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     Text(
                       'Pickup QR',
@@ -1152,22 +1016,48 @@ class _OrderQrCard extends StatelessWidget {
                         color: const Color(0xFF111827),
                       ),
                     ),
-                    Text(
-                      pickupStatus,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF6B7280),
+                    if (searching)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F3FF),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.search_rounded, size: 12, color: Color(0xFF7C3AED)),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Same-route ($countdown min)',
+                              style: GoogleFonts.inter(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF7C3AED),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
-              ),
-              if (!qrScanned && !isUnlocked) ...[
-                const SizedBox(width: 8),
-                _ScanQrPillButton(onTap: onScanQr),
+                const SizedBox(height: 2),
+                Text(
+                  pickupStatus,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
+          if (!qrScanned && !isUnlocked) ...[
+            const SizedBox(width: 8),
+            _ScanQrPillButton(onTap: onScanQr),
+          ],
         ],
       ),
     );
@@ -1189,7 +1079,7 @@ class _ScanQrPillButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1264,150 +1154,151 @@ class _PrimaryActionBtn extends StatelessWidget {
 
 class _CustomerAddressCard extends StatelessWidget {
   const _CustomerAddressCard({
+    required this.orderNumber,
+    required this.customerName,
     required this.address,
-    required this.canOpenMap,
-    required this.onViewMap,
-  });
-
-  final String address;
-  final bool canOpenMap;
-  final VoidCallback onViewMap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _WhiteCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFDBEAFE),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Customer Address',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  address,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: const Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed: canOpenMap ? onViewMap : null,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF126B43),
-              side: BorderSide(
-                color: canOpenMap ? const Color(0xFF86EFAC) : const Color(0xFFE5E7EB),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            ),
-            icon: const Icon(Icons.map_outlined, size: 16),
-            label: Text(
-              'View on Map',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CustomerContactCard extends StatelessWidget {
-  const _CustomerContactCard({
-    required this.name,
     required this.phone,
+    required this.isUnlocked,
+    required this.onViewMap,
     required this.onCall,
   });
 
-  final String name;
+  final String orderNumber;
+  final String customerName;
+  final String address;
   final String phone;
+  final bool isUnlocked;
+  final VoidCallback onViewMap;
   final VoidCallback onCall;
 
   @override
   Widget build(BuildContext context) {
-    final initial = name.trim().isEmpty ? 'C' : name.trim()[0].toUpperCase();
-    return _WhiteCard(
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: const Color(0xFFDCFCE7),
-            child: Text(
-              initial,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF126B43),
+    if (!isUnlocked) {
+      return _WhiteCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDBEAFE),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.location_on_rounded, color: Color(0xFF2563EB), size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    orderNumber.isNotEmpty ? '#$orderNumber · Customer Address' : 'Customer Address',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    address,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF126B43),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              ),
+              icon: const Icon(Icons.map_outlined, size: 16),
+              label: Text(
+                'View on Map',
+                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _WhiteCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '#$orderNumber  •  ${customerName.isNotEmpty ? customerName : "Customer"}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF111827),
+            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.trim().isEmpty ? 'Customer' : name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
+          const SizedBox(height: 6),
+          Text(
+            address,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              height: 1.35,
+              color: const Color(0xFF4B5563),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: onViewMap,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF126B43),
+                  side: const BorderSide(color: Color(0xFF86EFAC)),
+                  backgroundColor: const Color(0xFFF0FDF4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+                child: Text(
+                  'View on Map',
+                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (phone.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: onCall,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF126B43),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  ),
+                  icon: const Icon(Icons.call_rounded, size: 14),
+                  label: Text(
+                    'Call',
+                    style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  phone,
-                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280)),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Hidden automatically after delivery',
-                  style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF9CA3AF)),
-                ),
               ],
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: onCall,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF126B43),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-            ),
-            icon: const Icon(Icons.call_rounded, size: 16),
-            label: Text('Call', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
+            ],
           ),
         ],
       ),
     );
   }
 }
+
 
 class _DelayCard extends StatelessWidget {
   const _DelayCard({required this.delivery, required this.onReport});
@@ -1878,10 +1769,6 @@ class _BottomActions extends StatelessWidget {
         icon = Icons.camera_alt_rounded;
         onTap = onItemProof;
       }
-    } else if (!hasDeliveryProof && !customerNavStarted) {
-      label = 'Navigate to Customer';
-      icon = Icons.navigation_rounded;
-      onTap = onNavigateCustomer;
     } else if (!hasDeliveryProof) {
       label = 'Capture Delivery Proof';
       icon = Icons.photo_camera_outlined;
@@ -1909,9 +1796,7 @@ class _BottomActions extends StatelessWidget {
             onTap: onTap ?? () {},
             showChevron: true,
           ),
-          if (isUnlocked &&
-              onFailed != null &&
-              (customerNavStarted || hasDeliveryProof)) ...[
+          if (isUnlocked && onFailed != null) ...[
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -1935,74 +1820,6 @@ class _BottomActions extends StatelessWidget {
   }
 }
 
-/// Tells the rider whether the customer can see them on the map for this order.
-class _LiveTrackingBanner extends StatelessWidget {
-  const _LiveTrackingBanner({required this.delivery});
-
-  final ActiveDeliveryData delivery;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: LiveTrackingService.instance,
-      builder: (context, _) {
-        final service = LiveTrackingService.instance;
-        final IconData icon;
-        final String text;
-        final Color color;
-        if (delivery.isPreOrder) {
-          icon = Icons.event_note_outlined;
-          text = delivery.preOrderSlot.isNotEmpty
-              ? 'Pre-order · deliver in slot ${delivery.preOrderSlot}. Customer gets status updates only (no live map).'
-              : 'Pre-order delivery — customer gets status updates only (no live map).';
-          color = Colors.blueGrey;
-        } else if (!delivery.trackingEnabled) {
-          return const SizedBox.shrink();
-        } else if (service.trackedOrderIds.contains(delivery.id)) {
-          icon = Icons.my_location;
-          text = 'Sharing live location with the customer.';
-          color = const Color(0xFF126B43);
-        } else if (delivery.shouldStreamLocation && service.lastError != null) {
-          icon = Icons.location_off_outlined;
-          text = service.lastError!;
-          color = Colors.red.shade700;
-        } else if (delivery.shouldStreamLocation) {
-          icon = Icons.gps_not_fixed;
-          text = 'Starting live location…';
-          color = Colors.orange.shade800;
-        } else {
-          icon = Icons.location_searching;
-          text = 'Live location starts automatically after pickup.';
-          color = Colors.grey.shade700;
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 class _WhiteCard extends StatelessWidget {
   const _WhiteCard({required this.child});

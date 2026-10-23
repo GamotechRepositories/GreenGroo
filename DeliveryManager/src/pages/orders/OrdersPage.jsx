@@ -1061,29 +1061,40 @@ export default function OrdersPage() {
                             {busyKey === `dispatch-${oid}` ? "Dispatching…" : "Assign New Rider now"}
                           </button>
                         )}
-                        {order.status === "assigned" &&
-                          !order.pickupQrScanned &&
-                          !order.pickupVerified &&
-                          (order.pickupQrUnlocked ||
-                            !order.routeBatchWindowEndsAt ||
-                            new Date(order.routeBatchWindowEndsAt).getTime() <= Date.now()) && (
-                          <button
-                            type="button"
-                            onClick={() => openPickupQr(oid)}
-                            className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100"
-                          >
-                            Show Pickup QR
-                          </button>
-                        )}
-                        {order.status === "assigned" &&
-                          !order.pickupQrScanned &&
-                          order.pickupQrUnlocked === false &&
-                          order.routeBatchWindowEndsAt &&
-                          new Date(order.routeBatchWindowEndsAt).getTime() > Date.now() && (
-                          <span className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-[11px] font-bold text-violet-800">
-                            QR locked · same-route search
-                          </span>
-                        )}
+                        {(() => {
+                          if (
+                            order.status !== "assigned" ||
+                            order.pickupQrScanned ||
+                            order.pickupVerified
+                          ) {
+                            return null;
+                          }
+                          const windowEnds = order.routeBatchWindowEndsAt
+                            ? new Date(order.routeBatchWindowEndsAt).getTime()
+                            : 0;
+                          const isWaiting =
+                            windowEnds > nowTick && order.pickupQrUnlocked !== true;
+                          if (isWaiting) {
+                            const msLeft = Math.max(0, windowEnds - nowTick);
+                            const mins = Math.floor(msLeft / 60000);
+                            const secs = Math.floor((msLeft % 60000) / 1000);
+                            return (
+                              <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-900 shadow-xs">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                QR locked · matching {mins}:{String(secs).padStart(2, "0")}
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openPickupQr(oid)}
+                              className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100"
+                            >
+                              Show Pickup QR
+                            </button>
+                          );
+                        })()}
                         {order.pickupProofStatus === "pending" && order.pickupProofImageUrl && (
                           <div className="flex flex-col items-end gap-2 max-w-[180px]">
                             <img

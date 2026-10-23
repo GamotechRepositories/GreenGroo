@@ -485,6 +485,7 @@ export const packOrder = async (req, res, next) => {
     const sameRouteSuggestion = attachAttempt.suggestion || null;
 
     try {
+      const freshOrder = await StoreOrder.findById(order._id);
       getIO().to(`store_${manager._id}`).emit("order_packed", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
@@ -492,8 +493,8 @@ export const packOrder = async (req, res, next) => {
         assignmentStatus: attachAttempt.autoAttached
           ? "DRIVER_ASSIGNED"
           : order.assignmentStatus,
-        routeBatchWindowEndsAt: null,
-        pickupQrUnlocked: Boolean(attachAttempt.autoAttached),
+        routeBatchWindowEndsAt: freshOrder?.routeBatchWindowEndsAt || null,
+        pickupQrUnlocked: Boolean(freshOrder?.pickupQrUnlocked),
         autoSameRouteAttached: Boolean(attachAttempt.autoAttached),
       });
       if (sameRouteSuggestion && !attachAttempt.autoAttached) {

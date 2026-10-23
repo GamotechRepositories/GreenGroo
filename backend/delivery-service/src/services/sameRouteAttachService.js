@@ -33,6 +33,13 @@ function windowStillOpen(order, now = new Date()) {
 export function isPickupQrReady(order, now = new Date()) {
   if (!order) return false;
   if (order.pickupQrScanned || order.qrScannedAt) return true;
+  // If route batch window exists and has not expired yet, QR is strictly NOT ready.
+  if (
+    order.routeBatchWindowEndsAt &&
+    new Date(order.routeBatchWindowEndsAt).getTime() > now.getTime()
+  ) {
+    return false;
+  }
   if (order.pickupQrUnlocked === true) return true;
   if (order.pickupQrUnlocked === false) {
     if (
@@ -145,6 +152,16 @@ export async function attachOrdersToSameRider({
   const batchId = primary.batchId || companion.batchId || makeBatchId(primary._id);
   const now = new Date();
 
+  const primaryEndsAt = primary.routeBatchWindowEndsAt;
+  const isPrimaryWindowActive =
+    primaryEndsAt && new Date(primaryEndsAt).getTime() > now.getTime();
+  const effectiveEndsAt = isPrimaryWindowActive
+    ? primaryEndsAt
+    : companion.routeBatchWindowEndsAt && new Date(companion.routeBatchWindowEndsAt).getTime() > now.getTime()
+      ? companion.routeBatchWindowEndsAt
+      : null;
+  const stillWaiting = Boolean(effectiveEndsAt && new Date(effectiveEndsAt).getTime() > now.getTime());
+
   const applyAssign = async (order, sequence) => {
     if (["delivered", "delivery_failed", "cancelled"].includes(order.status)) {
       return order;
@@ -167,9 +184,14 @@ export async function attachOrdersToSameRider({
     order.batchId = batchId;
     order.batchSequence = sequence;
     order.batchPrimaryOrderId = primary._id;
-    order.routeBatchWindowEndsAt = undefined;
-    // Same-route pair found → activate QR for both addresses/stops
-    order.pickupQrUnlocked = true;
+    if (stillWaiting) {
+      order.routeBatchWindowEndsAt = effectiveEndsAt;
+      order.pickupQrUnlocked = false;
+      schedulePickupQrUnlock(order);
+    } else {
+      order.routeBatchWindowEndsAt = undefined;
+      order.pickupQrUnlocked = true;
+    }
     order.routeCompatibility = {
       compatible: Boolean(compat?.compatible),
       score: compat?.score ?? 0,
@@ -198,7 +220,8 @@ export async function attachOrdersToSameRider({
     riderId: String(rider._id),
     riderName: rider.name || rider.phone,
     multiStop: true,
-    pickupQrUnlocked: true,
+    pickupQrUnlocked: !stillWaiting,
+    routeBatchWindowEndsAt: stillWaiting ? effectiveEndsAt : null,
   };
 
   try {
@@ -206,34 +229,41 @@ export async function attachOrdersToSameRider({
       orderId: companion._id.toString(),
       batchId,
       multiStop: true,
-      pickupQrUnlocked: true,
+      pickupQrUnlocked: !stillWaiting,
+      routeBatchWindowEndsAt: stillWaiting ? effectiveEndsAt : null,
     });
     getIO().to(`rider_${rider._id}`).emit("active_delivery_updated", {
       batchId,
       orderIds: [String(primary._id), String(companion._id)],
-      pickupQrUnlocked: true,
+      pickupQrUnlocked: !stillWaiting,
+      routeBatchWindowEndsAt: stillWaiting ? effectiveEndsAt : null,
     });
-    getIO().to(`rider_${rider._id}`).emit("pickup_qr_unlocked", {
-      orderId: String(primary._id),
-      companionOrderId: String(companion._id),
-      batchId,
-      reason: "same_route_batched",
-      pickupQrUnlocked: true,
-    });
+    if (!stillWaiting) {
+      getIO().to(`rider_${rider._id}`).emit("pickup_qr_unlocked", {
+        orderId: String(primary._id),
+        companionOrderId: String(companion._id),
+        batchId,
+        reason: "same_route_batched",
+        pickupQrUnlocked: true,
+      });
+    }
     getIO().to(`store_${manager._id}`).emit("same_route_assigned", payload);
-    getIO().to(`store_${manager._id}`).emit("pickup_qr_unlocked", {
-      orderId: String(primary._id),
-      companionOrderId: String(companion._id),
-      batchId,
-      reason: "same_route_batched",
-      pickupQrUnlocked: true,
-    });
+    if (!stillWaiting) {
+      getIO().to(`store_${manager._id}`).emit("pickup_qr_unlocked", {
+        orderId: String(primary._id),
+        companionOrderId: String(companion._id),
+        batchId,
+        reason: "same_route_batched",
+        pickupQrUnlocked: true,
+      });
+    }
     getIO().to(`store_${manager._id}`).emit("order_status_updated", {
       orderId: String(companion._id),
       orderNumber: companion.orderNumber,
       status: "assigned",
       assignmentStatus: "DRIVER_ASSIGNED",
-      pickupQrUnlocked: true,
+      pickupQrUnlocked: !stillWaiting,
+      routeBatchWindowEndsAt: stillWaiting ? effectiveEndsAt : null,
       assignedRider: {
         id: String(rider._id),
         name: rider.name || rider.phone,
@@ -246,7 +276,8 @@ export async function attachOrdersToSameRider({
       orderNumber: companion.orderNumber,
       status: "assigned",
       assignmentStatus: "DRIVER_ASSIGNED",
-      pickupQrUnlocked: true,
+      pickupQrUnlocked: !stillWaiting,
+      routeBatchWindowEndsAt: stillWaiting ? effectiveEndsAt : null,
       assignedRider: {
         id: String(rider._id),
         name: rider.name || rider.phone,
@@ -364,8 +395,11 @@ export async function openSameRouteWindowAfterAccept(order, manager) {
   }
 
   const fresh = await StoreOrder.findById(order._id);
+  const stillWaiting =
+    fresh?.routeBatchWindowEndsAt &&
+    new Date(fresh.routeBatchWindowEndsAt).getTime() > Date.now();
   return {
-    windowOpened: attached.length === 0,
+    windowOpened: Boolean(stillWaiting),
     attached,
     routeBatchWindowEndsAt: fresh?.routeBatchWindowEndsAt || null,
     pickupQrUnlocked: Boolean(fresh?.pickupQrUnlocked),
@@ -423,11 +457,14 @@ export async function tryAutoAttachOnPack(newOrder, manager) {
       compat,
     });
 
+    const stillWaiting = Boolean(result?.payload?.routeBatchWindowEndsAt);
     return {
       autoAttached: true,
       suggestion,
       result,
-      message: `Same-route match — both orders assigned to ${rider.name || rider.phone}. Pickup QR unlocked.`,
+      message: stillWaiting
+        ? `Same-route match — both orders assigned to ${rider.name || rider.phone}. 5-min route matching active.`
+        : `Same-route match — both orders assigned to ${rider.name || rider.phone}. Pickup QR unlocked.`,
     };
   }
 

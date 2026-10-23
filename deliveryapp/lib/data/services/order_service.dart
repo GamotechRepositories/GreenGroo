@@ -162,7 +162,9 @@ class ActiveDeliveryData {
   bool get canReportDelay =>
       status == 'assigned' || status == 'pickup_verified' || status == 'out_for_delivery';
 
-  bool get hasCustomerPhone => RegExp(r'\d{6,}').hasMatch(customerPhone.replaceAll(RegExp(r'\D'), ''));
+  bool get hasCustomerPhone =>
+      customerAddressUnlocked &&
+      RegExp(r'\d{6,}').hasMatch(customerPhone.replaceAll(RegExp(r'\D'), ''));
 
   /// Rider has the parcel and the customer can follow them on the map.
   bool get shouldStreamLocation =>
@@ -527,7 +529,8 @@ class OrderService extends ChangeNotifier {
         }),
       );
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      if (res.statusCode == 200) {
+      final msg = (body['message'] as String? ?? '').toLowerCase();
+      if (res.statusCode == 200 || body['alreadyDelivered'] == true || msg.contains('already delivered')) {
         _otpVerifiedIds.remove(orderId);
         await fetchActiveDelivery();
         notifyListeners();

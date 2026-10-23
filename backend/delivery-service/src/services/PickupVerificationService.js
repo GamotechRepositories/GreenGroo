@@ -331,6 +331,7 @@ async function unlockForDelivery(order, { verifiedBy = null, message }) {
       .emit("customer_address_unlocked", {
         orderId: order._id.toString(),
         customerName: order.customerName,
+        customerPhone: order.customerPhone || "",
         customerAddress: order.customerAddress,
         customerLat: order.customerLat,
         customerLng: order.customerLng,

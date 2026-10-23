@@ -699,10 +699,6 @@ export async function acceptDriverOffer(orderId, driverId) {
     if (typeof sameRoute?.pickupQrUnlocked === "boolean") {
       order.pickupQrUnlocked = sameRoute.pickupQrUnlocked;
     }
-    if (sameRoute?.attached?.length) {
-      order.pickupQrUnlocked = true;
-      order.routeBatchWindowEndsAt = null;
-    }
   } catch (err) {
     console.warn("[assignment] same-route window failed:", err.message);
   }

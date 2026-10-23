@@ -593,6 +593,7 @@ storeOrderSchema.methods.toRiderJSON = function toRiderJSON() {
     json.customerPhone = "";
   }
   if (closed || !this.customerAddressUnlocked) {
+    json.customerPhone = "";
     json.customerAddress = "";
     json.customerLat = null;
     json.customerLng = null;

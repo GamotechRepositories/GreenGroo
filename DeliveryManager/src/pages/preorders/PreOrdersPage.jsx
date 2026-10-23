@@ -692,7 +692,11 @@ export default function PreOrdersPage() {
                       ? Math.max(0, new Date(order.offerExpiresAt).getTime() - nowTick)
                       : 0;
                   const showQr =
-                    order.status === "assigned" && !order.pickupQrScanned && !order.pickupVerified;
+                    order.status === "assigned" &&
+                    !order.pickupQrScanned &&
+                    !order.pickupVerified &&
+                    (!order.routeBatchWindowEndsAt ||
+                      new Date(order.routeBatchWindowEndsAt).getTime() <= nowTick);
 
                   return (
                     <div key={oid} className="grid gap-4 p-4 lg:grid-cols-[1.3fr_1fr_1fr]">

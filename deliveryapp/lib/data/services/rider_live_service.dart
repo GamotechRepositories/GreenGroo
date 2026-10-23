@@ -79,9 +79,9 @@ class RiderLiveService {
   String get formattedOnlineToday {
     final h = _todayOnlineMinutes ~/ 60;
     final m = _todayOnlineMinutes % 60;
-    if (h == 0) return '${m}m';
-    if (m == 0) return '${h}h';
-    return '${h}h ${m}m';
+    if (h == 0) return '$m minute';
+    if (m == 0) return '$h hr';
+    return '$h hr $m minute';
   }
 
   String get loginHoursToday {
@@ -227,7 +227,12 @@ class TodayProgressData {
     final mins = (json['onlineMinutes'] as num?)?.toInt() ?? 0;
     final h = mins ~/ 60;
     final m = mins % 60;
-    final timeStr = json['onlineTime']?.toString() ?? '${h}h ${m}m';
+    final String fallbackTimeStr = h == 0
+        ? '$m minute'
+        : m == 0
+            ? '$h hr'
+            : '$h hr $m minute';
+    final timeStr = json['onlineTime']?.toString() ?? fallbackTimeStr;
 
     final booked = (json['bookedShifts'] as num?)?.toInt() ??
         (json['shiftsBooked'] as num?)?.toInt() ??

@@ -1,4 +1,9 @@
+import dns from "node:dns";
 import mongoose from "mongoose";
+
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+} catch (_) {}
 
 const connectDB = async (serviceName = "service") => {
   const uri =

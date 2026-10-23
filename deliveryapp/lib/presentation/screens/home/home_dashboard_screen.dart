@@ -1590,15 +1590,18 @@ class _MetricCard extends StatelessWidget {
             child: Center(child: iconWidget),
           ),
           const SizedBox(height: 10),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A),
+              ),
+              maxLines: 1,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(

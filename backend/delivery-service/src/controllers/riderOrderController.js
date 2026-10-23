@@ -451,10 +451,8 @@ export const getActiveDelivery = async (req, res, next) => {
         pickupVerifiedAt: order.pickupVerifiedAt,
         isCustomerLocationLocked: !unlocked,
         customerAddressUnlocked: unlocked,
-        // Contact is shared from assignment until delivery; the address still unlocks after pickup.
-        // Pre-orders reveal phone and address only once that order's QR is scanned.
         customerName: order.customerName || "Customer",
-        customerPhone: order.isPreOrder && !unlocked ? "" : order.customerPhone || "",
+        customerPhone: unlocked ? (order.customerPhone || "") : "",
         customerAddress: unlocked
           ? order.customerAddress
           : order.isPreOrder
@@ -1103,7 +1101,11 @@ export const completeDelivery = async (req, res, next) => {
     if (shiftIdForCalc && !order.shiftId) order.shiftId = shiftIdForCalc;
 
     await order.save();
-    await syncCustomerOrderFromStore(order, "delivered");
+    try {
+      await syncCustomerOrderFromStore(order, "delivered");
+    } catch (syncErr) {
+      console.warn("[completeDelivery] syncCustomerOrderFromStore error:", syncErr?.message || syncErr);
+    }
 
     // ── Update rider statistics ────────────────────────────────────────────
     if (rider) {

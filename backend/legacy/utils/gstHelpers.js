@@ -4,10 +4,11 @@ export function calculateGstAmount() {
   return 0;
 }
 
-export function calculateOrderTotal(subtotal, deliveryCharges = 0) {
+export function calculateOrderTotal(subtotal, deliveryCharges = 0, heavyHandlingFee = 0) {
   const normalizedSubtotal = Number(subtotal) || 0;
   const normalizedDelivery = Number(deliveryCharges) || 0;
-  const total = normalizedSubtotal + normalizedDelivery;
+  const normalizedHandling = Number(heavyHandlingFee) || 0;
+  const total = normalizedSubtotal + normalizedDelivery + normalizedHandling;
   return {
     gstAmount: 0,
     total: Math.round(total * 100) / 100,

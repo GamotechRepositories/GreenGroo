@@ -452,6 +452,7 @@ export const createCheckoutAttempt = async (req, res) => {
       customerLocation,
       preOrderSlot,
       fulfillmentType,
+      heavyHandlingFee: req.body.heavyHandlingFee,
     });
 
     if (prepared.error) {
@@ -632,6 +633,7 @@ export const placeOrder = async (req, res) => {
       giftCardCode: req.body.giftCardCode,
       customerLocation: req.body.customerLocation,
       fulfillmentType: req.body.fulfillmentType,
+      heavyHandlingFee: req.body.heavyHandlingFee,
     });
     if (result.error) {
       return res.status(result.status).json({
