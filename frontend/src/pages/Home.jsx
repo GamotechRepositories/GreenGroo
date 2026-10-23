@@ -13,10 +13,11 @@ import FreshProduceStoreSection from "../components/home/FreshProduceStoreSectio
 import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
-import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
-import FarmTraceabilityBanner from "../components/home/FarmTraceabilityBanner";
+import HeroFeatureCards from "../components/home/HeroFeatureCards";
+import FarmProduceDualBanners from "../components/home/FarmProduceDualBanners";
+import FarmerTestimonials from "../components/home/FarmerTestimonials";
 import PreorderHeroCarousel from "../components/home/PreorderHeroCarousel";
 import Ready2CookHeroCarousel from "../components/home/Ready2CookHeroCarousel";
 import InstantOrderHeroCarousel from "../components/home/InstantOrderHeroCarousel";
@@ -42,20 +43,17 @@ function StoreContent() {
   return (
     <>
       <ZeptoFestiveHeroSection />
-      {store === "main" && (
-        <div className="lg:hidden">
-          <MovingOfferMarquee />
-        </div>
-      )}
+      <HeroFeatureCards />
       <ShopByCategory />
-      {store === "main" && <FarmTraceabilityBanner />}
+      <FarmProduceDualBanners />
       <HotSelling />
       <JustArrived />
       <MostViewedProducts />
       <BestDeals title="Previously bought" viewAllTo="/orders" />
       <MostVisitedCategoryProducts />
+      <FarmerTestimonials />
 
-      <section className="px-4 py-2 sm:px-6 lg:px-0 lg:py-4">
+      <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
         <img 
           src="/assets/payment/image.png" 
           alt="Promotional Banner" 
@@ -89,7 +87,6 @@ function Home() {
       {store === "main" && (
         <section className="hidden lg:block w-full bg-white">
           <PreorderHeroCarousel />
-          <MovingOfferMarquee />
         </section>
       )}
 
@@ -97,7 +94,6 @@ function Home() {
       {store === "festive" && (
         <section className="hidden lg:block w-full bg-white">
           <Ready2CookHeroCarousel />
-          <MovingOfferMarquee />
         </section>
       )}
 
@@ -105,11 +101,10 @@ function Home() {
       {store === "mall" && (
         <section className="hidden lg:block w-full bg-white">
           <InstantOrderHeroCarousel />
-          <MovingOfferMarquee />
         </section>
       )}
 
-      <div className="mx-auto max-w-7xl lg:px-8 lg:pb-8">
+      <div className="mx-auto max-w-7xl px-2 sm:px-3 lg:px-3 xl:px-4 lg:pb-8">
         <div className="hidden space-y-6 lg:block">
           <StoreContent />
         </div>

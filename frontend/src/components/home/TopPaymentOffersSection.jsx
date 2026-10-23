@@ -90,7 +90,7 @@ export default function TopPaymentOffersSection() {
   const banner = PROMO_BANNERS[activeBanner];
 
   return (
-    <section className="bg-white px-4 sm:px-6 py-4 lg:rounded-2xl lg:shadow-sm space-y-3.5">
+    <section className="bg-white px-2 sm:px-3 py-3 lg:px-4 lg:py-4 lg:rounded-2xl lg:shadow-sm space-y-3.5">
       {/* 1. Section Title */}
       <div className="flex items-center justify-between">
         <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">

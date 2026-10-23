@@ -11,7 +11,6 @@ import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import InstantOrderHeroCarousel from "./InstantOrderHeroCarousel";
 import Ready2CookHeroCarousel from "./Ready2CookHeroCarousel";
-import MovingOfferMarquee from "./MovingOfferMarquee";
 import {
   sectionToStoreKey,
   storeToSection,
@@ -87,16 +86,14 @@ function FestiveStoreSection() {
     <div className="space-y-2 pb-2 pt-0">
       <ZeptoFestiveHeroSection />
 
-      {/* Hero Banner: Carousel for Ready2Cook / InstantOrder on mobile, followed by flowing marquee */}
+      {/* Hero Banner: Carousel for Ready2Cook / InstantOrder on mobile */}
       {!isInstant ? (
         <section className="w-full px-0 pt-0 pb-0 lg:hidden">
           <Ready2CookHeroCarousel isMobile={true} />
-          <MovingOfferMarquee />
         </section>
       ) : (
         <section className="w-full px-0 pt-0 pb-0 lg:hidden">
           <InstantOrderHeroCarousel isMobile={true} />
-          <MovingOfferMarquee />
         </section>
       )}
 

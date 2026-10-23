@@ -49,13 +49,15 @@ function VisitedCategorySection({ categoryName, products }) {
 
 function MostVisitedCategoryProducts() {
   const locationKey = useDeliveryLocationKey();
-  const [categories, setCategories] = useState(() =>
-    getMostVisitedCategories(MAX_CATEGORIES)
-  );
+  const [categories, setCategories] = useState(() => {
+    const list = getMostVisitedCategories(MAX_CATEGORIES);
+    return list.length ? list : ["Dairy"];
+  });
   const [byCategory, setByCategory] = useState({});
 
   useEffect(() => {
-    setCategories(getMostVisitedCategories(MAX_CATEGORIES));
+    const list = getMostVisitedCategories(MAX_CATEGORIES);
+    setCategories(list.length ? list : ["Dairy"]);
   }, [locationKey]);
 
   useEffect(() => {

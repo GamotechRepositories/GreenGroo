@@ -51,7 +51,7 @@ export default function SuggestedForYouSection({
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="bg-white px-4 sm:px-6 py-4 lg:rounded-2xl lg:shadow-sm">
+    <section className="bg-white px-2 sm:px-3 py-3 lg:px-4 lg:py-4 lg:rounded-2xl lg:shadow-sm">
       <SectionHeader
         title={title}
         subtitle={subtitle}

@@ -1,30 +1,58 @@
 import React, { useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ArrowRight, ChevronRight, ChevronLeft } from "lucide-react";
 import { sectionToStoreKey, buildStoreProductUrl } from "../../utils/storeSection";
 import { addCategoryVisit } from "../../utils/categoryVisits";
 
 export const SHOP_BY_CATEGORY_ITEMS = [
   {
-    id: "organic-vegetables",
-    name: "Organic Vegetables",
-    marathiName: "ऑर्गेनिक भाज्या",
-    image: "/categories/cat_organic_vegetables.jpg",
+    id: "vegetables",
+    name: "Vegetables",
+    marathiName: "भाज्या",
+    image: "/categories/shop_vegetables.jpg",
     categoryFilter: "Vegetables",
   },
   {
     id: "fruits",
     name: "Fruits",
     marathiName: "फळे",
-    image: "/categories/cat_fruits.jpg",
+    image: "/categories/shop_fruits.jpg",
     categoryFilter: "Fruits",
   },
   {
     id: "pulses-grains",
     name: "Pulses & Grains",
     marathiName: "डाळी व धान्य",
-    image: "/categories/cat_pulses_grains.jpg",
+    image: "/categories/shop_pulses.jpg",
     categoryFilter: "Pulses",
+  },
+  {
+    id: "organic-range",
+    name: "Organic Range",
+    marathiName: "सेंद्रिय उत्पादने",
+    image: "/categories/shop_organic_range.jpg",
+    categoryFilter: "Organic",
+  },
+  {
+    id: "dairy-eggs",
+    name: "Dairy & Eggs",
+    marathiName: "दुग्धजन्य व अंडी",
+    image: "/categories/shop_dairy_eggs.jpg",
+    categoryFilter: "Dairy",
+  },
+  {
+    id: "spices-dry-fruits",
+    name: "Spices & Dry Fruits",
+    marathiName: "मसाले व ड्रायफ्रूट्स",
+    image: "/categories/shop_dry_fruits.jpg",
+    categoryFilter: "Spices",
+  },
+  {
+    id: "beverages-more",
+    name: "Beverages & More",
+    marathiName: "पेये व इतर",
+    image: "/categories/shop_beverages.jpg",
+    categoryFilter: "Beverages",
   },
   {
     id: "exotic-vegetables",
@@ -34,17 +62,10 @@ export const SHOP_BY_CATEGORY_ITEMS = [
     categoryFilter: "Vegetables",
   },
   {
-    id: "dairy-farm-fresh",
-    name: "Dairy & Farm Fresh",
-    marathiName: "दुग्धजन्य उत्पादने",
-    image: "/categories/cat_dairy_farm.jpg",
-    categoryFilter: "Dairy",
-  },
-  {
-    id: "organic-products",
-    name: "Organic Products",
-    marathiName: "सेंद्रिय उत्पादने",
-    image: "/categories/cat_organic_products.jpg",
+    id: "combo-packs",
+    name: "Combo Packs",
+    marathiName: "कॉम्बो पॅक्स",
+    image: "/categories/shop_combo_packs.jpg",
     categoryFilter: "Organic",
   },
 ];
@@ -69,21 +90,21 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
   };
 
   return (
-    <section className="w-full py-2 sm:py-4 bg-transparent">
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-3 sm:mb-4 px-1">
-        <h2 className="text-xl sm:text-2xl font-bold text-[#14532d] tracking-tight">
+    <section className="w-full py-2 sm:py-3.5 bg-transparent">
+      {/* Section Header: Left Title & Right "View All ->" link */}
+      <div className="flex items-center justify-between mb-2.5 sm:mb-3.5 px-0.5">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 tracking-tight">
           Shop by Category
         </h2>
 
         <div className="flex items-center gap-2">
-          {/* Clean arrow controls for smooth horizontal scrolling */}
+          {/* Desktop Arrow Controls */}
           <div className="hidden sm:flex items-center gap-1 mr-1">
             <button
               type="button"
               onClick={() => handleScroll("left")}
               aria-label="Previous categories"
-              className="p-1 rounded-full text-[#14532d] hover:bg-neutral-100 active:bg-neutral-200 transition-colors"
+              className="p-1 rounded-full text-gray-700 hover:bg-neutral-100 active:bg-neutral-200 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -91,7 +112,7 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
               type="button"
               onClick={() => handleScroll("right")}
               aria-label="Next categories"
-              className="p-1 rounded-full text-[#14532d] hover:bg-neutral-100 active:bg-neutral-200 transition-colors"
+              className="p-1 rounded-full text-gray-700 hover:bg-neutral-100 active:bg-neutral-200 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -99,18 +120,57 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
 
           <Link
             to={viewAllUrl}
-            className="inline-flex items-center gap-0.5 text-xs sm:text-sm font-semibold text-[#14532d] hover:text-[#0b381e] transition-colors"
+            className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-[#14532d] hover:text-[#0b381e] transition-colors"
           >
             <span>View All</span>
-            <ChevronRight className="w-4 h-4 text-[#14532d]" />
+            <ArrowRight className="w-3.5 h-3.5 text-[#14532d]" />
           </Link>
         </div>
       </div>
 
-      {/* Categories Row: Clean 6-col grid on desktop, smooth horizontal swipe on mobile */}
+      {/* MOBILE VIEW: Exactly 3-column x 3-row grid matching photo */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-2.5 md:hidden">
+        {items.map((item) => {
+          const targetUrl = buildStoreProductUrl({
+            categoryName: item.categoryFilter || item.name,
+            store: currentStore,
+          });
+
+          return (
+            <Link
+              key={item.id || item.name}
+              to={targetUrl}
+              onClick={() => addCategoryVisit(item.categoryFilter || item.name)}
+              className="group bg-white rounded-2xl border border-gray-200/90 shadow-[0_1px_4px_rgba(0,0,0,0.03)] p-2 flex flex-col items-center justify-between text-center transition-all duration-150 active:scale-[0.97] hover:border-emerald-500 hover:shadow-xs select-none"
+            >
+              {/* Product cutout image on pure white container */}
+              <div className="w-full aspect-square rounded-xl bg-white flex items-center justify-center p-0.5 overflow-hidden">
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  loading="lazy"
+                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.src = "/categories/vegetables.webp";
+                  }}
+                />
+              </div>
+
+              {/* Bold Category Name */}
+              <div className="mt-1.5 w-full px-0.5">
+                <h3 className="text-[11px] sm:text-xs font-bold text-gray-800 leading-tight line-clamp-1">
+                  {item.name}
+                </h3>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP VIEW: Sleek responsive grid */}
       <div
         ref={scrollContainerRef}
-        className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar scroll-smooth pb-1 pt-0.5 md:grid md:grid-cols-6 md:gap-4"
+        className="hidden md:grid md:grid-cols-6 lg:grid-cols-9 gap-3 lg:gap-3.5"
       >
         {items.map((item) => {
           const targetUrl = buildStoreProductUrl({
@@ -123,24 +183,22 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
               key={item.id || item.name}
               to={targetUrl}
               onClick={() => addCategoryVisit(item.categoryFilter || item.name)}
-              className="group flex flex-col flex-shrink-0 w-[120px] sm:w-[140px] md:w-auto items-center cursor-pointer active:opacity-85 select-none"
+              className="group bg-white rounded-2xl border border-gray-200/90 hover:border-emerald-500 shadow-[0_1px_4px_rgba(0,0,0,0.03)] hover:shadow-md p-2.5 flex flex-col items-center justify-between text-center transition-all duration-150 active:scale-95 select-none cursor-pointer"
             >
-              {/* Image Container: Clean rounded rectangle, warm studio background, stable fine border, no jitter or bouncing shadows */}
-              <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-[#F6F3EB] border border-[#E8E3D8] transition-colors duration-150 group-hover:border-[#C4BAA5]">
+              <div className="w-full aspect-square rounded-xl bg-white flex items-center justify-center p-1 overflow-hidden">
                 <img
                   src={item.image}
                   alt={item.name}
                   loading="lazy"
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-105"
                   onError={(e) => {
                     e.currentTarget.src = "/categories/vegetables.webp";
                   }}
                 />
               </div>
 
-              {/* Category Title in English */}
-              <div className="mt-2.5 text-center w-full px-1">
-                <h3 className="text-xs sm:text-[13px] md:text-sm font-bold text-[#14532d] leading-snug line-clamp-2">
+              <div className="mt-2 w-full px-1">
+                <h3 className="text-xs lg:text-[13px] font-bold text-gray-800 leading-snug line-clamp-2">
                   {item.name}
                 </h3>
               </div>
