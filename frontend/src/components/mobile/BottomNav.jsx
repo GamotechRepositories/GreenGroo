@@ -235,6 +235,22 @@ export function BottomNav() {
   };
 
   return (
+    <>
+    <Link
+      to="/support"
+      aria-label="Support"
+      className="gg-bar-slide fixed right-3 z-[60] block h-16 w-16 bg-transparent lg:hidden"
+      style={{
+        bottom: "calc(73px + env(safe-area-inset-bottom, 0px))",
+        transform: hidden ? "translate3d(0, 150px, 0)" : "translate3d(0, 0, 0)",
+      }}
+    >
+      <img
+        src="/assets/support-agent.png?v=2"
+        alt=""
+        className="h-full w-full object-contain"
+      />
+    </Link>
     <nav
       className="gg-bar-slide fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden"
       style={{
@@ -259,6 +275,7 @@ export function BottomNav() {
         ))}
       </div>
     </nav>
+    </>
   );
 }
 

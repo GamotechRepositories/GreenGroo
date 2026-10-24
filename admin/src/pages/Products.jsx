@@ -126,69 +126,17 @@ const CATEGORY_SECTION_BY_NAME = {
   'supermall beverages & cold drinks': 'instantorder',
 };
 
-/** Names and product filters the customer home actually shows under Shop by Category. */
-const FRONTEND_CATEGORY_TILES = {
-  preorder: [
-    { name: 'Vegetables', match: 'Vegetables' },
-    { name: 'Spices & Dry Fruits', match: 'Spices' },
-    { name: 'Pulses & Grains', match: 'Pulses' },
-    { name: 'Exotic Vegetables', match: 'Vegetables' },
-    { name: 'Fruits', match: 'Fruits' },
-    { name: 'Organic Range', match: 'Organic' },
-    { name: 'Dairy & Eggs', match: 'Dairy' },
-    { name: 'Beverages & More', match: 'Beverages' },
-    { name: 'Combo Packs', match: 'Organic' },
-    { name: 'Oils & Ghee', match: 'Oils' },
-  ],
-  ready2cook: [],
-  instantorder: [],
-};
-
 const categoryCardsForSection = (sectionSlug, categories) => {
   const slug = canonicalSectionSlug(sectionSlug);
-  const tiles = Object.prototype.hasOwnProperty.call(FRONTEND_CATEGORY_TILES, slug)
-    ? FRONTEND_CATEGORY_TILES[slug]
-    : null;
-  if (!tiles) {
-    return categories
-      .filter((c) => sectionMatches(resolveCategorySection(c), slug))
-      .sort((a, b) => String(a.categoryName || '').localeCompare(String(b.categoryName || '')))
-      .map((linked) => ({
-        key: linked._id || linked.categoryName,
-        label: linked.categoryName,
-        matchName: linked.categoryName,
-        linked,
-      }));
-  }
-
-  const shownIds = new Set();
-  const cards = tiles.map((tile) => {
-    const linked = categories.find(
-      (c) => String(c.categoryName || '').trim().toLowerCase() === tile.match.toLowerCase()
-    );
-    if (linked?._id) shownIds.add(String(linked._id));
-    return {
-      key: tile.name,
-      label: tile.name,
-      matchName: tile.match,
-      linked: linked || null,
-    };
-  });
-
-  categories.forEach((linked) => {
-    const explicit = canonicalSectionSlug(linked.section);
-    if (!explicit || !sectionMatches(explicit, slug)) return;
-    if (linked._id && shownIds.has(String(linked._id))) return;
-    shownIds.add(String(linked._id || linked.categoryName));
-    cards.push({
+  return categories
+    .filter((c) => sectionMatches(resolveCategorySection(c), slug))
+    .sort((a, b) => String(a.categoryName || '').localeCompare(String(b.categoryName || '')))
+    .map((linked) => ({
       key: linked._id || linked.categoryName,
       label: linked.categoryName,
       matchName: linked.categoryName,
       linked,
-    });
-  });
-
-  return cards;
+    }));
 };
 
 const canonicalSectionSlug = (value) => {
@@ -198,13 +146,14 @@ const canonicalSectionSlug = (value) => {
 };
 
 const resolveCategorySection = (category) => {
-  const fromSection = canonicalSectionSlug(category?.section);
-  if (fromSection) return fromSection;
+  const byName = CATEGORY_SECTION_BY_NAME[String(category?.categoryName || '').trim().toLowerCase()];
+  const stored = canonicalSectionSlug(category?.section);
+  if (stored && stored !== 'preorder') return stored;
+  if (byName) return byName;
   const store = String(category?.storeType || '').trim().toLowerCase();
   if (store === 'festive') return 'ready2cook';
   if (store === 'mall') return 'instantorder';
-  const byName = CATEGORY_SECTION_BY_NAME[String(category?.categoryName || '').trim().toLowerCase()];
-  return byName || 'preorder';
+  return stored || 'preorder';
 };
 
 const getSectionTheme = (slug, name) => {
@@ -384,11 +333,11 @@ export const formatUnitString = (qty, type) => {
   return `${q} ${t}`;
 };
 
-function UnitImagePicker({ image, uploading, onUpload, onClear, compact = false }) {
+function UnitImagePicker({ image, uploading, onUpload, onClear, compact = false, label, hint }) {
   return (
     <div>
       <p className={`font-semibold text-slate-700 ${compact ? 'mb-0.5 text-[11px] text-slate-500' : 'mb-1.5 text-xs'}`}>
-        {compact ? 'Image' : 'Unit image'}
+        {label || (compact ? 'Image' : 'Unit image')}
       </p>
       <div className="flex items-center gap-2">
         <label
@@ -423,12 +372,21 @@ function UnitImagePicker({ image, uploading, onUpload, onClear, compact = false 
             Remove
           </button>
         ) : compact ? null : (
-          <span className="text-[11px] text-slate-400">Shown on the quantity card</span>
+          <span className="text-[11px] text-slate-400">{hint || 'Shown on the quantity card'}</span>
         )}
       </div>
     </div>
   );
 }
+
+const baseProductKey = (category = '', name = '') => {
+  const slug = `${category}-${name}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return slug ? `bp-${slug}` : '';
+};
 
 export const computeCanonicalProductId = (category = '', title = '', variety = '', existingProducts = []) => {
   const cat = String(category || '').toLowerCase();
@@ -720,6 +678,7 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unitImageUploadingKey, setUnitImageUploadingKey] = useState(null);
+  const [baseProductOpen, setBaseProductOpen] = useState(false);
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -754,6 +713,9 @@ export default function Products() {
     bulkGrades: normalizeFormBulkGrades(),
     varietyGroupId: '',
     varietyName: '',
+    baseProductId: '',
+    baseProductName: '',
+    baseProductImage: '',
     price: '',
     discountedPrice: '',
     discountedPercent: 0,
@@ -883,7 +845,7 @@ export default function Products() {
   // Filtered categories for the chosen department in form
   const availableCategoriesForForm = useMemo(() => {
     if (!formData.department) return categories;
-    return categories.filter((c) => sectionMatches(c.section, formData.department));
+    return categories.filter((c) => sectionMatches(resolveCategorySection(c), formData.department));
   }, [categories, formData.department]);
 
   const formDepartmentOptions = useMemo(() => {
@@ -909,6 +871,28 @@ export default function Products() {
   }, [categories, selectedDepartment]);
 
   // Available subcategories for the selected category
+  const baseProductOptions = useMemo(() => {
+    const map = new Map();
+    const cat = String(formData.category || '').trim().toLowerCase();
+    products.forEach((product) => {
+      const name = String(product.baseProductName || '').trim();
+      if (!name) return;
+      if (formData.department && !sectionMatches(product.section, formData.department)) return;
+      const productCat = String(
+        (Array.isArray(product.categories) && product.categories[0]) || product.category || ''
+      ).trim().toLowerCase();
+      if (cat && productCat !== cat) return;
+      const id = String(product.baseProductId || '').trim() || baseProductKey(productCat, name);
+      const current = map.get(id);
+      if (!current) {
+        map.set(id, { id, name, image: String(product.baseProductImage || '').trim() });
+      } else if (!current.image && product.baseProductImage) {
+        current.image = String(product.baseProductImage).trim();
+      }
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, formData.department, formData.category]);
+
   const availableSubcategoriesForForm = useMemo(() => {
     if (!formData.category) return [];
     const found = categories.find(
@@ -919,21 +903,32 @@ export default function Products() {
 
   // Open Create Form — prefill from drill-down path when available
   const handleOpenCreate = (options = {}) => {
-    const defaultCat =
+    const listedSections = sections.map((item) => item.slug).filter(Boolean);
+    const requestedSec =
+      options.department ||
+      selectedDepartment ||
+      categories[0]?.section ||
+      listedSections[0] ||
+      'preorder';
+    const defaultSec =
+      listedSections.length && !listedSections.some((slug) => sectionMatches(requestedSec, slug))
+        ? listedSections[0]
+        : requestedSec;
+    const catsInSection = categories.filter((item) => sectionMatches(resolveCategorySection(item), defaultSec));
+    const requestedCat =
       options.category ||
       selectedCategory ||
+      catsInSection[0]?.categoryName ||
       categories[0]?.categoryName ||
       '';
+    const defaultCat = catsInSection.some((item) => item.categoryName === requestedCat)
+      ? requestedCat
+      : catsInSection[0]?.categoryName || requestedCat;
     const defaultSub =
       options.subcategory ||
       selectedSubcategory ||
       (categories.find((c) => c.categoryName === defaultCat)?.subcategories?.[0]) ||
       'General';
-    const defaultSec =
-      options.department ||
-      selectedDepartment ||
-      categories[0]?.section ||
-      'greengrocc';
     const mode =
       options.catalogMode ||
       listAudience ||
@@ -969,6 +964,9 @@ export default function Products() {
         : normalizeFormBulkGrades(),
       varietyGroupId: options.varietyGroupId || '',
       varietyName: options.varietyName || '',
+      baseProductId: options.baseProductId || '',
+      baseProductName: options.baseProductName || '',
+      baseProductImage: options.baseProductImage || '',
       price: options.price != null ? String(options.price) : '',
       discountedPrice: options.discountedPrice != null ? String(options.discountedPrice) : '',
       discountedPercent: options.discountedPercent || 0,
@@ -1011,6 +1009,7 @@ export default function Products() {
         bio: options.farmerDetails?.bio || '',
       },
     });
+    setBaseProductOpen(Boolean(options.baseProductName));
     setImageUrlInput('');
     setVideoUrlInput('');
     setFeatureInput('');
@@ -1053,6 +1052,9 @@ export default function Products() {
       category: Array.isArray(product.categories) ? product.categories[0] : product.category,
       subcategory: product.subcategory || selectedSubcategory || 'General',
       brandName: product.brandName || 'GreenGrocc',
+      baseProductId: product.baseProductId || '',
+      baseProductName: product.baseProductName || '',
+      baseProductImage: product.baseProductImage || '',
       variantType: isBulk ? 'single' : hasVariants ? 'multi' : 'single',
       variants: hasVariants
         ? product.variants.map((v) => ({
@@ -1205,6 +1207,7 @@ export default function Products() {
     const parsedSingle = parseUnitInfo(product.unit || product.sub || product.weight || '1 Piece');
 
     setEditingProduct(product);
+    setBaseProductOpen(Boolean(product.baseProductName));
     const isBulkProduct = Boolean(product.enableBulkGrades);
     setCatalogMode(isBulkProduct ? 'bulk' : 'retail');
     setFormStep(1);
@@ -1244,6 +1247,9 @@ export default function Products() {
       bulkGrades: normalizeFormBulkGrades(product.bulkGrades),
       varietyGroupId: product.varietyGroupId || '',
       varietyName: product.varietyName || '',
+      baseProductId: product.baseProductId || '',
+      baseProductName: product.baseProductName || '',
+      baseProductImage: product.baseProductImage || '',
       price: product.price != null ? String(product.price) : '',
       discountedPrice: product.discountedPrice != null ? String(product.discountedPrice) : '',
       discountedPercent: product.discountedPercent || 0,
@@ -1417,6 +1423,8 @@ export default function Products() {
       }
       if (target === 'single') {
         setFormData((prev) => ({ ...prev, unitImage: uploadedUrl }));
+      } else if (target === 'base') {
+        setFormData((prev) => ({ ...prev, baseProductImage: uploadedUrl }));
       } else {
         setFormData((prev) => {
           const copy = [...prev.variants];
@@ -1808,6 +1816,11 @@ export default function Products() {
         unitImage: String(formData.unitImage || '').trim(),
         varietyGroupId: formData.varietyGroupId?.trim() || '',
         varietyName: formData.varietyName?.trim() || '',
+        baseProductName: formData.baseProductName?.trim() || '',
+        baseProductImage: formData.baseProductName?.trim() ? String(formData.baseProductImage || '').trim() : '',
+        baseProductId: formData.baseProductName?.trim()
+          ? (formData.baseProductId?.trim() || baseProductKey(formData.category, formData.baseProductName))
+          : '',
         variantType: formData.variantType === 'multi' ? 'multi' : 'single',
         variants: resolvedVariants,
         enableBulkGrades: isBulkSave,
@@ -2027,7 +2040,7 @@ export default function Products() {
 
   const drillCategories = useMemo(() => {
     if (!selectedDepartment) return [];
-    const fromTaxonomy = categories.filter((c) => sectionMatches(c.section, selectedDepartment));
+    const fromTaxonomy = categories.filter((c) => sectionMatches(resolveCategorySection(c), selectedDepartment));
     const known = new Set(fromTaxonomy.map((c) => c.categoryName.toLowerCase()));
     const extras = [];
     audienceProducts.forEach((p) => {
@@ -2564,7 +2577,7 @@ export default function Products() {
                       </h3>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 ml-7">
-                      Basic product name, department mapping, and category organization
+                      Section → Category → Base product → Product → Product details
                     </p>
                   </div>
                   <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
@@ -2572,10 +2585,10 @@ export default function Products() {
                   </span>
                 </div>
 
-                {/* Department Selector */}
+                {/* 1. Section */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Store Department <span className="text-rose-500">*</span>
+                    Section <span className="text-rose-500">*</span>
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {formDepartmentOptions.map((dept) => {
@@ -2586,13 +2599,17 @@ export default function Products() {
                           type="button"
                           onClick={() => {
                             const matchingCats = categories.filter((c) =>
-                              sectionMatches(c.section, dept.slug)
+                              sectionMatches(resolveCategorySection(c), dept.slug)
                             );
+                            setBaseProductOpen(false);
                             setFormData((prev) => ({
                               ...prev,
                               department: dept.slug,
                               category: matchingCats[0]?.categoryName || '',
                               subcategory: matchingCats[0]?.subcategories?.[0] || 'General',
+                              baseProductId: '',
+                              baseProductName: '',
+                              baseProductImage: '',
                             }));
                           }}
                           className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer text-center ${ isSelected ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50' }`}
@@ -2604,7 +2621,178 @@ export default function Products() {
                   </div>
                 </div>
 
-                {/* Product Title & SKU */}
+                {/* 2. Category */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Category <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => {
+                        const chosenCat = e.target.value;
+                        const catObj = categories.find((c) => c.categoryName.toLowerCase() === chosenCat.toLowerCase());
+                        setBaseProductOpen(false);
+                        setFormData((prev) => {
+                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
+                          return {
+                            ...prev,
+                            category: chosenCat,
+                            subcategory: catObj?.subcategories?.[0] || 'General',
+                            baseProductId: '',
+                            baseProductName: '',
+                            baseProductImage: '',
+                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(chosenCat, prev.name, prev.varietyName, products) : prev.sku,
+                          };
+                        });
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
+                    >
+                      <option value="" disabled>Select category</option>
+                      {availableCategoriesForForm.map((cat) => (
+                        <option key={cat._id || cat.slug} value={cat.categoryName}>
+                          {cat.categoryName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Subcategory / Filter
+                    </label>
+                    {availableSubcategoriesForForm.length > 0 ? (
+                      <select
+                        value={formData.subcategory}
+                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
+                      >
+                        {availableSubcategoriesForForm.map((sub, i) => (
+                          <option key={i} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="e.g. Leafy Vegetables"
+                        value={formData.subcategory}
+                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Base product */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Base product
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBaseProductOpen(true);
+                        setFormData((prev) => ({
+                          ...prev,
+                          baseProductId: '',
+                          baseProductName: '',
+                          baseProductImage: '',
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add base product
+                    </button>
+                  </div>
+                  <select
+                    value={
+                      baseProductOptions.some((item) => item.id === formData.baseProductId)
+                        ? formData.baseProductId
+                        : baseProductOpen
+                          ? '__new__'
+                          : ''
+                    }
+                    onChange={(e) => {
+                      const chosen = e.target.value;
+                      if (chosen === '__new__') {
+                        setBaseProductOpen(true);
+                        setFormData((prev) => ({
+                          ...prev,
+                          baseProductId: '',
+                          baseProductName: '',
+                          baseProductImage: '',
+                        }));
+                        return;
+                      }
+                      const match = baseProductOptions.find((item) => item.id === chosen);
+                      setBaseProductOpen(Boolean(match));
+                      setFormData((prev) => ({
+                        ...prev,
+                        baseProductId: match?.id || '',
+                        baseProductName: match?.name || '',
+                        baseProductImage: match?.image || '',
+                      }));
+                    }}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
+                  >
+                    <option value="">Select base product</option>
+                    {baseProductOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                    <option value="__new__">+ Add base product</option>
+                  </select>
+                  {baseProductOpen ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                          Base product name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Apple, Onion, Tomato"
+                          value={formData.baseProductName}
+                          onChange={(e) => {
+                            const name = e.target.value;
+                            const match = baseProductOptions.find(
+                              (item) => item.name.toLowerCase() === name.trim().toLowerCase()
+                            );
+                            setFormData((prev) => ({
+                              ...prev,
+                              baseProductName: name,
+                              baseProductId: match ? match.id : baseProductKey(prev.category, name),
+                            }));
+                          }}
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                        />
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          Products under this name appear together on the category page.
+                        </p>
+                      </div>
+                      <UnitImagePicker
+                        label="Base product image"
+                        hint="Shown on the category card"
+                        image={formData.baseProductImage}
+                        uploading={unitImageUploadingKey === 'base'}
+                        onUpload={(file) => handleUnitImageUpload(file, 'base')}
+                        onClear={() => setFormData((prev) => ({ ...prev, baseProductImage: '' }))}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">
+                      Pick an existing base product, or add one with a name and image.
+                    </p>
+                  )}
+                </div>
+
+                {/* 4. Product */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Product</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -2673,109 +2861,52 @@ export default function Products() {
                     />
                   </div>
                 </div>
-
-                {/* Variety label — shown under Select Unit on product details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Variety name
-                      {formData.varietyGroupId ? (
-                        <span className="ml-1 font-medium text-amber-700">(linked variety)</span>
-                      ) : null}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Hybrid, Alphonso, Desi"
-                      value={formData.varietyName}
-                      onChange={(e) => {
-                        const newVar = e.target.value;
-                        setFormData((prev) => {
-                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
-                          return {
-                            ...prev,
-                            varietyName: newVar,
-                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(prev.category, prev.name, newVar, products) : prev.sku,
-                          };
-                        });
-                      }}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
-                    />
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      Shown under Select Unit on the product page. Use Admin → Add variety to create siblings with full pricing, images & stock.
-                    </p>
-                  </div>
                 </div>
 
-                {/* Category, Subcategory & Brand */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Category <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => {
-                        const chosenCat = e.target.value;
-                        const catObj = categories.find((c) => c.categoryName.toLowerCase() === chosenCat.toLowerCase());
-                        setFormData((prev) => {
-                          const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
-                          return {
-                            ...prev,
-                            category: chosenCat,
-                            subcategory: catObj?.subcategories?.[0] || 'General',
-                            sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(chosenCat, prev.name, prev.varietyName, products) : prev.sku,
-                          };
-                        });
-                      }}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
-                    >
-                      <option value="" disabled>Select category</option>
-                      {availableCategoriesForForm.map((cat) => (
-                        <option key={cat._id || cat.slug} value={cat.categoryName}>
-                          {cat.categoryName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Subcategory / Filter
-                    </label>
-                    {availableSubcategoriesForForm.length > 0 ? (
-                      <select
-                        value={formData.subcategory}
-                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 cursor-pointer shadow-sm"
-                      >
-                        {availableSubcategoriesForForm.map((sub, i) => (
-                          <option key={i} value={sub}>
-                            {sub}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
+                {/* 5. Product details */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-2">Product details</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Variety name
+                        {formData.varietyGroupId ? (
+                          <span className="ml-1 font-medium text-amber-700">(linked variety)</span>
+                        ) : null}
+                      </label>
                       <input
                         type="text"
-                        placeholder="e.g. Leafy Vegetables"
-                        value={formData.subcategory}
-                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        placeholder="e.g. Hybrid, Alphonso, Desi"
+                        value={formData.varietyName}
+                        onChange={(e) => {
+                          const newVar = e.target.value;
+                          setFormData((prev) => {
+                            const isCustomSku = prev.sku && !prev.sku.startsWith('GGC-ART-') && !prev.sku.startsWith('GRN-');
+                            return {
+                              ...prev,
+                              varietyName: newVar,
+                              sku: !editingProduct && !isCustomSku ? computeCanonicalProductId(prev.category, prev.name, newVar, products) : prev.sku,
+                            };
+                          });
+                        }}
                         className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                       />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Brand Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. GreenGrocc"
-                      value={formData.brandName}
-                      onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
-                    />
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        Shown under Select Unit on the product page.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Brand Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. GreenGrocc"
+                        value={formData.brandName}
+                        onChange={(e) => setFormData({ ...formData, brandName: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                      />
+                    </div>
                   </div>
                 </div>
 

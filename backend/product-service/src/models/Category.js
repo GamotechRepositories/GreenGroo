@@ -14,7 +14,7 @@ const categorySchema = new mongoose.Schema(
     },
     section: {
       type: String,
-      default: "preorder",
+      default: "",
       trim: true,
       lowercase: true,
       index: true,

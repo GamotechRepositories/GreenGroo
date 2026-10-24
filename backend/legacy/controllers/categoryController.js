@@ -33,7 +33,7 @@ export const getCategories = async (req, res) => {
         };
       } else if (sec === "preorder" || sec === "main" || sec === "greengrocc") {
         productSectionMatch = {
-          section: { $nin: ["ready2cook", "ready-2-cook", "festive", "instantorder", "instant", "supermall", "mall", "instantorders"] },
+          section: { $in: ["greengrocc", "preorder", "main"] },
           storeType: { $nin: ["festive", "mall"] },
         };
       } else {

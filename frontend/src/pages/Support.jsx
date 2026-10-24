@@ -275,8 +275,7 @@ function Support() {
                   How can we help you?
                 </h1>
                 <p className="mt-1.5 text-xs leading-relaxed text-text-secondary sm:text-sm">
-                  Our support team is here to help you. Send us a message and we&apos;ll get back
-                  to you as soon as possible.
+                  Our support team is here to help you. We&apos;ll get back to you as soon as possible.
                 </p>
               </div>
 
@@ -379,15 +378,6 @@ function Support() {
               onSubmit={handleSubmit}
               className="h-fit rounded-2xl border border-border-light bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-24"
             >
-              <div className="mb-5 flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 00-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 00-1.07-1.916V6.75" />
-                  </svg>
-                </div>
-                <h2 className="text-lg font-bold text-text-primary">Send us a message</h2>
-              </div>
-
               {error && (
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}

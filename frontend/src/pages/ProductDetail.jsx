@@ -44,6 +44,8 @@ import { tryOpenProductInApp } from "../utils/openMobileApp";
 import { onCatalogEvent } from "../realtime/useCatalogSync";
 import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { getProductDisplayDetails } from "../utils/productLocalization";
+import { catalogUrls } from "../components/product/CatalogFlow";
+import { baseGroupKey } from "../utils/baseProducts";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -593,28 +595,28 @@ function QuantityOptionCard({ label, salePrice, originalPrice, selected, image, 
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-[148px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition ${
+      className={`flex w-max shrink-0 flex-col overflow-hidden rounded-xl border text-left transition ${
         selected
           ? "border-emerald-600 bg-[#e7f3d4] shadow-sm"
           : "border-[#e4edd6] bg-[#f4f8ea]"
       }`}
     >
-      <div className="flex h-[112px] items-center justify-center px-3 pt-3">
-        {image ? (
-          <img src={image} alt="" className="h-full w-full object-contain" />
-        ) : (
-          <div className="h-16 w-16 rounded-xl bg-white/50" />
-        )}
-      </div>
-      <div className="px-3 pb-3 pt-1">
-        <p className="text-[14px] font-medium text-slate-900">{englishLabel}</p>
-        {marathiLabel ? (
-          <p className="mt-0.5 text-[12px] font-medium text-slate-600">{marathiLabel}</p>
-        ) : null}
-        <div className="mt-1 flex items-baseline gap-1.5">
-          <span className="text-[16px] font-bold text-slate-900">{format(salePrice)}</span>
+      {image ? (
+        <img src={image} alt="" className="block h-[84px] w-full object-cover object-center" />
+      ) : (
+        <div className="h-[84px] w-full bg-white" />
+      )}
+      <div className="flex items-center justify-between gap-3 whitespace-nowrap px-2 py-1.5">
+        <div className="flex flex-col leading-tight">
+          <span className="text-[13px] font-medium text-slate-900">{englishLabel}</span>
+          {marathiLabel ? (
+            <span className="mt-0.5 text-[12px] font-medium text-slate-600">{marathiLabel}</span>
+          ) : null}
+        </div>
+        <div className="flex flex-col items-end leading-tight">
+          <span className="text-[15px] font-bold text-slate-900">{format(salePrice)}</span>
           {originalPrice > salePrice ? (
-            <span className="text-[13px] font-medium text-slate-400 line-through">
+            <span className="text-[12px] font-medium text-slate-400 line-through">
               {format(originalPrice)}
             </span>
           ) : null}
@@ -1302,6 +1304,23 @@ function ProductDetail() {
     specifications.find((s) => /type|category/i.test(s.name) && !/subcategor/i.test(s.name))?.value ||
     category;
 
+  const goBack = () => {
+    if (typeof window.history.state?.idx === "number" && window.history.state.idx > 0) {
+      navigate(-1);
+      return;
+    }
+    const baseKey = baseGroupKey(product);
+    if (category && baseKey && !baseKey.startsWith("product:")) {
+      navigate(catalogUrls({ categoryName: category, baseId: baseKey }).productsUrl, { replace: true });
+      return;
+    }
+    if (category && category !== "Products") {
+      navigate(`/product?categoryName=${encodeURIComponent(category)}`, { replace: true });
+      return;
+    }
+    navigate("/product", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-white pb-24 text-[#1a1a1a] lg:pb-10">
       {/* lg sticky offset accounts for sticky upper TopNav bar */}
@@ -1313,10 +1332,7 @@ function ProductDetail() {
               <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.history.length > 1) navigate(-1);
-                    else navigate("/product");
-                  }}
+                  onClick={goBack}
                   aria-label="Go back"
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E5E5] bg-white/95 text-[#1a1a1a] shadow-sm transition hover:bg-white"
                 >
@@ -1367,7 +1383,7 @@ function ProductDetail() {
                   {category}
                 </Link>
                 <span>/</span>
-                <span className="line-clamp-1 text-slate-800">{product.name}</span>
+                <span className="text-slate-800">{product.name}</span>
               </nav>
 
               <div className="space-y-1 mb-2">
@@ -1512,7 +1528,7 @@ function ProductDetail() {
                   Bulk pricing by quality grade — each grade can have its own variety and rate.
                 </p>
               ) : null}
-              <div className={showBulkGrades ? "flex flex-wrap gap-2.5" : "flex gap-3 overflow-x-auto pb-1"}>
+              <div className={showBulkGrades ? "flex flex-wrap gap-2.5" : "flex gap-2 overflow-x-auto pb-1"}>
                 {unitOptions.map((opt) =>
                   showBulkGrades ? (
                     <UnitOptionCard

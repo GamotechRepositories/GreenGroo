@@ -12,10 +12,35 @@ const categorySchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    slug: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    section: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: "",
+    },
+    sectionName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     categoryImage: {
       type: String,
       required: [true, "Category image is required"],
       trim: true,
+    },
+    storeType: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
     isActive: {
       type: Boolean,

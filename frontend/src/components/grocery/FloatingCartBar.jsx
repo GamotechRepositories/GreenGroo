@@ -86,7 +86,7 @@ function FloatingCartBar() {
       type="button"
       onClick={openCartSidebar}
       data-cart-target="floating"
-      className="gg-bar-slide fixed left-3 right-3 z-[55] block lg:hidden"
+      className="gg-bar-slide fixed left-3 right-[5.25rem] z-[55] block lg:hidden"
       style={{
         bottom: restBottom,
         transform: bottomNavHidden

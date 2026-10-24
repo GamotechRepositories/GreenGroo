@@ -1,80 +1,130 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
+
+function LeafMark({ className = "h-4 w-4" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M19.5 4.5c-6.2.4-10.8 3.2-13.2 8.1-.7 1.4-1.1 2.9-1.2 4.4 2.2-.2 4.3-.9 6.1-2.2 4.2-3 6.6-7.2 8.3-10.3Z" />
+      <path d="M5.2 17.8c2.4-4.6 6.4-7.4 11.6-8.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SbiLogo() {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#00A3E0]">
+        <span className="h-3 w-3 rounded-full border-2 border-white" />
+      </span>
+      <span className="text-[13px] font-extrabold leading-none text-[#1e293b]">
+        SBI <span className="font-bold text-[#00A3E0]">card</span>
+      </span>
+    </span>
+  );
+}
+
+function FlipkartLogo() {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#FFE11B] text-[16px] font-black text-[#2874F0]">
+        f
+      </span>
+      <span className="text-[12px] font-extrabold leading-tight text-slate-900">
+        Flipkart
+        <span className="block text-[10px] font-bold text-slate-600">Axis</span>
+      </span>
+    </span>
+  );
+}
+
+function HdfcLogo() {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#E31E24] text-[9px] font-black text-white">
+        HDFC
+      </span>
+      <span className="text-[11px] font-extrabold leading-tight tracking-wide text-[#004C8F]">
+        HDFC
+        <span className="block text-[10px]">BANK</span>
+      </span>
+    </span>
+  );
+}
+
+function PaytmLogo() {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="flex h-7 flex-col items-center justify-center rounded-md bg-[#00B9F1] px-1.5 leading-none text-white">
+        <span className="text-[10px] font-black">pay</span>
+        <span className="text-[8px] font-bold">UPI</span>
+      </span>
+    </span>
+  );
+}
 
 const PAYMENT_OFFERS = [
   {
     id: "sbi",
-    logoBg: "bg-[#00A3E0]",
-    title: "SBI card",
+    logo: <SbiLogo />,
     discount: "10% Instant Discount*",
-    desc: "with SBI Credit Card & EMI Trxns",
-    cardBg: "bg-[#E0F7FA]",
-    borderColor: "border-cyan-200/80",
-    tc: "*T&C Apply",
+    desc: "with SBI Credit Card & EMI Txns",
+    cardBg: "bg-[#E7F6FF]",
+    border: "border-[#C5E6F8]",
   },
   {
     id: "flipkart",
-    logoBg: "bg-[#2874F0]",
-    title: "Flipkart Axis",
+    logo: <FlipkartLogo />,
     discount: "Get 10% Savings*",
     desc: "with Flipkart Axis Bank Credit Card",
-    cardBg: "bg-[#FFF3E0]",
-    borderColor: "border-orange-200/80",
-    tc: "*T&C Apply",
+    cardBg: "bg-[#FFF6DE]",
+    border: "border-[#F3E2A8]",
   },
   {
     id: "hdfc",
-    logoBg: "bg-[#004B8D]",
-    title: "HDFC BANK",
+    logo: <HdfcLogo />,
     discount: "Flat ₹100 Cashback*",
     desc: "on HDFC Bank PayZapp & Cards",
-    cardBg: "bg-[#F3E5F5]",
-    borderColor: "border-purple-200/80",
-    tc: "*T&C Apply",
+    cardBg: "bg-[#F7F2FF]",
+    border: "border-[#E4D7F5]",
   },
   {
     id: "paytm",
-    logoBg: "bg-[#002E6E]",
-    title: "Paytm UPI",
+    logo: <PaytmLogo />,
     discount: "Up to ₹75 Cashback*",
-    desc: "on Paytm UPI transactions above ₹299",
-    cardBg: "bg-[#E1F5FE]",
-    borderColor: "border-sky-200/80",
-    tc: "*T&C Apply",
+    desc: "on Paytm UPI transactions",
+    cardBg: "bg-[#E7F7FF]",
+    border: "border-[#C9E8F6]",
   },
 ];
 
-const PROMO_BANNERS = [
+const BANNERS = [
   {
-    id: 1,
-    title: "Gentle Summer Organic Care",
-    subtitle: "Up to 30% Off",
-    badge: "#1 Farmer Trusted Brand",
-    tag: "FARM FRESH",
-    link: "/product?categoryName=Organic",
-    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&h=600&q=80",
-    overlayBg: "from-emerald-950/70 via-slate-900/40 to-transparent",
-  },
-  {
-    id: 2,
-    title: "Nashik Co-op Direct Harvest",
-    subtitle: "Flat 40% Off on Veggie Combos",
-    badge: "100% ORGANIC HARVEST",
-    tag: "DIRECT FARM",
+    id: "summer",
+    image: "/offers/summer.jpg",
+    position: "object-[70%_center]",
+    tag: "Farm Fresh",
+    title: "Gentle Summer\nOrganic Care",
+    subtitle: "Farm Fresh Vegetables & Fruits",
+    offer: "Up to 30% Off",
     link: "/product?categoryName=Vegetables",
-    image: "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=1200&h=600&q=80",
-    overlayBg: "from-slate-950/70 via-teal-950/40 to-transparent",
   },
   {
-    id: 3,
-    title: "Juicy Exotic Fruits Fest",
-    subtitle: "Starting from ₹49",
-    badge: "FRESHLY PICKED DAILY",
-    tag: "EXOTIC FRUITS",
-    link: "/product?categoryName=Fruits",
-    image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=1200&h=600&q=80",
-    overlayBg: "from-amber-950/70 via-orange-950/40 to-transparent",
+    id: "harvest",
+    image: "/offers/harvest.jpg",
+    position: "object-center",
+    tag: "Direct Farm",
+    title: "Nashik Co-op\nDirect Harvest",
+    subtitle: "Fresh vegetable combos from the farm",
+    offer: "Flat 40% Off",
+    link: "/product?categoryName=Vegetables",
   },
+];
+
+const TRUST_POINTS = [
+  { id: "natural", label: "100% Natural" },
+  { id: "farmers", label: "Direct from Farmers" },
+  { id: "quality", label: "Trusted Quality" },
 ];
 
 export default function TopPaymentOffersSection() {
@@ -82,124 +132,92 @@ export default function TopPaymentOffersSection() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setActiveBanner((prev) => (prev + 1) % PROMO_BANNERS.length);
-    }, 4000);
+      setActiveBanner((prev) => (prev + 1) % BANNERS.length);
+    }, 5000);
     return () => clearInterval(timer);
   }, []);
 
-  const banner = PROMO_BANNERS[activeBanner];
+  const banner = BANNERS[activeBanner];
 
   return (
-    <section className="bg-white px-2 sm:px-3 py-3 lg:px-4 lg:py-4 lg:rounded-2xl lg:shadow-sm space-y-3.5">
-      {/* 1. Section Title */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
-          Top offers
-        </h2>
+    <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[#1f8a3b]">
+            <LeafMark className="h-5 w-5" />
+          </span>
+          <h2 className="text-[18px] font-extrabold tracking-tight text-slate-900 sm:text-[22px]">Top Offers</h2>
+        </div>
       </div>
 
-      {/* 2. Top Payment Offer Cards (Horizontal Scrollable Cards matching reference UI) */}
-      <div className="flex gap-2.5 sm:gap-3.5 overflow-x-auto hide-scrollbar pb-1">
+      <div className="mt-4 flex gap-2.5 overflow-x-auto hide-scrollbar pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible">
         {PAYMENT_OFFERS.map((offer) => (
           <div
             key={offer.id}
-            className={`w-[260px] sm:w-[310px] shrink-0 rounded-xl ${offer.cardBg} border ${offer.borderColor} p-2.5 sm:p-3 shadow-2xs flex items-center justify-between gap-2 transition hover:scale-[1.01]`}
+            className={`flex min-w-[250px] items-center gap-2 rounded-2xl border px-3 py-2.5 lg:min-w-0 ${offer.cardBg} ${offer.border}`}
           >
-            {/* Logo area */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {offer.id === "sbi" ? (
-                <div className="flex items-center gap-1">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#00A3E0]">
-                    <div className="h-2 w-2 rounded-full bg-white flex items-end justify-center">
-                      <div className="h-1 w-[1.5px] bg-[#00A3E0]" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline font-black text-xs sm:text-sm tracking-tight">
-                    <span className="text-[#1E293B] font-extrabold">SBI</span>
-                    <span className="text-[#00A3E0] font-bold ml-0.5">card</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${offer.logoBg} text-white font-black text-[9px]`}>
-                    💳
-                  </div>
-                  <span className="font-black text-xs text-slate-900">{offer.title}</span>
-                </div>
-              )}
+            <div className="shrink-0">{offer.logo}</div>
+            <div className="min-w-0 flex-1 border-l border-black/10 pl-2.5">
+              <p className="truncate text-[12.5px] font-bold leading-tight text-slate-900">{offer.discount}</p>
+              <p className="mt-0.5 truncate text-[10.5px] leading-tight text-slate-500">{offer.desc}</p>
             </div>
-
-            {/* Vertical Divider */}
-            <div className="h-6 w-[1px] bg-slate-400/30 shrink-0" />
-
-            {/* Offer details */}
-            <div className="min-w-0 flex-1">
-              <h4 className="text-[10.5px] sm:text-xs font-black text-slate-900 leading-tight truncate">
-                {offer.discount}
-              </h4>
-              <p className="text-[8.5px] sm:text-[10px] font-medium text-slate-600 truncate leading-tight mt-0.5">
-                {offer.desc}
-              </p>
-            </div>
-
-            {/* Vertical T&C Text */}
-            <div className="shrink-0 text-[6.5px] sm:text-[7.5px] font-bold text-slate-500 uppercase tracking-tighter [writing-mode:vertical-rl] rotate-180 leading-none select-none pl-0.5">
-              {offer.tc}
-            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
           </div>
         ))}
       </div>
 
-      {/* 3. Large Promo Feature Banner with AD badge and dots (Matching reference photo) */}
-      <div className="relative">
+      <div className="relative mt-4">
         <Link
           to={banner.link}
-          className="relative block w-full overflow-hidden rounded-2xl sm:rounded-3xl min-h-[160px] sm:min-h-[220px] shadow-sm border border-slate-200/80 group cursor-pointer"
+          className="relative block aspect-[1024/342] w-full overflow-hidden rounded-xl sm:rounded-2xl"
         >
-          {/* Background Banner Image */}
-          <img
-            src={banner.image}
-            alt={banner.title}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-
-          {/* Gradient Overlay */}
-          <div className={`absolute inset-0 bg-gradient-to-r ${banner.overlayBg}`} />
-
-          {/* Banner Content */}
-          <div className="relative z-10 p-4 sm:p-7 h-full min-h-[160px] sm:min-h-[220px] flex flex-col justify-between text-white max-w-lg">
-            <div>
-              <span className="inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-[9px] sm:text-xs font-black backdrop-blur-xs uppercase tracking-wider mb-2">
-                {banner.tag}
-              </span>
-              <h3 className="text-base sm:text-2xl font-black leading-tight drop-shadow-xs">
-                {banner.title}
-              </h3>
-              <p className="mt-1 text-sm sm:text-lg font-bold text-amber-300 drop-shadow-xs">
-                {banner.subtitle}
-              </p>
+          <img src={banner.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${banner.position}`} />
+          <div className="absolute inset-y-0 left-0 w-[68%] bg-gradient-to-r from-[#f4fbf2] via-[#f4fbf2]/80 to-transparent" />
+          <div className="relative z-10 flex h-full max-w-[68%] flex-col justify-center px-3 py-3 sm:max-w-[58%] sm:px-7">
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#1f8a3b] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white sm:px-2.5 sm:py-1 sm:text-[10px]">
+              <LeafMark className="h-3 w-3" />
+              {banner.tag}
+            </span>
+            <h3 className="mt-1 whitespace-pre-line text-[16px] font-extrabold leading-[1.05] text-[#145c32] sm:mt-2 sm:text-[30px] lg:text-[36px]">
+              {banner.title}
+            </h3>
+            <p className="mt-0.5 text-[10px] font-medium text-slate-700 sm:mt-1 sm:text-[15px]">{banner.subtitle}</p>
+            <p className="text-[12px] font-extrabold text-slate-900 sm:text-[18px]">{banner.offer}</p>
+            <div className="mt-2 hidden flex-wrap gap-2 sm:flex">
+              {TRUST_POINTS.map((point) => (
+                <span
+                  key={point.id}
+                  className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold text-slate-700"
+                >
+                  <span className="text-[#1f8a3b]">
+                    <LeafMark className="h-3 w-3" />
+                  </span>
+                  {point.label}
+                </span>
+              ))}
             </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs font-medium text-slate-200 opacity-90">
-                {banner.badge}
-              </span>
-            </div>
+            <span className="mt-2 inline-flex w-fit items-center rounded-full bg-[#145c32] px-3 py-1 text-[10px] font-bold text-white sm:mt-3 sm:px-4 sm:py-2 sm:text-[13px]">
+              Shop Now →
+            </span>
           </div>
-
+          <span className="absolute bottom-2 right-2 z-10 flex h-[52px] w-[52px] flex-col items-center justify-center rounded-full bg-[#1f8a3b] text-center text-[8px] font-extrabold leading-tight text-white shadow-md sm:bottom-4 sm:right-4 sm:h-[84px] sm:w-[84px] sm:text-[11px]">
+            Fresh
+            <br />
+            Healthy
+            <br />
+            Trusted
+          </span>
         </Link>
-
-        {/* Carousel Slider Dot Indicators */}
-        <div className="mt-2.5 flex justify-center items-center gap-1.5">
-          {PROMO_BANNERS.map((b, idx) => (
+        <div className="mt-3 flex items-center justify-center gap-1.5">
+          {BANNERS.map((item, index) => (
             <button
-              key={b.id}
+              key={item.id}
               type="button"
-              onClick={() => setActiveBanner(idx)}
-              className={`h-1.5 transition-all duration-300 rounded-full cursor-pointer ${
-                idx === activeBanner ? "w-6 bg-slate-900" : "w-1.5 bg-slate-300 hover:bg-slate-400"
+              onClick={() => setActiveBanner(index)}
+              className={`h-1.5 rounded-full transition-all ${
+                index === activeBanner ? "w-8 bg-[#1f8a3b]" : "w-1.5 bg-slate-300"
               }`}
-              aria-label={`Go to slide ${idx + 1}`}
+              aria-label={`Go to offer banner ${index + 1}`}
             />
           ))}
         </div>

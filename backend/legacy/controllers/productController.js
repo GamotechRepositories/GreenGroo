@@ -433,6 +433,9 @@ const buildProductPayload = (body) => {
     unitImage: String(body.unitImage || "").trim(),
     varietyGroupId: body.varietyGroupId != null ? String(body.varietyGroupId).trim() : "",
     varietyName: body.varietyName != null ? String(body.varietyName).trim() : "",
+    baseProductId: body.baseProductId != null ? String(body.baseProductId).trim() : "",
+    baseProductName: body.baseProductName != null ? String(body.baseProductName).trim() : "",
+    baseProductImage: body.baseProductImage != null ? String(body.baseProductImage).trim() : "",
     section: (body.section || body.department || "greengrocc").trim().toLowerCase(),
     storeType: (body.storeType || "").trim() || undefined,
     deptNumber: normalizeDeptToken(body.deptNumber),
@@ -1284,6 +1287,9 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
   marathiName: payload.marathiName || "",
   varietyGroupId: payload.varietyGroupId || "",
   varietyName: payload.varietyName || "",
+  baseProductId: payload.baseProductId || "",
+  baseProductName: payload.baseProductName || "",
+  baseProductImage: payload.baseProductImage || "",
   section: payload.section || "greengrocc",
   storeType: resolveStoreType(payload.section, payload.storeType),
   deptNumber: payload.deptNumber || "",
@@ -1330,6 +1336,21 @@ const badRequest = (message) => ({ status: 400, body: { success: false, message 
  * Validate + create a product. Returns { status, body, product? }.
  * `ownerManagerId` scopes the product to one dark store (Delivery Manager products).
  */
+async function syncBaseProductSiblings(product) {
+  const id = String(product?.baseProductId || "").trim();
+  const name = String(product?.baseProductName || "").trim();
+  if (!id || !name) return;
+  await Product.updateMany(
+    { baseProductId: id, _id: { $ne: product._id } },
+    {
+      $set: {
+        baseProductName: name,
+        baseProductImage: String(product.baseProductImage || "").trim(),
+      },
+    }
+  );
+}
+
 export async function createProductRecord(body, { ownerManagerId = null } = {}) {
   try {
     const payload = buildProductPayload(body);
@@ -1384,6 +1405,10 @@ export async function createProductRecord(body, { ownerManagerId = null } = {}) 
       ...buildPersistedProductFields(payload, pricingFields, categoryCheck),
       ownerManagerId: ownerManagerId || null,
     });
+
+    await syncBaseProductSiblings(product).catch((error) =>
+      console.warn("[Product] base product sync failed:", error.message)
+    );
 
     // When creating a variety sibling, ensure the source product shares the same group id
     const groupId = String(payload.varietyGroupId || "").trim();
@@ -1521,6 +1546,18 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
         body.varietyName !== undefined
           ? body.varietyName
           : existing.varietyName,
+      baseProductId:
+        body.baseProductId !== undefined
+          ? body.baseProductId
+          : existing.baseProductId,
+      baseProductName:
+        body.baseProductName !== undefined
+          ? body.baseProductName
+          : existing.baseProductName,
+      baseProductImage:
+        body.baseProductImage !== undefined
+          ? body.baseProductImage
+          : existing.baseProductImage,
       section:
         body.section !== undefined
           ? body.section
@@ -1579,6 +1616,9 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
     );
 
     if (product) {
+      await syncBaseProductSiblings(product).catch((error) =>
+        console.warn("[Product] base product sync failed:", error.message)
+      );
       await syncProductToStores(product, existing).catch((error) =>
         console.warn("[Product] dark store inventory sync failed:", error.message)
       );

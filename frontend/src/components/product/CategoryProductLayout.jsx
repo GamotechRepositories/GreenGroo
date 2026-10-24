@@ -1,10 +1,13 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { groupBaseProducts } from "../../utils/baseProducts";
+import { buildStoreProductUrl } from "../../utils/storeSection";
 import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
 import ProductFiltersBar from "./ProductFiltersBar";
 import ShopTopSlidingBanners from "./ShopTopSlidingBanners";
+import MobileCategoryBrowse from "./MobileCategoryBrowse";
 function buildCategoryUrl(categoryName, params = {}, storeParam = "") {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);
@@ -269,11 +272,22 @@ function ProductResultsGrid({
   );
 }
 
+function shopCategoryUrl(pathname, searchParams, categoryName = "") {
+  const params = new URLSearchParams(searchParams);
+  params.delete("categoryName");
+  params.delete("base");
+  params.delete("view");
+  if (categoryName) params.set("shopCategory", categoryName);
+  else params.delete("shopCategory");
+  const qs = params.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
 function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
+  const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
-  const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
   const allActive = !activeCategory;
-  const allUrl = storeParam ? `/product?store=${storeParam}` : "/product";
+  const allUrl = shopCategoryUrl(pathname, searchParams);
 
   if (variant === "mobile") {
     return (
@@ -299,7 +313,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
             return (
               <Link
                 key={cat._id || cat.categoryName}
-                to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+                to={shopCategoryUrl(pathname, searchParams, cat.categoryName)}
                 className={`group flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] transition-all duration-200 ${
                   isActive
                     ? "bg-[#0C831F]/10 font-bold text-[#0C831F]"
@@ -358,7 +372,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
           return (
             <Link
               key={cat._id || cat.categoryName}
-              to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+              to={shopCategoryUrl(pathname, searchParams, cat.categoryName)}
               className={`group relative flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors duration-200 ${
                 isActive
                   ? "bg-[#0C831F]/10 text-[#0C831F]"
@@ -456,11 +470,21 @@ function CategoryProductMain({
   isFetchingNextPage,
   onLoadMore,
 }) {
-  const filters = useCategoryFilters(products, categoryName);
+  const [searchParams] = useSearchParams();
+  const baseKey = searchParams.get("base") || "";
+  const storeParam = searchParams.get("store") || "";
+  const baseCards = useMemo(() => groupBaseProducts(products), [products]);
+  const activeBase = baseKey ? baseCards.find((card) => card.id === baseKey) : null;
+  const filters = useCategoryFilters(activeBase ? activeBase.items : products, categoryName);
   const activeCategoryDoc = categories.find(
     (cat) => cat.categoryName.toLowerCase() === categoryName.toLowerCase()
   );
   const [showFilters, setShowFilters] = useState(false);
+  const categoryUrl = buildStoreProductUrl({ categoryName, store: storeParam });
+  const loadMoreRef = useLoadMoreOnVisible({
+    enabled: Boolean(!activeBase && hasNextPage && !isFetchingNextPage && !loading && onLoadMore),
+    onLoadMore,
+  });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -469,23 +493,57 @@ function CategoryProductMain({
           <ShopTopSlidingBanners />
           <CategoryHeaderSection
             category={activeCategoryDoc}
-            categoryName={categoryName}
+            categoryName={activeBase?.title || categoryName}
             subcategories={[]}
             activeSubcategory=""
           />
         </div>
-        <ProductResultsGrid
-          products={filters.sortedProducts}
-          loading={loading}
-          onAdd={onAdd}
-          onGetCartQuantity={onGetCartQuantity}
-          onIncrease={onIncrease}
-          onDecrease={onDecrease}
-          emptyMessage={emptyMessage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          onLoadMore={onLoadMore}
-        />
+        {activeBase ? (
+          <Link to={categoryUrl} className="mb-3 inline-flex text-sm font-semibold text-emerald-800">
+            ← {categoryName}
+          </Link>
+        ) : null}
+        {activeBase ? (
+          <ProductResultsGrid
+            products={filters.sortedProducts}
+            loading={loading}
+            onAdd={onAdd}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
+            emptyMessage={emptyMessage}
+            hasNextPage={false}
+            isFetchingNextPage={false}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {baseCards.map((card) => (
+              <Link
+                key={card.id}
+                to={buildStoreProductUrl({
+                  categoryName,
+                  store: storeParam,
+                  extraParams: { base: card.id },
+                })}
+                className="overflow-hidden rounded-2xl border border-slate-100 bg-white"
+              >
+                {card.image ? (
+                  <img src={card.image} alt="" className="aspect-[5/4] w-full object-contain" />
+                ) : (
+                  <div className="aspect-[5/4] w-full bg-slate-50" />
+                )}
+                <div className="px-3 pb-3 pt-1">
+                  <p className="truncate text-[15px] font-semibold text-slate-900">{card.title}</p>
+                  <p className="text-[12px] text-slate-400">({card.countLabel})</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+        {!activeBase && hasNextPage ? <div ref={loadMoreRef} className="h-2 w-full" aria-hidden="true" /> : null}
+        {!activeBase && isFetchingNextPage ? (
+          <p className="py-4 text-center text-sm text-text-secondary">Loading more products...</p>
+        ) : null}
       </div>
       <FilterSheet filters={filters} showFilters={showFilters} setShowFilters={setShowFilters} />
     </div>
@@ -596,6 +654,7 @@ export default function CategoryProductLayout({
 
 export function AllProductsLayout({
   categories,
+  activeCategory = "",
   products,
   loading,
   onAdd,
@@ -610,7 +669,7 @@ export function AllProductsLayout({
   return (
     <>
       <div className="hidden lg:block">
-        <ProductPageTwoBoxLayout categories={categories} activeCategory="">
+        <ProductPageTwoBoxLayout categories={categories} activeCategory={activeCategory}>
           <AllProductsMain
             products={products}
             loading={loading}
@@ -627,7 +686,7 @@ export function AllProductsLayout({
       </div>
       <div className="lg:hidden flex items-start">
         <div className="sticky top-[70px] h-[calc(100vh-70px-var(--gg-bottom-nav-h,65px)-env(safe-area-inset-bottom,0px))] shrink-0 overflow-hidden">
-          <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
+          <CategoryListBox categories={categories} activeCategory={activeCategory} variant="mobile" />
         </div>
         <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">
           <AllProductsMain
@@ -663,26 +722,13 @@ export function MobileCategoryProductLayout({
   onLoadMore,
 }) {
   return (
-    <div className="lg:hidden flex items-start">
-      <div className="sticky top-[70px] h-[calc(100vh-70px-var(--gg-bottom-nav-h,65px)-env(safe-area-inset-bottom,0px))] shrink-0 overflow-hidden">
-        <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
-      </div>
-      <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">
-        <CategoryProductMain
-          categories={categories}
-          categoryName={categoryName}
-          products={products}
-          loading={loading}
-          onAdd={onAdd}
-          onGetCartQuantity={onGetCartQuantity}
-          onIncrease={onIncrease}
-          onDecrease={onDecrease}
-          emptyMessage={emptyMessage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          onLoadMore={onLoadMore}
-        />
-      </div>
+    <div className="lg:hidden">
+      <MobileCategoryBrowse
+        categories={categories}
+        categoryName={categoryName}
+        products={products}
+        loading={loading}
+      />
     </div>
   );
 }

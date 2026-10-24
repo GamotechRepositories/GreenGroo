@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
 import { useInfiniteProductsQuery } from "../hooks/queries/useProductsQuery";
 import { useProductListParams } from "../hooks/useProductListParams";
 import { useProductCartActions } from "../hooks/useProductCartActions";
-import CategoryProductLayout, {
+import {
   AllProductsLayout,
   DesktopCategorySidebar,
-  MobileCategoryProductLayout,
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
+import CatalogFlow from "../components/product/CatalogFlow";
 import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/ProductFiltersBar";
 import { addCategoryVisit } from "../utils/categoryVisits";
 import { sectionToStoreKey, storeToSection } from "../utils/storeSection";
@@ -354,14 +354,23 @@ function SearchResultsView(props) {
   );
 }
 
+function resolveShopSection(pathname, storeParam) {
+  const path = String(pathname || "").toLowerCase();
+  if (storeParam) return storeToSection(sectionToStoreKey(storeParam));
+  if (path.startsWith("/ready2cook")) return "ready2cook";
+  if (path.startsWith("/super-mall")) return "supermall";
+  return "greengrocc";
+}
+
 function Product() {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
+  const shopCategory = searchParams.get("shopCategory")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
-  const storeKey = sectionToStoreKey(storeParam);
-  const targetSection = storeParam ? storeToSection(storeKey) : null;
+  const shopSection = resolveShopSection(location.pathname, storeParam);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -370,24 +379,28 @@ function Product() {
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
+  const scopedProductParams = useMemo(() => {
+    const next = { ...productParams, section: productParams.section || shopSection };
+    delete next.categoryName;
+    return next;
+  }, [productParams, shopSection]);
 
-  const { data: apiCategories = [], isLoading: categoriesLoading } = useCategoriesQuery(
-    targetSection ? { section: targetSection } : {}
-  );
+  const { data: apiCategories = [], isLoading: categoriesLoading } = useCategoriesQuery({
+    section: shopSection,
+  });
   const {
     data,
     isLoading: productsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfiniteProductsQuery(productParams);
+  } = useInfiniteProductsQuery(scopedProductParams);
 
   const apiProducts = useMemo(
     () => data?.pages.flatMap((page) => page.products) ?? [],
     [data]
   );
 
-  // Section-aware category list from Product Management (API only)
   const categories = useMemo(
     () =>
       (apiCategories || [])
@@ -396,7 +409,6 @@ function Product() {
           _id: cat._id,
           categoryName: cat.categoryName,
           categoryImage: cat.categoryImage,
-          // Always route by categoryName so filters match product.categories
           slug: cat.categoryName,
         })),
     [apiCategories]
@@ -406,25 +418,21 @@ function Product() {
   const products = useMemo(() => {
     let baseList = apiProducts;
 
-    if (categoryName) {
-      const target = categoryName.toLowerCase();
+    const selectedCategory = categoryName || shopCategory;
+    if (selectedCategory) {
+      const target = selectedCategory.toLowerCase();
       return baseList.filter((p) => {
         const pCats = [
           ...(Array.isArray(p.categories) ? p.categories : []),
           p.categoryName,
           p.storeCategory,
         ].filter(Boolean);
-        return pCats.some(
-          (c) =>
-            c?.toLowerCase() === target ||
-            target.includes(c?.toLowerCase()) ||
-            c?.toLowerCase().includes(target)
-        );
+        return pCats.some((c) => String(c).toLowerCase() === target);
       });
     }
 
     return baseList;
-  }, [apiProducts, categoryName]);
+  }, [apiProducts, categoryName, shopCategory]);
 
   const loading =
     categoriesLoading ||
@@ -470,35 +478,36 @@ function Product() {
     );
   }
 
-  if (categoryName) {
+  if (categoryName && !shopCategory) {
     return (
       <div className="bg-white lg:pb-0">
-        <MobileCategoryProductLayout
-          categories={categories}
-          categoryName={categoryName}
-          products={products}
-          loading={loading}
-          onAdd={handleIncrease}
-          onGetCartQuantity={getCartQuantity}
-          onIncrease={handleIncrease}
-          onDecrease={handleDecrease}
-          emptyMessage="No products found in this category yet."
-          {...infiniteScrollProps}
-        />
-
-        <CategoryProductLayout
-          categories={categories}
-          activeCategory={categoryName}
-          categoryName={categoryName}
-          products={products}
-          loading={loading}
-          onAdd={handleIncrease}
-          onGetCartQuantity={getCartQuantity}
-          onIncrease={handleIncrease}
-          onDecrease={handleDecrease}
-          emptyMessage="No products found in this category yet."
-          {...infiniteScrollProps}
-        />
+        <div className="lg:hidden">
+          <CatalogFlow
+            categories={categories}
+            categoryName={categoryName}
+            products={products}
+            loading={loading}
+            onAdd={handleIncrease}
+            onGetCartQuantity={getCartQuantity}
+            onIncrease={handleIncrease}
+            onDecrease={handleDecrease}
+            {...infiniteScrollProps}
+          />
+        </div>
+        <div className="hidden lg:block">
+          <AllProductsLayout
+            categories={categories}
+            activeCategory={categoryName}
+            products={products}
+            loading={loading || categoriesLoading}
+            onAdd={handleIncrease}
+            onGetCartQuantity={getCartQuantity}
+            onIncrease={handleIncrease}
+            onDecrease={handleDecrease}
+            emptyMessage="No products available yet."
+            {...infiniteScrollProps}
+          />
+        </div>
       </div>
     );
   }
@@ -507,6 +516,7 @@ function Product() {
     <div className="bg-white lg:pb-0">
       <AllProductsLayout
         categories={categories}
+        activeCategory={shopCategory}
         products={products}
         loading={loading || categoriesLoading}
         onAdd={handleIncrease}

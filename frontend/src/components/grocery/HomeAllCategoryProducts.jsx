@@ -50,7 +50,7 @@ function CategoryProductSection({ categoryName, limit = 20, section = null }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="bg-white px-2 sm:px-3 py-3 lg:rounded-2xl lg:px-3.5 lg:py-4 lg:shadow-sm">
+    <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
       <SectionHeader
         title={categoryName}
         viewAllTo={`/product?categoryName=${encodeURIComponent(categoryName)}`}

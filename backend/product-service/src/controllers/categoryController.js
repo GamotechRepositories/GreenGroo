@@ -33,52 +33,38 @@ function productSectionClause(section, storeType) {
   return {};
 }
 
-/**
- * With a customer location that resolves to a dark store, the category list is
- * driven by that store's products: only categories it has products in (for the
- * requested department), subcategories taken from those products, plus a
- * productCount. Returns null when there is no location / store to scope to.
- */
-async function loadStoreScopedCategories(query) {
-  if (!hasLocationHint(addressFromQuery(query))) return null;
-
-  const catalog = await loadNearestStoreCatalog(query);
-  if (!catalog.manager) return null;
-
-  const products = await Product.find({
-    isActive: true,
-    $and: [storeProductScope(catalog), productSectionClause(query.section, query.storeType)],
-  })
-    .select("categories subcategory subcategories")
-    .lean();
-
+async function categoriesFromProducts(products, includeInactive) {
   const counts = new Map();
+  const labels = new Map();
   const subcategoriesByCategory = new Map();
   products.forEach((product) => {
     const subs = [product.subcategory, ...(product.subcategories || [])]
       .map((sub) => String(sub || "").trim())
       .filter(Boolean);
     (product.categories || []).forEach((category) => {
-      const key = nameKey(category);
+      const label = String(category || "").trim();
+      const key = nameKey(label);
       if (!key) return;
       counts.set(key, (counts.get(key) || 0) + 1);
+      if (!labels.has(key)) labels.set(key, label);
       if (!subcategoriesByCategory.has(key)) subcategoriesByCategory.set(key, new Map());
       subs.forEach((sub) => subcategoriesByCategory.get(key).set(nameKey(sub), sub));
     });
   });
 
-  const includeInactive = query.includeInactive === "true";
   const allCategories = await Category.find(includeInactive ? {} : { isActive: true }).sort({
     order: 1,
     categoryName: 1,
     createdAt: -1,
   });
 
+  const listed = new Set();
   const categories = allCategories
     .filter((category) => counts.has(nameKey(category.categoryName)))
     .map((category) => {
       const doc = category.toObject();
       const key = nameKey(doc.categoryName);
+      listed.add(key);
       const present = new Map(subcategoriesByCategory.get(key) || []);
       const ordered = (doc.subcategories || []).filter((sub) => present.delete(nameKey(sub)));
       return {
@@ -88,7 +74,105 @@ async function loadStoreScopedCategories(query) {
       };
     });
 
-  return { categories, store: catalog.store };
+  labels.forEach((label, key) => {
+    if (listed.has(key)) return;
+    categories.push({
+      categoryName: label,
+      slug: label,
+      subcategories: [...(subcategoriesByCategory.get(key)?.values() || [])],
+      productCount: counts.get(key),
+      isActive: true,
+    });
+  });
+
+  return categories.sort((a, b) => String(a.categoryName).localeCompare(String(b.categoryName)));
+}
+
+const CATEGORY_SECTION_BY_NAME = {
+  vegetables: "preorder",
+  fruits: "preorder",
+  dairy: "preorder",
+  grains: "preorder",
+  pulses: "preorder",
+  grocery: "preorder",
+  oils: "preorder",
+  spices: "preorder",
+  "dry fruits": "preorder",
+  organic: "preorder",
+  beverages: "preorder",
+  bakery: "preorder",
+  "chopped vegetables": "ready2cook",
+  "cut & sliced": "ready2cook",
+  "peeled & cleaned": "ready2cook",
+  "cleaned bhaji & leafy": "ready2cook",
+  "veggie & bhaji mix": "ready2cook",
+  "supermall packaged grocery": "instantorder",
+  "supermall grains & cereals": "instantorder",
+  "supermall snacks & munchies": "instantorder",
+  "supermall beverages & cold drinks": "instantorder",
+};
+
+function canonicalSection(value) {
+  const key = nameKey(value);
+  if (["greengrocc", "preorder", "main", "pre-order"].includes(key)) return "preorder";
+  if (["ready2cook", "ready-2-cook", "festive"].includes(key)) return "ready2cook";
+  if (["instantorder", "instant", "supermall", "mall", "instantorders"].includes(key)) return "instantorder";
+  return key;
+}
+
+function resolvedCategorySection(doc) {
+  const byName = CATEGORY_SECTION_BY_NAME[nameKey(doc.categoryName)];
+  const usingDefault = typeof doc.$isDefault === "function" && doc.$isDefault("section");
+  const stored = usingDefault ? "" : canonicalSection(doc.section);
+  if (stored && stored !== "preorder") return stored;
+  if (byName) return byName;
+  return stored || "preorder";
+}
+
+/** Active categories saved by admin for this department, including ones with no products yet. */
+async function listCategoriesForSection(section, storeType, includeInactive = false) {
+  const requested = canonicalSection(section || storeType);
+  if (!requested) return null;
+  const docs = await Category.find(includeInactive ? {} : { isActive: true }).sort({
+    order: 1,
+    categoryName: 1,
+  });
+  return docs
+    .filter((doc) => resolvedCategorySection(doc) === requested)
+    .map((doc) => (typeof doc.toObject === "function" ? doc.toObject() : doc));
+}
+
+/**
+ * With a customer location that resolves to a dark store, a department request
+ * lists every category in that department. A request without a department stays
+ * limited to categories the store actually stocks.
+ */
+async function loadStoreScopedCategories(query) {
+  if (!hasLocationHint(addressFromQuery(query))) return null;
+
+  const catalog = await loadNearestStoreCatalog(query);
+  if (!catalog.manager) return null;
+
+  const sectionCategories = await listCategoriesForSection(
+    query.section,
+    query.storeType,
+    query.includeInactive === "true"
+  );
+  if (sectionCategories) {
+    return { categories: sectionCategories, store: catalog.store };
+  }
+
+  const products = await Product.find({
+    isActive: true,
+    $and: [storeProductScope(catalog)],
+  })
+    .select("categories subcategory subcategories")
+    .lean();
+
+  return {
+    categories: await categoriesFromProducts(products, query.includeInactive === "true"),
+    store: catalog.store,
+  };
 }
 
 const DEFAULT_CATEGORIES = [
@@ -442,36 +526,43 @@ export async function seedDefaultCategoriesIfEmpty() {
     );
 
     const existing = await Category.find();
-    const existingNames = new Set(existing.map((c) => c.categoryName.toLowerCase()));
 
-    // Backfill section info for any existing categories that don't have section
+    const sectionLabel = (section) =>
+      section === "ready2cook" ? "Ready2Cook" : section === "instantorder" ? "InstantOrder" : "PreOrder";
+    const sectionStore = (section) =>
+      section === "ready2cook" ? "festive" : section === "instantorder" ? "mall" : "main";
+
+    // Keep each known category in its own section. Do not recreate categories that were removed.
     for (const cat of existing) {
+      const byName = CATEGORY_SECTION_BY_NAME[nameKey(cat.categoryName)];
+      const target =
+        byName ||
+        (cat.storeType === "festive"
+          ? "ready2cook"
+          : cat.storeType === "mall"
+            ? "instantorder"
+            : canonicalSection(cat.section) || "preorder");
+      const label = sectionLabel(target);
+      const store = sectionStore(target);
       let needsSave = false;
-      if (!cat.section || cat.section === "greengrocc") {
-        cat.section = cat.storeType === "festive" ? "ready2cook" : cat.storeType === "mall" ? "instantorder" : "preorder";
+      if (cat.section !== target) {
+        cat.section = target;
         needsSave = true;
       }
-      if (!cat.sectionName || cat.sectionName === "GreenGrocc") {
-        cat.sectionName =
-          cat.section === "ready2cook"
-            ? "Ready2Cook"
-            : cat.section === "instantorder" || cat.section === "supermall"
-              ? "Instant Order"
-              : "Preorder";
+      if (cat.sectionName !== label) {
+        cat.sectionName = label;
         needsSave = true;
       }
-      if (needsSave) {
-        await cat.save();
+      if (cat.storeType !== store) {
+        cat.storeType = store;
+        needsSave = true;
       }
+      if (needsSave) await cat.save();
     }
 
-    const toInsert = DEFAULT_CATEGORIES.filter(
-      (c) => !existingNames.has(c.categoryName.toLowerCase())
-    );
-
-    if (toInsert.length > 0) {
-      console.log(`[CategoryService] Seeding ${toInsert.length} default categories...`);
-      await Category.insertMany(toInsert);
+    if (existing.length === 0) {
+      console.log(`[CategoryService] Seeding ${DEFAULT_CATEGORIES.length} default categories...`);
+      await Category.insertMany(DEFAULT_CATEGORIES);
       console.log(`[CategoryService] Successfully seeded categories.`);
     }
   } catch (error) {
@@ -493,6 +584,22 @@ export const getCategories = async (req, res) => {
         data: scoped.categories,
         store: scoped.store,
       });
+    }
+
+    const requestedSection = String(req.query.section || req.query.storeType || "").trim();
+    if (requestedSection && requestedSection.toLowerCase() !== "all") {
+      const categories = await listCategoriesForSection(
+        req.query.section,
+        req.query.storeType,
+        req.query.includeInactive === "true"
+      );
+      if (categories) {
+        return res.status(200).json({
+          success: true,
+          count: categories.length,
+          data: categories,
+        });
+      }
     }
 
     const { includeInactive, section, storeType } = req.query;

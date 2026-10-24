@@ -34,7 +34,10 @@ export const GREENGROCC_SHOP_BANNERS = [
   },
 ];
 
-export function GreenGroccShopBanner() {
+export function GreenGroccShopBanner({
+  matchOfferSizeOnMobile = false,
+  banners = GREENGROCC_SHOP_BANNERS,
+} = {}) {
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store");
   const storeQuery = currentStore ? `?store=${encodeURIComponent(currentStore)}` : "";
@@ -48,24 +51,24 @@ export function GreenGroccShopBanner() {
   useEffect(() => {
     if (isHovered) return undefined;
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % GREENGROCC_SHOP_BANNERS.length);
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [isHovered]);
+  }, [isHovered, banners.length]);
 
   const handlePrev = (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
     setCurrentIndex(
-      (prev) => (prev - 1 + GREENGROCC_SHOP_BANNERS.length) % GREENGROCC_SHOP_BANNERS.length
+      (prev) => (prev - 1 + banners.length) % banners.length
     );
   };
 
   const handleNext = (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
-    setCurrentIndex((prev) => (prev + 1) % GREENGROCC_SHOP_BANNERS.length);
+    setCurrentIndex((prev) => (prev + 1) % banners.length);
   };
 
   // Touch handlers for mobile swipe
@@ -103,7 +106,7 @@ export function GreenGroccShopBanner() {
         className="flex w-full transition-transform duration-500 ease-in-out"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
-        {GREENGROCC_SHOP_BANNERS.map((banner, index) => {
+        {banners.map((banner, index) => {
           const targetLink = currentStore ? `/product${storeQuery}` : banner.link;
           return (
             <div key={banner.id} className="w-full shrink-0">
@@ -111,7 +114,11 @@ export function GreenGroccShopBanner() {
                 <img
                   src={banner.image}
                   alt={banner.alt}
-                  className="w-full h-auto object-cover object-center rounded-2xl block hover:opacity-95 transition-opacity"
+                  className={`block w-full rounded-2xl object-cover transition-opacity hover:opacity-95 ${
+                    matchOfferSizeOnMobile
+                      ? "aspect-[1024/342] object-left lg:aspect-auto lg:h-auto lg:object-center"
+                      : "h-auto object-center"
+                  }`}
                   loading={index === 0 ? "eager" : "lazy"}
                 />
               </Link>
@@ -145,7 +152,7 @@ export function GreenGroccShopBanner() {
 
       {/* Slide Indicators / Dots */}
       <div className="absolute bottom-2 sm:bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
-        {GREENGROCC_SHOP_BANNERS.map((banner, index) => (
+        {banners.map((banner, index) => (
           <button
             key={banner.id}
             type="button"

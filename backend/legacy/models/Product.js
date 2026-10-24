@@ -457,6 +457,23 @@ const productSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    /** Parent shown on the category page: Section → Category → Base product → Product */
+    baseProductId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    baseProductName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    baseProductImage: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     /** Shared id linking full-product variety siblings (clone via admin "Add variety") */
     varietyGroupId: {
       type: String,

@@ -1,4 +1,4 @@
-import { useLocation as useRouterLocation } from "react-router-dom";
+import { useLocation as useRouterLocation, useSearchParams } from "react-router-dom";
 import BottomNav from "../components/mobile/BottomNav";
 import TopNav from "../components/mobile/TopNav";
 import MobileHeader from "../components/mobile/MobileHeader";
@@ -8,9 +8,11 @@ import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
 
 function MobileLayout({ children }) {
   const { pathname } = useRouterLocation();
+  const [searchParams] = useSearchParams();
   const isHome = pathname === "/" || pathname === "/login" || pathname === "/signup";
   const isProductDetail = /^\/product\/[^/]+/.test(pathname);
   const isShop = pathname === "/product";
+  const isCategoryBrowse = isShop && Boolean(searchParams.get("categoryName")?.trim());
   const hideNavs = pathname === "/cart" || pathname === "/checkout";
 
   return (
@@ -25,7 +27,7 @@ function MobileLayout({ children }) {
         <div className="lg:hidden">
           <HomeStickyCategories />
         </div>
-      ) : isProductDetail || hideNavs ? null : (
+      ) : isProductDetail || hideNavs || isCategoryBrowse ? null : (
         <MobileHeader />
       )}
 

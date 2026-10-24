@@ -173,7 +173,6 @@ function HomeCategoryStrip({ hideIcons = false }) {
 
     const fromApi = apiCategories
       .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
-      .slice(0, 12)
       .map((cat) => toItem(cat.categoryName));
     list.push(...fromApi);
     return list;

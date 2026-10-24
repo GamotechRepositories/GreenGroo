@@ -371,10 +371,9 @@ export default function ProductFarmerTraceabilitySection({
           Meet Your Farmer
         </h3>
 
-        <div className="relative overflow-hidden rounded-2xl border border-[#ddeadb] bg-white p-3.5 sm:p-4 lg:p-5 shadow-xs">
-          {/* Subtle leaf watermark on desktop */}
-          <div className="absolute right-0 top-0 bottom-0 w-36 pointer-events-none opacity-20 hidden md:block">
-            <svg viewBox="0 0 100 100" fill="none" className="w-full h-full text-[#15803d]">
+        <div className="@container relative overflow-hidden rounded-2xl border border-[#ddeadb] bg-white p-3 shadow-xs sm:p-4">
+          <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-28 opacity-20 @[20rem]:block @[36rem]:w-36">
+            <svg viewBox="0 0 100 100" fill="none" className="h-full w-full text-[#15803d]">
               <path
                 d="M50 10 C65 25 80 50 65 75 C55 90 40 85 30 70 C20 55 35 25 50 10 Z"
                 fill="currentColor"
@@ -386,31 +385,33 @@ export default function ProductFarmerTraceabilitySection({
             </svg>
           </div>
 
-          {/* Desktop Layout (md & lg) */}
-          <div className="hidden md:flex items-center gap-6 relative z-10">
-            {/* Landscape Farmer Photo */}
-            <div className="w-[280px] sm:w-[310px] lg:w-[340px] h-[145px] sm:h-[155px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100/80 shadow-xs">
+          <div className="relative z-10 flex min-w-0 flex-col gap-3 @[20rem]:flex-row @[20rem]:items-center @[20rem]:gap-4 @[36rem]:gap-6">
+            <div className="aspect-[16/10] w-full shrink-0 overflow-hidden rounded-2xl border border-emerald-100/80 bg-emerald-50 shadow-xs @[20rem]:aspect-[5/3] @[20rem]:w-[44%] @[20rem]:max-w-[17rem] @[36rem]:w-1/2 @[36rem]:max-w-[24rem]">
+              <img
+                src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
+                alt=""
+                className="h-full w-full object-cover @[20rem]:hidden"
+              />
               <img
                 src={farmerPhoto || "/assets/farmer/desktop_farmer_photo.png"}
                 alt={farmerName}
-                className="w-full h-full object-cover rounded-2xl"
+                className="hidden h-full w-full object-cover @[20rem]:block"
               />
             </div>
 
-            {/* Farmer Info */}
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xl lg:text-[22px] font-black text-[#0a6c38] tracking-tight leading-tight">
+            <div className="min-w-0 flex-1">
+              <h4 className="text-balance text-[17px] font-black leading-tight tracking-tight text-[#0a6c38] @[24rem]:text-xl @[36rem]:text-[22px]">
                 {farmerName}
               </h4>
 
-              <div className="mt-2.5 space-y-1.5 text-xs sm:text-[13px] text-gray-700">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#0a6c38] shrink-0" />
-                  <span className="font-medium text-slate-700">{farmerLocation}</span>
+              <div className="mt-2 space-y-1.5 text-[12px] text-gray-700 @[24rem]:text-[13px]">
+                <div className="flex items-start gap-1.5">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0a6c38] @[24rem]:h-4 @[24rem]:w-4" />
+                  <span className="min-w-0 font-medium text-slate-700">{farmerLocation}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Sprout className="w-4 h-4 text-[#0a6c38] shrink-0" />
-                  <span className="font-medium text-slate-700">{farmerLand}</span>
+                <div className="flex items-start gap-1.5">
+                  <Sprout className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0a6c38] @[24rem]:h-4 @[24rem]:w-4" />
+                  <span className="min-w-0 font-medium text-slate-700">{farmerLand}</span>
                 </div>
               </div>
 
@@ -426,58 +427,10 @@ export default function ProductFarmerTraceabilitySection({
                     method: farmerMethod,
                   },
                 }}
-                className="mt-3.5 inline-flex items-center gap-1.5 px-4 sm:px-5 py-1.5 rounded-full border border-[#0a6c38] text-[#0a6c38] hover:bg-[#0a6c38] hover:text-white text-xs sm:text-[13px] font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
+                className="mt-2.5 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#0a6c38] px-3.5 py-1.5 text-[12px] font-bold text-[#0a6c38] shadow-xs transition-all hover:bg-[#0a6c38] hover:text-white active:scale-95 @[24rem]:mt-3.5 @[24rem]:px-5 @[24rem]:text-[13px]"
               >
                 <span>View Profile</span>
-                <span className="text-sm">→</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Mobile Layout (< md) */}
-          <div className="flex md:hidden items-center gap-3.5 relative z-10">
-            {/* Square/Portrait Farmer Photo */}
-            <div className="w-[105px] h-[115px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100/80 shadow-xs">
-              <img
-                src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
-                alt={farmerName}
-                className="w-full h-full object-cover rounded-2xl"
-              />
-            </div>
-
-            {/* Farmer Info */}
-            <div className="flex-1 min-w-0">
-              <h4 className="text-[17px] font-black text-[#0a6c38] tracking-tight truncate leading-snug">
-                {farmerName}
-              </h4>
-
-              <div className="mt-1 space-y-1 text-[11.5px] text-gray-700">
-                <div className="flex items-center gap-1.5 truncate">
-                  <MapPin className="w-3.5 h-3.5 text-[#0a6c38] shrink-0" />
-                  <span className="truncate font-medium text-slate-700">{farmerLocation}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Sprout className="w-3.5 h-3.5 text-[#0a6c38] shrink-0" />
-                  <span className="font-medium text-slate-700">{farmerLand}</span>
-                </div>
-              </div>
-
-              <Link
-                to="/farmer-profile"
-                state={{
-                  farmer: {
-                    name: farmerName,
-                    location: farmerLocation,
-                    land: farmerLand,
-                    bio: farmerBio,
-                    experience: farmerExperience,
-                    method: farmerMethod,
-                  },
-                }}
-                className="mt-2.5 inline-flex items-center gap-1 px-3 py-1 rounded-full border border-[#0a6c38] text-[#0a6c38] hover:bg-[#0a6c38] hover:text-white text-[11px] font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <span>View Profile</span>
-                <span>→</span>
+                <span aria-hidden="true">→</span>
               </Link>
             </div>
           </div>
