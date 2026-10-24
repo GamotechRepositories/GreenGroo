@@ -3,6 +3,7 @@ import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { addCategoryVisit } from "../utils/categoryVisits";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById, getProductVarieties } from "../api/api";
+import { translateUnitToMarathi } from "../utils/productLocalization";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
@@ -564,6 +565,62 @@ function FarmerQuickCard({ product }) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function displayQuantityLabel(label) {
+  return String(label || "")
+    .replace(/\bgrams?\b/gi, "g")
+    .replace(/\bkilograms?\b/gi, "kg")
+    .replace(/\bmilliliters?\b/gi, "ml")
+    .replace(/\bliters?\b/gi, "L")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function QuantityOptionCard({ label, salePrice, originalPrice, selected, image, onClick }) {
+  const englishLabel = displayQuantityLabel(label);
+  const marathiLabel = translateUnitToMarathi(label);
+  const format = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-[148px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition ${
+        selected
+          ? "border-emerald-600 bg-[#e7f3d4] shadow-sm"
+          : "border-[#e4edd6] bg-[#f4f8ea]"
+      }`}
+    >
+      <div className="flex h-[112px] items-center justify-center px-3 pt-3">
+        {image ? (
+          <img src={image} alt="" className="h-full w-full object-contain" />
+        ) : (
+          <div className="h-16 w-16 rounded-xl bg-white/50" />
+        )}
+      </div>
+      <div className="px-3 pb-3 pt-1">
+        <p className="text-[14px] font-medium text-slate-900">{englishLabel}</p>
+        {marathiLabel ? (
+          <p className="mt-0.5 text-[12px] font-medium text-slate-600">{marathiLabel}</p>
+        ) : null}
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <span className="text-[16px] font-bold text-slate-900">{format(salePrice)}</span>
+          {originalPrice > salePrice ? (
+            <span className="text-[13px] font-medium text-slate-400 line-through">
+              {format(originalPrice)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -1180,6 +1237,7 @@ function ProductDetail() {
     ? Math.min(variantStock, maxOrderQty)
     : minOrderQuantity;
   const unitLabel = product.sub || product.unit || product.weight || "1 pc";
+  const coverImage = Array.isArray(product.productImages) ? product.productImages[0] || "" : "";
   const displayInfo = getProductDisplayDetails(product, unitLabel);
   const priceInfo = getProductListPriceInfo(product, activeVariantName);
 
@@ -1214,6 +1272,7 @@ function ProductDetail() {
         return {
           key: variant.name,
           label: variant.name,
+          image: variant.image || coverImage,
           salePrice: info.salePrice,
           originalPrice: info.originalPrice,
           discountPct,
@@ -1225,6 +1284,7 @@ function ProductDetail() {
         {
           key: "default",
           label: unitLabel,
+          image: product.unitImage || coverImage,
           salePrice: priceInfo.salePrice,
           originalPrice: priceInfo.originalPrice,
           discountPct:
@@ -1444,26 +1504,38 @@ function ProductDetail() {
             </div>
 
             <div id="product-unit-selection">
-              <p className="mb-2.5 text-[14px] font-semibold text-slate-900">
-                {showBulkGrades ? "Select Grade" : "Select Unit / पॅक निवडा"}
+              <p className="mb-3 text-[18px] font-bold tracking-tight text-slate-900">
+                {showBulkGrades ? "Select Grade" : "Select quantity"}
               </p>
               {showBulkGrades ? (
                 <p className="mb-2.5 text-[12px] text-slate-500">
                   Bulk pricing by quality grade — each grade can have its own variety and rate.
                 </p>
               ) : null}
-              <div className="flex flex-wrap gap-2.5">
-                {unitOptions.map((opt) => (
-                  <UnitOptionCard
-                    key={opt.key}
-                    label={opt.label}
-                    salePrice={opt.salePrice}
-                    originalPrice={opt.originalPrice}
-                    selected={opt.selected}
-                    discountPct={opt.discountPct}
-                    onClick={opt.onSelect}
-                  />
-                ))}
+              <div className={showBulkGrades ? "flex flex-wrap gap-2.5" : "flex gap-3 overflow-x-auto pb-1"}>
+                {unitOptions.map((opt) =>
+                  showBulkGrades ? (
+                    <UnitOptionCard
+                      key={opt.key}
+                      label={opt.label}
+                      salePrice={opt.salePrice}
+                      originalPrice={opt.originalPrice}
+                      selected={opt.selected}
+                      discountPct={opt.discountPct}
+                      onClick={opt.onSelect}
+                    />
+                  ) : (
+                    <QuantityOptionCard
+                      key={opt.key}
+                      label={opt.label}
+                      image={opt.image}
+                      salePrice={opt.salePrice}
+                      originalPrice={opt.originalPrice}
+                      selected={opt.selected}
+                      onClick={opt.onSelect}
+                    />
+                  )
+                )}
               </div>
             </div>
 

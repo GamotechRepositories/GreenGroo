@@ -136,7 +136,6 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     normalizeFulfillmentType(options.fulfillmentType) === "pickup"
       ? 0
       : calculateShippingCharge(subtotal, storeSettings);
-<<<<<<< Updated upstream
   const deliveryCharges = baseDeliveryCharges + heavyHandlingFee;
 
   const discountedSubtotal = Math.max(
@@ -144,22 +143,13 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     subtotal - couponDiscount - rewardDiscount - giftCardDiscount - totalDynamicDiscount
   );
   const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
-=======
-  const heavyHandlingFee = Number(options.heavyHandlingFee ?? storeSettings?.heavyHandlingFee ?? 0) || 0;
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount - giftCardDiscount);
-  const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges, heavyHandlingFee);
->>>>>>> Stashed changes
 
   const rewardSettings = await getRewardSettings();
   const rewardPointsEarned = calculatePointsToEarn(subtotal, rewardSettings);
 
   return {
     storeSettings,
-<<<<<<< Updated upstream
     deliveryCharges: baseDeliveryCharges,
-=======
-    deliveryCharges,
->>>>>>> Stashed changes
     heavyHandlingFee,
     gstAmount,
     total,

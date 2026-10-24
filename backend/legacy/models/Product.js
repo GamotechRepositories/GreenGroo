@@ -125,6 +125,11 @@ const productVariantSchema = new mongoose.Schema(
       required: [true, "Variant name is required"],
       trim: true,
     },
+    image: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     quantity: {
       type: Number,
       default: 1,
@@ -204,6 +209,11 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Product name is required"],
       trim: true,
+    },
+    marathiName: {
+      type: String,
+      trim: true,
+      default: "",
     },
     sku: {
       type: String,
@@ -432,6 +442,11 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: "1 pc",
     },
+    unitImage: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     weight: {
       type: Number,
       default: null,
@@ -480,6 +495,30 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    packingDate: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    certification: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    nutritionNote: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    nutritionFacts: {
+      type: [
+        {
+          label: { type: String, trim: true, default: "" },
+          value: { type: String, trim: true, default: "" },
+        },
+      ],
+      default: [],
+    },
     farmerDetails: {
       name: { type: String, trim: true, default: "" },
       location: { type: String, trim: true, default: "" },
@@ -495,7 +534,19 @@ const productSchema = new mongoose.Schema(
       soilType: { type: String, trim: true, default: "" },
       farmTools: { type: String, trim: true, default: "" },
       harvestingDate: { type: String, trim: true, default: "" },
+      experience: { type: String, trim: true, default: "" },
       bio: { type: String, trim: true, default: "" },
+      crops: {
+        type: [
+          {
+            name: { type: String, trim: true, default: "" },
+            variety: { type: String, trim: true, default: "" },
+            area: { type: String, trim: true, default: "" },
+            status: { type: String, trim: true, default: "" },
+          },
+        ],
+        default: [],
+      },
     },
   },
   { timestamps: true }

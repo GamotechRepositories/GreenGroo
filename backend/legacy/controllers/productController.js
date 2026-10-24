@@ -373,6 +373,7 @@ const buildProductPayload = (body) => {
   return {
     productId,
     name: body.name?.trim(),
+    marathiName: String(body.marathiName || "").trim(),
     sku,
     categories: normalizeCategories(
       body.categories,
@@ -399,6 +400,7 @@ const buildProductPayload = (body) => {
           discountedPercent: variant.discountedPercent,
           stock: variant.stock,
           inStock: normalizeInStock(variant.inStock, variant.stock),
+          image: String(variant.image || "").trim(),
           colors: normalizeColors(variant.colors),
         }))
       : [],
@@ -428,6 +430,7 @@ const buildProductPayload = (body) => {
     cardGlowColor: (body.cardGlowColor ?? body.glowColor)?.trim() ?? "",
     badge: body.badge?.trim() ?? "",
     unit: body.unit?.trim() || "1 pc",
+    unitImage: String(body.unitImage || "").trim(),
     varietyGroupId: body.varietyGroupId != null ? String(body.varietyGroupId).trim() : "",
     varietyName: body.varietyName != null ? String(body.varietyName).trim() : "",
     section: (body.section || body.department || "greengrocc").trim().toLowerCase(),
@@ -440,6 +443,17 @@ const buildProductPayload = (body) => {
     farmerImage: body.farmerImage?.trim() || body.farmerDetails?.farmerImage?.trim() || "",
     farmImage: body.farmImage?.trim() || body.farmerDetails?.farmImage?.trim() || "",
     harvestingDate: body.harvestingDate?.trim() || body.farmerDetails?.harvestingDate?.trim() || "",
+    packingDate: String(body.packingDate || "").trim(),
+    certification: String(body.certification || "").trim(),
+    nutritionNote: String(body.nutritionNote || "").trim(),
+    nutritionFacts: Array.isArray(body.nutritionFacts)
+      ? body.nutritionFacts
+          .map((item) => ({
+            label: String(item?.label || "").trim(),
+            value: String(item?.value || "").trim(),
+          }))
+          .filter((item) => item.label || item.value)
+      : [],
     farmerDetails: {
       name: body.farmerDetails?.name?.trim() || body.farmerName?.trim() || "",
       location: body.farmerDetails?.location?.trim() || body.farmerLocation?.trim() || "",
@@ -455,7 +469,18 @@ const buildProductPayload = (body) => {
       soilType: body.farmerDetails?.soilType?.trim() || "",
       farmTools: body.farmerDetails?.farmTools?.trim() || "",
       harvestingDate: body.farmerDetails?.harvestingDate?.trim() || body.harvestingDate?.trim() || "",
+      experience: body.farmerDetails?.experience?.trim() || "",
       bio: body.farmerDetails?.bio?.trim() || "",
+      crops: Array.isArray(body.farmerDetails?.crops)
+        ? body.farmerDetails.crops
+            .map((item) => ({
+              name: String(item?.name || item?.cropName || "").trim(),
+              variety: String(item?.variety || "").trim(),
+              area: String(item?.area || "").trim(),
+              status: String(item?.status || "").trim(),
+            }))
+            .filter((item) => item.name || item.variety || item.area)
+        : [],
     },
   };
 };
@@ -1255,6 +1280,8 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
   enableBulkGrades: payload.enableBulkGrades,
   bulkGrades: payload.bulkGrades,
   unit: payload.unit || "1 pc",
+  unitImage: payload.unitImage || "",
+  marathiName: payload.marathiName || "",
   varietyGroupId: payload.varietyGroupId || "",
   varietyName: payload.varietyName || "",
   section: payload.section || "greengrocc",
@@ -1274,6 +1301,10 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
   farmerImage: payload.farmerImage || "",
   farmImage: payload.farmImage || "",
   harvestingDate: payload.harvestingDate || "",
+  packingDate: payload.packingDate || "",
+  certification: payload.certification || "",
+  nutritionNote: payload.nutritionNote || "",
+  nutritionFacts: payload.nutritionFacts || [],
   farmerDetails: payload.farmerDetails || {},
 });
 
@@ -1406,6 +1437,8 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
 
     const payload = buildProductPayload({
       name: body.name ?? existing.name,
+      marathiName:
+        body.marathiName !== undefined ? body.marathiName : existing.marathiName,
       categories: body.categories ?? existing.categories,
       categoryName: body.categoryName,
       category: body.category,
@@ -1479,6 +1512,7 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
           ? body.bulkGrades
           : existing.bulkGrades,
       unit: body.unit !== undefined ? body.unit : existing.unit,
+      unitImage: body.unitImage !== undefined ? body.unitImage : existing.unitImage,
       varietyGroupId:
         body.varietyGroupId !== undefined
           ? body.varietyGroupId
@@ -1509,6 +1543,14 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
         body.harvestingDate !== undefined
           ? body.harvestingDate
           : existing.harvestingDate,
+      packingDate:
+        body.packingDate !== undefined ? body.packingDate : existing.packingDate,
+      certification:
+        body.certification !== undefined ? body.certification : existing.certification,
+      nutritionNote:
+        body.nutritionNote !== undefined ? body.nutritionNote : existing.nutritionNote,
+      nutritionFacts:
+        body.nutritionFacts !== undefined ? body.nutritionFacts : existing.nutritionFacts,
       farmerDetails:
         body.farmerDetails !== undefined
           ? body.farmerDetails

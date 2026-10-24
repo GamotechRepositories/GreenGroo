@@ -279,6 +279,11 @@ export default function ProductFarmerTraceabilitySection({
     product?.farmerDetails?.experience || "१२+ वर्षे शेतीचा अनुभव"
   ).trim();
 
+  const farmerPhoto =
+    product?.farmerImage ||
+    product?.farmerDetails?.farmerImage ||
+    "";
+
   const farmerMethod = String(
     product?.farmerDetails?.agricultureMethod || "सेंद्रिय व एकात्मिक पद्धत (IPM Low Chemical)"
   ).trim();
@@ -311,6 +316,11 @@ export default function ProductFarmerTraceabilitySection({
     product?.variety || product?.varietyName || product?.farmerDetails?.currentCrop || "स्थानिक (Desi)"
   ).trim();
 
+  const farmerCrops = Array.isArray(product?.farmerDetails?.crops)
+    ? product.farmerDetails.crops.filter((item) => item?.name || item?.variety || item?.area)
+    : [];
+  const primaryCrop = farmerCrops[0]?.name || variety;
+
   const displayInfo = getProductDisplayDetails(product);
   const productNameDisplay = displayInfo.secondaryTitle
     ? `${displayInfo.primaryTitle} · ${displayInfo.secondaryTitle}`
@@ -327,6 +337,29 @@ export default function ProductFarmerTraceabilitySection({
     : "नवीन ताजी काढणी लवकरच उपलब्ध होईल";
 
   const productLotCode = `LOT-${String(product?._id || "7849").slice(-5).toUpperCase()}`;
+
+  const certification = String(product?.certification || "Organic (NPOP)").trim();
+
+  const savedNutrition = Array.isArray(product?.nutritionFacts)
+    ? product.nutritionFacts.filter((item) => item?.label || item?.value)
+    : [];
+  const nutritionFacts = savedNutrition.length
+    ? savedNutrition
+    : [
+        { label: "Energy", value: "354 kcal" },
+        { label: "Carbohydrates", value: "65 g" },
+        { label: "Dietary Fiber", value: "21 g" },
+        { label: "Protein", value: "7.8 g" },
+        { label: "Total Fat", value: "3.2 g" },
+        { label: "Curcumin (Active)", value: "4.5% High" },
+        { label: "Iron", value: "41.4 mg (230% DV)" },
+        { label: "Potassium", value: "2525 mg" },
+        { label: "Pesticides / Residue", value: "0.0% (Zero)" },
+      ];
+  const nutritionNote = String(
+    product?.nutritionNote ||
+      "* Based on certified farm gate batch laboratory analysis. 100% natural and unadulterated."
+  ).trim();
 
   return (
     <div className={`space-y-4 sm:space-y-5 ${className}`}>
@@ -358,7 +391,7 @@ export default function ProductFarmerTraceabilitySection({
             {/* Landscape Farmer Photo */}
             <div className="w-[280px] sm:w-[310px] lg:w-[340px] h-[145px] sm:h-[155px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100/80 shadow-xs">
               <img
-                src="/assets/farmer/desktop_farmer_photo.png"
+                src={farmerPhoto || "/assets/farmer/desktop_farmer_photo.png"}
                 alt={farmerName}
                 className="w-full h-full object-cover rounded-2xl"
               />
@@ -406,7 +439,7 @@ export default function ProductFarmerTraceabilitySection({
             {/* Square/Portrait Farmer Photo */}
             <div className="w-[105px] h-[115px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100/80 shadow-xs">
               <img
-                src="/assets/farmer/mobile_farmer_photo.png"
+                src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
                 alt={farmerName}
                 className="w-full h-full object-cover rounded-2xl"
               />
@@ -616,9 +649,8 @@ export default function ProductFarmerTraceabilitySection({
               Product Information
             </h3>
 
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-              {/* Product Key-Value Table */}
-              <div className="flex-1 space-y-2.5 text-[12.5px] sm:text-[13.5px]">
+            <div>
+              <div className="space-y-2.5 text-[12.5px] sm:text-[13.5px]">
                 {/* Product Name */}
                 <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-baseline">
                   <span className="text-slate-500 font-medium">Product Name</span>
@@ -655,18 +687,10 @@ export default function ProductFarmerTraceabilitySection({
                 </div>
 
                 {/* Certification */}
-                <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-center">
+                <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-baseline">
                   <span className="text-slate-500 font-medium">Certification</span>
                   <span className="text-slate-400">:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">Organic (NPOP)</span>
-                    {/* Mobile small seal */}
-                    <img
-                      src="/assets/farmer/organic_npop_seal.png"
-                      alt="Organic NPOP"
-                      className="w-7 h-7 object-contain inline-block md:hidden"
-                    />
-                  </div>
+                  <span className="font-semibold text-slate-900">{certification}</span>
                 </div>
 
                 {/* Status */}
@@ -682,15 +706,6 @@ export default function ProductFarmerTraceabilitySection({
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Desktop Right Side: Organic NPOP Seal with Leaves */}
-              <div className="hidden md:flex shrink-0 items-center justify-center pl-6 border-l border-slate-100">
-                <img
-                  src="/assets/farmer/organic_npop_with_leaves.png"
-                  alt="Organic NPOP Certified"
-                  className="w-28 sm:w-32 h-auto object-contain select-none"
-                />
               </div>
             </div>
 
@@ -714,26 +729,16 @@ export default function ProductFarmerTraceabilitySection({
               Nutritional Facts (Per 100g)
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {[
-                { label: "Energy", value: "354 kcal" },
-                { label: "Carbohydrates", value: "65 g" },
-                { label: "Dietary Fiber", value: "21 g" },
-                { label: "Protein", value: "7.8 g" },
-                { label: "Total Fat", value: "3.2 g" },
-                { label: "Curcumin (Active)", value: "4.5% High" },
-                { label: "Iron", value: "41.4 mg (230% DV)" },
-                { label: "Potassium", value: "2525 mg" },
-                { label: "Pesticides / Residue", value: "0.0% (Zero)" },
-              ].map((n) => (
-                <div key={n.label} className="p-2.5 rounded-xl bg-[#f4faf5] border border-emerald-100/70">
+              {nutritionFacts.map((n) => (
+                <div key={`${n.label}-${n.value}`} className="p-2.5 rounded-xl bg-[#f4faf5] border border-emerald-100/70">
                   <p className="text-[11px] text-gray-500 font-medium">{n.label}</p>
                   <p className="text-[13px] sm:text-sm font-bold text-emerald-800 mt-0.5">{n.value}</p>
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[11px] text-slate-400">
-              * Based on certified farm gate batch laboratory analysis. 100% natural and unadulterated.
-            </p>
+            {nutritionNote ? (
+              <p className="mt-3 text-[11px] text-slate-400">{nutritionNote}</p>
+            ) : null}
           </div>
         )}
 
@@ -764,7 +769,7 @@ export default function ProductFarmerTraceabilitySection({
               <div className="flex items-center gap-3">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-emerald-50 shrink-0">
                   <img
-                    src="/assets/farmer/mobile_farmer_photo.png"
+                    src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
                     alt={farmerName}
                     className="w-full h-full object-cover"
                   />
@@ -792,13 +797,33 @@ export default function ProductFarmerTraceabilitySection({
                 </div>
                 <div className="p-3 rounded-xl bg-[#f4faf5] border border-emerald-150">
                   <p className="text-[11px] text-gray-500 font-medium">मुख्य पीक (Primary Crop)</p>
-                  <p className="text-sm font-bold text-emerald-900 mt-0.5">{variety}</p>
+                  <p className="text-sm font-bold text-emerald-900 mt-0.5">{primaryCrop}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-[#f4faf5] border border-emerald-150">
                   <p className="text-[11px] text-gray-500 font-medium">अनुभव (Experience)</p>
                   <p className="text-sm font-bold text-emerald-900 mt-0.5">{farmerExperience}</p>
                 </div>
               </div>
+
+              {farmerCrops.length > 0 && (
+                <div className="rounded-xl border border-emerald-100 bg-[#f4faf5] p-3">
+                  <h5 className="font-bold text-xs text-slate-800 mb-2">पिके (Crops)</h5>
+                  <div className="space-y-2">
+                    {farmerCrops.map((crop, idx) => (
+                      <div key={`${crop.name}-${idx}`} className="flex items-start justify-between gap-3 text-xs">
+                        <div>
+                          <p className="font-bold text-emerald-950">{crop.name || crop.variety}</p>
+                          {crop.variety ? <p className="text-slate-500">Variety: {crop.variety}</p> : null}
+                        </div>
+                        <div className="text-right text-slate-600">
+                          {crop.area ? <p>{crop.area}</p> : null}
+                          {crop.status ? <p className="font-semibold text-emerald-800">{crop.status}</p> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
                 <h5 className="font-bold text-xs text-slate-800 mb-1">शेतकऱ्याचा संदेश (Farmer Note)</h5>

@@ -103,7 +103,7 @@ export default function App() {
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
               <Route path="erp/crops" element={<CropsPage />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
-              <Route path="products" element={<Products />} />
+              <Route path="products/:catalogView?/:sectionSlug?" element={<Products />} />
               <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="pre-order-slots" element={<PreOrderSlots />} />
               <Route path="preorder-slots" element={<PreOrderSlots />} />
@@ -111,8 +111,8 @@ export default function App() {
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />
-              <Route path="categories" element={<Navigate to="/products" replace />} />
-              <Route path="sections" element={<Navigate to="/products" replace />} />
+              <Route path="categories" element={<Navigate to="/products/categories" replace />} />
+              <Route path="sections" element={<Navigate to="/products/sections" replace />} />
               <Route path="coupons" element={<Coupons />} />
               <Route path="rewards" element={<RewardPoints />} />
               <Route path="gift-cards" element={<GiftCards />} />

@@ -77,11 +77,44 @@ export function translateUnitToMarathi(unitStr) {
   }
 
   // Pack
-  const packMatch = u.match(/^(?:pack\s*of\s*(\d+)|(\d+)\s*pack)$/i);
+  const packMatch = u.match(/^(?:pack\s*of\s*(\d+)|(\d+)\s*packs?)$/i);
   if (packMatch) {
     const n = toDevanagariNumerals(packMatch[1] || packMatch[2] || "1");
-    return `${n} चा पॅक`;
+    return `${n} पॅक`;
   }
+
+  const pieceWithInner = u.match(/^(\d+)\s*(?:pc|pcs|piece|pieces)\s*\(([^)]+)\)$/i);
+  if (pieceWithInner) {
+    const inner = translateUnitToMarathi(pieceWithInner[2]);
+    return `${toDevanagariNumerals(pieceWithInner[1])} नग${inner ? ` (${inner})` : ""}`;
+  }
+
+  const dozenMatch = u.match(/^(\d+)\s*dozen$/i);
+  if (dozenMatch) return `${toDevanagariNumerals(dozenMatch[1])} डझन`;
+
+  const boxMatch = u.match(/^(\d+)\s*box(?:es)?$/i);
+  if (boxMatch) return `${toDevanagariNumerals(boxMatch[1])} बॉक्स`;
+
+  const packetMatch = u.match(/^(\d+)\s*packets?$/i);
+  if (packetMatch) return `${toDevanagariNumerals(packetMatch[1])} पाकीट`;
+
+  const bagMatch = u.match(/^(\d+)\s*bags?$/i);
+  if (bagMatch) return `${toDevanagariNumerals(bagMatch[1])} पिशवी`;
+
+  const setMatch = u.match(/^(\d+)\s*sets?$/i);
+  if (setMatch) return `${toDevanagariNumerals(setMatch[1])} संच`;
+
+  const pairMatch = u.match(/^(\d+)\s*pairs?$/i);
+  if (pairMatch) return `${toDevanagariNumerals(pairMatch[1])} जोडी`;
+
+  const bundleMatch = u.match(/^(\d+)\s*bundles?$/i);
+  if (bundleMatch) return `${toDevanagariNumerals(bundleMatch[1])} गड्डी`;
+
+  const meterMatch = u.match(/^(\d+(?:\.\d+)?)\s*(?:meter|metre|m)$/i);
+  if (meterMatch) return `${toDevanagariNumerals(meterMatch[1])} मीटर`;
+
+  const cmMatch = u.match(/^(\d+(?:\.\d+)?)\s*(?:cm|centimeter|centimetre)$/i);
+  if (cmMatch) return `${toDevanagariNumerals(cmMatch[1])} सें.मी.`;
 
   // Fallback: convert digits to devanagari and replace common words
   let marathi = u
@@ -91,6 +124,16 @@ export function translateUnitToMarathi(unitStr) {
     .replace(/\bg|gm|gram|grams\b/gi, "ग्रॅम")
     .replace(/\bpc|pcs|piece|pieces\b/gi, "नग")
     .replace(/\bbunch|bunches\b/gi, "जुडी")
+    .replace(/\bdozen\b/gi, "डझन")
+    .replace(/\bbox(?:es)?\b/gi, "बॉक्स")
+    .replace(/\bpackets?\b/gi, "पाकीट")
+    .replace(/\bpacks?\b/gi, "पॅक")
+    .replace(/\bbags?\b/gi, "पिशवी")
+    .replace(/\bsets?\b/gi, "संच")
+    .replace(/\bpairs?\b/gi, "जोडी")
+    .replace(/\bbundles?\b/gi, "गड्डी")
+    .replace(/\bmeters?|metres?\b/gi, "मीटर")
+    .replace(/\bcm\b/gi, "सें.मी.")
     .replace(/\blitre|liter|l\b/gi, "लिटर")
     .replace(/\bml\b/gi, "मि.ली.")
     .replace(/\s+/g, " ")

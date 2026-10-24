@@ -46,6 +46,7 @@ import {
   Scale,
   ArrowLeftRight,
   Layers,
+  FolderTree,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -220,11 +221,42 @@ export const NAV_GROUPS = [
     label: 'Catalog',
     items: [
       {
-        name: 'Product Management',
+        name: 'Product',
         href: '/products',
         icon: Package,
         implemented: true,
-        description: 'Create, edit, and publish products, pricing, stock, and media.',
+        description: 'Catalog products, categories, and store sections.',
+        children: [
+          {
+            name: 'All products',
+            href: '/products',
+            icon: Package,
+            end: true,
+            implemented: true,
+            description: 'Browse, edit, and publish products, pricing, stock, and media.',
+          },
+          {
+            name: 'Category',
+            href: '/products/categories',
+            icon: FolderTree,
+            implemented: true,
+            description: 'Add and manage product categories.',
+          },
+          {
+            name: 'Add product',
+            href: '/products/new',
+            icon: PlusCircle,
+            implemented: true,
+            description: 'Create a new catalog product.',
+          },
+          {
+            name: 'Section',
+            href: '/products/sections',
+            icon: Layers,
+            implemented: true,
+            description: 'Add and manage store sections such as GreenGrocc and Ready2Cook.',
+          },
+        ],
       },
       {
         name: 'Market Prices',
@@ -446,6 +478,7 @@ export const NAV_GROUPS = [
             name: 'Product Management',
             href: '/products',
             icon: Package,
+            end: true,
             implemented: true,
             description: 'Create, edit, and publish products, pricing, stock, and media for multi vendors.',
           },

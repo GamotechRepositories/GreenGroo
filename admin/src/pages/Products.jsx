@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Package,
   Plus,
@@ -85,22 +86,125 @@ const sectionMatches = (productSection, selectedSlug) => {
   return aliases.includes(a);
 };
 
-const departmentPrefix = (slug) => {
-  const s = String(slug || '').toLowerCase();
-  if (['ready2cook', 'ready-2-cook', 'festive'].includes(s)) return 'RD';
-  if (['instantorder', 'instant', 'supermall', 'mall'].includes(s)) return 'IN';
-  return 'PR';
+const CANONICAL_SECTION = {
+  preorder: 'preorder',
+  'pre-order': 'preorder',
+  greengrocc: 'preorder',
+  main: 'preorder',
+  ready2cook: 'ready2cook',
+  'ready-2-cook': 'ready2cook',
+  festive: 'ready2cook',
+  instantorder: 'instantorder',
+  instantorders: 'instantorder',
+  instant: 'instantorder',
+  supermall: 'instantorder',
+  mall: 'instantorder',
 };
 
-/** Mirrors backend buildDepartmentId, e.g. PR-28-R2C3 */
-const previewDepartmentId = ({ department, deptNumber, rackRow, rackColumn }) => {
-  const clean = (v) => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
-  const number = clean(deptNumber);
-  if (!number) return '';
-  const row = clean(rackRow).replace(/^R/, '');
-  const column = clean(rackColumn).replace(/^C/, '');
-  const location = row || column ? `-${row ? `R${row}` : ''}${column ? `C${column}` : ''}` : '';
-  return `${departmentPrefix(department)}-${number}${location}`;
+/** Existing catalog names, used when a saved category has no section. */
+const CATEGORY_SECTION_BY_NAME = {
+  vegetables: 'preorder',
+  fruits: 'preorder',
+  dairy: 'preorder',
+  grains: 'preorder',
+  pulses: 'preorder',
+  grocery: 'preorder',
+  oils: 'preorder',
+  spices: 'preorder',
+  'dry fruits': 'preorder',
+  organic: 'preorder',
+  beverages: 'preorder',
+  bakery: 'preorder',
+  'chopped vegetables': 'ready2cook',
+  'cut & sliced': 'ready2cook',
+  'peeled & cleaned': 'ready2cook',
+  'cleaned bhaji & leafy': 'ready2cook',
+  'veggie & bhaji mix': 'ready2cook',
+  'supermall packaged grocery': 'instantorder',
+  'supermall grains & cereals': 'instantorder',
+  'supermall snacks & munchies': 'instantorder',
+  'supermall beverages & cold drinks': 'instantorder',
+};
+
+/** Names and product filters the customer home actually shows under Shop by Category. */
+const FRONTEND_CATEGORY_TILES = {
+  preorder: [
+    { name: 'Vegetables', match: 'Vegetables' },
+    { name: 'Spices & Dry Fruits', match: 'Spices' },
+    { name: 'Pulses & Grains', match: 'Pulses' },
+    { name: 'Exotic Vegetables', match: 'Vegetables' },
+    { name: 'Fruits', match: 'Fruits' },
+    { name: 'Organic Range', match: 'Organic' },
+    { name: 'Dairy & Eggs', match: 'Dairy' },
+    { name: 'Beverages & More', match: 'Beverages' },
+    { name: 'Combo Packs', match: 'Organic' },
+    { name: 'Oils & Ghee', match: 'Oils' },
+  ],
+  ready2cook: [],
+  instantorder: [],
+};
+
+const categoryCardsForSection = (sectionSlug, categories) => {
+  const slug = canonicalSectionSlug(sectionSlug);
+  const tiles = Object.prototype.hasOwnProperty.call(FRONTEND_CATEGORY_TILES, slug)
+    ? FRONTEND_CATEGORY_TILES[slug]
+    : null;
+  if (!tiles) {
+    return categories
+      .filter((c) => sectionMatches(resolveCategorySection(c), slug))
+      .sort((a, b) => String(a.categoryName || '').localeCompare(String(b.categoryName || '')))
+      .map((linked) => ({
+        key: linked._id || linked.categoryName,
+        label: linked.categoryName,
+        matchName: linked.categoryName,
+        linked,
+      }));
+  }
+
+  const shownIds = new Set();
+  const cards = tiles.map((tile) => {
+    const linked = categories.find(
+      (c) => String(c.categoryName || '').trim().toLowerCase() === tile.match.toLowerCase()
+    );
+    if (linked?._id) shownIds.add(String(linked._id));
+    return {
+      key: tile.name,
+      label: tile.name,
+      matchName: tile.match,
+      linked: linked || null,
+    };
+  });
+
+  categories.forEach((linked) => {
+    const explicit = canonicalSectionSlug(linked.section);
+    if (!explicit || !sectionMatches(explicit, slug)) return;
+    if (linked._id && shownIds.has(String(linked._id))) return;
+    shownIds.add(String(linked._id || linked.categoryName));
+    cards.push({
+      key: linked._id || linked.categoryName,
+      label: linked.categoryName,
+      matchName: linked.categoryName,
+      linked,
+    });
+  });
+
+  return cards;
+};
+
+const canonicalSectionSlug = (value) => {
+  const key = String(value || '').trim().toLowerCase();
+  if (!key || key === 'null' || key === 'undefined') return '';
+  return CANONICAL_SECTION[key] || key;
+};
+
+const resolveCategorySection = (category) => {
+  const fromSection = canonicalSectionSlug(category?.section);
+  if (fromSection) return fromSection;
+  const store = String(category?.storeType || '').trim().toLowerCase();
+  if (store === 'festive') return 'ready2cook';
+  if (store === 'mall') return 'instantorder';
+  const byName = CATEGORY_SECTION_BY_NAME[String(category?.categoryName || '').trim().toLowerCase()];
+  return byName || 'preorder';
 };
 
 const getSectionTheme = (slug, name) => {
@@ -151,6 +255,39 @@ export const STANDARD_UNIT_TYPES = [
   'Meter',
   'CM',
 ];
+
+const UNIT_MARATHI = {
+  Piece: 'नग',
+  Kg: 'किलो',
+  Gram: 'ग्रॅम',
+  Liter: 'लिटर',
+  ML: 'मि.ली.',
+  Box: 'बॉक्स',
+  Pack: 'पॅक',
+  Packet: 'पाकीट',
+  Bag: 'पिशवी',
+  Set: 'संच',
+  Pair: 'जोडी',
+  Dozen: 'डझन',
+  Bundle: 'गड्डी',
+  Bunch: 'जुडी',
+  Meter: 'मीटर',
+  CM: 'सें.मी.',
+};
+
+const toDevanagariDigits = (value) =>
+  String(value ?? '').replace(/[0-9]/g, (digit) => '०१२३४५६७८९'[digit] || digit);
+
+const unitSelectLabel = (unitType) => {
+  const marathi = UNIT_MARATHI[unitType];
+  return marathi ? `${unitType} · ${marathi}` : unitType;
+};
+
+const marathiUnitLine = (qty, unitType) => {
+  const word = UNIT_MARATHI[unitType];
+  if (!word || qty === '' || qty == null) return '';
+  return `${toDevanagariDigits(qty)} ${word}`;
+};
 
 export const DEFAULT_BULK_GRADES = [
   { grade: 'A', variety: '', price: '', mrp: '', stock: 0, unit: '1 Kg', isAvailable: false, minOrderQuantity: 1 },
@@ -247,7 +384,53 @@ export const formatUnitString = (qty, type) => {
   return `${q} ${t}`;
 };
 
-export const computeCanonicalProductId = (category = '', title = '', variety = '') => {
+function UnitImagePicker({ image, uploading, onUpload, onClear, compact = false }) {
+  return (
+    <div>
+      <p className={`font-semibold text-slate-700 ${compact ? 'mb-0.5 text-[11px] text-slate-500' : 'mb-1.5 text-xs'}`}>
+        {compact ? 'Image' : 'Unit image'}
+      </p>
+      <div className="flex items-center gap-2">
+        <label
+          className={`relative flex shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-[#f4f8ec] ${
+            compact ? 'h-14 w-14' : 'h-16 w-16'
+          }`}
+        >
+          {image ? (
+            <img src={image} alt="" className="h-full w-full object-contain" />
+          ) : (
+            <ImageIcon className="h-4 w-4 text-slate-400" />
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUpload(file);
+              e.target.value = '';
+            }}
+          />
+          {uploading ? (
+            <span className="absolute inset-0 flex items-center justify-center bg-white/75">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />
+            </span>
+          ) : null}
+        </label>
+        {image ? (
+          <button type="button" onClick={onClear} className="text-[11px] font-medium text-rose-600">
+            Remove
+          </button>
+        ) : compact ? null : (
+          <span className="text-[11px] text-slate-400">Shown on the quantity card</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const computeCanonicalProductId = (category = '', title = '', variety = '', existingProducts = []) => {
   const cat = String(category || '').toLowerCase();
   let catCode = 'VEG';
   if (/(vegetable|veggie|fresh produce|greens|leafy)/.test(cat)) catCode = 'VEG';
@@ -383,8 +566,67 @@ const DEMO_FARMER = {
   waterSource: 'Rivers, Solar Well (Drip Irrigation)',
   soilType: 'Rich Black Soil',
   farmTools: 'Tractor & Solar Drier',
+  crops: [
+    { name: 'Methi', variety: 'Desi', area: '1.5 Acre', status: 'Active' },
+    { name: 'Onion', variety: 'Red', area: '1 Acre', status: 'Harvested' },
+  ],
+  experience: '12+ years of farming',
   bio: 'Hello, my name is Kiran Vitthal Pawar. I am a graduate and I have been actively involved in farming for the past 5 years in Niphad, Nashik. We cultivate fresh organic produce using modern and traditional sustainable farming techniques.',
+  packingDate: 'Packed at 6:00 AM',
+  certification: 'Organic (NPOP)',
+  nutritionNote: '* Based on certified farm gate batch laboratory analysis. 100% natural and unadulterated.',
+  nutritionFacts: [
+    { label: 'Energy', value: '354', unit: 'kcal' },
+    { label: 'Carbohydrates', value: '65', unit: 'g' },
+    { label: 'Dietary Fiber', value: '21', unit: 'g' },
+    { label: 'Protein', value: '7.8', unit: 'g' },
+    { label: 'Total Fat', value: '3.2', unit: 'g' },
+    { label: 'Curcumin (Active)', value: '4.5', unit: '% High' },
+    { label: 'Iron', value: '41.4', unit: 'mg (230% DV)' },
+    { label: 'Potassium', value: '2525', unit: 'mg' },
+    { label: 'Pesticides / Residue', value: '0.0', unit: '% (Zero)' },
+  ],
 };
+
+const NUTRITION_UNIT_BY_LABEL = Object.fromEntries(
+  DEMO_FARMER.nutritionFacts.map((item) => [item.label, item.unit])
+);
+
+const nutritionUnitFor = (fact) =>
+  String(fact?.unit || NUTRITION_UNIT_BY_LABEL[fact?.label] || '').trim();
+
+const stripNutritionUnit = (value, unit) => {
+  const raw = String(value || '').trim();
+  const u = String(unit || '').trim();
+  if (!raw || !u) return raw;
+  if (raw.endsWith(u)) return raw.slice(0, -u.length).trim();
+  return raw;
+};
+
+const withNutritionUnit = (fact) => {
+  const label = String(fact?.label || '').trim();
+  const unit = nutritionUnitFor({ ...fact, label });
+  return { label, value: stripNutritionUnit(fact?.value, unit), unit };
+};
+
+const formatNutritionValue = (value, unit) => {
+  const v = String(value || '').trim();
+  const u = String(unit || '').trim();
+  if (!v) return '';
+  if (!u || v.endsWith(u)) return v;
+  return u.startsWith('%') ? `${v}${u}` : `${v} ${u}`;
+};
+
+const cloneBasicNutritionFacts = () =>
+  DEMO_FARMER.nutritionFacts.map((item) => ({ ...item }));
+
+const normalizeCrops = (crops) =>
+  (Array.isArray(crops) ? crops : []).map((item) => ({
+    name: item?.name || item?.cropName || '',
+    variety: item?.variety || '',
+    area: item?.area ? String(item.area) : '',
+    status: item?.status || 'Active',
+  }));
 
 const PRODUCT_GLOW_THEMES = [
   { name: 'Clean (Default)', hex: '', borderHex: '#E2E8F0' },
@@ -436,6 +678,13 @@ const getGlowBgStyle = (raw, alpha = '0D') => {
 };
 
 export default function Products() {
+  const navigate = useNavigate();
+  const { catalogView, sectionSlug } = useParams();
+  const catalogPage =
+    catalogView === 'categories' || catalogView === 'sections' || catalogView === 'new'
+      ? catalogView
+      : 'products';
+
   // Data state
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -459,7 +708,7 @@ export default function Products() {
   // Taxonomy CRUD (section / category / subcategory)
   const [taxModal, setTaxModal] = useState(null);
   // { kind: 'section'|'category'|'subcategory', mode: 'create'|'edit'|'delete', item?: any }
-  const [taxForm, setTaxForm] = useState({ name: '', slug: '', description: '', categoryImage: '' });
+  const [taxForm, setTaxForm] = useState({ name: '', slug: '', description: '', categoryImage: '', section: '' });
   const [taxBusy, setTaxBusy] = useState(false);
   const [taxImageUploading, setTaxImageUploading] = useState(false);
   const catTaxImageInputRef = useRef(null);
@@ -470,6 +719,7 @@ export default function Products() {
   const [formStep, setFormStep] = useState(0);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unitImageUploadingKey, setUnitImageUploadingKey] = useState(null);
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -485,6 +735,7 @@ export default function Products() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
+    marathiName: '',
     sku: '',
     department: 'greengrocc',
     deptNumber: '',
@@ -496,6 +747,7 @@ export default function Products() {
     unitQuantity: 1,
     unitType: 'Piece',
     unit: '1 Piece',
+    unitImage: '',
     variantType: 'single', // 'single' | 'multi'
     variants: [],
     enableBulkGrades: false,
@@ -524,6 +776,10 @@ export default function Products() {
     farmerImage: '',
     farmImage: '',
     harvestingDate: 'Today (Fresh Morning Harvest)',
+    packingDate: '',
+    certification: '',
+    nutritionNote: DEMO_FARMER.nutritionNote,
+    nutritionFacts: cloneBasicNutritionFacts(),
     farmerDetails: {
       totalArea: '',
       cultivationArea: '',
@@ -534,6 +790,8 @@ export default function Products() {
       waterSource: '',
       soilType: '',
       farmTools: '',
+      crops: [],
+      experience: '',
       bio: '',
     },
   });
@@ -542,8 +800,15 @@ export default function Products() {
   const [imageMode, setImageMode] = useState('upload'); // upload or url
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [imageDropActive, setImageDropActive] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const imageInputRef = useRef(null);
+  const addRouteOpened = useRef(false);
+
+  const closeProductEditor = () => {
+    setIsEditorOpen(false);
+    if (catalogPage === 'new') navigate('/products');
+  };
 
   const [videoMode, setVideoMode] = useState('upload'); // upload or url
   const [videoUrlInput, setVideoUrlInput] = useState('');
@@ -574,7 +839,7 @@ export default function Products() {
       // Use /products/all for true catalog stock (not dark-store overlay)
       const [prodRes, catRes, secRes] = await Promise.allSettled([
         apiClient.get('/products/all', { params: { limit: 500 } }),
-        apiClient.get('/categories/all'),
+        apiClient.get('/categories/all', { params: { limit: 200 } }),
         apiClient.get('/sections'),
       ]);
 
@@ -679,6 +944,7 @@ export default function Products() {
     setCatalogMode(mode);
     setFormData({
       name: options.name || '',
+      marathiName: options.marathiName || '',
       sku: computeCanonicalProductId(defaultCat, options.name || '', options.varietyName || '', products),
       department: defaultSec,
       deptNumber: '',
@@ -690,6 +956,7 @@ export default function Products() {
       unitQuantity: 1,
       unitType: 'Piece',
       unit: '1 Piece',
+      unitImage: options.unitImage || '',
       variantType: options.variantType || 'single',
       variants: Array.isArray(options.variants) ? options.variants : [],
       enableBulkGrades: isBulk,
@@ -723,6 +990,12 @@ export default function Products() {
       farmerImage: options.farmerImage || '',
       farmImage: options.farmImage || '',
       harvestingDate: options.harvestingDate || 'Today (Fresh Morning Harvest)',
+      packingDate: options.packingDate || '',
+      certification: options.certification || '',
+      nutritionNote: options.nutritionNote || DEMO_FARMER.nutritionNote,
+      nutritionFacts: Array.isArray(options.nutritionFacts) && options.nutritionFacts.length
+        ? options.nutritionFacts.map(withNutritionUnit)
+        : cloneBasicNutritionFacts(),
       farmerDetails: {
         totalArea: options.farmerDetails?.totalArea || '',
         cultivationArea: options.farmerDetails?.cultivationArea || '',
@@ -733,6 +1006,8 @@ export default function Products() {
         waterSource: options.farmerDetails?.waterSource || '',
         soilType: options.farmerDetails?.soilType || '',
         farmTools: options.farmerDetails?.farmTools || '',
+        crops: normalizeCrops(options.farmerDetails?.crops),
+        experience: options.farmerDetails?.experience || '',
         bio: options.farmerDetails?.bio || '',
       },
     });
@@ -747,6 +1022,22 @@ export default function Products() {
     setIsEditorOpen(true);
   };
 
+  useEffect(() => {
+    if (catalogPage !== 'categories' || sectionSlug || loading || !sections.length) return;
+    const first = sections[0];
+    if (first?.slug) navigate(`/products/categories/${first.slug}`, { replace: true });
+  }, [catalogPage, sectionSlug, loading, sections, navigate]);
+
+  useEffect(() => {
+    if (catalogPage !== 'new') {
+      addRouteOpened.current = false;
+      return;
+    }
+    if (loading || addRouteOpened.current) return;
+    addRouteOpened.current = true;
+    handleOpenCreate();
+  }, [catalogPage, loading]);
+
   /** Clone product as a new variety — keeps category/media/farmer, new SKU & editable pricing */
   const handleAddVariety = (product) => {
     const isBulk = Boolean(product.enableBulkGrades);
@@ -755,6 +1046,7 @@ export default function Products() {
     handleOpenCreate({
       catalogMode: isBulk ? 'bulk' : 'retail',
       name: product.name || '',
+      marathiName: product.marathiName || '',
       varietyGroupId: String(groupId),
       varietyName: '',
       department: product.section || selectedDepartment || 'greengrocc',
@@ -918,6 +1210,7 @@ export default function Products() {
     setFormStep(1);
     setFormData({
       name: product.name || '',
+      marathiName: product.marathiName || '',
       sku: product.sku || '',
       department: product.section || foundCat?.section || 'greengrocc',
       deptNumber: product.deptNumber || '',
@@ -929,6 +1222,7 @@ export default function Products() {
       unitQuantity: parsedSingle.quantity,
       unitType: parsedSingle.unitType,
       unit: product.unit || parsedSingle.unit,
+      unitImage: product.unitImage || '',
       variantType: product.variantType || (hasVariants ? 'multi' : 'single'),
       variants: hasVariants
         ? product.variants.map((v) => {
@@ -942,6 +1236,7 @@ export default function Products() {
               discountedPercent: v.discountedPercent || 0,
               stock: v.stock != null ? v.stock : 100,
               inStock: v.inStock !== undefined ? v.inStock : true,
+              image: v.image || '',
             };
           })
         : [],
@@ -970,6 +1265,12 @@ export default function Products() {
       farmerImage: product.farmerImage || product.farmerDetails?.farmerImage || '',
       farmImage: product.farmImage || product.farmerDetails?.farmImage || '',
       harvestingDate: product.harvestingDate || product.farmerDetails?.harvestingDate || 'Today (Fresh Morning Harvest)',
+      packingDate: product.packingDate || '',
+      certification: product.certification || '',
+      nutritionNote: product.nutritionNote || DEMO_FARMER.nutritionNote,
+      nutritionFacts: Array.isArray(product.nutritionFacts) && product.nutritionFacts.length
+        ? product.nutritionFacts.map(withNutritionUnit)
+        : cloneBasicNutritionFacts(),
       farmerDetails: {
         totalArea: product.farmerDetails?.totalArea || '',
         cultivationArea: product.farmerDetails?.cultivationArea || '',
@@ -980,6 +1281,8 @@ export default function Products() {
         waterSource: product.farmerDetails?.waterSource || '',
         soilType: product.farmerDetails?.soilType || '',
         farmTools: product.farmerDetails?.farmTools || '',
+        crops: normalizeCrops(product.farmerDetails?.crops),
+        experience: product.farmerDetails?.experience || '',
         bio: product.farmerDetails?.bio || '',
       },
     });
@@ -1000,6 +1303,10 @@ export default function Products() {
       farmerImage: DEMO_FARMER.farmerImage,
       farmImage: DEMO_FARMER.farmImage,
       harvestingDate: DEMO_FARMER.harvestingDate,
+      packingDate: DEMO_FARMER.packingDate,
+      certification: DEMO_FARMER.certification,
+      nutritionNote: DEMO_FARMER.nutritionNote,
+      nutritionFacts: DEMO_FARMER.nutritionFacts.map((item) => ({ ...item })),
       farmerDetails: {
         totalArea: DEMO_FARMER.totalArea,
         cultivationArea: DEMO_FARMER.cultivationArea,
@@ -1010,6 +1317,8 @@ export default function Products() {
         waterSource: DEMO_FARMER.waterSource,
         soilType: DEMO_FARMER.soilType,
         farmTools: DEMO_FARMER.farmTools,
+        crops: normalizeCrops(DEMO_FARMER.crops),
+        experience: DEMO_FARMER.experience,
         bio: DEMO_FARMER.bio,
       },
     }));
@@ -1074,6 +1383,7 @@ export default function Products() {
         discountedPercent: basePct,
         stock: 50,
         inStock: true,
+        image: '',
       };
       return {
         ...prev,
@@ -1087,6 +1397,39 @@ export default function Products() {
       ...prev,
       variants: prev.variants.filter((_, i) => i !== idx),
     }));
+  };
+
+  const handleUnitImageUpload = async (file, target) => {
+    if (!file) return;
+    const key = target === 'single' ? 'single' : `v-${target}`;
+    try {
+      setUnitImageUploadingKey(key);
+      setError('');
+      const uploadData = new FormData();
+      uploadData.append('files', file);
+      uploadData.append('folder', 'products');
+      const res = await apiClient.post('/upload', uploadData);
+      const data = res.data;
+      const uploadedUrl = Array.isArray(data.urls) ? data.urls[0] : data.url;
+      if (!data.success || !uploadedUrl) {
+        setError(data.message || 'Image upload failed');
+        return;
+      }
+      if (target === 'single') {
+        setFormData((prev) => ({ ...prev, unitImage: uploadedUrl }));
+      } else {
+        setFormData((prev) => {
+          const copy = [...prev.variants];
+          copy[target] = { ...copy[target], image: uploadedUrl };
+          return { ...prev, variants: copy };
+        });
+      }
+    } catch (err) {
+      console.error('Unit image upload failed:', err);
+      setError(err.response?.data?.message || err.message || 'Image upload failed.');
+    } finally {
+      setUnitImageUploadingKey(null);
+    }
   };
 
   const handleVariantFieldChange = (idx, field, value) => {
@@ -1218,14 +1561,18 @@ export default function Products() {
   };
 
   const handleAddImageUrl = () => {
-    const trimmed = imageUrlInput.trim();
-    if (!trimmed) return;
-    if (!formData.productImages.includes(trimmed)) {
-      setFormData((prev) => ({
-        ...prev,
-        productImages: [...prev.productImages, trimmed],
-      }));
-    }
+    const urls = imageUrlInput
+      .split(/[\n,]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (!urls.length) return;
+    setFormData((prev) => {
+      const next = [...prev.productImages];
+      urls.forEach((url) => {
+        if (!next.includes(url)) next.push(url);
+      });
+      return { ...prev, productImages: next };
+    });
     setImageUrlInput('');
   };
 
@@ -1443,12 +1790,14 @@ export default function Products() {
               discountedPercent: vPct,
               stock: parseInt(v.stock, 10) || 0,
               inStock: Boolean(v.inStock),
+              image: String(v.image || '').trim(),
             };
           })
         : [];
 
       const payload = {
         name: formData.name.trim(),
+        marathiName: String(formData.marathiName || '').trim(),
         productId: formData.sku.trim() || undefined,
         sku: formData.sku.trim() || undefined,
         categories: [formData.category],
@@ -1456,6 +1805,7 @@ export default function Products() {
         subcategories: [formData.subcategory.trim() || 'General'],
         brandName: formData.brandName.trim() || 'GreenGrocc',
         unit: formData.unit.trim() || (resolvedVariants[0]?.name || '1 pc'),
+        unitImage: String(formData.unitImage || '').trim(),
         varietyGroupId: formData.varietyGroupId?.trim() || '',
         varietyName: formData.varietyName?.trim() || '',
         variantType: formData.variantType === 'multi' ? 'multi' : 'single',
@@ -1499,6 +1849,15 @@ export default function Products() {
         farmerImage: formData.farmerImage?.trim() || '',
         farmImage: formData.farmImage?.trim() || '',
         harvestingDate: formData.harvestingDate?.trim() || 'Today (Fresh Morning Harvest)',
+        packingDate: formData.packingDate?.trim() || '',
+        certification: formData.certification?.trim() || '',
+        nutritionNote: formData.nutritionNote?.trim() || '',
+        nutritionFacts: (formData.nutritionFacts || [])
+          .map((item) => ({
+            label: String(item.label || '').trim(),
+            value: formatNutritionValue(item.value, nutritionUnitFor(item)),
+          }))
+          .filter((item) => item.label || item.value),
         farmerDetails: {
           name: formData.farmerName?.trim() || '',
           location: formData.farmerLocation?.trim() || '',
@@ -1514,6 +1873,15 @@ export default function Products() {
           waterSource: formData.farmerDetails?.waterSource?.trim() || '',
           soilType: formData.farmerDetails?.soilType?.trim() || '',
           farmTools: formData.farmerDetails?.farmTools?.trim() || '',
+          crops: (formData.farmerDetails?.crops || [])
+            .map((item) => ({
+              name: String(item.name || '').trim(),
+              variety: String(item.variety || '').trim(),
+              area: String(item.area || '').trim(),
+              status: String(item.status || '').trim(),
+            }))
+            .filter((item) => item.name || item.variety || item.area),
+          experience: formData.farmerDetails?.experience?.trim() || '',
           bio: formData.farmerDetails?.bio?.trim() || '',
         },
       };
@@ -1526,7 +1894,7 @@ export default function Products() {
         setSuccessMsg(`Product "${formData.name}" created successfully!`);
       }
 
-      setIsEditorOpen(false);
+      closeProductEditor();
       setEditingProduct(null);
       await fetchData();
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -1778,7 +2146,7 @@ export default function Products() {
   const refreshTaxonomy = async () => {
     try {
       const [catRes, secRes] = await Promise.all([
-        categoryApi.getAllCategories({ limit: 200 }),
+        categoryApi.getAllCategories({ limit: 200, page: 1 }),
         sectionApi.getActiveSections({ includeInactive: true }),
       ]);
       if (catRes?.success && Array.isArray(catRes.data)) setCategories(catRes.data);
@@ -1805,6 +2173,7 @@ export default function Products() {
         slug: item?.slug || '',
         description: item?.description || '',
         categoryImage: '',
+        section: '',
       });
     } else if (kind === 'category') {
       setTaxForm({
@@ -1812,6 +2181,7 @@ export default function Products() {
         slug: item?.slug || '',
         description: '',
         categoryImage: item?.categoryImage || '',
+        section: canonicalSectionSlug(item?.section) || (item?.categoryName ? resolveCategorySection(item) : '') || selectedDepartment || '',
       });
     } else {
       setTaxForm({
@@ -1819,6 +2189,7 @@ export default function Products() {
         slug: '',
         description: '',
         categoryImage: '',
+        section: '',
       });
     }
     setTaxModal({ kind, mode, item });
@@ -1827,7 +2198,7 @@ export default function Products() {
   const closeTaxModal = () => {
     if (taxBusy || taxImageUploading) return;
     setTaxModal(null);
-    setTaxForm({ name: '', slug: '', description: '', categoryImage: '' });
+    setTaxForm({ name: '', slug: '', description: '', categoryImage: '', section: '' });
     if (catTaxImageInputRef.current) catTaxImageInputRef.current.value = '';
   };
 
@@ -1927,12 +2298,25 @@ export default function Products() {
           }
           setSuccessMsg(`Deleted category "${item.categoryName}"`);
         } else {
+          if (!sections.length) {
+            throw new Error('Create a section before adding a category.');
+          }
+          if (!taxForm.section) {
+            throw new Error('Select a section first.');
+          }
+          if (mode === 'create' && !taxForm.categoryImage?.trim()) {
+            throw new Error('Upload a category photo.');
+          }
           const sectionObj =
-            sections.find((s) => sectionMatches(s.slug, selectedDepartment)) ||
-            sections.find((s) => s.slug === selectedDepartment);
-          const sectionSlug = sectionObj?.slug || selectedDepartment || 'preorder';
-          const sectionName =
-            sectionObj?.sectionName || getSectionTheme(sectionSlug).name || sectionSlug;
+            sections.find((s) => s.slug === taxForm.section) ||
+            sections.find((s) => sectionMatches(s.slug, taxForm.section));
+          if (!sectionObj?.slug) {
+            throw new Error('Select a section first.');
+          }
+          const sectionSlug = sectionObj.slug;
+          const sectionName = sectionObj.sectionName || getSectionTheme(sectionSlug).name || sectionSlug;
+          setSelectedDepartment(sectionSlug);
+          if (catalogPage === 'categories') navigate(`/products/categories/${sectionSlug}`);
           const payload = {
             categoryName: name,
             slug: taxForm.slug.trim() || slugifyName(name),
@@ -1995,7 +2379,7 @@ export default function Products() {
 
       await refreshTaxonomy();
       setTaxModal(null);
-      setTaxForm({ name: '', slug: '', description: '', categoryImage: '' });
+      setTaxForm({ name: '', slug: '', description: '', categoryImage: '', section: '' });
       if (catTaxImageInputRef.current) catTaxImageInputRef.current.value = '';
       setTimeout(() => setSuccessMsg(''), 2500);
     } catch (err) {
@@ -2029,10 +2413,10 @@ export default function Products() {
                 setError('');
                 return;
               }
-              setIsEditorOpen(false);
+              closeProductEditor();
               return;
             }
-            setIsEditorOpen(false);
+            closeProductEditor();
           }}
           className={BTN}
         >
@@ -2220,47 +2604,6 @@ export default function Products() {
                   </div>
                 </div>
 
-                {/* Department-wise ID (optional) */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Department ID <span className="font-normal text-slate-400">(optional)</span>
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-                    <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-                      <span className="px-2.5 py-2 text-xs font-bold font-mono bg-slate-100 text-slate-600 border-r border-slate-200">
-                        {departmentPrefix(formData.department)}
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="No. e.g. 28"
-                        value={formData.deptNumber}
-                        onChange={(e) => setFormData({ ...formData, deptNumber: e.target.value.toUpperCase() })}
-                        className="w-full px-2.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Row e.g. 2"
-                      value={formData.rackRow}
-                      onChange={(e) => setFormData({ ...formData, rackRow: e.target.value.toUpperCase() })}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Column e.g. 3"
-                      value={formData.rackColumn}
-                      onChange={(e) => setFormData({ ...formData, rackColumn: e.target.value.toUpperCase() })}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
-                    />
-                    <span className="text-xs font-bold font-mono text-emerald-700">
-                      {previewDepartmentId(formData) || '—'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    PR = Pre-order, RD = Ready2Cook, IN = Instant Order. Row / column mark the shelf spot (e.g. R2C3).
-                  </p>
-                </div>
-
                 {/* Product Title & SKU */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
@@ -2285,6 +2628,20 @@ export default function Products() {
                       }}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
+                    <label className="mt-3 block text-xs font-semibold text-slate-700 mb-1.5">
+                      Product name (Marathi)
+                    </label>
+                    <input
+                      type="text"
+                      lang="mr"
+                      placeholder="उदा. कांदा"
+                      value={formData.marathiName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, marathiName: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Shown under the English name on the product page.
+                    </p>
                   </div>
 
                   <div className="sm:col-span-1">
@@ -2426,7 +2783,7 @@ export default function Products() {
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setIsEditorOpen(false)}
+                    onClick={closeProductEditor}
                     className={BTN}
                   >
                     Cancel
@@ -2612,7 +2969,7 @@ export default function Products() {
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setIsEditorOpen(false)} className={BTN}>
+                    <button type="button" onClick={closeProductEditor} className={BTN}>
                       Cancel
                     </button>
                     <button type="button" onClick={() => setFormStep(1)} className={BTN}>
@@ -2691,6 +3048,7 @@ export default function Products() {
                                 discountedPercent: prev.discountedPercent || 30,
                                 stock: prev.stock || 50,
                                 inStock: prev.inStock !== false,
+                                image: prev.unitImage || '',
                               },
                               {
                                 quantity: 500,
@@ -2701,6 +3059,7 @@ export default function Products() {
                                 discountedPercent: 31,
                                 stock: 50,
                                 inStock: true,
+                                image: '',
                               },
                             ];
                           }
@@ -2747,6 +3106,9 @@ export default function Products() {
                           </label>
                           <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                             Display: {formData.unit || '1 Piece'}
+                            {marathiUnitLine(formData.unitQuantity, formData.unitType)
+                              ? ` · ${marathiUnitLine(formData.unitQuantity, formData.unitType)}`
+                              : ''}
                           </span>
                         </div>
                         <select
@@ -2756,7 +3118,7 @@ export default function Products() {
                         >
                           {STANDARD_UNIT_TYPES.map((u) => (
                             <option key={u} value={u}>
-                              {u} {u === 'Piece' ? '(pc)' : u === 'Kg' ? '(Kilogram)' : u === 'Gram' ? '(g)' : u === 'Liter' ? '(L)' : u === 'ML' ? '(Milliliter)' : ''}
+                              {unitSelectLabel(u)}
                             </option>
                           ))}
                         </select>
@@ -2784,6 +3146,13 @@ export default function Products() {
                         );
                       })}
                     </div>
+
+                    <UnitImagePicker
+                      image={formData.unitImage}
+                      uploading={unitImageUploadingKey === 'single'}
+                      onUpload={(file) => handleUnitImageUpload(file, 'single')}
+                      onClear={() => setFormData((prev) => ({ ...prev, unitImage: '' }))}
+                    />
 
                     {/* Pricing Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-100">
@@ -2936,6 +3305,13 @@ export default function Products() {
                               <span className="text-xs font-semibold text-slate-900">
                                 {variant.name || `${variant.quantity || 1} ${variant.unitType || 'Piece'}`}
                               </span>
+                              <UnitImagePicker
+                                compact
+                                image={variant.image}
+                                uploading={unitImageUploadingKey === `v-${idx}`}
+                                onUpload={(file) => handleUnitImageUpload(file, idx)}
+                                onClear={() => handleVariantFieldChange(idx, 'image', '')}
+                              />
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -2981,7 +3357,7 @@ export default function Products() {
                                 className="w-full px-2 py-1 rounded bg-white border border-slate-200 text-xs font-medium text-slate-900 cursor-pointer"
                               >
                                 {STANDARD_UNIT_TYPES.map((u) => (
-                                  <option key={u} value={u}>{u}</option>
+                                  <option key={u} value={u}>{unitSelectLabel(u)}</option>
                                 ))}
                               </select>
                             </div>
@@ -3048,7 +3424,7 @@ export default function Products() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsEditorOpen(false)}
+                      onClick={closeProductEditor}
                       className={BTN}
                     >
                       Cancel
@@ -3130,67 +3506,77 @@ export default function Products() {
                   </div>
 
                   {imageMode === 'upload' ? (
-                    <div>
+                    <label
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (!imageUploading) setImageDropActive(true);
+                      }}
+                      onDragLeave={() => setImageDropActive(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setImageDropActive(false);
+                        if (imageUploading) return;
+                        const files = Array.from(e.dataTransfer.files || []).filter((file) =>
+                          file.type.startsWith('image/')
+                        );
+                        if (files.length) handleMultipleImagesUpload(files);
+                      }}
+                      className={`flex items-center justify-between px-4 py-3 rounded-lg border border-dashed transition-all cursor-pointer ${
+                        imageDropActive
+                          ? 'border-emerald-600 bg-emerald-50'
+                          : 'border-slate-200 bg-slate-50/50 hover:border-emerald-600 hover:bg-slate-50'
+                      }`}
+                    >
                       <input
                         ref={imageInputRef}
                         type="file"
                         multiple
                         accept="image/*"
-                        className="hidden"
+                        className="sr-only"
+                        disabled={imageUploading}
                         onChange={(e) => handleMultipleImagesUpload(e.target.files)}
                       />
-                      <div
-                        onClick={() => !imageUploading && imageInputRef.current?.click()}
-                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-dashed border-slate-200 hover:border-emerald-600 bg-slate-50/50 /40 hover:bg-slate-50 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
+                          {imageUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-800">
                             {imageUploading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-[#217346]">{uploadProgressText || 'Uploading to Cloud...'}</span>
                             ) : (
-                              <Upload className="h-4 w-4" />
+                              'Select multiple photos, or drop them here'
                             )}
                           </div>
-                          <div>
-                            <div className="text-xs font-semibold text-slate-800">
-                              {imageUploading ? (
-                                <span className="text-[#217346]">{uploadProgressText || 'Uploading to Cloud...'}</span>
-                              ) : (
-                                'Click to browse or drag photos here'
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              JPG, PNG, WebP supported
-                            </div>
+                          <div className="text-[11px] text-slate-400">
+                            JPG, PNG, WebP. Choose as many as you need. First image is the cover.
                           </div>
                         </div>
-
-                        <span className="px-3 py-1 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 shadow-sm">
-                          Browse Files
-                        </span>
                       </div>
-                    </div>
+
+                      <span className="px-3 py-1 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-700 shadow-sm">
+                        Browse Files
+                      </span>
+                    </label>
                   ) : (
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="https://images.unsplash.com/... or image link"
+                      <textarea
+                        rows={3}
+                        placeholder={'Paste one link per line\nhttps://...\nhttps://...'}
                         value={imageUrlInput}
                         onChange={(e) => setImageUrlInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddImageUrl();
-                          }
-                        }}
                         className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                       />
                       <button
                         type="button"
                         onClick={handleAddImageUrl}
-                        className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
+                        className="self-end px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-medium cursor-pointer transition-colors shadow-sm"
                       >
-                        Add URL
+                        Add URLs
                       </button>
                     </div>
                   )}
@@ -3222,7 +3608,7 @@ export default function Products() {
                             {idx !== 0 && (
                               <button
                                 type="button"
-                                onClick={() => handleSetCoverImage(idx)}
+                                onClick={() => handleSetPrimaryImage(idx)}
                                 className="px-1.5 py-0.5 rounded bg-white text-slate-900 text-[10px] font-semibold cursor-pointer hover:bg-slate-100"
                               >
                                 Cover
@@ -3230,7 +3616,7 @@ export default function Products() {
                             )}
                             <button
                               type="button"
-                              onClick={() => handleRemoveProductImage(idx)}
+                              onClick={() => handleRemoveImage(imgUrl)}
                               className="p-1 rounded bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
                               title="Delete"
                             >
@@ -3239,6 +3625,20 @@ export default function Products() {
                           </div>
                         </div>
                       ))}
+                      {imageMode === 'upload' ? (
+                        <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white text-slate-500 hover:border-emerald-600 hover:text-emerald-700">
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            className="sr-only"
+                            disabled={imageUploading}
+                            onChange={(e) => handleMultipleImagesUpload(e.target.files)}
+                          />
+                          <Plus className="h-4 w-4" />
+                          <span className="text-[11px] font-semibold">Add more</span>
+                        </label>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -3432,7 +3832,7 @@ export default function Products() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsEditorOpen(false)}
+                      onClick={closeProductEditor}
                       className={BTN}
                     >
                       Cancel
@@ -3477,7 +3877,7 @@ export default function Products() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-1 sm:ml-7 leading-relaxed">
-                      Farmer origin, harvest timestamp, and land specifications displayed on customer app
+                      Meet Your Farmer, product Details, Crops, and Nutrition shown on the product page
                     </p>
                   </div>
 
@@ -3489,6 +3889,11 @@ export default function Products() {
                     <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                     <span>Auto Fill Example</span>
                   </button>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Meet Your Farmer</p>
+                  <p className="text-[11px] text-slate-500">Name, location, farm size, photo, and story on the farmer card.</p>
                 </div>
 
                 {/* 1. Farmer Basic Info Grid (1 col mobile, 2 col tablet, 3 col desktop) */}
@@ -3510,7 +3915,7 @@ export default function Products() {
                   <div>
                     <label className="flex items-center gap-1 text-xs font-semibold text-slate-700 mb-1.5">
                       <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Farm Location / District</span>
+                      <span>Farm location (Source)</span>
                     </label>
                     <input
                       type="text"
@@ -3533,6 +3938,55 @@ export default function Products() {
                       onChange={(e) => setFormData({ ...formData, harvestingDate: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Details</p>
+                    <p className="text-[11px] text-slate-500">Shown in the product Details tab.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Experience</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 12+ years"
+                        value={formData.farmerDetails?.experience || ''}
+                        onChange={(e) => setFormData((p) => ({ ...p, farmerDetails: { ...p.farmerDetails, experience: e.target.value } }))}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Variety</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Desi, Hybrid"
+                        value={formData.varietyName}
+                        onChange={(e) => setFormData({ ...formData, varietyName: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Packing date</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Packed at 6:00 AM"
+                        value={formData.packingDate}
+                        onChange={(e) => setFormData({ ...formData, packingDate: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Certification</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Organic (NPOP)"
+                        value={formData.certification}
+                        onChange={(e) => setFormData({ ...formData, certification: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -3756,6 +4210,111 @@ export default function Products() {
                   </div>
                 </div>
 
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Crops</p>
+                      <p className="text-[11px] text-slate-500">Crops grown on this farm, shown on the farmer profile.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((p) => ({
+                          ...p,
+                          farmerDetails: {
+                            ...p.farmerDetails,
+                            crops: [...(p.farmerDetails?.crops || []), { name: '', variety: '', area: '', status: 'Active' }],
+                          },
+                        }))
+                      }
+                      className={BTN}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add crop
+                    </button>
+                  </div>
+                  {(formData.farmerDetails?.crops || []).length === 0 ? (
+                    <p className="text-[11px] text-slate-400">No crops yet. Add the crops this farmer grows.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {formData.farmerDetails.crops.map((crop, idx) => (
+                        <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-[1.2fr_1fr_0.8fr_0.8fr_auto]">
+                          <input
+                            type="text"
+                            placeholder="Crop name e.g. Methi"
+                            value={crop.name}
+                            onChange={(e) =>
+                              setFormData((p) => {
+                                const next = [...(p.farmerDetails?.crops || [])];
+                                next[idx] = { ...next[idx], name: e.target.value };
+                                return { ...p, farmerDetails: { ...p.farmerDetails, crops: next } };
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Variety e.g. Desi"
+                            value={crop.variety}
+                            onChange={(e) =>
+                              setFormData((p) => {
+                                const next = [...(p.farmerDetails?.crops || [])];
+                                next[idx] = { ...next[idx], variety: e.target.value };
+                                return { ...p, farmerDetails: { ...p.farmerDetails, crops: next } };
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Area e.g. 1.5 Acre"
+                            value={crop.area}
+                            onChange={(e) =>
+                              setFormData((p) => {
+                                const next = [...(p.farmerDetails?.crops || [])];
+                                next[idx] = { ...next[idx], area: e.target.value };
+                                return { ...p, farmerDetails: { ...p.farmerDetails, crops: next } };
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <select
+                            value={crop.status || 'Active'}
+                            onChange={(e) =>
+                              setFormData((p) => {
+                                const next = [...(p.farmerDetails?.crops || [])];
+                                next[idx] = { ...next[idx], status: e.target.value };
+                                return { ...p, farmerDetails: { ...p.farmerDetails, crops: next } };
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          >
+                            <option value="Active">Active</option>
+                            <option value="Growing">Growing</option>
+                            <option value="Harvested">Harvested</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((p) => ({
+                                ...p,
+                                farmerDetails: {
+                                  ...p.farmerDetails,
+                                  crops: (p.farmerDetails?.crops || []).filter((_, i) => i !== idx),
+                                },
+                              }))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 text-rose-600 hover:bg-rose-50"
+                            title="Remove crop"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* 4. Farmer Story / Notes */}
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center justify-between mb-1.5">
@@ -3776,12 +4335,97 @@ export default function Products() {
                   />
                 </div>
 
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Nutrition</p>
+                      <p className="text-[11px] text-slate-500">Basic facts per 100g. Edit the values, or add more.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((p) => ({
+                          ...p,
+                          nutritionFacts: [...(p.nutritionFacts || []), { label: '', value: '' }],
+                        }))
+                      }
+                      className={BTN}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add fact
+                    </button>
+                  </div>
+                  {(formData.nutritionFacts || []).length === 0 ? (
+                    <p className="text-[11px] text-slate-400">No nutrition rows yet. Add Energy, Protein, and the rest.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {formData.nutritionFacts.map((fact, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                          <input
+                            type="text"
+                            placeholder="Label e.g. Energy"
+                            value={fact.label}
+                            onChange={(e) =>
+                              setFormData((p) => {
+                                const next = [...(p.nutritionFacts || [])];
+                                next[idx] = { ...next[idx], label: e.target.value };
+                                return { ...p, nutritionFacts: next };
+                              })
+                            }
+                            className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <div className="flex min-w-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:ring-1 focus-within:ring-emerald-500">
+                            <input
+                              type="text"
+                              placeholder={nutritionUnitFor(fact) || 'unit'}
+                              value={fact.value}
+                              onChange={(e) =>
+                                setFormData((p) => {
+                                  const next = [...(p.nutritionFacts || [])];
+                                  next[idx] = { ...next[idx], value: e.target.value };
+                                  return { ...p, nutritionFacts: next };
+                                })
+                              }
+                              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                            />
+                            {fact.value && nutritionUnitFor(fact) ? (
+                              <span className="pointer-events-none shrink-0 pr-3 text-[11px] text-slate-400">
+                                {nutritionUnitFor(fact)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((p) => ({
+                                ...p,
+                                nutritionFacts: (p.nutritionFacts || []).filter((_, i) => i !== idx),
+                              }))
+                            }
+                            className="rounded-lg border border-slate-200 px-2 text-rose-600 hover:bg-rose-50"
+                            title="Remove"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
+                    rows="2"
+                    placeholder="Note shown under the nutrition cards"
+                    value={formData.nutritionNote || ''}
+                    onChange={(e) => setFormData({ ...formData, nutritionNote: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                  />
+                </div>
+
                 {/* Step 4 Footer Action — Publish only on last screen */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsEditorOpen(false)}
+                      onClick={closeProductEditor}
                       className={BTN}
                     >
                       Cancel
@@ -3855,10 +4499,20 @@ export default function Products() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className={PAGE_KICKER}>Catalog</p>
-          <h1 className={PAGE_TITLE}>All Products</h1>
+          <p className={PAGE_KICKER}>Catalog · Product</p>
+          <h1 className={PAGE_TITLE}>
+            {catalogPage === 'categories'
+              ? 'Category'
+              : catalogPage === 'sections'
+                ? 'Section'
+                : 'All Products'}
+          </h1>
           <p className={PAGE_SUB}>
-            All products catalog with pricing, stock and inventory
+            {catalogPage === 'categories'
+              ? 'Same categories customers see on the storefront. Extra catalog categories stay off this page.'
+              : catalogPage === 'sections'
+                ? 'Add and manage store sections such as GreenGrocc and Ready2Cook.'
+                : 'All products catalog with pricing, stock and inventory'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -3866,15 +4520,31 @@ export default function Products() {
             <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-          <button type="button" onClick={() => handleOpenCreate()} className={BTN_PRIMARY}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add product
-          </button>
+          {catalogPage === 'categories' ? (
+            <button
+              type="button"
+              onClick={() => openTaxModal('category', 'create', sectionSlug ? { section: sectionSlug } : null)}
+              className={BTN_PRIMARY}
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add category
+            </button>
+          ) : catalogPage === 'sections' ? (
+            <button type="button" onClick={() => openTaxModal('section', 'create')} className={BTN_PRIMARY}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add section
+            </button>
+          ) : (
+            <button type="button" onClick={() => handleOpenCreate()} className={BTN_PRIMARY}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add product
+            </button>
+          )}
         </div>
       </div>
 
       {/* Breadcrumb */}
-      {selectedCategory || selectedDepartment || listAudience ? (
+      {catalogPage === 'products' && (selectedCategory || selectedDepartment || listAudience) ? (
         <nav className="flex flex-wrap items-center gap-1.5 text-xs">
           <button
             type="button"
@@ -3899,7 +4569,7 @@ export default function Products() {
       ) : null}
 
       {/* LEVEL 1 — User type */}
-      {navLevel === 'audience' ? (
+      {catalogPage === 'products' && navLevel === 'audience' ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <button
             type="button"
@@ -3937,7 +4607,7 @@ export default function Products() {
       ) : null}
 
       {/* LEVEL 2 — Sections + stats */}
-      {navLevel === 'sections' ? (
+      {catalogPage === 'sections' || (catalogPage === 'products' && navLevel === 'sections') ? (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
@@ -4014,7 +4684,10 @@ export default function Products() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => enterSection(sec.slug)}
+                      onClick={() => {
+                        if (catalogPage === 'sections') return;
+                        enterSection(sec.slug);
+                      }}
                       className="w-full pr-12 text-left"
                     >
                       <span
@@ -4027,7 +4700,9 @@ export default function Products() {
                       <p className="mt-1 text-xs text-slate-500">
                         /{sec.slug} · {count} products
                       </p>
-                      <p className="mt-3 text-xs font-semibold text-emerald-700">Open categories →</p>
+                      {catalogPage === 'sections' ? null : (
+                        <p className="mt-3 text-xs font-semibold text-emerald-700">Open categories →</p>
+                      )}
                     </button>
                   </div>
                 );
@@ -4038,7 +4713,7 @@ export default function Products() {
       ) : null}
 
       {/* LEVEL 3 — Categories */}
-      {navLevel === 'categories' ? (
+      {catalogPage === 'products' && navLevel === 'categories' ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-800">
@@ -4134,7 +4809,117 @@ export default function Products() {
       ) : null}
 
       {/* LEVEL 4 — Products (directly under category) */}
-      {navLevel === 'products' ? (
+      {catalogPage === 'categories' ? (
+        <div className="space-y-4">
+          {sections.length > 0 ? (
+            <div className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
+              {sections.map((sec) => {
+                const active = Boolean(sectionSlug) && sectionMatches(sectionSlug, sec.slug);
+                return (
+                  <button
+                    key={sec._id || sec.slug}
+                    type="button"
+                    onClick={() => navigate(`/products/categories/${sec.slug}`)}
+                    className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                      active ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {sec.sectionName}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {loading && sections.length === 0 ? (
+            <div className={`${PANEL} px-6 py-12 text-center text-sm text-slate-500`}>Loading sections…</div>
+          ) : sections.length === 0 ? (
+            <div className={`${PANEL} px-6 py-12 text-center`}>
+              <p className="text-sm text-slate-500">Create a section first, then add categories under it.</p>
+              <button type="button" onClick={() => navigate('/products/sections')} className={`${BTN_PRIMARY} mt-4`}>
+                Go to sections
+              </button>
+            </div>
+          ) : (
+            (() => {
+              const activeSec =
+                sections.find((sec) => sectionMatches(sectionSlug, sec.slug) || sectionMatches(sec.slug, sectionSlug)) ||
+                sections[0];
+              const cats = categoryCardsForSection(activeSec.slug, categories);
+              return cats.length === 0 ? (
+                <div className={`${PANEL} px-6 py-12 text-center`}>
+                  <p className="text-sm text-slate-500">No categories in {activeSec.sectionName} yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => openTaxModal('category', 'create', { section: activeSec.slug })}
+                    className={`${BTN_PRIMARY} mt-4`}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add category
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {cats.map((card) => {
+                    const count = products.filter((p) => {
+                      const names = Array.isArray(p.categories) ? p.categories : [p.category];
+                      return names.some(
+                        (name) => String(name || '').toLowerCase() === String(card.matchName || '').toLowerCase()
+                      );
+                    }).length;
+                    const linked = card.linked;
+                    const canDelete =
+                      linked?._id &&
+                      String(linked.categoryName || '').trim().toLowerCase() === String(card.label || '').trim().toLowerCase();
+                    return (
+                      <div key={card.key} className={`${PANEL} relative p-4`}>
+                        {linked?._id ? (
+                          <div className="absolute right-2 top-2 flex gap-0.5">
+                            <button
+                              type="button"
+                              title="Edit category"
+                              onClick={() => openTaxModal('category', 'edit', linked)}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            {canDelete ? (
+                              <button
+                                type="button"
+                                title="Delete category"
+                                onClick={() => openTaxModal('category', 'delete', linked)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <div className="flex items-start gap-3 pr-12">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                            {linked?.categoryImage ? (
+                              <img src={linked.categoryImage} alt={card.label} className="h-full w-full object-cover" />
+                            ) : (
+                              <FolderTree className="h-5 w-5 text-emerald-600" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">{card.label}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {count} product{count === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
+          )}
+        </div>
+      ) : null}
+
+      {catalogPage === 'products' && navLevel === 'products' ? (
         <div className="space-y-4">
           <div className={`${PANEL} space-y-3 p-4`}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -4604,7 +5389,7 @@ export default function Products() {
                   {taxModal.kind === 'section'
                     ? 'Store departments like GreenGrocc, Ready2Cook…'
                     : taxModal.kind === 'category'
-                      ? `Under section: ${deptLabel || selectedDepartment}`
+                      ? 'Select a section, enter the category name, then upload a photo.'
                       : `Under category: ${selectedCategory}`}
                 </p>
               </div>
@@ -4634,6 +5419,98 @@ export default function Products() {
                     ? 'Linked categories are not deleted automatically.'
                     : 'This cannot be undone.'}
               </p>
+            ) : taxModal.kind === 'category' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">1. Section</label>
+                  <select
+                    value={taxForm.section}
+                    onChange={(e) => setTaxForm((prev) => ({ ...prev, section: e.target.value }))}
+                    className={INPUT}
+                    autoFocus
+                  >
+                    <option value="">Select section</option>
+                    {sections.map((sec) => (
+                      <option key={sec._id || sec.slug} value={sec.slug}>
+                        {sec.sectionName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={taxForm.section ? '' : 'pointer-events-none opacity-50'}>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">2. Category name</label>
+                  <input
+                    type="text"
+                    value={taxForm.name}
+                    disabled={!taxForm.section}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setTaxForm((prev) => ({
+                        ...prev,
+                        name,
+                        slug: taxModal.mode === 'edit' ? prev.slug : slugifyName(name),
+                      }));
+                    }}
+                    className={INPUT}
+                    placeholder={taxForm.section ? 'e.g. Fresh Vegetables' : 'Select a section first'}
+                  />
+                </div>
+                <div className={taxForm.section && taxForm.name.trim() ? '' : 'pointer-events-none opacity-50'}>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600">3. Category photo</label>
+                  <input
+                    ref={catTaxImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={!taxForm.section || !taxForm.name.trim()}
+                    onChange={(e) => handleCategoryTaxImageUpload(e.target.files?.[0])}
+                  />
+                  <div
+                    role="button"
+                    tabIndex={taxForm.section && taxForm.name.trim() ? 0 : -1}
+                    onClick={() => {
+                      if (!taxForm.section || !taxForm.name.trim() || taxImageUploading) return;
+                      catTaxImageInputRef.current?.click();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (taxForm.section && taxForm.name.trim() && !taxImageUploading) {
+                          catTaxImageInputRef.current?.click();
+                        }
+                      }
+                    }}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-emerald-400 hover:bg-emerald-50/40"
+                  >
+                    {taxImageUploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                    ) : taxForm.categoryImage ? (
+                      <img
+                        src={taxForm.categoryImage}
+                        alt="Category"
+                        className="mb-2 h-24 w-24 rounded-xl object-cover ring-1 ring-slate-200"
+                      />
+                    ) : (
+                      <ImageIcon className="mb-2 h-7 w-7 text-slate-400" />
+                    )}
+                    <p className="text-xs font-semibold text-slate-700">
+                      {taxForm.categoryImage ? 'Change photo' : 'Upload category photo'}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {taxForm.name.trim() ? 'JPG, PNG or WebP' : 'Enter the category name first'}
+                    </p>
+                  </div>
+                  {taxForm.categoryImage ? (
+                    <button
+                      type="button"
+                      onClick={() => setTaxForm((prev) => ({ ...prev, categoryImage: '' }))}
+                      className="mt-2 text-xs font-semibold text-rose-600 hover:underline"
+                    >
+                      Remove photo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             ) : (
               <div className="space-y-3">
                 <div>
@@ -4653,13 +5530,7 @@ export default function Products() {
                       }));
                     }}
                     className={INPUT}
-                    placeholder={
-                      taxModal.kind === 'section'
-                        ? 'e.g. GreenGrocc'
-                        : taxModal.kind === 'category'
-                          ? 'e.g. Fresh Vegetables'
-                          : 'e.g. Leafy Greens'
-                    }
+                    placeholder={taxModal.kind === 'section' ? 'e.g. GreenGrocc' : 'e.g. Leafy Greens'}
                     autoFocus
                   />
                 </div>
@@ -4693,66 +5564,6 @@ export default function Products() {
                     />
                   </div>
                 ) : null}
-                {taxModal.kind === 'category' ? (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-slate-600">
-                      Category image
-                    </label>
-                    <input
-                      ref={catTaxImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleCategoryTaxImageUpload(e.target.files?.[0])}
-                    />
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => !taxImageUploading && catTaxImageInputRef.current?.click()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          if (!taxImageUploading) catTaxImageInputRef.current?.click();
-                        }
-                      }}
-                      className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-emerald-400 hover:bg-emerald-50/40"
-                    >
-                      {taxImageUploading ? (
-                        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-                      ) : taxForm.categoryImage ? (
-                        <img
-                          src={taxForm.categoryImage}
-                          alt="Category"
-                          className="mb-2 h-24 w-24 rounded-xl object-cover ring-1 ring-slate-200"
-                        />
-                      ) : (
-                        <ImageIcon className="mb-2 h-7 w-7 text-slate-400" />
-                      )}
-                      <p className="text-xs font-semibold text-slate-700">
-                        {taxForm.categoryImage ? 'Change image' : 'Upload category image'}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-slate-400">JPG, PNG or WebP</p>
-                    </div>
-                    <input
-                      type="url"
-                      value={taxForm.categoryImage}
-                      onChange={(e) =>
-                        setTaxForm((prev) => ({ ...prev, categoryImage: e.target.value.trim() }))
-                      }
-                      className={INPUT}
-                      placeholder="Or paste image URL"
-                    />
-                    {taxForm.categoryImage ? (
-                      <button
-                        type="button"
-                        onClick={() => setTaxForm((prev) => ({ ...prev, categoryImage: '' }))}
-                        className="text-xs font-semibold text-rose-600 hover:underline"
-                      >
-                        Remove image
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
             )}
 
@@ -4763,7 +5574,15 @@ export default function Products() {
               <button
                 type="button"
                 onClick={handleTaxSubmit}
-                disabled={taxBusy}
+                disabled={
+                  taxBusy ||
+                  taxImageUploading ||
+                  (taxModal.kind === 'category' &&
+                    taxModal.mode !== 'delete' &&
+                    (!taxForm.section ||
+                      !taxForm.name.trim() ||
+                      (taxModal.mode === 'create' && !taxForm.categoryImage)))
+                }
                 className={
                   taxModal.mode === 'delete'
                     ? 'inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60'
