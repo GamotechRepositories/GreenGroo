@@ -1,11 +1,14 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LOGO_URL } from "../layout/Header";
 import { useCart } from "../../context/CartContext";
 import MobileSearchBar from "./MobileSearchBar";
+import ShopCategoryPicker from "./ShopCategoryPicker";
 
 function MobileHeader() {
   const { cartCount, openCartSidebar } = useCart();
+  const { pathname } = useLocation();
+  const isShop = pathname === "/product";
   const headerRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(72);
 
@@ -29,19 +32,24 @@ function MobileHeader() {
         ref={headerRef}
         className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white px-3 pt-2.5 pb-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 lg:hidden"
       >
-        {/* Row: Logo + Search + Cart */}
         <div className="flex items-center gap-2.5">
-          <Link to="/" className="shrink-0 transition-transform active:scale-95">
-            <img
-              src={LOGO_URL}
-              alt="GreenGrocc"
-              className="h-10 w-auto object-contain sm:h-12"
-            />
-          </Link>
+          {isShop ? (
+            <ShopCategoryPicker />
+          ) : (
+            <>
+              <Link to="/" className="shrink-0 transition-transform active:scale-95">
+                <img
+                  src={LOGO_URL}
+                  alt="GreenGrocc"
+                  className="h-10 w-auto object-contain sm:h-12"
+                />
+              </Link>
 
-          <div className="min-w-0 flex-1">
-            <MobileSearchBar className="w-full" />
-          </div>
+              <div className="min-w-0 flex-1">
+                <MobileSearchBar className="w-full" />
+              </div>
+            </>
+          )}
 
           <Link
             to="/cart"

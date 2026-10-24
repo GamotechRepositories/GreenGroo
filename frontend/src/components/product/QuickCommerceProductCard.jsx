@@ -26,14 +26,6 @@ function getProductUnit(product) {
   return "1 pc";
 }
 
-function getDeliveryTime(product) {
-  if (product?.deliveryTime) return product.deliveryTime;
-  if (product?.eta) return product.eta;
-  if (product?.deliveryMinutes) return `${product.deliveryMinutes} MINS`;
-  if (product?.deliveryWindow) return product.deliveryWindow;
-  return "10 MINS";
-}
-
 function getRating(product) {
   const rating = Number(product?.ratings ?? product?.rating ?? 0);
   if (rating > 0) return rating;
@@ -54,14 +46,6 @@ function StarIcon({ className = "h-3 w-3" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.47L12 17.77l-5.8 3.05 1.11-6.47-4.7-4.58 6.49-.94L12 2.5z" />
-    </svg>
-  );
-}
-
-function ClockIcon({ className = "h-3 w-3" }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
@@ -93,7 +77,6 @@ function QuickCommerceProductCard({
 
   const unit = getProductUnit(product);
   const displayInfo = getProductDisplayDetails(product, unit);
-  const deliveryTime = getDeliveryTime(product);
   const rating = getRating(product);
   const reviewCount = getReviewCount(product);
 
@@ -120,28 +103,17 @@ function QuickCommerceProductCard({
 
   const rawGlow = product.cardGlowColor || product.glowColor || '';
   const glowColor = rawGlow ? (String(rawGlow).trim().startsWith('#') ? String(rawGlow).trim() : `#${String(rawGlow).trim()}`) : '';
-  const hasGlow = Boolean(glowColor);
-  const glowBg = hasGlow ? (glowColor.length === 7 ? `${glowColor}10` : glowColor) : undefined;
-  const glowBorder = hasGlow ? (glowColor.length === 7 ? `${glowColor}40` : glowColor) : undefined;
-
   return (
     <div className={widthClass}>
       <div className="relative flex h-full flex-col justify-between bg-transparent">
-        {/* Product Image Container ONLY has the border box & background */}
-        <div
-          className="relative w-full overflow-hidden rounded-xl border border-gray-200/90 bg-white transition duration-200"
-          style={{
-            backgroundColor: glowBg || '#ffffff',
-            borderColor: glowBorder || '#E5E7EB',
-          }}
-        >
+        <div className="relative w-full overflow-hidden rounded-xl">
           <Link to={productUrl} className="block w-full">
             <ProductImageFrame
               src={image}
               fallbackSrc={fallbackImage}
               alt={product.name}
-              fit="contain"
-              className={`!aspect-square w-full !bg-transparent p-2 ${disabled ? "opacity-50" : ""}`}
+              fit="cover"
+              className={`!aspect-square w-full rounded-xl ${disabled ? "opacity-50" : ""}`}
             />
           </Link>
 
@@ -173,16 +145,8 @@ function QuickCommerceProductCard({
         {/* Details Section below Image Box (No outer border box) */}
         <div className="mt-1.5 flex flex-1 flex-col justify-between min-w-0">
           <Link to={productUrl} className="flex flex-col min-w-0">
-            {/* Delivery Time Badge (e.g. ⏱ 10 MINS) */}
-            <div className="flex items-center gap-1 text-[#363636]">
-              <ClockIcon className="h-2.5 w-2.5 shrink-0 text-gray-700" />
-              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-tight">
-                {deliveryTime}
-              </span>
-            </div>
-
             {/* Product Name (Hindi / English with unit) */}
-            <h3 className="mt-1 line-clamp-1 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
+            <h3 className="line-clamp-1 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
               {displayInfo.primaryTitle}
             </h3>
 

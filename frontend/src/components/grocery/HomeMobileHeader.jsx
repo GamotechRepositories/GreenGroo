@@ -82,6 +82,12 @@ function StoreTab({ storeKey, isCurrentActive, onSelect, children }) {
   );
 }
 
+const DEFAULT_STORE_SECTIONS = [
+  { slug: "main", sectionName: "PreOrder" },
+  { slug: "festive", sectionName: "Ready2Cook" },
+  { slug: "mall", sectionName: "InstantOrder" },
+];
+
 /** Logo + profile + compact store tabs */
 export function HomeDeliveryBar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -99,7 +105,7 @@ export function HomeDeliveryBar() {
     setSearchParams(nextParams);
   };
 
-  const displaySections = sections;
+  const displaySections = sections.length ? sections : DEFAULT_STORE_SECTIONS;
 
   return (
     <div className={`${theme.deliveryBg} px-3 pb-0 pt-1 transition-colors duration-300`}>
@@ -122,7 +128,7 @@ export function HomeDeliveryBar() {
 
           return (
             <StoreTab
-              key={sec._id || sec.slug || storeKey}
+              key={storeKey}
               storeKey={storeKey}
               isCurrentActive={isCurrentActive}
               onSelect={setStore}

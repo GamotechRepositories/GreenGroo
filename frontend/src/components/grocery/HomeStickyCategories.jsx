@@ -13,9 +13,11 @@ function HomeStickyCategories() {
   const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
 
+  // The fixed bar is shorter (icons hidden); the spacer must keep the in-flow height
+  // or the page jumps and the bar toggles fixed/unfixed in a loop.
   useLayoutEffect(() => {
     const sticky = stickyRef.current;
-    if (!sticky) return undefined;
+    if (!sticky || isFixed) return undefined;
 
     const updateHeight = () => setStickyHeight(sticky.offsetHeight);
     updateHeight();

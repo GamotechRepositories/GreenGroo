@@ -239,16 +239,18 @@ export function BottomNav() {
     <Link
       to="/support"
       aria-label="Support"
-      className="gg-bar-slide fixed right-3 z-[60] block h-16 w-16 bg-transparent lg:hidden"
+      className="gg-bar-slide fixed right-3 z-[60] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full bg-gradient-to-b from-[#E8F7EA] to-white shadow-[0_6px_16px_rgba(12,131,31,0.35)] ring-2 ring-[#0C831F] transition-transform active:scale-95 lg:hidden"
       style={{
-        bottom: "calc(73px + env(safe-area-inset-bottom, 0px))",
+        bottom: "calc(81px + env(safe-area-inset-bottom, 0px))",
         transform: hidden ? "translate3d(0, 150px, 0)" : "translate3d(0, 0, 0)",
       }}
     >
       <img
-        src="/assets/support-agent.png?v=2"
+        src="/assets/support-agent.png?v=3"
         alt=""
-        className="h-full w-full object-contain"
+        aria-hidden="true"
+        draggable={false}
+        className="h-[52px] w-[52px] object-contain object-bottom"
       />
     </Link>
     <nav
