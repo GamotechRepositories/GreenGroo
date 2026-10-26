@@ -549,6 +549,7 @@ const resolveProductPricing = (payload) => {
         inStock,
         stock: resolvedStock,
         colors: normalizeColors(variant.colors),
+        image: String(variant.image || "").trim(),
       });
     }
 

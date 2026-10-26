@@ -1430,7 +1430,7 @@ export default function Products() {
 
   const handleUnitImageUpload = async (file, target) => {
     if (!file) return;
-    const key = target === 'single' ? 'single' : `v-${target}`;
+    const key = target === 'single' || target === 'base' ? target : `v-${target}`;
     try {
       setUnitImageUploadingKey(key);
       setError('');
