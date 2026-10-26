@@ -3,8 +3,6 @@ import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import {
   getAvailableColors,
-  getCartAdjustStep,
-  getMinOrderQuantity,
   getMaxOrderQuantity,
   getVariant,
   getVariantStock,
@@ -28,14 +26,12 @@ const matchesCartItem = (item, productId, variantName, colorName, preOrderSlot) 
   (item.preOrderSlot || "") === (preOrderSlot || "");
 
 function validateCartQuantity(product, variantName, qty) {
-  const moq = getMinOrderQuantity(product, variantName);
   const maxQty = getMaxOrderQuantity(product, variantName);
-  const step = getCartAdjustStep(product, variantName);
 
-  if (qty < moq) {
+  if (qty < 1) {
     return {
       valid: false,
-      message: `Minimum order quantity is ${moq}`,
+      message: "Quantity must be at least 1",
     };
   }
 
@@ -43,13 +39,6 @@ function validateCartQuantity(product, variantName, qty) {
     return {
       valid: false,
       message: `Maximum order quantity allowed is ${maxQty}`,
-    };
-  }
-
-  if (step > 1 && (qty - moq) % step !== 0) {
-    return {
-      valid: false,
-      message: `Quantity must increase in steps of ${step} from ${moq}`,
     };
   }
 

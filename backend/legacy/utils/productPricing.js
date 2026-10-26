@@ -279,7 +279,11 @@ export function getUnitPriceForQuantity(product, quantity, variantName = "") {
       }
     }
 
-    if (!unitPrice) unitPrice = slabs[slabs.length - 1]?.pricePerUnit ?? 0;
+    if (!unitPrice) {
+      const belowFirstSlab = qty < Number(slabs[0]?.minQuantity);
+      unitPrice =
+        (belowFirstSlab ? slabs[0] : slabs[slabs.length - 1])?.pricePerUnit ?? 0;
+    }
   } else {
     unitPrice = source.discountedPrice ?? source.price ?? 0;
   }
@@ -287,15 +291,7 @@ export function getUnitPriceForQuantity(product, quantity, variantName = "") {
   return applyQuantityDiscounts(unitPrice, qty, product?.quantityDiscounts);
 }
 
-export function getMinOrderQuantity(product, variantName = "") {
-  const source = getPricingSource(product, variantName);
-  if (!source) return 1;
-
-  const moq = Number(source.minOrderQuantity);
-  if (Number.isFinite(moq) && moq > 0) {
-    return moq;
-  }
-
+export function getMinOrderQuantity() {
   return 1;
 }
 
@@ -333,11 +329,6 @@ export function getCartAdjustStep(product, variantName = "", fallback = 1) {
   const step = Number(source.stepByQuantity);
   if (Number.isFinite(step) && step > 0) {
     return step;
-  }
-
-  const moq = Number(source.minOrderQuantity);
-  if (Number.isFinite(moq) && moq > 0) {
-    return moq;
   }
 
   return fallback;

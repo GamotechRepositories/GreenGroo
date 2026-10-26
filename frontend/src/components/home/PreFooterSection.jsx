@@ -18,7 +18,7 @@ const FAQS = [
   {
     question: "What is the minimum order quantity?",
     questionShort: "Min. order?",
-    answer: "Minimum order quantity depends on the product — check the product page or contact us for details.",
+    answer: "There is no minimum order quantity — you can order even a single unit of any product.",
   },
   {
     question: "Do you deliver across India?",

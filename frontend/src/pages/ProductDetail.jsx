@@ -18,7 +18,6 @@ import {
   getMinOrderQuantity,
   getMaxOrderQuantity,
   getCartAdjustStep,
-  hasConfiguredMinOrderQuantity,
   hasConfiguredMaxOrderQuantity,
   hasConfiguredQuantityStep,
   getUnitPriceForQuantity,
@@ -1116,9 +1115,6 @@ function ProductDetail() {
   const quantityStep = product
     ? getCartAdjustStep(product, activeVariantName, DEFAULT_MOQ)
     : DEFAULT_MOQ;
-  const showMoq = product
-    ? hasConfiguredMinOrderQuantity(product, activeVariantName)
-    : false;
   const showStepByQty = product
     ? hasConfiguredQuantityStep(product, activeVariantName)
     : false;
@@ -1551,15 +1547,8 @@ function ProductDetail() {
                 </p>
               ) : null}
 
-              {(showMoq || showStepByQty) && (
-                <p className="mt-2 text-[12px] text-slate-500">
-                  {[
-                    showMoq ? `MOQ: ${minOrderQuantity}` : null,
-                    showStepByQty ? `Step: ${quantityStep}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+              {showStepByQty && (
+                <p className="mt-2 text-[12px] text-slate-500">Step: {quantityStep}</p>
               )}
             </div>
 

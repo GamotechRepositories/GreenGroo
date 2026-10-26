@@ -66,9 +66,9 @@ function TermsAndConditions() {
                 </p>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-text-primary mb-3">Orders & Minimum Quantity</h2>
+                <h2 className="text-xl font-bold text-text-primary mb-3">Orders</h2>
                 <p>
-                  Minimum order quantity is 10 units unless otherwise stated. All orders
+                  There is no minimum order quantity — you can order a single unit. All orders
                   are subject to stock availability and confirmation by our sales team.
                   Prices quoted are valid for the period specified in your bulk quote.
                 </p>
