@@ -11,6 +11,7 @@ export const HR_LINKS = [
   { to: '/hr-management/my-leave', label: 'My Leave' },
   { to: '/hr-management/employees', label: 'Employees' },
   { to: '/hr-management/payroll', label: 'Salary' },
+  { to: '/hr-management/performance', label: 'Appraisals & Career' },
   { to: '/hr-management/recruitment', label: 'Recruitment' },
   { to: '/hr-management/attendance', label: 'Attendance' },
 ];

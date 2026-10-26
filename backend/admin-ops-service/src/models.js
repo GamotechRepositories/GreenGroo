@@ -219,16 +219,26 @@ const hrAttendanceSchema = new mongoose.Schema(
       type: String,
       enum: HR_EMPLOYEE_TYPES,
       default: "staff",
+      index: true,
     },
     name: { type: String, required: true, trim: true },
     role: { type: String, default: "", trim: true },
-    date: { type: String, required: true, trim: true },
+    date: { type: String, required: true, trim: true, index: true },
     clockIn: { type: Date, default: Date.now },
     clockOut: { type: Date, default: null },
     notes: { type: String, default: "", trim: true },
+    source: { type: String, default: "staff_app", trim: true },
+    status: {
+      type: String,
+      enum: ["present", "late", "half_day", "on_leave", "absent"],
+      default: "present",
+      index: true,
+    },
+    workDurationMinutes: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+hrAttendanceSchema.index({ date: 1, employeeId: 1 });
 
 const hrEmploymentSchema = new mongoose.Schema(
   {
@@ -731,6 +741,105 @@ const hrMeetingSchema = new mongoose.Schema(
 export const HrMeeting =
   mongoose.models.AdminHrMeeting ||
   mongoose.model("AdminHrMeeting", hrMeetingSchema);
+
+const hrPromotionSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, default: "staff", index: true },
+    name: { type: String, required: true, trim: true },
+    previousRole: { type: String, default: "", trim: true },
+    newRole: { type: String, default: "", trim: true },
+    previousDesignation: { type: String, default: "", trim: true },
+    newDesignation: { type: String, required: true, trim: true },
+    previousDepartment: { type: String, default: "", trim: true },
+    newDepartment: { type: String, default: "", trim: true },
+    effectiveDate: { type: String, required: true, trim: true, index: true },
+    reason: { type: String, default: "", trim: true },
+    approvedBy: { type: String, default: "", trim: true },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "effective", "rejected"],
+      default: "effective",
+      index: true,
+    },
+    vendorId: { type: String, default: "", trim: true, index: true },
+  },
+  { timestamps: true }
+);
+
+const hrIncrementSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, default: "staff", index: true },
+    name: { type: String, required: true, trim: true },
+    previousSalary: { type: Number, required: true, min: 0 },
+    newSalary: { type: Number, required: true, min: 0 },
+    incrementAmount: { type: Number, default: 0 },
+    incrementPercentage: { type: Number, default: 0 },
+    effectiveDate: { type: String, required: true, trim: true, index: true },
+    cycle: {
+      type: String,
+      default: "Annual Appraisal",
+      trim: true,
+      index: true,
+    },
+    reason: { type: String, default: "", trim: true },
+    approvedBy: { type: String, default: "", trim: true },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "processed", "rejected"],
+      default: "processed",
+      index: true,
+    },
+    vendorId: { type: String, default: "", trim: true, index: true },
+  },
+  { timestamps: true }
+);
+
+const hrPerformanceLogSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, default: "staff", index: true },
+    name: { type: String, required: true, trim: true },
+    reviewPeriod: { type: String, required: true, trim: true, index: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    kpis: [
+      {
+        metric: { type: String, required: true, trim: true },
+        score: { type: Number, default: 5, min: 0, max: 5 },
+        maxScore: { type: Number, default: 5 },
+        comments: { type: String, default: "", trim: true },
+      },
+    ],
+    achievements: { type: String, default: "", trim: true },
+    improvementAreas: { type: String, default: "", trim: true },
+    feedback: { type: String, default: "", trim: true },
+    goals: { type: String, default: "", trim: true },
+    reviewedBy: { type: String, default: "", trim: true },
+    reviewDate: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      enum: ["draft", "finalized", "shared_with_employee"],
+      default: "finalized",
+      index: true,
+    },
+    vendorId: { type: String, default: "", trim: true, index: true },
+  },
+  { timestamps: true }
+);
+
+export const HrPromotion =
+  mongoose.models.AdminHrPromotion ||
+  mongoose.model("AdminHrPromotion", hrPromotionSchema);
+
+export const HrIncrement =
+  mongoose.models.AdminHrIncrement ||
+  mongoose.model("AdminHrIncrement", hrIncrementSchema);
+
+export const HrPerformanceLog =
+  mongoose.models.AdminHrPerformanceLog ||
+  mongoose.model("AdminHrPerformanceLog", hrPerformanceLogSchema);
+
 
 const omniInvoiceItemSchema = new mongoose.Schema(
   {

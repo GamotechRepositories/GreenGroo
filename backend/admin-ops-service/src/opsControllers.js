@@ -48,7 +48,7 @@ import {
   MSG91_TEMPLATES,
 } from "@greengrocc/shared";
 import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
-import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
+import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask, HrLeaveRequest, HrShift } from "./models.js";
 import {
   VENDOR_HR_ROLE_KEYS,
   canManageHrEmployee,
@@ -1751,12 +1751,15 @@ export async function clockHrAttendance(req, res, next) {
     if (!(await canManageHrEmployee(req, req.body.employeeType || "staff", employeeId))) {
       return fail(res, 403, "This employee is not in your team");
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = req.body.date ? String(req.body.date).trim() : new Date().toISOString().slice(0, 10);
     const open = await HrAttendance.findOne({ employeeId, clockOut: null }).sort({ clockIn: -1 });
     if (req.body.action === "out") {
       if (!open) return fail(res, 400, "No open attendance to clock out");
       open.clockOut = new Date();
       open.notes = String(req.body.notes || open.notes || "").trim();
+      if (open.clockIn) {
+        open.workDurationMinutes = Math.max(0, Math.round((open.clockOut.getTime() - open.clockIn.getTime()) / 60000));
+      }
       await open.save();
       return ok(res, open);
     }
@@ -1767,7 +1770,11 @@ export async function clockHrAttendance(req, res, next) {
       name,
       role: String(req.body.role || "").trim(),
       date: today,
+      clockIn: new Date(),
+      clockOut: null,
       notes: String(req.body.notes || "").trim(),
+      source: String(req.body.source || "admin"),
+      status: "present",
     });
     return res.status(201).json({ success: true, data: record });
   } catch (error) {
@@ -1779,15 +1786,320 @@ export async function listHrAttendance(req, res, next) {
   try {
     const filter = {};
     if (req.query.employeeId) filter.employeeId = req.query.employeeId;
+    if (req.query.employeeType && req.query.employeeType !== "all") filter.employeeType = req.query.employeeType;
+    if (req.query.date) filter.date = req.query.date;
+    else if (req.query.month) filter.date = new RegExp(`^${req.query.month}`);
+    else if (req.query.startDate && req.query.endDate) {
+      filter.date = { $gte: req.query.startDate, $lte: req.query.endDate };
+    }
+    if (req.query.source && req.query.source !== "all") filter.source = req.query.source;
+
+    const limit = Number(req.query.limit) || 500;
     const rows = await HrAttendance.find(withHrScope(filter, await hrEmployeeFilter(req)))
-      .sort({ clockIn: -1 })
-      .limit(200)
+      .sort({ date: -1, clockIn: -1 })
+      .limit(limit)
       .lean();
-    return ok(res, rows);
+
+    const formattedRows = rows.map((r) => {
+      const start = r.clockIn ? new Date(r.clockIn).getTime() : 0;
+      const end = r.clockOut ? new Date(r.clockOut).getTime() : Date.now();
+      const durationMinutes = start > 0 ? Math.max(0, Math.round((end - start) / 60000)) : 0;
+      return {
+        ...r,
+        durationMinutes,
+        source: r.source || (r.notes && r.notes.includes("Mobile App") ? "staff_app" : "staff_app"),
+      };
+    });
+
+    const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const dateRows = req.query.date ? formattedRows : formattedRows.filter((r) => r.date === targetDate);
+
+    const leavesOnDate = await HrLeaveRequest.find({
+      fromDate: { $lte: targetDate },
+      toDate: { $gte: targetDate },
+      status: "approved",
+    }).lean().catch(() => []);
+
+    const stats = {
+      targetDate,
+      totalRecords: formattedRows.length,
+      presentCount: dateRows.length,
+      currentlyWorking: dateRows.filter((r) => !r.clockOut).length,
+      completedShift: dateRows.filter((r) => Boolean(r.clockOut)).length,
+      onLeaveCount: leavesOnDate.length,
+      staffAppPunches: dateRows.filter((r) => r.source === "staff_app").length,
+      adminPunches: dateRows.filter((r) => r.source === "admin").length,
+    };
+
+    return ok(res, formattedRows, { stats });
   } catch (error) {
     next(error);
   }
 }
+
+export async function getHrAttendanceReport(req, res, next) {
+  try {
+    const { employeeId, filterType = "monthly", date, startDate, endDate, month } = req.query;
+    if (!employeeId) return fail(res, 400, "Employee selection is required");
+
+    const { people } = await loadScopedHrPeople(req);
+    const person = people.find((p) => String(p.id) === String(employeeId));
+    if (!person) return fail(res, 404, "Employee not found");
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let startD, endD;
+    const reportDays = [];
+
+    if (filterType === "daily") {
+      const targetDate = date || todayStr;
+      startD = targetDate;
+      endD = targetDate;
+      reportDays.push(targetDate);
+    } else if (filterType === "weekly") {
+      if (startDate && endDate) {
+        startD = startDate;
+        endD = endDate;
+      } else {
+        const now = new Date();
+        const day = now.getDay();
+        const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(now.setDate(diffToMon));
+        startD = mon.toISOString().slice(0, 10);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        endD = sun.toISOString().slice(0, 10);
+      }
+      const cur = new Date(`${startD}T00:00:00`);
+      const end = new Date(`${endD}T00:00:00`);
+      while (cur <= end) {
+        reportDays.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else {
+      const targetMonth = month || todayStr.slice(0, 7);
+      const [yearStr, mStr] = targetMonth.split("-");
+      const y = parseInt(yearStr, 10);
+      const m = parseInt(mStr, 10);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      startD = `${targetMonth}-01`;
+      endD = `${targetMonth}-${String(daysInMonth).padStart(2, "0")}`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        reportDays.push(`${targetMonth}-${String(d).padStart(2, "0")}`);
+      }
+    }
+
+    const [attendanceRecords, leaveRecords, shifts] = await Promise.all([
+      HrAttendance.find({
+        employeeId,
+        date: { $gte: startD, $lte: endD },
+      }).sort({ clockIn: 1 }).lean(),
+      HrLeaveRequest.find({
+        employeeId,
+        status: "approved",
+        fromDate: { $lte: endD },
+        toDate: { $gte: startD },
+      }).lean(),
+      HrShift.find({
+        employeeId,
+        date: { $gte: startD, $lte: endD },
+      }).lean(),
+    ]);
+
+    const attMap = new Map();
+    attendanceRecords.forEach((att) => {
+      attMap.set(att.date, att);
+    });
+
+    const shiftMap = new Map();
+    shifts.forEach((s) => {
+      shiftMap.set(s.date, s);
+    });
+
+    const leaveDates = new Set();
+    leaveRecords.forEach((lr) => {
+      const cur = new Date(`${lr.fromDate}T00:00:00`);
+      const to = new Date(`${lr.toDate}T00:00:00`);
+      while (cur <= to) {
+        leaveDates.add(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+
+    let totalMinutesWorked = 0;
+    let presentDays = 0;
+    let leaveDays = 0;
+    let absentDays = 0;
+    let weekendDays = 0;
+    let staffAppPunches = 0;
+
+    const dayNameFormatter = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+
+    const timeline = reportDays.map((dStr) => {
+      const dObj = new Date(`${dStr}T00:00:00`);
+      const dayOfWeek = dObj.getDay();
+      const isWeekend = dayOfWeek === 0;
+      const dayName = dayNameFormatter.format(dObj);
+      const att = attMap.get(dStr);
+      const onLeave = leaveDates.has(dStr);
+      const shift = shiftMap.get(dStr) || null;
+
+      let status = "absent";
+      let durationMinutes = 0;
+      let clockIn = null;
+      let clockOut = null;
+      let source = "none";
+      let notes = "";
+
+      if (att) {
+        status = att.clockOut ? "present" : "active";
+        clockIn = att.clockIn;
+        clockOut = att.clockOut;
+        notes = att.notes || "";
+        source = att.source || (notes.includes("Mobile App") ? "staff_app" : "staff_app");
+
+        const start = clockIn ? new Date(clockIn).getTime() : 0;
+        const end = clockOut ? new Date(clockOut).getTime() : (dStr === todayStr ? Date.now() : start);
+        durationMinutes = start > 0 ? Math.max(0, Math.round((end - start) / 60000)) : 0;
+
+        totalMinutesWorked += durationMinutes;
+        presentDays += 1;
+        if (source === "staff_app") staffAppPunches += 1;
+      } else if (onLeave) {
+        status = "on_leave";
+        leaveDays += 1;
+      } else if (isWeekend) {
+        status = "off";
+        weekendDays += 1;
+      } else {
+        if (dStr <= todayStr) {
+          status = "absent";
+          absentDays += 1;
+        } else {
+          status = "upcoming";
+        }
+      }
+
+      const hours = Math.floor(durationMinutes / 60);
+      const mins = durationMinutes % 60;
+      const durationFormatted = durationMinutes > 0 ? `${hours}h ${mins}m` : "—";
+
+      return {
+        date: dStr,
+        dayName,
+        isWeekend,
+        isToday: dStr === todayStr,
+        status,
+        clockIn,
+        clockOut,
+        durationMinutes,
+        durationFormatted,
+        source,
+        notes,
+        shift,
+      };
+    });
+
+    const workingDaysCount = Math.max(1, presentDays + absentDays);
+    const attendancePercentage = Number(((presentDays / workingDaysCount) * 100).toFixed(1));
+    const totalHours = Number((totalMinutesWorked / 60).toFixed(1));
+    const avgDailyHours = presentDays > 0 ? Number((totalHours / presentDays).toFixed(1)) : 0;
+
+    return ok(res, {
+      person,
+      filterType,
+      dateRange: { start: startD, end: endD },
+      stats: {
+        totalDays: reportDays.length,
+        presentDays,
+        leaveDays,
+        absentDays,
+        weekendDays,
+        totalHours,
+        totalMinutesWorked,
+        avgDailyHours,
+        attendancePercentage,
+        staffAppPunches,
+      },
+      timeline,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markManualAttendance(req, res, next) {
+  try {
+    const { employeeId, employeeType = "staff", name, role = "", date, clockIn, clockOut, notes = "", status = "present" } = req.body;
+    if (!employeeId || !date) return fail(res, 400, "Employee ID and date are required");
+
+    const cin = clockIn ? new Date(`${date}T${clockIn}`) : new Date(`${date}T09:00:00`);
+    const cout = clockOut ? new Date(`${date}T${clockOut}`) : null;
+    const durationMinutes = cout && cin ? Math.max(0, Math.round((cout.getTime() - cin.getTime()) / 60000)) : 0;
+
+    let row = await HrAttendance.findOne({ employeeId, date });
+    if (row) {
+      row.clockIn = cin;
+      row.clockOut = cout;
+      row.notes = notes;
+      row.status = status;
+      row.source = "admin";
+      row.workDurationMinutes = durationMinutes;
+      await row.save();
+    } else {
+      row = await HrAttendance.create({
+        employeeId,
+        employeeType,
+        name: name || "Staff Member",
+        role,
+        date,
+        clockIn: cin,
+        clockOut: cout,
+        notes: notes || "Manual attendance recorded by HR",
+        source: "admin",
+        status,
+        workDurationMinutes: durationMinutes,
+      });
+    }
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateHrAttendance(req, res, next) {
+  try {
+    const { id } = req.params;
+    const row = await HrAttendance.findById(id);
+    if (!row) return fail(res, 404, "Attendance record not found");
+
+    if (req.body.clockIn) row.clockIn = new Date(req.body.clockIn);
+    if (req.body.clockOut !== undefined) {
+      row.clockOut = req.body.clockOut ? new Date(req.body.clockOut) : null;
+    }
+    if (req.body.notes !== undefined) row.notes = req.body.notes;
+    if (req.body.status) row.status = req.body.status;
+
+    if (row.clockIn && row.clockOut) {
+      row.workDurationMinutes = Math.max(0, Math.round((new Date(row.clockOut).getTime() - new Date(row.clockIn).getTime()) / 60000));
+    }
+    await row.save();
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteHrAttendance(req, res, next) {
+  try {
+    const { id } = req.params;
+    await HrAttendance.findByIdAndDelete(id);
+    return ok(res, { deleted: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 async function upsertEmployment(payload) {
   const employeeId = String(payload.employeeId || "").trim();

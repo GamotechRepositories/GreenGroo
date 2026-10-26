@@ -57,6 +57,10 @@ import {
   updateHrStaff,
   clockHrAttendance,
   listHrAttendance,
+  getHrAttendanceReport,
+  markManualAttendance,
+  updateHrAttendance,
+  deleteHrAttendance,
   upsertHrEmployment,
   listHrTasks,
   createHrTask,
@@ -116,6 +120,18 @@ import {
   createHrMeeting,
   listHrMeetings,
   listMyHrMeetings,
+  listHrPromotions,
+  createHrPromotion,
+  updateHrPromotion,
+  deleteHrPromotion,
+  listHrIncrements,
+  createHrIncrement,
+  updateHrIncrement,
+  deleteHrIncrement,
+  listHrPerformanceLogs,
+  createHrPerformanceLog,
+  updateHrPerformanceLog,
+  deleteHrPerformanceLog,
 } from "./hrExtendedControllers.js";
 import {
   listB2bClients,
@@ -405,6 +421,10 @@ router.put("/hr/candidates/:id", updateHrCandidate);
 router.get("/hr/candidates/:id/cv", downloadHrCandidateCv);
 router.get("/hr/attendance", listHrAttendance);
 router.post("/hr/attendance", clockHrAttendance);
+router.get("/hr/attendance/report", getHrAttendanceReport);
+router.post("/hr/attendance/manual", markManualAttendance);
+router.put("/hr/attendance/:id", updateHrAttendance);
+router.delete("/hr/attendance/:id", deleteHrAttendance);
 router.get("/hr/tasks", listHrTasks);
 router.post("/hr/tasks", createHrTask);
 router.put("/hr/tasks/:id", updateHrTask);
@@ -412,6 +432,21 @@ router.get("/hr/payroll", listHrPayroll);
 router.post("/hr/payroll/run", runHrPayroll);
 router.put("/hr/payroll/:id", updateHrPayroll);
 router.put("/hr/:id", updateHrStaff);
+
+router.get("/hr/promotions", listHrPromotions);
+router.post("/hr/promotions", createHrPromotion);
+router.put("/hr/promotions/:id", updateHrPromotion);
+router.delete("/hr/promotions/:id", deleteHrPromotion);
+
+router.get("/hr/increments", listHrIncrements);
+router.post("/hr/increments", createHrIncrement);
+router.put("/hr/increments/:id", updateHrIncrement);
+router.delete("/hr/increments/:id", deleteHrIncrement);
+
+router.get("/hr/performance", listHrPerformanceLogs);
+router.post("/hr/performance", createHrPerformanceLog);
+router.put("/hr/performance/:id", updateHrPerformanceLog);
+router.delete("/hr/performance/:id", deleteHrPerformanceLog);
 
 // Staff Management & Custom Roles & Custom Notifications
 router.get("/staff-management/roles", listStaffRoles);
@@ -587,6 +622,10 @@ vendorHrRouter.put("/hr/candidates/:id", updateHrCandidate);
 vendorHrRouter.get("/hr/candidates/:id/cv", downloadHrCandidateCv);
 vendorHrRouter.get("/hr/attendance", listHrAttendance);
 vendorHrRouter.post("/hr/attendance", clockHrAttendance);
+vendorHrRouter.get("/hr/attendance/report", getHrAttendanceReport);
+vendorHrRouter.post("/hr/attendance/manual", markManualAttendance);
+vendorHrRouter.put("/hr/attendance/:id", updateHrAttendance);
+vendorHrRouter.delete("/hr/attendance/:id", deleteHrAttendance);
 vendorHrRouter.get("/hr/tasks", listHrTasks);
 vendorHrRouter.post("/hr/tasks", createHrTask);
 vendorHrRouter.put("/hr/tasks/:id", updateHrTask);
@@ -594,6 +633,21 @@ vendorHrRouter.get("/hr/payroll", listHrPayroll);
 vendorHrRouter.post("/hr/payroll/run", runHrPayroll);
 vendorHrRouter.put("/hr/payroll/:id", updateHrPayroll);
 vendorHrRouter.put("/hr/:id", updateHrStaff);
+
+vendorHrRouter.get("/hr/promotions", listHrPromotions);
+vendorHrRouter.post("/hr/promotions", createHrPromotion);
+vendorHrRouter.put("/hr/promotions/:id", updateHrPromotion);
+vendorHrRouter.delete("/hr/promotions/:id", deleteHrPromotion);
+
+vendorHrRouter.get("/hr/increments", listHrIncrements);
+vendorHrRouter.post("/hr/increments", createHrIncrement);
+vendorHrRouter.put("/hr/increments/:id", updateHrIncrement);
+vendorHrRouter.delete("/hr/increments/:id", deleteHrIncrement);
+
+vendorHrRouter.get("/hr/performance", listHrPerformanceLogs);
+vendorHrRouter.post("/hr/performance", createHrPerformanceLog);
+vendorHrRouter.put("/hr/performance/:id", updateHrPerformanceLog);
+vendorHrRouter.delete("/hr/performance/:id", deleteHrPerformanceLog);
 
 export default [
   { path: "/api/admin-ops", router },

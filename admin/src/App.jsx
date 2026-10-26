@@ -47,6 +47,7 @@ import HrPayrollPage from './pages/hr/HrPayrollPage';
 import HrRecruitmentPage from './pages/hr/HrRecruitmentPage';
 import HrAttendancePage from './pages/hr/HrAttendancePage';
 import HrMeetingsPage from './pages/hr/HrMeetingsPage';
+import HrPerformancePage from './pages/hr/HrPerformancePage';
 import DeliveryManagement from './pages/ops/DeliveryManagement';
 import DeliveryTeamPage from './pages/ops/DeliveryTeamPage';
 import DeliveryManager360Page from './pages/ops/DeliveryManager360Page';
@@ -151,6 +152,7 @@ export default function App() {
               <Route path="hr-management/recruitment" element={<HrRecruitmentPage />} />
               <Route path="hr-management/attendance" element={<HrAttendancePage />} />
               <Route path="hr-management/meetings" element={<HrMeetingsPage />} />
+              <Route path="hr-management/performance" element={<HrPerformancePage />} />
               <Route path="delivery-management" element={<DeliveryManagement />} />
               <Route path="delivery-team" element={<DeliveryTeamPage />} />
               <Route path="delivery-team/managers/:id" element={<DeliveryManager360Page />} />

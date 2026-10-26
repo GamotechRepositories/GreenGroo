@@ -1,0 +1,5 @@
+# Copy this file to key.properties and replace with your actual keystore credentials
+storePassword=your_keystore_password
+keyPassword=your_key_password
+keyAlias=greengroo_staff
+storeFile=../upload-keystore.jks

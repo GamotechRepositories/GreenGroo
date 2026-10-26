@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, CalendarDays, Clock3, Loader2, Megaphone, Palmtree, RefreshCw, UserPlus, UserRound, Users, Wallet } from 'lucide-react';
+import { Building2, CalendarDays, Clock3, Loader2, Megaphone, Palmtree, RefreshCw, TrendingUp, UserPlus, UserRound, Users, Wallet } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 import { inr, HrBackButtons } from '../hr/hrShared';
@@ -8,6 +8,7 @@ import { inr, HrBackButtons } from '../hr/hrShared';
 const MODULES = [
   { to: '/hr-management/b2b-users', label: 'B2B User Management', text: 'Business clients, partners, and company profiles with multiple representatives', icon: Building2 },
   { to: '/hr-management/employees', label: 'Employees', text: 'Role-wise people, logins, and profiles', icon: UserRound },
+  { to: '/hr-management/performance', label: 'Career & Appraisals', text: 'Promotions, salary increments, and employee performance logs', icon: TrendingUp },
   { to: '/hr-management/calendar', label: 'Calendar', text: 'Assign leave and schedule announcements', icon: CalendarDays },
   { to: '/hr-management/announcements', label: 'Announcements', text: 'Draft and publish by role', icon: Megaphone },
   { to: '/hr-management/leave', label: 'Leave', text: 'Requests and policies for every role', icon: Palmtree },

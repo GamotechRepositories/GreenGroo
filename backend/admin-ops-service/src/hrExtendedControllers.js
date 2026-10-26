@@ -12,6 +12,10 @@ import {
   HrVacancy,
   HrMeeting,
   HrVendorLeavePolicy,
+  HrEmployment,
+  HrPromotion,
+  HrIncrement,
+  HrPerformanceLog,
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
 import CustomRole from "../../staff-service/src/models/CustomRole.js";
@@ -120,7 +124,7 @@ export async function getHrPerson(req, res, next) {
     const { people } = await loadScopedHrPeople(req);
     const person = people.find((row) => row.employeeType === type && String(row.id) === String(id));
     if (!person) return fail(res, 404, "Employee not found");
-    const [attendance, leaves, payroll, tasks, shifts, meetings] = await Promise.all([
+    const [attendance, leaves, payroll, tasks, shifts, meetings, promotions, increments, performanceLogs] = await Promise.all([
       HrAttendance.find({ employeeId: id }).sort({ clockIn: -1 }).limit(40).lean(),
       HrLeaveRequest.find({ employeeId: id }).sort({ fromDate: -1 }).limit(40).lean(),
       HrPayroll.find({ employeeId: id }).sort({ month: -1 }).limit(24).lean(),
@@ -130,8 +134,11 @@ export async function getHrPerson(req, res, next) {
         .sort({ createdAt: -1 })
         .limit(40)
         .lean(),
+      HrPromotion.find({ employeeId: id }).sort({ effectiveDate: -1, createdAt: -1 }).limit(40).lean(),
+      HrIncrement.find({ employeeId: id }).sort({ effectiveDate: -1, createdAt: -1 }).limit(40).lean(),
+      HrPerformanceLog.find({ employeeId: id }).sort({ reviewDate: -1, createdAt: -1 }).limit(40).lean(),
     ]);
-    return ok(res, { person, attendance, leaves, payroll, tasks, shifts, meetings });
+    return ok(res, { person, attendance, leaves, payroll, tasks, shifts, meetings, promotions, increments, performanceLogs });
   } catch (error) {
     next(error);
   }
@@ -1526,3 +1533,408 @@ export async function listMyHrMeetings(req, res, next) {
     next(error);
   }
 }
+
+// -------------------------------------------------------------
+// Promotions Management
+// -------------------------------------------------------------
+export async function listHrPromotions(req, res, next) {
+  try {
+    const query = { ...hrOwnerFilter(req) };
+    if (req.query.employeeId) query.employeeId = req.query.employeeId;
+    if (req.query.employeeType && req.query.employeeType !== "all") query.employeeType = req.query.employeeType;
+    if (req.query.status && req.query.status !== "all") query.status = req.query.status;
+
+    let rows = await HrPromotion.find(query).sort({ effectiveDate: -1, createdAt: -1 }).lean();
+    if (req.query.search) {
+      const q = String(req.query.search).toLowerCase();
+      rows = rows.filter((r) =>
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        (r.newDesignation && r.newDesignation.toLowerCase().includes(q)) ||
+        (r.newDepartment && r.newDepartment.toLowerCase().includes(q)) ||
+        (r.previousDesignation && r.previousDesignation.toLowerCase().includes(q))
+      );
+    }
+    const thisYear = new Date().getFullYear().toString();
+    const stats = {
+      total: rows.length,
+      effective: rows.filter((r) => r.status === "effective" || r.status === "approved").length,
+      thisYear: rows.filter((r) => (r.effectiveDate || "").startsWith(thisYear)).length,
+    };
+    return ok(res, rows, { stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createHrPromotion(req, res, next) {
+  try {
+    const {
+      employeeId,
+      employeeType = "staff",
+      name,
+      previousRole = "",
+      newRole = "",
+      previousDesignation = "",
+      newDesignation,
+      previousDepartment = "",
+      newDepartment = "",
+      effectiveDate,
+      reason = "",
+      approvedBy = "",
+      status = "effective",
+    } = req.body;
+
+    if (!employeeId || !name) return fail(res, 400, "Employee selection is required");
+    if (!newDesignation) return fail(res, 400, "New designation is required");
+    if (!effectiveDate) return fail(res, 400, "Effective date is required");
+
+    const row = await HrPromotion.create({
+      employeeId,
+      employeeType,
+      name,
+      previousRole,
+      newRole,
+      previousDesignation,
+      newDesignation,
+      previousDepartment,
+      newDepartment,
+      effectiveDate,
+      reason,
+      approvedBy: approvedBy || req.user?.name || "Admin HR",
+      status,
+      vendorId: hrOwnerId(req),
+    });
+
+    if (status === "effective" || status === "approved") {
+      const updateData = { designation: newDesignation };
+      if (newDepartment) updateData.department = newDepartment;
+      await HrEmployment.collection.updateOne(
+        { employeeId, employeeType },
+        { $set: updateData },
+        { upsert: false }
+      );
+    }
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateHrPromotion(req, res, next) {
+  try {
+    const { id } = req.params;
+    const row = await HrPromotion.findById(id);
+    if (!row) return fail(res, 404, "Promotion record not found");
+
+    const allowed = [
+      "newDesignation",
+      "newDepartment",
+      "newRole",
+      "effectiveDate",
+      "reason",
+      "approvedBy",
+      "status",
+    ];
+    allowed.forEach((k) => {
+      if (req.body[k] !== undefined) row[k] = req.body[k];
+    });
+    await row.save();
+
+    if (row.status === "effective" || row.status === "approved") {
+      const updateData = { designation: row.newDesignation };
+      if (row.newDepartment) updateData.department = row.newDepartment;
+      await HrEmployment.collection.updateOne(
+        { employeeId: row.employeeId, employeeType: row.employeeType },
+        { $set: updateData },
+        { upsert: false }
+      );
+    }
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteHrPromotion(req, res, next) {
+  try {
+    const { id } = req.params;
+    await HrPromotion.findByIdAndDelete(id);
+    return ok(res, { deleted: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// -------------------------------------------------------------
+// Increments Management
+// -------------------------------------------------------------
+export async function listHrIncrements(req, res, next) {
+  try {
+    const query = { ...hrOwnerFilter(req) };
+    if (req.query.employeeId) query.employeeId = req.query.employeeId;
+    if (req.query.employeeType && req.query.employeeType !== "all") query.employeeType = req.query.employeeType;
+    if (req.query.cycle && req.query.cycle !== "all") query.cycle = req.query.cycle;
+    if (req.query.status && req.query.status !== "all") query.status = req.query.status;
+
+    let rows = await HrIncrement.find(query).sort({ effectiveDate: -1, createdAt: -1 }).lean();
+    if (req.query.search) {
+      const q = String(req.query.search).toLowerCase();
+      rows = rows.filter((r) =>
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        (r.cycle && r.cycle.toLowerCase().includes(q)) ||
+        (r.reason && r.reason.toLowerCase().includes(q))
+      );
+    }
+    const thisYear = new Date().getFullYear().toString();
+    const thisYearRows = rows.filter((r) => (r.effectiveDate || "").startsWith(thisYear));
+    const totalIncrementAmount = rows.reduce((acc, r) => acc + (Number(r.incrementAmount) || 0), 0);
+    const avgPercentage = rows.length
+      ? Number((rows.reduce((acc, r) => acc + (Number(r.incrementPercentage) || 0), 0) / rows.length).toFixed(1))
+      : 0;
+
+    const stats = {
+      total: rows.length,
+      processed: rows.filter((r) => r.status === "processed" || r.status === "approved").length,
+      thisYear: thisYearRows.length,
+      totalIncrementAmount,
+      avgPercentage,
+    };
+    return ok(res, rows, { stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createHrIncrement(req, res, next) {
+  try {
+    const {
+      employeeId,
+      employeeType = "staff",
+      name,
+      previousSalary = 0,
+      newSalary,
+      effectiveDate,
+      cycle = "Annual Appraisal",
+      reason = "",
+      approvedBy = "",
+      status = "processed",
+    } = req.body;
+
+    if (!employeeId || !name) return fail(res, 400, "Employee selection is required");
+    if (newSalary === undefined || Number(newSalary) <= 0) {
+      return fail(res, 400, "Valid new salary is required");
+    }
+    if (!effectiveDate) return fail(res, 400, "Effective date is required");
+
+    const prevSal = Math.max(0, Number(previousSalary) || 0);
+    const newSal = Math.max(0, Number(newSalary) || 0);
+    const incrementAmount = Math.max(0, newSal - prevSal);
+    const incrementPercentage = prevSal > 0 ? Number(((incrementAmount / prevSal) * 100).toFixed(2)) : 0;
+
+    const row = await HrIncrement.create({
+      employeeId,
+      employeeType,
+      name,
+      previousSalary: prevSal,
+      newSalary: newSal,
+      incrementAmount,
+      incrementPercentage,
+      effectiveDate,
+      cycle,
+      reason,
+      approvedBy: approvedBy || req.user?.name || "Admin HR",
+      status,
+      vendorId: hrOwnerId(req),
+    });
+
+    if (status === "processed" || status === "approved") {
+      await HrEmployment.collection.updateOne(
+        { employeeId, employeeType },
+        { $set: { monthlySalary: newSal } },
+        { upsert: false }
+      );
+    }
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateHrIncrement(req, res, next) {
+  try {
+    const { id } = req.params;
+    const row = await HrIncrement.findById(id);
+    if (!row) return fail(res, 404, "Increment record not found");
+
+    if (req.body.previousSalary !== undefined) row.previousSalary = Math.max(0, Number(req.body.previousSalary) || 0);
+    if (req.body.newSalary !== undefined) row.newSalary = Math.max(0, Number(req.body.newSalary) || 0);
+    row.incrementAmount = Math.max(0, row.newSalary - row.previousSalary);
+    row.incrementPercentage = row.previousSalary > 0
+      ? Number(((row.incrementAmount / row.previousSalary) * 100).toFixed(2))
+      : 0;
+
+    if (req.body.effectiveDate !== undefined) row.effectiveDate = req.body.effectiveDate;
+    if (req.body.cycle !== undefined) row.cycle = req.body.cycle;
+    if (req.body.reason !== undefined) row.reason = req.body.reason;
+    if (req.body.approvedBy !== undefined) row.approvedBy = req.body.approvedBy;
+    if (req.body.status !== undefined) row.status = req.body.status;
+
+    await row.save();
+
+    if (row.status === "processed" || row.status === "approved") {
+      await HrEmployment.collection.updateOne(
+        { employeeId: row.employeeId, employeeType: row.employeeType },
+        { $set: { monthlySalary: row.newSalary } },
+        { upsert: false }
+      );
+    }
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteHrIncrement(req, res, next) {
+  try {
+    const { id } = req.params;
+    await HrIncrement.findByIdAndDelete(id);
+    return ok(res, { deleted: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// -------------------------------------------------------------
+// Performance Logs Management
+// -------------------------------------------------------------
+export async function listHrPerformanceLogs(req, res, next) {
+  try {
+    const query = { ...hrOwnerFilter(req) };
+    if (req.query.employeeId) query.employeeId = req.query.employeeId;
+    if (req.query.employeeType && req.query.employeeType !== "all") query.employeeType = req.query.employeeType;
+    if (req.query.reviewPeriod && req.query.reviewPeriod !== "all") query.reviewPeriod = req.query.reviewPeriod;
+    if (req.query.rating) query.rating = { $gte: Number(req.query.rating) };
+
+    let rows = await HrPerformanceLog.find(query).sort({ reviewDate: -1, createdAt: -1 }).lean();
+    if (req.query.search) {
+      const q = String(req.query.search).toLowerCase();
+      rows = rows.filter((r) =>
+        (r.name && r.name.toLowerCase().includes(q)) ||
+        (r.reviewPeriod && r.reviewPeriod.toLowerCase().includes(q)) ||
+        (r.achievements && r.achievements.toLowerCase().includes(q)) ||
+        (r.feedback && r.feedback.toLowerCase().includes(q))
+      );
+    }
+
+    const total = rows.length;
+    const avgRating = total
+      ? Number((rows.reduce((acc, r) => acc + (Number(r.rating) || 0), 0) / total).toFixed(1))
+      : 0;
+    const highPerformers = rows.filter((r) => Number(r.rating) >= 4).length;
+    const needsImprovement = rows.filter((r) => Number(r.rating) <= 2.5).length;
+
+    const stats = {
+      total,
+      avgRating,
+      highPerformers,
+      needsImprovement,
+    };
+    return ok(res, rows, { stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createHrPerformanceLog(req, res, next) {
+  try {
+    const {
+      employeeId,
+      employeeType = "staff",
+      name,
+      reviewPeriod,
+      rating,
+      kpis = [],
+      achievements = "",
+      improvementAreas = "",
+      feedback = "",
+      goals = "",
+      reviewedBy = "",
+      reviewDate,
+      status = "finalized",
+    } = req.body;
+
+    if (!employeeId || !name) return fail(res, 400, "Employee selection is required");
+    if (!reviewPeriod) return fail(res, 400, "Review period is required");
+    if (rating === undefined || Number(rating) < 1 || Number(rating) > 5) {
+      return fail(res, 400, "Rating must be between 1 and 5");
+    }
+    if (!reviewDate) return fail(res, 400, "Review date is required");
+
+    const row = await HrPerformanceLog.create({
+      employeeId,
+      employeeType,
+      name,
+      reviewPeriod,
+      rating: Number(rating),
+      kpis: Array.isArray(kpis) ? kpis : [],
+      achievements,
+      improvementAreas,
+      feedback,
+      goals,
+      reviewedBy: reviewedBy || req.user?.name || "HR Appraiser",
+      reviewDate,
+      status,
+      vendorId: hrOwnerId(req),
+    });
+
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateHrPerformanceLog(req, res, next) {
+  try {
+    const { id } = req.params;
+    const row = await HrPerformanceLog.findById(id);
+    if (!row) return fail(res, 404, "Performance log not found");
+
+    const allowed = [
+      "reviewPeriod",
+      "rating",
+      "kpis",
+      "achievements",
+      "improvementAreas",
+      "feedback",
+      "goals",
+      "reviewedBy",
+      "reviewDate",
+      "status",
+    ];
+    allowed.forEach((k) => {
+      if (req.body[k] !== undefined) {
+        if (k === "rating") row[k] = Number(req.body[k]);
+        else row[k] = req.body[k];
+      }
+    });
+    await row.save();
+    return ok(res, row);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteHrPerformanceLog(req, res, next) {
+  try {
+    const { id } = req.params;
+    await HrPerformanceLog.findByIdAndDelete(id);
+    return ok(res, { deleted: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
