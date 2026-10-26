@@ -68,6 +68,10 @@ export const vendorApi = {
   saveInventoryAlert: (data) => api.put("/api/vendor/inventory-alerts", data),
   deleteInventoryAlert: (alertId) => api.delete(`/api/vendor/inventory-alerts/${encodeURIComponent(alertId)}`),
   getAllFarmerInventory: () => api.get("/api/vendor/farmer-inventory"),
+  getNotificationReadState: () =>
+    api.get("/api/vendor/notifications/read-state").then((res) => res.data?.readIds || []),
+  markNotificationsRead: (ids) =>
+    api.post("/api/vendor/notifications/read", { ids }).then((res) => res.data?.readIds || []),
   liveAnnouncements: () =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })
@@ -164,6 +168,9 @@ export const vendorApi = {
   createCollectionCentre: (data) => api.post("/api/vendor/collection-centres", data),
 
   // Dark stores (created only after admin approval)
+  getZones: () => api.get("/api/vendor/zones"),
+  createZone: (data) => api.post("/api/vendor/zones", data),
+  cancelZone: (id) => api.post(`/api/vendor/zones/${id}/cancel`),
   getDarkStoreRequests: () => api.get("/api/vendor/dark-store-requests"),
   createDarkStoreRequest: (data) => api.post("/api/vendor/dark-store-requests", data),
   cancelDarkStoreRequest: (id) => api.post(`/api/vendor/dark-store-requests/${id}/cancel`),
@@ -171,6 +178,11 @@ export const vendorApi = {
   // Customer pre-orders for the vendor's dark stores
   getPreOrders: (params) => api.get("/api/vendor/preorders", { params }),
   confirmPreOrders: (orderIds) => api.post("/api/vendor/preorders/confirm", { orderIds }),
+  packPreOrders: (orderIds) => api.post("/api/vendor/preorders/pack", { orderIds }),
+  shipPreOrders: (orderIds) => api.post("/api/vendor/preorders/ship", { orderIds }),
+  getPreOrderFarmerRequests: () => api.get("/api/vendor/preorders/farmer-requests"),
+  createPreOrderFarmerRequest: (orderId, data) =>
+    api.post(`/api/vendor/preorders/${encodeURIComponent(orderId)}/farmer-request`, data),
   rejectPreOrder: (orderId, reason) =>
     api.post(`/api/vendor/preorders/${encodeURIComponent(orderId)}/reject`, { reason }),
   getPreOrderSlotAvailability: (date) =>

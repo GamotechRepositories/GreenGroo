@@ -1,19 +1,13 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  Bell,
   Menu,
-  Package,
   Plus,
-  Search,
-  ShoppingCart,
   Store,
-  User,
-  X,
 } from "lucide-react";
 import { useVendorAuth } from "../../context/VendorAuthContext";
 import { useInventoryRequests } from "../../hooks/useInventoryRequests";
 import AjaxLiveSearchWidget from "../search/AjaxLiveSearchWidget";
+import VendorNotificationBell from "./VendorNotificationBell";
 
 export default function VendorTopNavbar({ onOpenMobileMenu }) {
   const { vendor } = useVendorAuth();
@@ -71,6 +65,8 @@ export default function VendorTopNavbar({ onOpenMobileMenu }) {
           ) : null}
           <span className="ml-1.5 hidden text-xs font-semibold text-slate-700 md:inline">Restock</span>
         </Link>
+
+        <VendorNotificationBell />
 
         {/* Create Order Quick Action */}
         <Link

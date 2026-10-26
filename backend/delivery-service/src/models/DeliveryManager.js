@@ -102,6 +102,17 @@ const deliveryManagerSchema = new mongoose.Schema(
       default: "",
       index: true,
     },
+    /** Approved VendorZone this dark store belongs to ("" for stores created before zones existed). */
+    zoneId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+    zoneName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -143,6 +154,8 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
     updatedAt: this.updatedAt,
     fullTimeMonthlySalary: this.fullTimeMonthlySalary || 0,
     vendorId: this.vendorId || "",
+    zoneId: this.zoneId || "",
+    zoneName: this.zoneName || "",
   };
 };
 

@@ -258,6 +258,12 @@ import {
   getInventoryStoresAndVendors,
 } from "./inventoryControllers.js";
 import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
+import {
+  listAdminVendorCatalogRequests,
+  approveVendorCatalogRequest,
+  rejectVendorCatalogRequest,
+} from "../../farmer-manager-service/src/vendorCatalogControllers.js";
+import { listZonesAdmin, approveZoneAdmin, rejectZoneAdmin } from "../../farmer-manager-service/src/vendorZoneControllers.js";
 import { attachVendorHrScope } from "./hrScope.js";
 import {
   listStaffRoles,
@@ -377,6 +383,12 @@ router.get("/collection-dashboard", getCollectionDashboardAdmin);
 router.get("/vendor-product-requests", listVendorProductRequestsAdmin);
 router.post("/vendor-product-requests/:requestId/approve", approveVendorProductRequestAdmin);
 router.post("/vendor-product-requests/:requestId/reject", rejectVendorProductRequestAdmin);
+router.get("/zone-requests", listZonesAdmin);
+router.post("/zone-requests/:zoneId/approve", approveZoneAdmin);
+router.post("/zone-requests/:zoneId/reject", rejectZoneAdmin);
+router.get("/vendor-catalog-requests", listAdminVendorCatalogRequests);
+router.post("/vendor-catalog-requests/:requestId/approve", approveVendorCatalogRequest);
+router.post("/vendor-catalog-requests/:requestId/reject", rejectVendorCatalogRequest);
 router.get("/vendors/:id/products", listVendorProductsAdmin);
 router.delete("/vendors/:id/products/:productId", removeVendorProductAdmin);
 router.get("/vendor-crop-requests", listVendorCropRequestsAdmin);

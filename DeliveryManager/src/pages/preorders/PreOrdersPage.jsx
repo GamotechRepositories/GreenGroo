@@ -21,8 +21,8 @@ import {
 
 const TABS = [
   { id: "awaiting_vendor", label: "Awaiting Vendor" },
-  { id: "with_pm", label: "With Product Manager" },
-  { id: "incoming", label: "Incoming to Store" },
+  { id: "with_vendor", label: "Vendor Packing" },
+  { id: "incoming", label: "Shipped · Incoming" },
   { id: "to_assign", label: "Received · Assign Rider" },
   { id: "on_the_way", label: "Assigned / On the way" },
   { id: "delivered", label: "Delivered" },
@@ -31,10 +31,14 @@ const TABS = [
 ];
 
 const STAGE_LABELS = {
-  pending: { text: "Pending prep", className: "bg-slate-100 text-slate-700 ring-slate-200" },
-  preparing: { text: "Preparing", className: "bg-amber-50 text-amber-800 ring-amber-200" },
-  ready: { text: "Ready at PM", className: "bg-sky-50 text-sky-800 ring-sky-200" },
+  pending: { text: "Confirmed by vendor", className: "bg-slate-100 text-slate-700 ring-slate-200" },
+  preparing: { text: "Confirmed by vendor", className: "bg-slate-100 text-slate-700 ring-slate-200" },
+  ready: { text: "Packed by vendor", className: "bg-sky-50 text-sky-800 ring-sky-200" },
 };
+
+const RIDER_HELD = ["assigned", "pickup_verified"];
+const canMarkOutForDelivery = (order) => RIDER_HELD.includes(order.status) && Boolean(order.assignedRider);
+const canMarkDelivered = (order) => [...RIDER_HELD, "out_for_delivery"].includes(order.status);
 
 const vendorConfirmed = (order) => order.vendorStatus === "confirmed";
 const isReceived = (order) => Boolean(order.storeReceivedAt);
@@ -43,7 +47,7 @@ function matchesTab(order, tab) {
   const s = order.status;
   if (tab === "all") return true;
   if (tab === "awaiting_vendor") return s === "preorder_hold" && !vendorConfirmed(order);
-  if (tab === "with_pm") return s === "preorder_hold" && vendorConfirmed(order);
+  if (tab === "with_vendor") return s === "preorder_hold" && vendorConfirmed(order);
   if (tab === "incoming") return s === "packed" && !isReceived(order);
   if (tab === "to_assign") return (s === "packed" || s === "offered") && isReceived(order);
   if (tab === "on_the_way") return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
@@ -337,6 +341,33 @@ export default function PreOrdersPage() {
     }
   };
 
+  const runOrderAction = async (order, { key, call, fallback }) => {
+    setBusyKey(`${key}-${order.id}`);
+    try {
+      const res = await call([order.id]);
+      showToast(res.data.message || fallback);
+      await load({ silent: true });
+    } catch (err) {
+      showToast(err.response?.data?.failed?.[0]?.message || err.response?.data?.message || "Could not update pre-order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onOutForDelivery = (order) =>
+    runOrderAction(order, { key: "ofd", call: managerApi.preOrdersOutForDelivery, fallback: "Out for delivery" });
+
+  const onDeliver = (order) => {
+    if (
+      !window.confirm(
+        `Mark pre-order #${order.orderNumber} as delivered? Normally the delivery boy completes it with the customer's OTP.`
+      )
+    ) {
+      return;
+    }
+    runOrderAction(order, { key: "deliver", call: managerApi.deliverPreOrders, fallback: "Marked delivered" });
+  };
+
   const onCancel = async (order) => {
     if (!window.confirm(`Cancel pre-order #${order.orderNumber}? The customer order will also be cancelled.`)) {
       return;
@@ -406,17 +437,17 @@ export default function PreOrdersPage() {
       ring: "ring-orange-500",
     },
     {
-      id: "with_pm",
-      label: "With Product Manager",
-      hint: "Vendor confirmed — being prepared",
+      id: "with_vendor",
+      label: "Vendor packing",
+      hint: "Vendor confirmed — packing & shipping",
       accent: "border-indigo-200 bg-indigo-50",
       countClass: "text-indigo-800",
       ring: "ring-indigo-500",
     },
     {
       id: "incoming",
-      label: "Incoming to store",
-      hint: "Forwarded — mark received on arrival",
+      label: "Shipped to store",
+      hint: "Vendor shipped — mark received on arrival",
       accent: "border-violet-200 bg-violet-50",
       countClass: "text-violet-800",
       ring: "ring-violet-500",
@@ -442,7 +473,7 @@ export default function PreOrdersPage() {
   return (
     <PageShell
       title="Pre-Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · Next-day slot orders. The vendor confirms, the Product Manager prepares and forwards — you mark the goods received and assign riders manually.`}
+      subtitle={`${manager?.storeName || "Dark Store"} · Next-day slot orders. The vendor confirms, packs and ships them here — you mark the goods received, assign a delivery boy, then mark out for delivery / delivered. The delivery boy can also complete delivery with the customer's OTP.`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -628,7 +659,7 @@ export default function PreOrdersPage() {
           <h3 className="text-sm font-bold text-slate-800">No pre-orders here</h3>
           <p className="mt-1 text-xs text-slate-400">
             {activeTab === "incoming"
-              ? "Pre-orders appear here once the Product Manager forwards them."
+              ? "Pre-orders appear here once the vendor ships them."
               : activeTab === "to_assign"
                 ? "Mark incoming pre-orders as received to assign riders."
                 : "Nothing matches the selected filters."}
@@ -768,7 +799,7 @@ export default function PreOrdersPage() {
                         )}
                         {order.forwardedAt && (
                           <p className="text-[11px] text-slate-500">
-                            Forwarded {formatTime(order.forwardedAt)}
+                            Shipped {formatTime(order.forwardedAt)}
                             {order.forwardedByName ? ` by ${order.forwardedByName}` : ""}
                           </p>
                         )}
@@ -779,7 +810,7 @@ export default function PreOrdersPage() {
                         )}
                         {order.preOrderNote && (
                           <p className="rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-900">
-                            PM note: {order.preOrderNote}
+                            Note: {order.preOrderNote}
                           </p>
                         )}
                       </div>
@@ -788,7 +819,9 @@ export default function PreOrdersPage() {
                         {order.status === "preorder_hold" &&
                           (vendorConfirmed(order) ? (
                             <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] font-semibold text-indigo-800">
-                              Confirmed by vendor — waiting for the Product Manager to prepare & forward.
+                              {order.preOrderStage === "ready"
+                                ? "Packed by the vendor — waiting for the vendor to ship it to this store."
+                                : "Confirmed by the vendor — waiting for the vendor to pack & ship."}
                             </p>
                           ) : (
                             <p className="rounded-lg bg-orange-50 px-3 py-2 text-[11px] font-semibold text-orange-800">
@@ -855,6 +888,31 @@ export default function PreOrdersPage() {
                                   ? "Re-assign"
                                   : "Assign"}
                             </button>
+                          </div>
+                        )}
+
+                        {(canMarkOutForDelivery(order) || canMarkDelivered(order)) && (
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {canMarkOutForDelivery(order) && (
+                              <button
+                                type="button"
+                                disabled={busyKey === `ofd-${oid}`}
+                                onClick={() => onOutForDelivery(order)}
+                                className={actionBtnPrimary}
+                              >
+                                {busyKey === `ofd-${oid}` ? "Saving…" : "🚚 Mark out for delivery"}
+                              </button>
+                            )}
+                            {canMarkDelivered(order) && (
+                              <button
+                                type="button"
+                                disabled={busyKey === `deliver-${oid}`}
+                                onClick={() => onDeliver(order)}
+                                className={actionBtnOutline}
+                              >
+                                {busyKey === `deliver-${oid}` ? "Saving…" : "✓ Mark delivered"}
+                              </button>
+                            )}
                           </div>
                         )}
 

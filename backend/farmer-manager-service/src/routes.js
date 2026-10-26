@@ -241,7 +241,11 @@ import {
   listVendorPreOrders,
   confirmVendorPreOrders,
   rejectVendorPreOrder,
+  packVendorPreOrders,
+  shipVendorPreOrders,
 } from "../../delivery-service/src/controllers/preOrderController.js";
+import { listPreOrderFarmerRequests, createPreOrderFarmerRequest } from "./preOrderFarmerRequestControllers.js";
+import { getVendorNotificationReadState, markVendorNotificationsRead } from "./vendorNotificationControllers.js";
 import {
   listVendorCoupons,
   createVendorCoupon,
@@ -264,6 +268,14 @@ import {
   createVendorRefund,
   updateVendorRefund,
 } from "./vendorPromotionControllers.js";
+import {
+  listVendorCatalogProducts as listVendorOwnedCatalogProducts,
+  listVendorCatalogCategories,
+  listVendorCatalogRequests,
+  createVendorCatalogRequest,
+  cancelVendorCatalogRequest,
+} from "./vendorCatalogControllers.js";
+import { listVendorZones, createVendorZone, cancelVendorZone } from "./vendorZoneControllers.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -490,6 +502,8 @@ vendorRouter.post("/driver-desk/notifications/read-all", requireDriver, readAllD
 // ------------------------------------
 vendorRouter.get("/live-search", attachAuth, handleVendorLiveSearch);
 vendorRouter.get("/dashboard", requireVendor, getVendorDashboard);
+vendorRouter.get("/notifications/read-state", requireVendor, getVendorNotificationReadState);
+vendorRouter.post("/notifications/read", requireVendor, markVendorNotificationsRead);
 vendorRouter.get("/inventory-alerts", requireVendor, listInventoryAlerts);
 vendorRouter.put("/inventory-alerts", requireVendor, saveInventoryAlert);
 vendorRouter.delete("/inventory-alerts/:alertId", requireVendor, deleteInventoryAlert);
@@ -554,6 +568,9 @@ vendorRouter.post("/pickups/:pickupId/receive", requireVendor, receiveVendorPick
 vendorRouter.get("/pickups/:pickupId/receipt", requireVendor, getVendorPickupReceipt);
 vendorRouter.get("/collection-centres", requireVendor, listVendorCentres);
 vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
+vendorRouter.get("/zones", requireVendor, listVendorZones);
+vendorRouter.post("/zones", requireVendor, createVendorZone);
+vendorRouter.post("/zones/:zoneId/cancel", requireVendor, cancelVendorZone);
 vendorRouter.get("/dark-store-requests", requireVendor, listVendorDarkStoreRequests);
 vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRequest);
 vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
@@ -562,12 +579,21 @@ vendorRouter.post("/delivery-boys", requireVendor, createVendorDeliveryBoy);
 vendorRouter.delete("/delivery-boys/:boyId", requireVendor, deleteVendorDeliveryBoy);
 vendorRouter.get("/preorders", requireVendor, listVendorPreOrders);
 vendorRouter.post("/preorders/confirm", requireVendor, confirmVendorPreOrders);
+vendorRouter.post("/preorders/pack", requireVendor, packVendorPreOrders);
+vendorRouter.post("/preorders/ship", requireVendor, shipVendorPreOrders);
+vendorRouter.get("/preorders/farmer-requests", requireVendor, listPreOrderFarmerRequests);
+vendorRouter.post("/preorders/:orderId/farmer-request", requireVendor, createPreOrderFarmerRequest);
 vendorRouter.post("/preorders/:orderId/reject", requireVendor, rejectVendorPreOrder);
 vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
 vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
 vendorRouter.patch("/my-products/:productId", requireVendor, updateVendorMyProduct);
 vendorRouter.delete("/my-products/:productId", requireVendor, deleteVendorMyProduct);
 vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);
+vendorRouter.get("/catalog/products", requireVendor, listVendorOwnedCatalogProducts);
+vendorRouter.get("/catalog/categories", requireVendor, listVendorCatalogCategories);
+vendorRouter.get("/catalog/requests", requireVendor, listVendorCatalogRequests);
+vendorRouter.post("/catalog/requests", requireVendor, createVendorCatalogRequest);
+vendorRouter.post("/catalog/requests/:requestId/cancel", requireVendor, cancelVendorCatalogRequest);
 vendorRouter.get("/catalog-crops", requireVendor, listVendorCatalogCrops);
 vendorRouter.get("/my-crops", requireVendor, listVendorMyCrops);
 vendorRouter.post("/crop-requests", requireVendor, createVendorCropRequest);

@@ -7,6 +7,8 @@ const vendorSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
     vendorCode: { type: String, default: "" },
+    /** Notification keys ("announcement:<id>", "holiday:<id>", …) this vendor marked read; capped list. */
+    readNotificationIds: { type: [String], default: [], select: false },
     vendorName: { type: String, default: "", trim: true },
     ownerName: { type: String, required: true, trim: true },
     mobile: { type: String, required: true, trim: true, unique: true },
@@ -360,6 +362,9 @@ const farmerOrderSchema = new mongoose.Schema(
         note: { type: String, default: "" },
       },
     ],
+    /** Customer pre-order (StoreOrder) the vendor raised this farmer request for. */
+    sourceStoreOrderId: { type: String, default: "", index: true },
+    sourceOrderNumber: { type: String, default: "" },
   },
   { timestamps: true, strict: false }
 );
@@ -934,6 +939,8 @@ const darkStoreRequestSchema = new mongoose.Schema(
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     notes: { type: String, default: "", trim: true },
+    zoneId: { type: String, default: "", index: true },
+    zoneName: { type: String, default: "", trim: true },
     status: { type: String, enum: ["Pending", "Approved", "Rejected", "Cancelled"], default: "Pending", index: true },
     adminRemarks: { type: String, default: "" },
     darkStoreId: { type: String, default: "" },
@@ -944,6 +951,25 @@ const darkStoreRequestSchema = new mongoose.Schema(
 
 export const DarkStoreRequest =
   mongoose.models.DarkStoreRequest || mongoose.model("DarkStoreRequest", darkStoreRequestSchema);
+
+// A vendor's delivery zone; only "Approved" zones can hold dark stores.
+const vendorZoneSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    name: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    cities: { type: [String], default: [] },
+    description: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["Pending", "Approved", "Rejected", "Cancelled"], default: "Pending", index: true },
+    adminRemarks: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+vendorZoneSchema.index({ vendorId: 1, name: 1 });
+
+export const VendorZone = mongoose.models.VendorZone || mongoose.model("VendorZone", vendorZoneSchema);
 
 // productId refers to an admin catalog product (GreenGroccProduct); name/image/category are snapshots for history.
 const catalogProductSnapshot = {
@@ -1000,6 +1026,37 @@ vendorProductSchema.index({ vendorId: 1, productId: 1 }, { unique: true });
 
 export const VendorProduct =
   mongoose.models.VendorProduct || mongoose.model("VendorProduct", vendorProductSchema);
+
+// A vendor's proposed catalog change; nothing touches the live catalog until admin approves it.
+const vendorCatalogRequestSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    vendorName: { type: String, default: "" },
+    kind: { type: String, enum: ["product", "category"], required: true },
+    action: { type: String, enum: ["create", "update", "delete"], required: true },
+    // Product / Category _id for update and delete; set to the created _id once a create is approved.
+    targetId: { type: String, default: "" },
+    targetName: { type: String, default: "" },
+    section: { type: String, default: "" },
+    image: { type: String, default: "" },
+    payload: { type: mongoose.Schema.Types.Mixed, default: {} },
+    status: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected", "Cancelled"],
+      default: "Pending",
+      index: true,
+    },
+    adminRemarks: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
+  },
+  { timestamps: true, minimize: false }
+);
+vendorCatalogRequestSchema.index({ vendorId: 1, kind: 1, targetId: 1, status: 1 });
+
+export const VendorCatalogRequest =
+  mongoose.models.VendorCatalogRequest ||
+  mongoose.model("VendorCatalogRequest", vendorCatalogRequestSchema);
 
 // cropId refers to an admin crop master record (ErpCrop); name/variety/category are snapshots for history.
 const catalogCropSnapshot = {

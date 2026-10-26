@@ -161,7 +161,8 @@ export default function PreOrdersPage() {
     return [...map.values()].sort((a, b) => b.quantity - a.quantity);
   }, [orders]);
 
-  const forwardable = (o) => o.status === "preorder_hold" && !awaitingVendor(o);
+  /** Vendors pack and ship pre-orders themselves now; this page is view + cancel only. */
+  const forwardable = () => false;
   const forwardableVisibleIds = visibleOrders.filter(forwardable).map((o) => o.id);
   const selectedReady = selected.filter((id) => orders.some((o) => o.id === id && forwardable(o)));
 
@@ -242,7 +243,7 @@ export default function PreOrdersPage() {
   return (
     <PageShell
       title="Pre-Orders"
-      subtitle="Prepare vendor-confirmed next-day slot orders and forward them to the dark store's Delivery Manager when ready."
+      subtitle="Next-day slot orders. The vendor confirms, packs and ships each order to the dark store; this view is for tracking and cancellations."
     >
       {toast.text ? (
         <div
@@ -553,46 +554,10 @@ export default function PreOrdersPage() {
                             </button>
                           </div>
                         ) : onHold ? (
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={busyId.startsWith("forward-")}
-                              onClick={() => forward([order.id])}
-                              title="Prepare and send to the dark store's Delivery Manager in one step"
-                              className={btnPrimary}
-                            >
-                              Confirm & forward
-                            </button>
-                            {order.preOrderStage === "pending" ? (
-                              <button
-                                type="button"
-                                disabled={busyId === `${order.id}-preparing`}
-                                onClick={() => setStage(order, "preparing")}
-                                className={btnSecondary}
-                              >
-                                Start preparing
-                              </button>
-                            ) : null}
-                            {order.preOrderStage === "preparing" ? (
-                              <button
-                                type="button"
-                                disabled={busyId === `${order.id}-ready`}
-                                onClick={() => setStage(order, "ready")}
-                                className={btnSecondary}
-                              >
-                                Mark ready
-                              </button>
-                            ) : null}
-                            {isReady ? (
-                              <button
-                                type="button"
-                                disabled={busyId === `${order.id}-preparing`}
-                                onClick={() => setStage(order, "preparing")}
-                                className={btnSecondary}
-                              >
-                                Reopen
-                              </button>
-                            ) : null}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs text-indigo-700">
+                              {isReady ? "Packed by vendor — vendor will ship it" : "Vendor is packing & shipping"}
+                            </p>
                             <button
                               type="button"
                               disabled={busyId === `${order.id}-cancel`}

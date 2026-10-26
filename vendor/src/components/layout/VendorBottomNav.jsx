@@ -94,7 +94,7 @@ function ScanQrIcon({ className = "h-[26px] w-[26px]" }) {
 const TABS = [
   { to: "/dashboard", label: "Home", icon: HomeIcon, end: true },
   { to: "/vendor/search", label: "Search", icon: SearchIcon },
-  { to: "/vendor/orders/darkstore", label: "Alerts", icon: BellIcon },
+  { to: "/vendor/notifications", label: "Alerts", icon: BellIcon },
   { to: "/vendor/pickups/all", label: "History", icon: HistoryIcon },
 ];
 

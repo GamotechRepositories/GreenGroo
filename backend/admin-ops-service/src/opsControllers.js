@@ -22,6 +22,7 @@ import {
   VendorCropRequest,
   VendorProduct,
   VendorProductRequest,
+  VendorZone,
 } from "../../farmer-manager-service/src/models.js";
 import {
   catalogCropSummary,
@@ -1004,6 +1005,12 @@ export async function approveDarkStoreRequestAdmin(req, res, next) {
     if (await DeliveryManager.exists({ email: request.email })) {
       return fail(res, 409, "A dark store with this email already exists. Reject this request instead.");
     }
+    const zone = request.zoneId
+      ? await VendorZone.findOne({ id: request.zoneId, vendorId: request.vendorId }).lean()
+      : null;
+    if (request.zoneId && zone?.status !== "Approved") {
+      return fail(res, 400, "The zone for this dark store is not approved. Approve the zone first or reject this request.");
+    }
 
     // Placeholder password satisfies the schema; the vendor-chosen hash is written afterwards so the
     // pre-save hook does not hash it a second time.
@@ -1022,6 +1029,8 @@ export async function approveDarkStoreRequestAdmin(req, res, next) {
       latitude: request.latitude,
       longitude: request.longitude,
       vendorId: request.vendorId,
+      zoneId: zone?.id || "",
+      zoneName: zone?.name || "",
     });
     await DeliveryManager.updateOne({ _id: manager._id }, { $set: { password: request.passwordHash } });
     await seedManagerStore(manager).catch((error) => console.warn("[DarkStoreRequest] seed failed:", error.message));

@@ -3,25 +3,24 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowUpDown,
   BadgeCheck,
+  Bell,
   Boxes,
   Briefcase,
   CalendarClock,
-  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Clock3,
-  FileSpreadsheet,
   FileText,
   Headset,
   IdCard,
   LayoutDashboard,
   LogOut,
-  Megaphone,
-  Menu,
   Package,
+  PackageOpen,
   Palmtree,
+  Route,
+  ScrollText,
   ShoppingCart,
   Sprout,
   Star,
@@ -39,189 +38,246 @@ import VendorTopNavbar from './VendorTopNavbar'
 import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
 import { vendorApi } from '../../api/vendorApi'
-import RoleAnnouncements from '../RoleAnnouncements'
+import { VendorNotificationsProvider } from '../../context/VendorNotificationsContext'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
+/** Sidebar, grouped by area of work. Every page appears exactly once. */
+const navSections = [
   {
-    id: 'farmer-manager',
-    label: 'Farmer Managers',
-    icon: Users,
-    children: [
-      { to: '/vendor/farmer-managers', label: 'All Managers' },
-      { to: '/vendor/farmer-managers/add', label: 'Add Manager' },
-    ],
-  },
-  { to: '/vendor/all-farmers', label: 'Farmers', icon: Tractor },
-  {
-    id: 'crops',
-    label: 'Crops',
-    icon: Sprout,
-    children: [
-      { to: '/vendor/crops', label: 'All Crops', end: true },
-      { to: '/vendor/my-crops', label: 'My Crops' },
-    ],
-  },
-  {
-    id: 'products',
-    label: 'Product Management',
-    icon: Package,
-    children: [
-      { to: '/vendor/products', label: 'All Products', end: true },
-      { to: '/vendor/my-products', label: 'My Products' },
-      { to: '/vendor/farmer-products', label: 'Farmer Products' },
-      { to: '/vendor/export-import', label: 'Export / Import Hub' },
-    ],
-  },
-  { to: '/vendor/market-prices', label: 'Market Prices', icon: TrendingUp },
-  {
-    id: 'preorders-group',
-    label: 'Pre-Orders & Slots',
-    icon: CalendarClock,
-    children: [
-      { to: '/vendor/preorders', label: 'All Pre-orders', end: true },
-      { to: '/vendor/pre-order-slots', label: 'Pre-Order Slots' },
-    ],
-  },
-  {
-    id: 'inventory',
-    label: 'Inventory',
-    icon: ClipboardList,
-    children: [
-      { to: '/vendor/inventory', label: 'All Inventory', end: true },
-      { to: '/vendor/inventory/farmers', label: 'All Farmer Inventory' },
-      { to: '/vendor/inventory/history', label: 'History' },
-    ],
-  },
-  { to: '/vendor/export-import', label: 'Export / Import (CSV & XML)', icon: ArrowUpDown },
-  {
-    id: 'dark-stores',
-    label: 'Dark Stores',
-    icon: Store,
-    children: [
-      { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
-      { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
-      { to: '/vendor/delivery-boys', label: 'Delivery Boys' },
-    ],
-  },
-  {
-    id: 'store-reputation',
-    label: 'Store & Reputation',
-    icon: Star,
-    children: [
-      { to: '/vendor/reviews', label: 'Customer Reviews (1–5★)' },
-      { to: '/vendor/vacation', label: 'Store Vacation (Offline)' },
-    ],
-  },
-  {
-    to: '/vendor/shipping-methods',
-    label: 'Shipping Methods',
-    icon: Truck,
-  },
-  {
-    id: 'driver',
-    label: 'Driver',
-    icon: IdCard,
-    children: [
-      { to: '/vendor/drivers/pickup-orders', label: 'All Pickup Orders' },
-      { to: '/vendor/pickups/ready', label: 'Ready for Pickup' },
-      { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
-      { to: '/vendor/pickups/today', label: "Today's Pickups" },
-      { to: '/vendor/drivers', label: 'All Drivers', end: true },
-    ],
-  },
-  {
-    id: 'pickup',
-    label: 'Pickup',
-    icon: Truck,
-    children: [
-      { to: '/vendor/pickups/incoming', label: 'Incoming Pickups' },
-      { to: '/vendor/pickups/centre', label: 'Pickups at Centre' },
-      { to: '/vendor/pickups/all', label: 'All Pickups' },
-    ],
-  },
-  {
-    id: 'quality',
-    label: 'Quality and Grading Manager',
-    icon: BadgeCheck,
-    children: [
-      { to: '/vendor/quality/all', label: 'All Inspection' },
-      { to: '/vendor/quality/pending', label: 'Pending Inspection' },
-      { to: '/vendor/quality/inspection', label: 'Quality Inspection & Grading' },
-      { to: '/vendor/quality/completed', label: 'Completed' },
-    ],
-  },
-  {
-    id: 'req-stock',
-    label: 'Req Stock',
-    icon: Boxes,
-    children: [
-      { to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true },
+    id: 'home',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
+      { to: '/vendor/notifications', label: 'Notifications', icon: Bell },
     ],
   },
   {
     id: 'orders',
-    label: 'Order Manager',
-    icon: ShoppingCart,
-    children: [
-      { to: '/vendor/orders/farmer', label: 'Farmer Orders' },
-      { to: '/vendor/orders/products', label: 'Order By Products' },
-      { to: '/vendor/orders/darkstore', label: 'Darkstore Orders' },
+    title: 'Orders',
+    items: [
+      {
+        id: 'preorders',
+        label: 'Pre-orders',
+        icon: CalendarClock,
+        children: [
+          { to: '/vendor/preorders', label: 'Customer Pre-orders', end: true },
+          { to: '/vendor/pre-order-slots', label: 'Delivery Slots' },
+        ],
+      },
+      {
+        id: 'farmer-orders',
+        label: 'Farmer Orders',
+        icon: ShoppingCart,
+        children: [
+          { to: '/vendor/orders/farmer', label: 'All Farmer Orders' },
+          { to: '/vendor/orders/products', label: 'Orders by Product' },
+          { to: '/vendor/orders/create', label: 'Create Order' },
+        ],
+      },
+      {
+        id: 'req-stock',
+        label: 'Dark Store Restock',
+        icon: PackageOpen,
+        children: [{ to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true }],
+      },
     ],
   },
   {
-    id: 'earnings',
-    label: 'Earnings',
-    icon: Wallet,
-    children: [
-      { to: '/vendor/earnings', label: 'Earning Statements', end: true },
-      { to: '/vendor/earnings/payments', label: 'All Payments' },
+    id: 'catalog',
+    title: 'Catalog & Products',
+    items: [
+      {
+        id: 'catalog',
+        label: 'Catalog',
+        icon: Boxes,
+        children: [
+          { to: '/vendor/catalog', label: 'Catalog Products', end: true },
+          { to: '/vendor/catalog/new', label: 'Add Product' },
+          { to: '/vendor/catalog/categories', label: 'Categories' },
+          { to: '/vendor/catalog/sections', label: 'Sections' },
+          { to: '/vendor/catalog-requests', label: 'Approval Requests' },
+        ],
+      },
+      {
+        id: 'supply-products',
+        label: 'Supply Products',
+        icon: Package,
+        children: [
+          { to: '/vendor/products', label: 'Product Requests', end: true },
+          { to: '/vendor/my-products', label: 'My Supply Products' },
+          { to: '/vendor/farmer-products', label: 'Farmer Products' },
+        ],
+      },
+      { to: '/vendor/market-prices', label: 'Market Prices', icon: TrendingUp },
+      { to: '/vendor/export-import', label: 'Export / Import', icon: ArrowUpDown },
     ],
   },
   {
-    id: 'hr-management',
-    label: 'HR Management',
-    icon: Briefcase,
-    children: [
-      { to: '/vendor/hr-management', label: 'Dashboard', end: true, exact: true },
-      { to: '/vendor/hr-management/calendar', label: 'Calendar' },
-      { to: '/vendor/hr-management/announcements', label: 'Announcements' },
-      { to: '/vendor/hr-management/leave', label: 'Leave' },
-      { to: '/vendor/hr-management/my-leave', label: 'My Leave' },
-      { to: '/vendor/hr-management/employees', label: 'Employees' },
-      { to: '/vendor/hr-management/payroll', label: 'Salary management' },
-      { to: '/vendor/hr-management/recruitment', label: 'Recruitment' },
-      { to: '/vendor/hr-management/attendance', label: 'Attendance & Shifts' },
-      { to: '/vendor/hr-management/meetings', label: 'Meetings' },
+    id: 'inventory',
+    title: 'Inventory',
+    items: [
+      {
+        id: 'inventory',
+        label: 'Stock',
+        icon: ClipboardList,
+        children: [
+          { to: '/vendor/inventory', label: 'Stock Overview', end: true },
+          { to: '/vendor/inventory/farmers', label: 'Farmer Inventory' },
+          { to: '/vendor/inventory/history', label: 'Stock History' },
+        ],
+      },
     ],
   },
-  { to: '/vendor/documents', label: 'Documents', icon: FileText },
+  {
+    id: 'sourcing',
+    title: 'Farmers & Sourcing',
+    items: [
+      {
+        id: 'farmers',
+        label: 'Farmers',
+        icon: Tractor,
+        children: [
+          { to: '/vendor/all-farmers', label: 'All Farmers' },
+          { to: '/vendor/all-farmers/add', label: 'Add Farmer' },
+        ],
+      },
+      {
+        id: 'farmer-managers',
+        label: 'Farmer Managers',
+        icon: Users,
+        children: [
+          { to: '/vendor/farmer-managers', label: 'All Managers' },
+          { to: '/vendor/farmer-managers/add', label: 'Add Manager' },
+        ],
+      },
+      {
+        id: 'crops',
+        label: 'Crops',
+        icon: Sprout,
+        children: [
+          { to: '/vendor/crops', label: 'All Crops', end: true },
+          { to: '/vendor/my-crops', label: 'My Crops' },
+        ],
+      },
+      {
+        id: 'quality',
+        label: 'Quality & Grading',
+        icon: BadgeCheck,
+        children: [
+          { to: '/vendor/quality/all', label: 'All Inspections' },
+          { to: '/vendor/quality/pending', label: 'Pending' },
+          { to: '/vendor/quality/inspection', label: 'Inspect & Grade' },
+          { to: '/vendor/quality/completed', label: 'Completed' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'logistics',
+    title: 'Logistics',
+    items: [
+      {
+        id: 'pickups',
+        label: 'Farm Pickups',
+        icon: Truck,
+        children: [
+          { to: '/vendor/pickups/ready', label: 'Ready for Pickup' },
+          { to: '/vendor/pickups/assigned', label: 'Assigned' },
+          { to: '/vendor/pickups/today', label: "Today's Pickups" },
+          { to: '/vendor/pickups/incoming', label: 'Incoming' },
+          { to: '/vendor/pickups/centre', label: 'At Collection Centre' },
+          { to: '/vendor/pickups/all', label: 'All Pickups' },
+          { to: '/vendor/drivers/pickup-orders', label: 'Pickup Orders by Driver' },
+        ],
+      },
+      { to: '/vendor/drivers', label: 'Pickup Drivers', icon: IdCard, end: true },
+      {
+        id: 'dark-stores',
+        label: 'Zones & Dark Stores',
+        icon: Store,
+        children: [
+          { to: '/vendor/zones', label: 'My Zones' },
+          { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
+          { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
+          { to: '/vendor/delivery-boys', label: 'Delivery Boys' },
+        ],
+      },
+      { to: '/vendor/shipping-methods', label: 'Shipping Methods', icon: Route },
+    ],
+  },
+  {
+    id: 'business',
+    title: 'Finance & Store',
+    items: [
+      {
+        id: 'earnings',
+        label: 'Earnings',
+        icon: Wallet,
+        children: [
+          { to: '/vendor/earnings', label: 'Statements', end: true },
+          { to: '/vendor/earnings/payments', label: 'Payments' },
+        ],
+      },
+      { to: '/vendor/reviews', label: 'Customer Reviews', icon: Star },
+      { to: '/vendor/vacation', label: 'Store Vacation', icon: Palmtree },
+    ],
+  },
+  {
+    id: 'team',
+    title: 'Team & Documents',
+    items: [
+      {
+        id: 'hr-management',
+        label: 'HR Management',
+        icon: Briefcase,
+        children: [
+          { to: '/vendor/hr-management', label: 'Overview', end: true },
+          { to: '/vendor/hr-management/employees', label: 'Employees' },
+          { to: '/vendor/hr-management/attendance', label: 'Attendance & Shifts' },
+          { to: '/vendor/hr-management/leave', label: 'Leave Requests' },
+          { to: '/vendor/hr-management/my-leave', label: 'My Leave' },
+          { to: '/vendor/hr-management/payroll', label: 'Payroll' },
+          { to: '/vendor/hr-management/recruitment', label: 'Recruitment' },
+          { to: '/vendor/hr-management/meetings', label: 'Meetings' },
+          { to: '/vendor/hr-management/calendar', label: 'Calendar' },
+          { to: '/vendor/hr-management/announcements', label: 'Announcements' },
+        ],
+      },
+      { to: '/vendor/documents', label: 'Documents', icon: FileText },
+    ],
+  },
 ]
 
 const footerItems = [
-  { to: '/policies', label: 'Policies', icon: FileText },
+  { to: '/policies', label: 'Policies', icon: ScrollText },
   { to: '/support', label: 'Support', icon: Headset },
-  { to: '/leave', label: 'Apply Leave', icon: CalendarDays },
   { to: '/profile', label: 'My Profile', icon: UserRound },
 ]
+
+const isFarmerOrderPage = (path) => path === '/vendor/orders' || path.startsWith('/vendor/orders/detail/')
+
+/** The child link for the current URL — the longest matching path wins, so nested routes highlight one item. */
+function findActiveChild(children = [], path, currentFull) {
+  const withQuery = children.find((child) => child.to.includes('?') && currentFull === child.to)
+  if (withQuery) return withQuery.to
+  let best = null
+  for (const child of children) {
+    if (child.to.includes('?')) continue
+    const childPath = child.to
+    const matches =
+      path === childPath ||
+      (!child.exact && path.startsWith(`${childPath}/`)) ||
+      (childPath === '/vendor/orders/farmer' && isFarmerOrderPage(path))
+    if (matches && (!best || childPath.length > best.length)) best = childPath
+  }
+  return best
+}
 
 function NavGroup({ item, collapsed, onNavigate }) {
   const location = useLocation()
   const path = location.pathname
   const currentFull = location.pathname + location.search
 
-  const isChildActive = Boolean(
-    item.children?.some((child) => {
-      if (child.to.includes('?')) {
-        return currentFull === child.to
-      }
-      const childPath = String(child.to || '').split('?')[0]
-      return (
-        path.startsWith(childPath) ||
-        (childPath.endsWith('/farmer') && (path === '/vendor/orders' || path.startsWith('/vendor/orders/create') || path.startsWith('/vendor/orders/detail')))
-      )
-    })
-  )
+  const activeChildTo = findActiveChild(item.children, path, currentFull)
+  const isChildActive = Boolean(activeChildTo)
   const [open, setOpen] = useState(isChildActive)
   const Icon = item.icon || Package
 
@@ -270,15 +326,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
       {open && (
         <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2.5">
           {item.children.map((child) => {
-            const childPath = String(child.to || '').split('?')[0]
-            const hasQuery = child.to.includes('?')
-            const isChildItemActive = hasQuery
-              ? currentFull === child.to
-              : (!location.search && (path === childPath || (!child.exact && path.startsWith(childPath + '/')))) ||
-                (childPath.endsWith('/farmer') &&
-                  (path === '/vendor/orders' ||
-                    path.startsWith('/vendor/orders/create') ||
-                    path.startsWith('/vendor/orders/detail')))
+            const isChildItemActive = child.to === activeChildTo
 
             return (
               <NavLink
@@ -394,23 +442,17 @@ export default function ProductManagerLayout() {
     }
   }, [location.pathname])
 
-  const itemsToRender = useMemo(() => {
-    return navItems.map((item) => {
-      if (item.id === 'req-stock') {
-        const storeChildren = (vendorDarkStores || []).map((store) => ({
-          to: `/vendor/inventory-requests?storeId=${store.id || store._id}`,
-          label: store.storeName || `${store.area} Store`,
-        }))
-        return {
-          ...item,
-          children: [
-            { to: '/vendor/inventory-requests', label: 'All Dark Stores', end: true },
-            ...storeChildren,
-          ],
-        }
-      }
-      return item
-    })
+  const sectionsToRender = useMemo(() => {
+    const storeChildren = (vendorDarkStores || []).map((store) => ({
+      to: `/vendor/inventory-requests?storeId=${store.id || store._id}`,
+      label: store.storeName || `${store.area} Store`,
+    }))
+    return navSections.map((section) => ({
+      ...section,
+      items: section.items.map((item) =>
+        item.id === 'req-stock' ? { ...item, children: [...item.children, ...storeChildren] } : item,
+      ),
+    }))
   }, [vendorDarkStores])
 
   useEffect(() => {
@@ -483,13 +525,21 @@ export default function ProductManagerLayout() {
 
         {/* Scrollable Navigation */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {itemsToRender.map((item) => (
-            <NavItem
-              key={item.to || item.id}
-              item={item}
-              collapsed={compact}
-              onNavigate={onNavigate}
-            />
+          {sectionsToRender.map((section, index) => (
+            <div key={section.id} className={index ? 'mt-3' : ''}>
+              {section.title ? (
+                compact ? (
+                  <div className="mx-3 mb-2 border-t border-slate-200/80" />
+                ) : (
+                  <p className="mb-1 px-4 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
+                    {section.title}
+                  </p>
+                )
+              ) : null}
+              {section.items.map((item) => (
+                <NavItem key={item.to || item.id} item={item} collapsed={compact} onNavigate={onNavigate} />
+              ))}
+            </div>
           ))}
 
           {/* Footer Items */}
@@ -544,6 +594,7 @@ export default function ProductManagerLayout() {
       </aside>
 
       {/* Main Content Area */}
+      <VendorNotificationsProvider>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Top Navbar with Searchbar */}
         <VendorTopNavbar onOpenMobileMenu={() => setMobileOpen(true)} />
@@ -570,16 +621,12 @@ export default function ProductManagerLayout() {
           </div>
         )}
 
-        {/* Announcements & Page Content */}
+        {/* Page Content — announcements live in the navbar notification bell */}
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-          <RoleAnnouncements
-            roleKey="vendor"
-            load={() => vendorApi.liveAnnouncements()}
-            loadCalendar={() => vendorApi.liveCalendar()}
-          />
           <Outlet />
         </main>
       </div>
+      </VendorNotificationsProvider>
 
       <div className="print:hidden">
         <VendorBottomNav />

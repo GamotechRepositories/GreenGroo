@@ -5198,6 +5198,8 @@ export async function createFarmerOrder(req, res) {
           note: "Order created by assigned Vendor",
         },
       ],
+      sourceStoreOrderId: String(req.body.sourceStoreOrderId || ""),
+      sourceOrderNumber: String(req.body.sourceOrderNumber || ""),
     });
 
     await order.save();

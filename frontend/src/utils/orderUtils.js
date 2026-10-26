@@ -245,8 +245,8 @@ export function formatPreOrderSlot(order) {
 export const PRE_ORDER_PROGRESS_STEPS = [
   { key: "awaiting_vendor", label: "Awaiting confirmation" },
   { key: "confirmed", label: "Confirmed" },
-  { key: "preparing", label: "Being prepared" },
-  { key: "dispatched", label: "On the way to dark store" },
+  { key: "preparing", label: "Packed" },
+  { key: "dispatched", label: "Shipped" },
   { key: "at_store", label: "Reached dark store" },
   { key: "rider_assigned", label: "Delivery partner assigned" },
   { key: "out_for_delivery", label: "Out for delivery" },

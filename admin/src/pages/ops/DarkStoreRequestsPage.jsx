@@ -148,6 +148,10 @@ export default function DarkStoreRequestsPage() {
                     )}{' '}
                     on {formatDate(row.createdAt)}
                   </p>
+                  <p className="text-sm text-slate-600">
+                    Zone:{' '}
+                    {row.zoneName ? <span className="font-semibold text-slate-800">{row.zoneName}</span> : <span className="text-slate-400">Not set</span>}
+                  </p>
                   <p className="flex items-start gap-1 text-sm text-slate-600">
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
                     {[row.storeAddress, row.area, row.city, row.state, row.pincode].filter(Boolean).join(', ')}

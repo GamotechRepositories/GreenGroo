@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
 
-/// Pre-order journey: vendor confirms → dark store → rider → delivered.
+/// Pre-order journey: vendor confirms → packs → ships to dark store → rider → delivered.
 const List<MapEntry<String, String>> kPreOrderProgressSteps = [
   MapEntry('awaiting_vendor', 'Awaiting confirmation'),
   MapEntry('confirmed', 'Confirmed'),
-  MapEntry('preparing', 'Being prepared'),
-  MapEntry('dispatched', 'On the way to dark store'),
+  MapEntry('preparing', 'Packed'),
+  MapEntry('dispatched', 'Shipped'),
   MapEntry('at_store', 'Reached dark store'),
   MapEntry('rider_assigned', 'Delivery partner assigned'),
   MapEntry('out_for_delivery', 'Out for delivery'),

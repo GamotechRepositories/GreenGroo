@@ -31,9 +31,11 @@ import MultiVendor from './pages/ops/MultiVendor';
 import MultiVendorDetailPage from './pages/ops/MultiVendorDetailPage';
 import ShippingMethodsPage from './pages/ops/ShippingMethodsPage';
 import DarkStoreRequestsPage from './pages/ops/DarkStoreRequestsPage';
+import ZoneRequestsPage from './pages/ops/ZoneRequestsPage';
 import CentreFarmersPage from './pages/ops/CentreFarmersPage';
 import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
 import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
+import VendorCatalogRequestsPage from './pages/ops/VendorCatalogRequestsPage';
 import VendorCropRequestsPage from './pages/ops/VendorCropRequestsPage';
 import CentreFarmerManagersPage from './pages/ops/CentreFarmerManagersPage';
 import StaffManagementPage from './pages/ops/StaffManagementPage';
@@ -138,9 +140,11 @@ export default function App() {
               <Route path="multi-vendor/inventory" element={<InventoryHubPage />} />
               <Route path="multi-vendor/bulk-import-export" element={<BulkImportExport />} />
               <Route path="multi-vendor/csv-import-export" element={<CsvImportExport />} />
+              <Route path="zone-requests" element={<ZoneRequestsPage />} />
               <Route path="dark-store-requests" element={<DarkStoreRequestsPage />} />
               <Route path="collection-dashboard" element={<CollectionDashboardPage />} />
               <Route path="vendor-product-requests" element={<VendorProductRequestsPage />} />
+              <Route path="vendor-catalog-requests" element={<VendorCatalogRequestsPage />} />
               <Route path="vendor-crop-requests" element={<VendorCropRequestsPage />} />
               <Route path="collection-farmers" element={<CentreFarmersPage />} />
               <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />

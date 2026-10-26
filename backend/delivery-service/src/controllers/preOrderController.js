@@ -17,10 +17,11 @@ import {
  * Pre-order lifecycle
  *   Customer places next-day slot order → StoreOrder { status: "preorder_hold", preOrderStage: "pending", vendorStatus: "pending" }
  *   Vendor owning the dark store confirms (or rejects) → vendorStatus: "confirmed"
- *   Product Manager: pending → preparing → ready → forward
- *   Forward → { status: "packed", preOrderStage: "forwarded" } lands in the Delivery Manager's Pre-Orders tab
- *   Delivery Manager marks the goods received at the dark store (storeReceivedAt)
- *   Delivery Manager assigns riders manually — one rider can take many pre-orders
+ *     (optionally sends a FarmerOrder to one of their farmers when short of stock)
+ *   Vendor packs → preOrderStage: "ready"
+ *   Vendor ships → { status: "packed", preOrderStage: "forwarded" } lands in the Delivery Manager's Pre-Orders tab
+ *   Delivery Manager marks the goods received, assigns a rider, then marks out for delivery / delivered
+ *   Rider completes out_for_delivery → delivered only with the customer's OTP
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,9 +75,9 @@ function riderSummary(rider) {
     : null;
 }
 
-const STORE_FIELDS = "storeName area city cityId state pincode name phone isActive";
+const STORE_FIELDS = "storeName area city cityId state pincode name phone isActive zoneId zoneName";
 
-/** Zone = the dark store's state (Zone → City → Dark store). */
+/** Zone = the dark store's approved vendor zone, or its state for stores created before zones. */
 function storeSummary(store) {
   return {
     id: store._id.toString(),
@@ -84,7 +85,7 @@ function storeSummary(store) {
     area: store.area || "",
     city: store.city || "",
     state: store.state || "",
-    zone: store.state || "Other",
+    zone: store.zoneName || store.state || "Other",
     pincode: store.pincode || "",
     managerName: store.name || "",
     managerPhone: store.phone || "",
@@ -239,9 +240,15 @@ export const listPreOrdersForStaff = async (req, res, next) => {
   }
 };
 
-/** PATCH /api/staff/preorders/:orderId/stage  body { stage: "pending" | "preparing" | "ready" } */
+const VENDOR_OWNS_PACKING =
+  "Pre-orders are now packed and shipped by the vendor from the vendor panel";
+
+/** PATCH /api/staff/preorders/:orderId/stage  body { stage: "pending" | "preparing" | "ready" } — admin only */
 export const updatePreOrderStage = async (req, res, next) => {
   try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ success: false, message: VENDOR_OWNS_PACKING });
+    }
     const { orderId } = req.params;
     const nextStage = String(req.body.stage || "").trim().toLowerCase();
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
@@ -323,111 +330,112 @@ export const updatePreOrderStage = async (req, res, next) => {
 };
 
 /**
- * POST /api/staff/preorders/forward  body { orderIds: string[], note?: string }
- * Hands prepared pre-orders to their dark store's Delivery Manager for manual rider assignment.
+ * Moves held pre-orders to { status: "packed", preOrderStage: "forwarded" } — the goods are on
+ * their way to the dark store and the order shows up in the Delivery Manager's Pre-Orders tab.
+ */
+async function shipHeldPreOrders({ orderIds, note, forwardedByName, forwardedBy, scope = {}, stages = PREPARABLE_STAGES, vendorId }) {
+  const forwarded = [];
+  const failed = [];
+
+  for (const id of orderIds) {
+    const now = new Date();
+    const order = await StoreOrder.findOneAndUpdate(
+      {
+        _id: id,
+        ...scope,
+        isPreOrder: true,
+        status: "preorder_hold",
+        vendorStatus: "confirmed",
+        preOrderStage: { $in: stages },
+      },
+      {
+        $set: {
+          status: "packed",
+          packedAt: now,
+          assignmentStatus: "NONE",
+          preOrderStage: "forwarded",
+          forwardedAt: now,
+          forwardedBy,
+          forwardedByName,
+          pickupQrUnlocked: false,
+          ...(note ? { preOrderNote: note } : {}),
+        },
+        $unset: { routeBatchWindowEndsAt: "" },
+      },
+      { new: true }
+    );
+
+    if (!order) {
+      const existing = await StoreOrder.findOne({ _id: id, ...scope }).select(
+        "orderNumber status preOrderStage isPreOrder vendorStatus"
+      );
+      failed.push({
+        id,
+        orderNumber: existing?.orderNumber || "",
+        message: !existing || !existing.isPreOrder
+          ? "Pre-order not found"
+          : existing.status === "cancelled"
+            ? "Cancelled"
+            : existing.status === "preorder_hold" && !isVendorConfirmed(existing)
+              ? "Confirm the pre-order first"
+              : existing.status === "preorder_hold"
+                ? "Pack the pre-order before shipping"
+                : "Already shipped",
+      });
+      continue;
+    }
+
+    if (!order.readyAt || !order.preparingAt) {
+      order.preparingAt = order.preparingAt || now;
+      order.readyAt = order.readyAt || now;
+      await order.save();
+    }
+
+    await syncCustomerOrderFromStore(order, "packed").catch((err) =>
+      console.warn("[preorder] customer sync failed:", err.message)
+    );
+
+    const payload = {
+      orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
+      status: "packed",
+      assignmentStatus: "NONE",
+      isPreOrder: true,
+      preOrderSlot: order.preOrderSlot,
+      preOrderDate: order.preOrderDate,
+      forwardedByName,
+    };
+    emitToStore(order.managerId, "preorder_forwarded", payload);
+    emitPreOrderChange(order, "order_status_updated", payload, vendorId);
+
+    forwarded.push(order.toSafeJSON());
+  }
+  return { forwarded, failed };
+}
+
+/**
+ * POST /api/staff/preorders/forward  body { orderIds: string[], note?: string } — admin only;
+ * vendors ship their own pre-orders from the vendor panel.
  */
 export const forwardPreOrders = async (req, res, next) => {
   try {
-    const rawIds = Array.isArray(req.body.orderIds)
-      ? req.body.orderIds
-      : req.params.orderId
-        ? [req.params.orderId]
-        : [];
-    const orderIds = [...new Set(rawIds.map(String))].filter((id) =>
-      mongoose.Types.ObjectId.isValid(id)
-    );
-    if (!orderIds.length) {
-      return res.status(400).json({ success: false, message: "Select at least one pre-order" });
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ success: false, message: VENDOR_OWNS_PACKING });
     }
-    if (orderIds.length > 200) {
-      return res.status(400).json({ success: false, message: "Forward at most 200 pre-orders at once" });
-    }
+    const orderIds = readOrderIds(req, res);
+    if (!orderIds) return;
 
-    const note = String(req.body.note || "").trim().slice(0, 500);
-    const forwardedByName = await staffDisplayName(req);
-    const forwardedBy = mongoose.Types.ObjectId.isValid(req.user?.id) ? req.user.id : null;
+    const { forwarded, failed } = await shipHeldPreOrders({
+      orderIds,
+      note: String(req.body.note || "").trim().slice(0, 500),
+      forwardedByName: await staffDisplayName(req),
+      forwardedBy: mongoose.Types.ObjectId.isValid(req.user?.id) ? req.user.id : null,
+    });
 
-    const forwarded = [];
-    const failed = [];
-
-    for (const id of orderIds) {
-      const now = new Date();
-      const order = await StoreOrder.findOneAndUpdate(
-        {
-          _id: id,
-          isPreOrder: true,
-          status: "preorder_hold",
-          vendorStatus: "confirmed",
-          preOrderStage: { $in: PREPARABLE_STAGES },
-        },
-        {
-          $set: {
-            status: "packed",
-            packedAt: now,
-            assignmentStatus: "NONE",
-            preOrderStage: "forwarded",
-            forwardedAt: now,
-            forwardedBy,
-            forwardedByName,
-            pickupQrUnlocked: false,
-            ...(note ? { preOrderNote: note } : {}),
-          },
-          $unset: { routeBatchWindowEndsAt: "" },
-        },
-        { new: true }
-      );
-
-      if (!order) {
-        const existing = await StoreOrder.findById(id).select(
-          "orderNumber status preOrderStage isPreOrder vendorStatus"
-        );
-        failed.push({
-          id,
-          orderNumber: existing?.orderNumber || "",
-          message: !existing || !existing.isPreOrder
-            ? "Pre-order not found"
-            : existing.status === "cancelled"
-              ? "Cancelled"
-              : existing.status === "preorder_hold" && !isVendorConfirmed(existing)
-                ? "Waiting for vendor confirmation"
-                : "Already forwarded",
-        });
-        continue;
-      }
-
-      if (!order.readyAt || !order.preparingAt) {
-        order.preparingAt = order.preparingAt || now;
-        order.readyAt = order.readyAt || now;
-        await order.save();
-      }
-
-      await syncCustomerOrderFromStore(order, "packed").catch((err) =>
-        console.warn("[preorder] customer sync failed:", err.message)
-      );
-
-      const payload = {
-        orderId: order._id.toString(),
-        orderNumber: order.orderNumber,
-        status: "packed",
-        assignmentStatus: "NONE",
-        isPreOrder: true,
-        preOrderSlot: order.preOrderSlot,
-        preOrderDate: order.preOrderDate,
-        forwardedByName,
-      };
-      emitToStore(order.managerId, "preorder_forwarded", payload);
-      emitToStore(order.managerId, "order_status_updated", payload);
-
-      forwarded.push(order.toSafeJSON());
-    }
-
-    const status = forwarded.length ? 200 : 400;
-    return res.status(status).json({
+    return res.status(forwarded.length ? 200 : 400).json({
       success: forwarded.length > 0,
       message: forwarded.length
-        ? `${forwarded.length} pre-order${forwarded.length > 1 ? "s" : ""} forwarded to Delivery Manager${
-            failed.length ? ` · ${failed.length} skipped` : ""
-          }`
+        ? `${plural(forwarded.length)} forwarded to Delivery Manager${failed.length ? ` · ${failed.length} skipped` : ""}`
         : failed[0]?.message || "Nothing forwarded",
       forwarded,
       failed,
@@ -757,6 +765,149 @@ export const markPreOrdersReceived = async (req, res, next) => {
   }
 };
 
+const RIDER_HELD_STATUSES = ["assigned", "pickup_verified"];
+
+/**
+ * POST /api/delivery-managers/preorders/out-for-delivery  body { orderIds: string[] }
+ * The assigned rider has left with the goods; the rider then completes delivery with the customer's OTP.
+ */
+export const markPreOrdersOutForDelivery = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const orderIds = readOrderIds(req, res);
+    if (!orderIds) return;
+
+    const updated = [];
+    const failed = [];
+    for (const id of orderIds) {
+      const order = await StoreOrder.findOneAndUpdate(
+        {
+          _id: id,
+          managerId: manager._id,
+          isPreOrder: true,
+          status: { $in: RIDER_HELD_STATUSES },
+          assignedRiderId: { $ne: null },
+        },
+        {
+          $set: {
+            status: "out_for_delivery",
+            assignmentStatus: "OUT_FOR_DELIVERY",
+            customerAddressUnlocked: true,
+            pickupVerified: true,
+          },
+        },
+        { new: true }
+      );
+      if (!order) {
+        const existing = await StoreOrder.findOne({ _id: id, managerId: manager._id }).select(
+          "orderNumber status isPreOrder assignedRiderId"
+        );
+        failed.push({
+          id,
+          orderNumber: existing?.orderNumber || "",
+          message: !existing?.isPreOrder
+            ? "Pre-order not found"
+            : existing.status === "out_for_delivery"
+              ? "Already out for delivery"
+              : ["preorder_hold"].includes(existing.status)
+                ? "The vendor has not shipped this pre-order yet"
+                : !existing.assignedRiderId || ["packed", "offered"].includes(existing.status)
+                  ? "Assign a delivery boy first"
+                  : `Cannot mark out for delivery (status: ${existing.status})`,
+        });
+        continue;
+      }
+
+      await syncCustomerOrderFromStore(order, "out_for_delivery").catch((err) =>
+        console.warn("[preorder] customer sync failed:", err.message)
+      );
+      emitPreOrderChange(order, "order_status_updated", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: order.status,
+        isPreOrder: true,
+      });
+      updated.push(order.toSafeJSON());
+    }
+
+    return res.status(updated.length ? 200 : 400).json({
+      success: updated.length > 0,
+      message: updated.length
+        ? `${plural(updated.length)} out for delivery${failed.length ? ` · ${failed.length} skipped` : ""}`
+        : failed[0]?.message || "Nothing updated",
+      updated,
+      failed,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /api/delivery-managers/preorders/deliver  body { orderIds: string[] } — manager closes a pre-order as delivered. */
+export const markPreOrdersDelivered = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const orderIds = readOrderIds(req, res);
+    if (!orderIds) return;
+
+    const byName = manager.name || manager.storeName || "Delivery Manager";
+    const delivered = [];
+    const failed = [];
+    for (const id of orderIds) {
+      const order = await StoreOrder.findOne({ _id: id, managerId: manager._id, isPreOrder: true });
+      if (!order) {
+        failed.push({ id, orderNumber: "", message: "Pre-order not found" });
+        continue;
+      }
+      if (![...RIDER_HELD_STATUSES, "out_for_delivery"].includes(order.status)) {
+        failed.push({
+          id,
+          orderNumber: order.orderNumber,
+          message:
+            order.status === "delivered"
+              ? "Already delivered"
+              : order.status === "preorder_hold"
+                ? "The vendor has not shipped this pre-order yet"
+                : ["packed", "offered"].includes(order.status)
+                  ? "Assign a delivery boy first"
+                  : `Cannot mark delivered (status: ${order.status})`,
+        });
+        continue;
+      }
+
+      order.notes = [order.notes, `Marked delivered by ${byName} (Delivery Manager)`].filter(Boolean).join("\n");
+      await order.save();
+      const result = await applyStoreOrderStatus({
+        storeOrderId: order._id,
+        status: "delivered",
+        skipCompletionGuards: true,
+      });
+      if (!result.success) {
+        failed.push({ id, orderNumber: order.orderNumber, message: result.message });
+        continue;
+      }
+      emitPreOrderChange(result.order, "order_status_updated", {
+        orderId: result.order._id.toString(),
+        orderNumber: result.order.orderNumber,
+        status: "delivered",
+        isPreOrder: true,
+      });
+      delivered.push(result.order.toSafeJSON());
+    }
+
+    return res.status(delivered.length ? 200 : 400).json({
+      success: delivered.length > 0,
+      message: delivered.length
+        ? `${plural(delivered.length)} marked delivered${failed.length ? ` · ${failed.length} skipped` : ""}`
+        : failed[0]?.message || "Nothing updated",
+      delivered,
+      failed,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── Vendor (owner of the dark stores) ───────────────────────────────────────
 
 const vendorIdOf = (req) => String(req.user?.vendorId || req.user?.id || "");
@@ -877,6 +1028,109 @@ export const confirmVendorPreOrders = async (req, res, next) => {
         ? `${plural(confirmed.length)} confirmed${failed.length ? ` · ${failed.length} skipped` : ""}`
         : failed[0]?.message || "Nothing confirmed",
       confirmed,
+      failed,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /api/vendor/preorders/pack  body { orderIds: string[] } — confirmed → packed */
+export const packVendorPreOrders = async (req, res, next) => {
+  try {
+    const orderIds = readOrderIds(req, res);
+    if (!orderIds) return;
+    const vendorId = vendorIdOf(req);
+    const storeIds = (await vendorStores(req)).map((s) => s._id);
+
+    const packed = [];
+    const failed = [];
+    for (const id of orderIds) {
+      const now = new Date();
+      const order = await StoreOrder.findOneAndUpdate(
+        {
+          _id: id,
+          isPreOrder: true,
+          managerId: { $in: storeIds },
+          status: "preorder_hold",
+          vendorStatus: "confirmed",
+          preOrderStage: { $in: ["pending", null, ""] },
+        },
+        { $set: { preOrderStage: "ready", readyAt: now } },
+        { new: true }
+      );
+      if (order && !order.preparingAt) {
+        order.preparingAt = now;
+        await order.save();
+      }
+      if (!order) {
+        const existing = await StoreOrder.findOne({ _id: id, managerId: { $in: storeIds } }).select(
+          "orderNumber status isPreOrder vendorStatus preOrderStage"
+        );
+        failed.push({
+          id,
+          orderNumber: existing?.orderNumber || "",
+          message: !existing?.isPreOrder
+            ? "Pre-order not found in your dark stores"
+            : existing.status === "cancelled"
+              ? "Cancelled"
+              : existing.status === "preorder_hold" && !isVendorConfirmed(existing)
+                ? "Confirm the pre-order first"
+                : existing.status === "preorder_hold"
+                  ? "Already packed"
+                  : "Already shipped",
+        });
+        continue;
+      }
+
+      await syncCustomerOrderFromStore(order, "preorder_preparing").catch((err) =>
+        console.warn("[preorder] customer sync failed:", err.message)
+      );
+      emitPreOrderChange(
+        order,
+        "preorder_updated",
+        { orderId: order._id.toString(), orderNumber: order.orderNumber, preOrderStage: "ready" },
+        vendorId
+      );
+      packed.push(order.toSafeJSON());
+    }
+
+    return res.status(packed.length ? 200 : 400).json({
+      success: packed.length > 0,
+      message: packed.length
+        ? `${plural(packed.length)} packed${failed.length ? ` · ${failed.length} skipped` : ""}`
+        : failed[0]?.message || "Nothing packed",
+      packed,
+      failed,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /api/vendor/preorders/ship  body { orderIds: string[], note? } — packed → shipped to the dark store */
+export const shipVendorPreOrders = async (req, res, next) => {
+  try {
+    const orderIds = readOrderIds(req, res);
+    if (!orderIds) return;
+    const storeIds = (await vendorStores(req)).map((s) => s._id);
+
+    const { forwarded, failed } = await shipHeldPreOrders({
+      orderIds,
+      note: String(req.body?.note || "").trim().slice(0, 500),
+      forwardedByName: `${vendorNameOf(req)} (Vendor)`,
+      forwardedBy: null,
+      scope: { managerId: { $in: storeIds } },
+      stages: ["preparing", "ready"],
+      vendorId: vendorIdOf(req),
+    });
+
+    return res.status(forwarded.length ? 200 : 400).json({
+      success: forwarded.length > 0,
+      message: forwarded.length
+        ? `${plural(forwarded.length)} shipped to the dark store${failed.length ? ` · ${failed.length} skipped` : ""}`
+        : failed[0]?.message || "Nothing shipped",
+      shipped: forwarded,
       failed,
     });
   } catch (error) {

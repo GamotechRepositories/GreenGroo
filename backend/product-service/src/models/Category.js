@@ -66,6 +66,13 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Vendor (business id) whose approved catalog request created this category; "" = admin category. */
+    ownerVendorId: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );

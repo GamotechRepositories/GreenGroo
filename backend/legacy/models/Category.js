@@ -46,10 +46,17 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    ownerVendorId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
-const Category = mongoose.model("GreenGroccCategory", categorySchema);
+const Category =
+  mongoose.models.GreenGroccCategory || mongoose.model("GreenGroccCategory", categorySchema);
 
 export default Category;

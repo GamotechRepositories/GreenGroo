@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
@@ -8,9 +8,12 @@ import {
   ChevronRight,
   Layers,
   MapPin,
+  Package,
   Phone,
   Search,
+  Sprout,
   Store,
+  Truck,
   X,
 } from 'lucide-react'
 import { vendorApi } from '../../api/vendorApi'
@@ -20,8 +23,9 @@ import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TD, 
 
 const TABS = [
   { key: 'awaiting', label: 'Awaiting confirmation', match: ['awaiting_vendor'] },
-  { key: 'confirmed', label: 'Confirmed / preparing', match: ['confirmed', 'preparing'] },
-  { key: 'to_store', label: 'On the way to store', match: ['dispatched'] },
+  { key: 'confirmed', label: 'Confirmed', match: ['confirmed'] },
+  { key: 'packed', label: 'Packed', match: ['preparing'] },
+  { key: 'to_store', label: 'Shipped', match: ['dispatched'] },
   { key: 'at_store', label: 'At dark store', match: ['at_store'] },
   { key: 'delivering', label: 'Out for delivery', match: ['rider_assigned', 'out_for_delivery'] },
   { key: 'delivered', label: 'Delivered', match: ['delivered'] },
@@ -145,6 +149,164 @@ function ProgressPill({ order }) {
   )
 }
 
+const FARMER_STATUS_TONE = {
+  NEW: 'border-amber-200 bg-amber-50 text-amber-800',
+  REJECTED: 'border-red-200 bg-red-50 text-red-700',
+}
+
+function FarmerRequestBadges({ requests }) {
+  if (!requests?.length) return null
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {requests.map((r) => (
+        <span
+          key={r.id}
+          title={r.products.map((p) => `${p.name} × ${p.quantity} ${p.unit}`).join(', ')}
+          className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${
+            FARMER_STATUS_TONE[r.status] || 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          }`}
+        >
+          <Sprout size={10} /> {r.farmerName}: {String(r.status).replace(/_/g, ' ').toLowerCase()}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+const asFarmerList = (res) => {
+  const d = res?.data
+  return Array.isArray(d) ? d : d?.farmers || d?.data || d?.items || []
+}
+
+/** Optional: the vendor is short of stock and asks one of their farmers to supply items for this pre-order. */
+function FarmerRequestDialog({ order, onClose, onDone }) {
+  const [farmers, setFarmers] = useState([])
+  const [farmersLoading, setFarmersLoading] = useState(true)
+  const [farmerId, setFarmerId] = useState('')
+  const [lines, setLines] = useState(() =>
+    (order.items || []).map((i) => ({
+      key: i.id || i.sku || i.name,
+      name: i.name,
+      productId: i.productId || '',
+      quantity: Number(i.quantity || 0),
+      unit: i.unit || 'Kg',
+      include: true,
+    })),
+  )
+  const [requiredDate, setRequiredDate] = useState(order.preOrderDate || '')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    vendorApi
+      .getFarmers({ limit: 500 })
+      .then((res) => alive && setFarmers(asFarmerList(res)))
+      .catch(() => alive && setFarmers([]))
+      .finally(() => alive && setFarmersLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const setLine = (key, patch) => setLines((list) => list.map((l) => (l.key === key ? { ...l, ...patch } : l)))
+
+  const submit = async () => {
+    const products = lines
+      .filter((l) => l.include && Number(l.quantity) > 0)
+      .map(({ name, productId, quantity, unit }) => ({ name, productId, quantity: Number(quantity), unit }))
+    if (!farmerId) return toast.error('Select a farmer')
+    if (!products.length) return toast.error('Select at least one item with a quantity')
+    setBusy(true)
+    try {
+      const res = await vendorApi.createPreOrderFarmerRequest(order.id, { farmerId, products, requiredDate, note })
+      toast.success(res.data?.message || 'Request sent to farmer')
+      onDone()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not send request')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className={`${PANEL} max-h-[90vh] w-full max-w-lg overflow-y-auto p-5`}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Request from farmer · #{order.orderNumber}</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Optional — use this when you don&apos;t have enough stock. The farmer gets it as a new order in the farmer app.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
+            <X size={16} />
+          </button>
+        </div>
+
+        <label className="mt-4 block text-xs font-semibold text-slate-600">
+          Farmer
+          <select className={`${INPUT} mt-1`} value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
+            <option value="">{farmersLoading ? 'Loading farmers…' : farmers.length ? 'Select a farmer' : 'No farmers yet'}</option>
+            {farmers.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+                {f.mobile ? ` · ${f.mobile}` : ''}
+                {f.farmLocation ? ` · ${f.farmLocation}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="mt-3 text-xs font-semibold text-slate-600">Items</div>
+        <div className="mt-1 divide-y divide-slate-100 rounded-xl border border-slate-200">
+          {lines.map((l) => (
+            <div key={l.key} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <input type="checkbox" checked={l.include} onChange={(e) => setLine(l.key, { include: e.target.checked })} />
+              <span className="min-w-0 flex-1 truncate text-slate-800">{l.name}</span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                disabled={!l.include}
+                className={`${INPUT} w-20 py-1 text-right`}
+                value={l.quantity}
+                onChange={(e) => setLine(l.key, { quantity: e.target.value })}
+              />
+              <input
+                disabled={!l.include}
+                className={`${INPUT} w-16 py-1`}
+                value={l.unit}
+                onChange={(e) => setLine(l.key, { unit: e.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-slate-600">
+            Needed by
+            <input type="date" className={`${INPUT} mt-1`} value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
+          </label>
+          <label className="block text-xs font-semibold text-slate-600">
+            Note for farmer
+            <input className={`${INPUT} mt-1`} value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" className={BTN} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" disabled={busy} onClick={submit} className={`${BTN_PRIMARY} gap-1`}>
+            <Sprout size={14} /> {busy ? 'Sending…' : 'Send to farmer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const zoneOf = (order) => order.store?.zone || 'Other'
 const storeIdOf = (order) => order.store?.id || String(order.managerId || '')
 const isAwaiting = (order) => order.preOrderProgress === 'awaiting_vendor'
@@ -237,11 +399,12 @@ function RejectDialog({ order, onClose, onDone }) {
   )
 }
 
-function OrderDetail({ order }) {
+function OrderDetail({ order, farmerRequests }) {
   const steps = [
     ['Placed', order.createdAt, ''],
     ['Confirmed', order.vendorConfirmedAt, order.vendorActionByName],
-    ['Forwarded by Product Manager', order.forwardedAt, order.forwardedByName],
+    ['Packed', order.readyAt, ''],
+    ['Shipped to dark store', order.forwardedAt, order.forwardedByName],
     ['Received at dark store', order.storeReceivedAt, order.storeReceivedByName],
     ['Delivered', order.deliveredAt, ''],
   ]
@@ -330,22 +493,39 @@ function OrderDetail({ order }) {
           ) : null}
           {order.preOrderNote ? (
             <div className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-800">
-              PM note: {order.preOrderNote}
+              Note: {order.preOrderNote}
             </div>
           ) : null}
         </div>
+        {farmerRequests?.length ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Farmer requests</div>
+            <ul className="mt-2 space-y-1.5 text-xs">
+              {farmerRequests.map((r) => (
+                <li key={r.id} className="text-slate-700">
+                  <span className="font-semibold">{r.farmerName}</span> ·{' '}
+                  {r.products.map((p) => `${p.name} × ${p.quantity} ${p.unit}`).join(', ')}
+                  <span className="text-slate-500"> · {String(r.status).replace(/_/g, ' ').toLowerCase()}</span>
+                  {r.requiredDate ? <span className="text-slate-400"> · needed {fmtDay(r.requiredDate)}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </div>
   )
 }
 
-function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject, busyIds }) {
+function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onPack, onShip, onReject, onFarmerRequest, farmerRequestsByOrder, busyIds }) {
   const [open, setOpen] = useState(true)
   const [expanded, setExpanded] = useState({})
   const { store, orders } = group
   const awaiting = orders.filter((o) => o.preOrderProgress === 'awaiting_vendor')
+  const toPack = orders.filter((o) => o.preOrderProgress === 'confirmed')
+  const toShip = orders.filter((o) => o.preOrderProgress === 'preparing')
   const allChecked = awaiting.length > 0 && awaiting.every((o) => selected.has(o.id))
-  const storeBusy = awaiting.some((o) => busyIds.has(o.id))
+  const storeBusy = [...awaiting, ...toPack, ...toShip].some((o) => busyIds.has(o.id))
 
   return (
     <div className={`${PANEL} overflow-hidden`}>
@@ -377,7 +557,27 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
               onClick={() => onConfirm(awaiting.map((o) => o.id))}
               className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
             >
-              <Check size={13} /> {storeBusy ? 'Confirming…' : `Confirm all ${awaiting.length}`}
+              <Check size={13} /> {storeBusy ? 'Working…' : `Confirm all ${awaiting.length}`}
+            </button>
+          ) : null}
+          {toPack.length ? (
+            <button
+              type="button"
+              disabled={storeBusy}
+              onClick={() => onPack(toPack.map((o) => o.id))}
+              className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+            >
+              <Package size={13} /> {`Pack all ${toPack.length}`}
+            </button>
+          ) : null}
+          {toShip.length ? (
+            <button
+              type="button"
+              disabled={storeBusy}
+              onClick={() => onShip(toShip.map((o) => o.id))}
+              className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+            >
+              <Truck size={13} /> {`Ship all ${toShip.length}`}
             </button>
           ) : null}
         </div>
@@ -466,9 +666,10 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
                       {order.vendorConfirmedAt ? (
                         <div className="mt-1 text-[11px] text-slate-400">Confirmed {fmtTime(order.vendorConfirmedAt)}</div>
                       ) : null}
+                      <FarmerRequestBadges requests={farmerRequestsByOrder.get(order.id)} />
                     </td>
                     <td className={`${TD} text-right`}>
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex flex-wrap justify-end gap-1.5">
                         {canAct ? (
                           <button
                             type="button"
@@ -477,6 +678,36 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
                             className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
                           >
                             <Check size={13} /> Confirm
+                          </button>
+                        ) : null}
+                        {order.preOrderProgress === 'confirmed' ? (
+                          <button
+                            type="button"
+                            disabled={busyIds.has(order.id)}
+                            onClick={() => onPack([order.id])}
+                            className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+                          >
+                            <Package size={13} /> Mark packed
+                          </button>
+                        ) : null}
+                        {order.preOrderProgress === 'preparing' ? (
+                          <button
+                            type="button"
+                            disabled={busyIds.has(order.id)}
+                            onClick={() => onShip([order.id])}
+                            className={`${BTN_PRIMARY} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+                          >
+                            <Truck size={13} /> Mark shipped
+                          </button>
+                        ) : null}
+                        {order.status === 'preorder_hold' && order.preOrderProgress !== 'awaiting_vendor' ? (
+                          <button
+                            type="button"
+                            onClick={() => onFarmerRequest(order)}
+                            className={`${BTN} min-h-8 gap-1 px-2.5 py-1 text-xs`}
+                            title="Optional — ask one of your farmers for stock"
+                          >
+                            <Sprout size={13} /> Ask farmer
                           </button>
                         ) : null}
                         {canReject ? (
@@ -494,7 +725,7 @@ function StoreCard({ group, selected, onToggle, onToggleAll, onConfirm, onReject
                   isOpen ? (
                     <tr key={`${order.id}-detail`}>
                       <td colSpan={8} className="p-0">
-                        <OrderDetail order={order} />
+                        <OrderDetail order={order} farmerRequests={farmerRequestsByOrder.get(order.id)} />
                       </td>
                     </tr>
                   ) : null,
@@ -524,6 +755,8 @@ export default function VendorPreOrdersPage() {
   const [selected, setSelected] = useState(new Set())
   const [busyIds, setBusyIds] = useState(new Set())
   const [rejecting, setRejecting] = useState(null)
+  const [askingFarmer, setAskingFarmer] = useState(null)
+  const [farmerRequests, setFarmerRequests] = useState([])
   const [reloadKey, setReloadKey] = useState(0)
 
   const updateParams = (patch, { push = false } = {}) => {
@@ -557,6 +790,26 @@ export default function VendorPreOrdersPage() {
     },
     [apiDate, reloadKey],
   )
+
+  useLive(
+    async () => {
+      try {
+        const res = await vendorApi.getPreOrderFarmerRequests()
+        setFarmerRequests(res.data?.requests || [])
+      } catch {
+        setFarmerRequests([])
+      }
+    },
+    [reloadKey],
+  )
+  const farmerRequestsByOrder = useMemo(() => {
+    const map = new Map()
+    for (const r of farmerRequests) {
+      if (!map.has(r.storeOrderId)) map.set(r.storeOrderId, [])
+      map.get(r.storeOrderId).push(r)
+    }
+    return map
+  }, [farmerRequests])
 
   const boardDate = apiDate || data.tomorrow || istDate(1)
   const [slotAvailability, setSlotAvailability] = useState([])
@@ -680,18 +933,18 @@ export default function VendorPreOrdersPage() {
   const awaitingAll = scoped.filter((o) => o.preOrderProgress === 'awaiting_vendor').map((o) => o.id)
   const confirmingAll = awaitingAll.some((id) => busyIds.has(id))
 
-  const confirm = async (ids) => {
+  const runBulk = async (ids, { call, resultKey, verb }) => {
     if (!ids.length) return
     setBusyIds((prev) => new Set([...prev, ...ids]))
     try {
       let done = 0
       let lastMessage = ''
       for (let i = 0; i < ids.length; i += 200) {
-        const res = await vendorApi.confirmPreOrders(ids.slice(i, i + 200))
-        done += res.data?.confirmed?.length || 0
+        const res = await call(ids.slice(i, i + 200))
+        done += res.data?.[resultKey]?.length || 0
         lastMessage = res.data?.message || ''
       }
-      toast.success(ids.length > 200 ? `${done} pre-orders confirmed` : lastMessage || 'Confirmed')
+      toast.success(ids.length > 200 ? `${done} pre-orders ${verb}` : lastMessage || 'Done')
       setSelected((prev) => {
         const next = new Set(prev)
         ids.forEach((id) => next.delete(id))
@@ -699,7 +952,7 @@ export default function VendorPreOrdersPage() {
       })
       setReloadKey((k) => k + 1)
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Could not confirm')
+      toast.error(err?.response?.data?.message || `Could not update pre-orders`)
     } finally {
       setBusyIds((prev) => {
         const next = new Set(prev)
@@ -708,11 +961,15 @@ export default function VendorPreOrdersPage() {
       })
     }
   }
+  const confirm = (ids) => runBulk(ids, { call: vendorApi.confirmPreOrders, resultKey: 'confirmed', verb: 'confirmed' })
+  const pack = (ids) => runBulk(ids, { call: vendorApi.packPreOrders, resultKey: 'packed', verb: 'packed' })
+  const ship = (ids) => runBulk(ids, { call: vendorApi.shipPreOrders, resultKey: 'shipped', verb: 'shipped' })
 
   const summaryCards = [
     ['Awaiting confirmation', counts.awaiting, 'text-amber-700'],
-    ['Confirmed / preparing', counts.confirmed, 'text-emerald-700'],
-    ['On the way to store', counts.to_store, 'text-indigo-700'],
+    ['Confirmed', counts.confirmed, 'text-emerald-700'],
+    ['Packed', counts.packed, 'text-sky-700'],
+    ['Shipped', counts.to_store, 'text-indigo-700'],
     ['At dark store', counts.at_store, 'text-violet-700'],
     ['Out for delivery', counts.delivering, 'text-cyan-700'],
     ['Delivered', counts.delivered, 'text-slate-900'],
@@ -725,11 +982,12 @@ export default function VendorPreOrdersPage() {
         <h1 className={PAGE_TITLE}>Pre-orders</h1>
         <p className={PAGE_SUB}>
           Next-day slot orders from customers for your dark stores. Open a zone, then a dark store, to see its orders.
-          Confirm them so the Product Manager can prepare and send the goods to the store.
+          Confirm each order, mark it packed, then mark it shipped to the dark store — the Delivery Manager takes it from
+          there. Short of stock? Use “Ask farmer” to request it from one of your farmers (optional).
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {summaryCards.map(([label, value, tone]) => (
           <div key={label} className={`${PANEL} px-4 py-3`}>
             <div className="text-xs text-slate-500">{label}</div>
@@ -886,7 +1144,11 @@ export default function VendorPreOrdersPage() {
             onToggle={toggle}
             onToggleAll={toggleAll}
             onConfirm={confirm}
+            onPack={pack}
+            onShip={ship}
             onReject={setRejecting}
+            onFarmerRequest={setAskingFarmer}
+            farmerRequestsByOrder={farmerRequestsByOrder}
             busyIds={busyIds}
           />
         ) : (
@@ -953,6 +1215,17 @@ export default function VendorPreOrdersPage() {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {askingFarmer ? (
+        <FarmerRequestDialog
+          order={askingFarmer}
+          onClose={() => setAskingFarmer(null)}
+          onDone={() => {
+            setAskingFarmer(null)
+            setReloadKey((k) => k + 1)
+          }}
+        />
       ) : null}
 
       {rejecting ? (

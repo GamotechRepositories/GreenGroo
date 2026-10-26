@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 
 const FIELD = "w-full border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]";
 const LABEL = "mb-1 block text-xs font-semibold text-gray-700";
 
 const EMPTY = {
+  zoneId: "",
   storeName: "",
   managerName: "",
   phone: "",
@@ -23,12 +24,41 @@ const EMPTY = {
 
 export default function DarkStoreRequestPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState(EMPTY);
+  const [zones, setZones] = useState([]);
+  const [zonesLoading, setZonesLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState("");
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const selectZone = (zoneId, list = zones) => {
+    const zone = list.find((z) => z.id === zoneId);
+    setForm((f) => ({ ...f, zoneId, state: zone?.state || f.state }));
+  };
+
+  useEffect(() => {
+    let alive = true;
+    vendorApi
+      .getZones()
+      .then((res) => {
+        if (!alive) return;
+        const list = res.data?.zones || [];
+        setZones(list);
+        const wanted = searchParams.get("zone");
+        const initial = list.find((z) => z.id === wanted) || (list.length === 1 ? list[0] : null);
+        if (initial) setForm((f) => ({ ...f, zoneId: initial.id, state: initial.state || f.state }));
+      })
+      .catch((err) => alive && setError(err?.response?.data?.message || "Failed to load your zones"))
+      .finally(() => alive && setZonesLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [searchParams]);
+
+  const selectedZone = zones.find((z) => z.id === form.zoneId);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -79,8 +109,37 @@ export default function DarkStoreRequestPage() {
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
+      {!zonesLoading && zones.length === 0 ? (
+        <div className="border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          You need an approved zone before requesting a dark store.{" "}
+          <Link to="/vendor/zones" className="font-semibold underline">Create a zone</Link> and wait for admin approval.
+        </div>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="space-y-4 border border-gray-200 bg-white p-6">
-        <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">Store & Manager</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">Zone</p>
+        <div>
+          <label className={LABEL}>Approved Zone *</label>
+          <select
+            className={FIELD}
+            value={form.zoneId}
+            onChange={(e) => selectZone(e.target.value)}
+            disabled={zonesLoading || zones.length === 0}
+            required
+          >
+            <option value="">{zonesLoading ? "Loading zones…" : "Select a zone"}</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name} — {zone.state}
+              </option>
+            ))}
+          </select>
+          {selectedZone?.cities?.length ? (
+            <p className="mt-1 text-[10px] text-gray-400">Cities: {selectedZone.cities.join(", ")}</p>
+          ) : null}
+        </div>
+
+        <p className="pt-2 text-xs font-bold uppercase tracking-wide text-[#217346]">Store & Manager</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className={LABEL}>Dark Store Name *</label>
@@ -146,7 +205,7 @@ export default function DarkStoreRequestPage() {
         </div>
 
         <div className="flex gap-2">
-          <button type="submit" disabled={submitting} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
+          <button type="submit" disabled={submitting || !form.zoneId} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
             {submitting ? "Sending…" : "Send for Approval"}
           </button>
           <Link to="/vendor/dark-stores" className="border border-gray-200 px-4 py-2 text-xs">Cancel</Link>

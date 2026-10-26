@@ -417,6 +417,13 @@ const productSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    /** Vendor (business id) whose approved catalog request created this product; "" = admin product. */
+    ownerVendorId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
     justArrived: {
       type: Boolean,
       default: false,

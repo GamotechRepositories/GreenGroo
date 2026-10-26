@@ -56,6 +56,8 @@ import ManagerEarningReportPage from './pages/manager/ManagerEarningReportPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
 import VendorDarkStoresPage from './pages/dark-stores/VendorDarkStoresPage'
 import DarkStoreRequestPage from './pages/dark-stores/DarkStoreRequestPage'
+import VendorZonesPage from './pages/dark-stores/VendorZonesPage'
+import VendorNotificationsPage from './pages/notifications/VendorNotificationsPage'
 import VendorDeliveryBoysPage from './pages/dark-stores/VendorDeliveryBoysPage'
 import ShippingMethodsPage from './pages/shipping/ShippingMethodsPage'
 import VendorPreOrdersPage from './pages/preorders/VendorPreOrdersPage'
@@ -64,6 +66,8 @@ import VendorPreOrderSlotsPage from './pages/preorders/VendorPreOrderSlotsPage'
 import VendorBulkImportExportPage from './pages/catalog/VendorBulkImportExportPage'
 import VendorCsvImportExportPage from './pages/catalog/VendorCsvImportExportPage'
 import VendorExportImportPage from './pages/catalog/VendorExportImportPage'
+import VendorCatalogPage from './pages/catalog/VendorCatalogPage'
+import VendorCatalogRequestsPage from './pages/catalog/VendorCatalogRequestsPage'
 import VendorMyProductsPage from './pages/products/VendorMyProductsPage'
 import VendorProductRequestPage from './pages/products/VendorProductRequestPage'
 import VendorAllCropsPage from './pages/crops/VendorAllCropsPage'
@@ -133,6 +137,8 @@ function App() {
                 <Route path="/vendor/products/:productKey/farmers" element={<VendorProductFarmersPage />} />
                 <Route path="/vendor/products" element={<VendorProductRequestPage />} />
                 <Route path="/vendor/my-products" element={<VendorMyProductsPage />} />
+                <Route path="/vendor/catalog-requests" element={<VendorCatalogRequestsPage />} />
+                <Route path="/vendor/catalog/:catalogView?/:sectionSlug?" element={<VendorCatalogPage />} />
                 <Route path="/vendor/farmer-products" element={<VendorProductsPage />} />
                 <Route path="/vendor/farmer-products/add" element={<VendorProductAddPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
@@ -148,6 +154,8 @@ function App() {
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />
+                <Route path="/vendor/zones" element={<VendorZonesPage />} />
+                <Route path="/vendor/notifications" element={<VendorNotificationsPage />} />
                 <Route path="/vendor/dark-stores" element={<VendorDarkStoresPage />} />
                 <Route path="/vendor/dark-stores/request" element={<DarkStoreRequestPage />} />
                 <Route path="/vendor/delivery-boys" element={<VendorDeliveryBoysPage />} />
@@ -221,6 +229,7 @@ function App() {
                 <Route path="/vendor/hr-management/attendance" element={<HrAttendancePage />} />
                 <Route path="/vendor/hr-management/meetings" element={<HrMeetingsPage />} />
                 <Route path="/vendor/inventory-requests" element={<InventoryRequestsPage />} />
+                <Route path="/vendor/orders/darkstore" element={<Navigate to="/vendor/inventory-requests" replace />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
                 <Route

@@ -29,8 +29,9 @@ const CLOSED_PROGRESS = new Set(['cancelled', 'rejected', 'failed']);
 const STATUS_TABS = [
   { key: 'all', label: 'All', match: null },
   { key: 'awaiting', label: 'Awaiting vendor', match: ['awaiting_vendor'] },
-  { key: 'confirmed', label: 'Confirmed / preparing', match: ['confirmed', 'preparing'] },
-  { key: 'to_store', label: 'To dark store', match: ['dispatched'] },
+  { key: 'confirmed', label: 'Confirmed', match: ['confirmed'] },
+  { key: 'packed', label: 'Packed', match: ['preparing'] },
+  { key: 'to_store', label: 'Shipped', match: ['dispatched'] },
   { key: 'at_store', label: 'At dark store', match: ['at_store'] },
   { key: 'delivering', label: 'Out for delivery', match: ['rider_assigned', 'out_for_delivery'] },
   { key: 'delivered', label: 'Delivered', match: ['delivered'] },
@@ -40,8 +41,8 @@ const STATUS_TABS = [
 const PROGRESS_OPTIONS = [
   { key: 'awaiting_vendor', label: 'Awaiting vendor' },
   { key: 'confirmed', label: 'Confirmed' },
-  { key: 'preparing', label: 'Preparing' },
-  { key: 'dispatched', label: 'To dark store' },
+  { key: 'preparing', label: 'Packed' },
+  { key: 'dispatched', label: 'Shipped' },
   { key: 'at_store', label: 'At dark store' },
   { key: 'rider_assigned', label: 'Rider assigned' },
   { key: 'out_for_delivery', label: 'Out for delivery' },

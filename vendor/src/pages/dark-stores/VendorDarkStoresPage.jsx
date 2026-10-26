@@ -62,6 +62,9 @@ export default function VendorDarkStoresPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/vendor/zones" className="border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+            My Zones
+          </Link>
           <Link to="/vendor/delivery-boys" className="border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
             Manage Delivery Boys
           </Link>
@@ -94,6 +97,7 @@ export default function VendorDarkStoresPage() {
                   <thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500">
                     <tr>
                       <th className="px-4 py-2">Store</th>
+                      <th className="px-4 py-2">Zone</th>
                       <th className="px-4 py-2">Location</th>
                       <th className="px-4 py-2">Manager</th>
                       <th className="px-4 py-2">Status</th>
@@ -104,6 +108,7 @@ export default function VendorDarkStoresPage() {
                     {stores.map((store) => (
                       <tr key={store.id} className="border-t border-gray-100">
                         <td className="px-4 py-2 font-semibold text-gray-900">{store.storeName}</td>
+                        <td className="px-4 py-2 text-gray-600">{store.zoneName || <span className="text-gray-400">No zone</span>}</td>
                         <td className="px-4 py-2 text-gray-600">{[store.area, store.city, store.state].filter(Boolean).join(", ")}</td>
                         <td className="px-4 py-2 text-gray-600">
                           {store.name || "—"}
@@ -142,6 +147,7 @@ export default function VendorDarkStoresPage() {
                   <thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500">
                     <tr>
                       <th className="px-4 py-2">Store</th>
+                      <th className="px-4 py-2">Zone</th>
                       <th className="px-4 py-2">Location</th>
                       <th className="px-4 py-2">Sent</th>
                       <th className="px-4 py-2">Status</th>
@@ -156,6 +162,7 @@ export default function VendorDarkStoresPage() {
                           <p className="font-semibold text-gray-900">{request.storeName}</p>
                           <p className="text-[10px] text-gray-400">{[request.managerName, request.phone].filter(Boolean).join(" · ")}</p>
                         </td>
+                        <td className="px-4 py-2 text-gray-600">{request.zoneName || "—"}</td>
                         <td className="px-4 py-2 text-gray-600">{[request.area, request.city, request.state].filter(Boolean).join(", ")}</td>
                         <td className="px-4 py-2 text-gray-600">{formatDate(request.createdAt)}</td>
                         <td className="px-4 py-2">

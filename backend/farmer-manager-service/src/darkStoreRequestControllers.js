@@ -2,7 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
-import { DarkStoreRequest } from "./models.js";
+import { DarkStoreRequest, VendorZone } from "./models.js";
 import { checkPhoneConflict } from "../../shared/utils/phoneCheck.js";
 
 function vendorIdOf(req) {
@@ -44,7 +44,12 @@ export async function createVendorDarkStoreRequest(req, res) {
     const email = String(body.email || "").trim().toLowerCase();
     const phone = String(body.phone || "").replace(/\D/g, "").slice(-10);
     const password = String(body.password || "");
-    const state = String(body.state || "").trim();
+    const zoneId = String(body.zoneId || "").trim();
+    const zone = zoneId ? await VendorZone.findOne({ id: zoneId, vendorId, status: "Approved" }).lean() : null;
+    if (!zone) {
+      return res.status(400).json({ message: "Select one of your approved zones. Create a zone first if you have none." });
+    }
+    const state = String(body.state || "").trim() || zone.state;
     const city = String(body.city || "").trim();
     const area = String(body.area || "").trim();
 
@@ -89,6 +94,8 @@ export async function createVendorDarkStoreRequest(req, res) {
       latitude,
       longitude,
       notes: String(body.notes || "").trim(),
+      zoneId: zone.id,
+      zoneName: zone.name,
       status: "Pending",
     });
     res.status(201).json(serializeDarkStoreRequest(request));

@@ -554,6 +554,13 @@ export const NAV_GROUPS = [
             description: 'Manage dark store locations, coverage, and store operations.',
           },
           {
+            name: 'Zone Requests',
+            href: '/zone-requests',
+            icon: MapPinned,
+            implemented: true,
+            description: 'Approve or reject zones created by vendors before they add dark stores.',
+          },
+          {
             name: 'Dark Store Requests',
             href: '/dark-store-requests',
             icon: ClipboardList,
@@ -566,6 +573,13 @@ export const NAV_GROUPS = [
             icon: Package,
             implemented: true,
             description: 'Approve or reject catalog products requested by collection centres.',
+          },
+          {
+            name: 'Vendor Catalog Requests',
+            href: '/vendor-catalog-requests',
+            icon: FolderTree,
+            implemented: true,
+            description: 'Approve or reject products and categories vendors want to add, edit, or delete.',
           },
           {
             name: 'Crop Requests',
