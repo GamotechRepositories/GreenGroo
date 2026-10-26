@@ -1109,13 +1109,22 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     fulfillmentType: normalizeFulfillmentType(prepared.fulfillmentType),
   };
 
-  let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
-    updatedAt: -1,
-  });
+  const existing = await Order.findOne({ user: userId, status: "attempted" })
+    .sort({ updatedAt: -1 })
+    .select("_id")
+    .lean();
+
+  // Atomic update: concurrent syncs from the checkout page would otherwise
+  // race on document.save() and fail with a VersionError.
+  let order = existing
+    ? await Order.findOneAndUpdate(
+        { _id: existing._id, status: "attempted" },
+        { $set: payload },
+        { new: true, runValidators: true }
+      )
+    : null;
 
   if (order) {
-    Object.assign(order, payload);
-    await order.save();
     return order;
   }
 
@@ -1187,6 +1196,12 @@ export async function completeAttemptedOrder({
   giftCardCode = "",
   giftCardDiscount = 0,
   deliveryCharges,
+  heavyHandlingFee = 0,
+  bundleDiscount = 0,
+  loyaltyDiscount = 0,
+  dynamicDiscount = 0,
+  freeAddon = null,
+  dynamicPricingDetails = null,
   gstAmount = 0,
   total,
   cart,
