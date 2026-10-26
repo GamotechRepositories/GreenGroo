@@ -1687,4 +1687,382 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get salaryNotSet => 'अजून ठरलेला नाही';
+
+  @override
+  String get shiftEndedNowOffline =>
+      'तुमची शिफ्ट/गिग संपली. तुम्ही आता ऑफलाइन आहात.';
+
+  @override
+  String get orderAlreadyAccepted =>
+      'ऑर्डर आधीच स्वीकारली आहे — सक्रिय डिलिव्हरी उघडत आहे.';
+
+  @override
+  String get assignmentNoLongerAvailable => 'हे असाइनमेंट आता उपलब्ध नाही.';
+
+  @override
+  String get shiftEndedGraceOffline =>
+      'तुमची शिफ्ट/गिग संपली. तुम्ही आणखी 5 मिनिटे ऑनलाइन होतात आणि आता ऑफलाइन आहात.';
+
+  @override
+  String get verificationRequiredToGoOnline =>
+      'ऑनलाइन जाण्यासाठी खाते पडताळणी आवश्यक आहे.';
+
+  @override
+  String get youAreNowOffline => 'तुम्ही आता ऑफलाइन आहात.';
+
+  @override
+  String get failedToUpdateStatus => 'स्थिती अपडेट करण्यात अयशस्वी.';
+
+  @override
+  String get somethingWentWrong => 'काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.';
+
+  @override
+  String managerAssignedPreOrders(int count) {
+    return 'डिलिव्हरी मॅनेजरने तुम्हाला $count प्री-ऑर्डर दिल्या';
+  }
+
+  @override
+  String get view => 'पहा';
+
+  @override
+  String get readyToDeliver => 'डिलिव्हरीसाठी तयार?';
+
+  @override
+  String get receivingNearbyRequests => 'जवळच्या डिलिव्हरी विनंत्या मिळत आहेत.';
+
+  @override
+  String get goOnlineToReceiveRequests => 'विनंत्या मिळवण्यासाठी ऑनलाइन जा.';
+
+  @override
+  String get todaysProgressTitle => 'आजची प्रगती';
+
+  @override
+  String get todaysEarningsLabel => 'आजची कमाई';
+
+  @override
+  String get tripsCompletedLabel => 'पूर्ण झालेल्या ट्रिप';
+
+  @override
+  String get currentEarningsLabel => 'सध्याची कमाई';
+
+  @override
+  String get currentBonusLabel => 'सध्याचा बोनस';
+
+  @override
+  String completeMoreOrdersForBonus(int count, String bonus) {
+    return '+$bonus बोनस मिळवण्यासाठी आणखी $count ऑर्डर पूर्ण करा';
+  }
+
+  @override
+  String ordersProgress(int done, int total) {
+    return '$done / $total ऑर्डर';
+  }
+
+  @override
+  String get ratingLabel => 'रेटिंग';
+
+  @override
+  String get acceptanceLabel => 'स्वीकृती';
+
+  @override
+  String get onTimeLabel => 'वेळेवर';
+
+  @override
+  String get acceptShort => 'स्वीकार';
+
+  @override
+  String get declineShort => 'नकार';
+
+  @override
+  String get completeDeliveriesForGraph =>
+      'तुमचा आलेख पाहण्यासाठी डिलिव्हरी पूर्ण करा';
+
+  @override
+  String get noPerformanceDataYet => 'अजून कामगिरी डेटा नाही';
+
+  @override
+  String get completeDeliveriesForPerformance =>
+      'तुमची कामगिरी आणि प्रगती येथे पाहण्यासाठी\nडिलिव्हरी पूर्ण करा.';
+
+  @override
+  String preOrdersAssignedToYou(int count) {
+    return 'तुम्हाला $count प्री-ऑर्डर दिल्या आहेत';
+  }
+
+  @override
+  String preOrdersToCollect(int count) {
+    return '$count घ्यायच्या बाकी — स्टोअरवर प्रत्येक ऑर्डरचा QR स्कॅन करा';
+  }
+
+  @override
+  String get allCollectedDeliverOneByOne =>
+      'सर्व घेतल्या — एकेक करून डिलिव्हर करा';
+
+  @override
+  String get openAction => 'उघडा';
+
+  @override
+  String get deliveryInProgress => 'डिलिव्हरी सुरू आहे';
+
+  @override
+  String get tapToViewOrderDetails =>
+      'ऑर्डर तपशील आणि नेव्हिगेशन पाहण्यासाठी टॅप करा';
+
+  @override
+  String get kindHoliday => 'सुट्टी';
+
+  @override
+  String get kindShift => 'शिफ्ट';
+
+  @override
+  String get kindNote => 'टीप';
+
+  @override
+  String get kindUpcoming => 'आगामी';
+
+  @override
+  String get cashDepositDue => 'रोख जमा बाकी';
+
+  @override
+  String get detailsAction => 'तपशील';
+
+  @override
+  String get handOverToStoreToday => 'आज डार्क स्टोअर मॅनेजरकडे जमा करा';
+
+  @override
+  String get couldNotLoadPreOrders =>
+      'तुमच्या प्री-ऑर्डर लोड होऊ शकल्या नाहीत.';
+
+  @override
+  String get addressesUnlocked => 'स्कॅन केलेल्या ऑर्डरचे पत्ते उघडले.';
+
+  @override
+  String get preOrderDeliveriesTitle => 'प्री-ऑर्डर डिलिव्हरी';
+
+  @override
+  String get noPreOrdersAssigned => 'कोणतीही प्री-ऑर्डर दिलेली नाही';
+
+  @override
+  String collectAtStore(String store) {
+    return '$store येथून घ्या';
+  }
+
+  @override
+  String get theDarkStore => 'डार्क स्टोअर';
+
+  @override
+  String preOrderProgressLine(int delivered, int onTheWay, int toScan) {
+    return '$delivered डिलिव्हर · $onTheWay मार्गावर · $toScan स्कॅन बाकी';
+  }
+
+  @override
+  String failedCount(int count) {
+    return '$count अयशस्वी';
+  }
+
+  @override
+  String get preOrdersSalaryBased =>
+      'प्री-ऑर्डर पगारावर आधारित आहेत — तुमच्या वॉलेटमध्ये प्रति किमी रक्कम जोडली जात नाही.';
+
+  @override
+  String scanOrderQrsLeft(int count) {
+    return 'ऑर्डर QR स्कॅन करा ($count बाकी)';
+  }
+
+  @override
+  String get preOrdersEmptyHint =>
+      'तुमचा डिलिव्हरी मॅनेजर तुम्हाला प्री-ऑर्डर देईल तेव्हा तुम्हाला सूचना मिळेल.';
+
+  @override
+  String get outForDelivery => 'डिलिव्हरीसाठी निघाले';
+
+  @override
+  String get atStoreScanToSeeAddress =>
+      'स्टोअरवर — पत्ता पाहण्यासाठी स्कॅन करा';
+
+  @override
+  String get finishedToday => 'आज पूर्ण झाले';
+
+  @override
+  String get paidOnline => 'ऑनलाइन भरले';
+
+  @override
+  String collectCashAmount(String amount) {
+    return '$amount रोख घ्या';
+  }
+
+  @override
+  String slotLabel(String slot) {
+    return 'स्लॉट $slot';
+  }
+
+  @override
+  String itemsCount(int count) {
+    return '$count वस्तू';
+  }
+
+  @override
+  String get scanQr => 'QR स्कॅन करा';
+
+  @override
+  String get scanBagQrHint =>
+      'ग्राहकाचा पत्ता आणि नंबर पाहण्यासाठी या ऑर्डरच्या बॅगवरील QR स्कॅन करा.';
+
+  @override
+  String get callAction => 'कॉल';
+
+  @override
+  String get deliverAction => 'डिलिव्हर करा';
+
+  @override
+  String get failedStatus => 'अयशस्वी';
+
+  @override
+  String get editName => 'नाव बदला';
+
+  @override
+  String get fullName => 'पूर्ण नाव';
+
+  @override
+  String get saveAction => 'सेव्ह करा';
+
+  @override
+  String get profilePhotoSaved => 'प्रोफाइल फोटो तुमच्या खात्यात सेव्ह झाला';
+
+  @override
+  String ratingsCount(int count) {
+    return '$count रेटिंग';
+  }
+
+  @override
+  String get tapPhotoToUpdate =>
+      'बदलण्यासाठी फोटोवर टॅप करा · क्लाउड आणि होमवर सेव्ह होईल';
+
+  @override
+  String get accountDetails => 'खाते तपशील';
+
+  @override
+  String get bankViewOnlyManaged =>
+      'फक्त पाहा · डिलिव्हरी मॅनेजरद्वारे व्यवस्थापित';
+
+  @override
+  String get detailsUpdatedByManager =>
+      'हे तपशील फक्त तुमचा डिलिव्हरी मॅनेजरच बदलू शकतो.';
+
+  @override
+  String get bankViewOnlyContact =>
+      'फक्त पाहा · बदलण्यासाठी डिलिव्हरी मॅनेजरशी संपर्क करा';
+
+  @override
+  String get salaryAccount => 'पगार खाते';
+
+  @override
+  String get primaryLabel => 'प्राथमिक';
+
+  @override
+  String get bankUpdatedByManager =>
+      'बँक तपशील फक्त तुमचा डिलिव्हरी मॅनेजरच बदलू शकतो.';
+
+  @override
+  String get yesterday => 'काल';
+
+  @override
+  String get clearAllNotificationsTitle => 'सर्व सूचना हटवायच्या?';
+
+  @override
+  String get clearAllNotificationsBody =>
+      'यामुळे तुमच्या यादीतील सर्व सूचना हटवल्या जातील.';
+
+  @override
+  String get clearAll => 'सर्व हटवा';
+
+  @override
+  String get noNotificationsYet => 'अजून कोणतीही सूचना नाही';
+
+  @override
+  String get noNotificationsHint =>
+      'ऑर्डर, शिफ्ट, गिग आणि वॉलेट अपडेट येथे दिसतील.';
+
+  @override
+  String get markAllAsRead => 'सर्व वाचले म्हणून चिन्हांकित करा';
+
+  @override
+  String get notifVerifiedTitle => 'तुमची पडताळणी झाली!';
+
+  @override
+  String get notifVerifiedBody => 'तुम्ही आता ऑर्डर घेऊ शकता.';
+
+  @override
+  String get notifShiftStartedTitle => 'शिफ्ट सुरू झाली';
+
+  @override
+  String get notifShiftStartedBody =>
+      'तुम्ही आता ऑनलाइन आहात आणि ऑर्डरसाठी तयार आहात.';
+
+  @override
+  String get notifShiftReminderTitle => 'शिफ्ट लवकरच सुरू होईल';
+
+  @override
+  String notifShiftReminderBody(int minutes) {
+    return 'तुमची शिफ्ट सुमारे $minutes मिनिटांत सुरू होईल. ऑनलाइन जाण्यासाठी तयार राहा.';
+  }
+
+  @override
+  String get notifNewOrderTitle => 'नवीन ऑर्डर';
+
+  @override
+  String get notifNewOrderBody => 'तुमच्यासाठी नवीन ऑर्डर विनंती आहे.';
+
+  @override
+  String notifPreOrdersAssignedTitle(int count) {
+    return 'डिलिव्हरी मॅनेजरने तुम्हाला $count प्री-ऑर्डर दिल्या';
+  }
+
+  @override
+  String get notifPreOrdersAssignedBody =>
+      'डार्क स्टोअरवरून घ्या. ग्राहकाचा पत्ता पाहण्यासाठी प्रत्येक ऑर्डरचा QR स्कॅन करा.';
+
+  @override
+  String notifOrdersAssignedTitle(int count) {
+    return '$count नवीन ऑर्डर दिली';
+  }
+
+  @override
+  String notifOrdersAssignedBody(String numbers) {
+    return 'ऑर्डर $numbers तुम्हाला दिल्या आहेत.';
+  }
+
+  @override
+  String get notifOrderCompletedTitle => 'ऑर्डर पूर्ण झाली';
+
+  @override
+  String notifOrderCompletedBody(String amount) {
+    return 'तुम्ही ₹$amount कमावले. तुमच्या वॉलेटमध्ये जोडले.';
+  }
+
+  @override
+  String notifWalletCreditedTitle(String amount) {
+    return '₹$amount जोडले';
+  }
+
+  @override
+  String get notifWalletCreditedBody =>
+      'तुमची कमाई तुमच्या वॉलेटमध्ये जोडली आहे.';
+
+  @override
+  String get notifNewGigTitle => 'नवीन गिग उपलब्ध';
+
+  @override
+  String get notifNewGigBody => 'तुमच्या जवळ नवीन गिग उपलब्ध आहे.';
+
+  @override
+  String get monthlyEarnings => 'मासिक कमाई';
+
+  @override
+  String get dailyEarnings => 'दैनिक कमाई';
+
+  @override
+  String onlineDuration(String time) {
+    return '$time ऑनलाइन';
+  }
 }

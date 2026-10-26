@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
@@ -36,12 +37,13 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
     final account = bank['accountNumber']?.toString() ?? '';
     final ifsc = bank['ifscCode']?.toString() ?? '';
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const CustomAppBar(
-        title: 'Bank details',
-        subtitle: 'View only · contact Delivery Manager to update',
+      appBar: CustomAppBar(
+        title: l10n.bankDetails,
+        subtitle: l10n.bankViewOnlyContact,
         showBackButton: true,
       ),
       body: ListView(
@@ -79,7 +81,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                         const Icon(Icons.credit_card_rounded, color: Color(0xFFFDE68A), size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          bankName.isNotEmpty ? bankName.toUpperCase() : 'SALARY ACCOUNT',
+                          bankName.isNotEmpty ? bankName.toUpperCase() : l10n.salaryAccount.toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -96,7 +98,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'PRIMARY',
+                        l10n.primaryLabel.toUpperCase(),
                         style: GoogleFonts.inter(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
@@ -125,7 +127,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ACCOUNT HOLDER',
+                          l10n.accountHolder.toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
@@ -134,7 +136,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          holder.isNotEmpty ? holder.toUpperCase() : 'DELIVERY PARTNER',
+                          holder.isNotEmpty ? holder.toUpperCase() : l10n.deliveryPartner.toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -148,7 +150,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'IFSC CODE',
+                            l10n.ifscCode.toUpperCase(),
                             style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
@@ -178,19 +180,19 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Column(
               children: [
-                _Row(label: 'Account holder', value: holder.isEmpty ? '—' : holder),
+                _Row(label: l10n.accountHolder, value: holder.isEmpty ? '—' : holder),
                 Divider(height: 16, color: AppColors.cardBorder),
-                _Row(label: 'Bank name', value: bankName.isEmpty ? '—' : bankName),
+                _Row(label: l10n.bankName, value: bankName.isEmpty ? '—' : bankName),
                 Divider(height: 16, color: AppColors.cardBorder),
-                _Row(label: 'Account number', value: _maskAccount(account)),
+                _Row(label: l10n.accountNumber, value: _maskAccount(account)),
                 Divider(height: 16, color: AppColors.cardBorder),
-                _Row(label: 'IFSC Code', value: ifsc.isEmpty ? '—' : ifsc),
+                _Row(label: l10n.ifscCode, value: ifsc.isEmpty ? '—' : ifsc),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'Bank details can only be updated by your Delivery Manager.',
+            l10n.bankUpdatedByManager,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11.5,

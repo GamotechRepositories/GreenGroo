@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -135,16 +136,23 @@ class NotificationInboxService extends ChangeNotifier {
         );
       } catch (_) {}
     });
+    // The server emits a badge event per socket room, so deltas would double count;
+    // always re-read the real unread count instead.
     SocketService.instance.onNotificationBadge.listen((data) {
-      final delta = (data['unreadDelta'] as num?)?.toInt();
-      if (delta != null && delta != 0) {
-        _unreadCount = (_unreadCount + delta).clamp(0, 9999);
-        notifyListeners();
-      } else if (data['unreadCount'] != null) {
+      if (data['unreadCount'] != null) {
         _unreadCount = (data['unreadCount'] as num?)?.toInt() ?? _unreadCount;
         notifyListeners();
+      } else {
+        _syncUnreadSoon();
       }
     });
+  }
+
+  Timer? _unreadSyncTimer;
+
+  void _syncUnreadSoon() {
+    _unreadSyncTimer?.cancel();
+    _unreadSyncTimer = Timer(const Duration(milliseconds: 600), refreshUnreadOnly);
   }
 
   /// Deduped insert for socket + FCM foreground refresh.
@@ -158,10 +166,8 @@ class NotificationInboxService extends ChangeNotifier {
     }
     _seenIds.add(n.id);
     _items.insert(0, n);
-    if (!n.isRead) {
-      _unreadCount = (_unreadCount + 1).clamp(0, 9999);
-    }
     notifyListeners();
+    if (!n.isRead) _syncUnreadSoon();
   }
 
   Future<void> refresh() async {
@@ -237,6 +243,7 @@ class NotificationInboxService extends ChangeNotifier {
     try {
       await apiPost(ApiConfig.notificationsReadAll, headers: _headers);
     } catch (_) {}
+    await refreshUnreadOnly();
   }
 
   Future<void> clearAll() async {
@@ -245,14 +252,16 @@ class NotificationInboxService extends ChangeNotifier {
     _seenIds.clear();
     _unreadCount = 0;
     notifyListeners();
-    for (final id in ids) {
+    // Also covers older notifications that were never loaded into the list.
+    try {
+      await apiPost(ApiConfig.notificationsReadAll, headers: _headers);
+    } catch (_) {}
+    await Future.wait(ids.map((id) async {
       try {
-        await apiDelete(
-          ApiConfig.notificationDelete(id),
-          headers: _headers,
-        );
+        await apiDelete(ApiConfig.notificationDelete(id), headers: _headers);
       } catch (_) {}
-    }
+    }));
+    await refreshUnreadOnly();
   }
 
   Future<void> deleteOne(String id) async {
@@ -271,6 +280,7 @@ class NotificationInboxService extends ChangeNotifier {
         headers: _headers,
       );
     } catch (_) {}
+    await refreshUnreadOnly();
   }
 
   void clear() {

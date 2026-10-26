@@ -705,23 +705,310 @@
   "noSlotAssignedToday": "No slot assigned for today yet.",
   "noUpcomingSlotsAssigned": "No upcoming slots assigned.",
   "incentivePerKm": "₹{rate}/km incentive",
-  "@incentivePerKm": {"placeholders":{"rate":{"type":"String"}}},
+  "@incentivePerKm": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
   "incentivePerHour": "₹{rate}/hr incentive",
-  "@incentivePerHour": {"placeholders":{"rate":{"type":"String"}}},
+  "@incentivePerHour": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
   "salaryAndIncentives": "Salary & Incentives",
   "slotIncentives": "Slot Incentives",
   "perMonth": "per month",
   "todayIncentiveEarned": "{amount} incentive earned today",
-  "@todayIncentiveEarned": {"placeholders":{"amount":{"type":"String"}}},
+  "@todayIncentiveEarned": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "salaryAmount": "Salary {amount}",
-  "@salaryAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "@salaryAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "salaryNotCreditedYet": "Salary pending",
   "incentiveAmount": "Incentive {amount}",
-  "@incentiveAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "@incentiveAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
   "recentIncentives": "Recent incentives",
   "todaysIncentive": "Today's incentive",
   "salaryLabel": "Salary",
   "perDay": "per day",
   "perWeek": "per week",
-  "salaryNotSet": "Not set yet"
+  "salaryNotSet": "Not set yet",
+  "shiftEndedNowOffline": "Your shift/gig ended. You are now offline.",
+  "orderAlreadyAccepted": "Order already accepted — opening active delivery.",
+  "assignmentNoLongerAvailable": "This assignment is no longer available.",
+  "shiftEndedGraceOffline": "Your shift/gig ended. You stayed online 5 more minutes and are now offline.",
+  "verificationRequiredToGoOnline": "Account verification required to go online.",
+  "youAreNowOffline": "You are now Offline.",
+  "failedToUpdateStatus": "Failed to update status.",
+  "somethingWentWrong": "Something went wrong. Please try again.",
+  "managerAssignedPreOrders": "Delivery Manager assigned you {count} pre-order(s)",
+  "@managerAssignedPreOrders": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "view": "View",
+  "readyToDeliver": "Ready to deliver?",
+  "receivingNearbyRequests": "Receiving nearby delivery requests.",
+  "goOnlineToReceiveRequests": "Go online to receive requests.",
+  "todaysProgressTitle": "Today's Progress",
+  "todaysEarningsLabel": "Today's Earnings",
+  "tripsCompletedLabel": "Trips Completed",
+  "currentEarningsLabel": "Current Earnings",
+  "currentBonusLabel": "Current Bonus",
+  "completeMoreOrdersForBonus": "Complete {count} more orders to get +{bonus} bonus",
+  "@completeMoreOrdersForBonus": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "bonus": {
+        "type": "String"
+      }
+    }
+  },
+  "ordersProgress": "{done} / {total} Orders",
+  "@ordersProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingLabel": "Rating",
+  "acceptanceLabel": "Acceptance",
+  "onTimeLabel": "On-Time",
+  "acceptShort": "Accept",
+  "declineShort": "Decline",
+  "completeDeliveriesForGraph": "Complete deliveries to see your graph",
+  "noPerformanceDataYet": "No performance data yet",
+  "completeDeliveriesForPerformance": "Complete deliveries to see your performance\nand growth here.",
+  "preOrdersAssignedToYou": "{count} pre-order(s) assigned to you",
+  "@preOrdersAssignedToYou": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "preOrdersToCollect": "{count} to collect — scan each order's QR at the store",
+  "@preOrdersToCollect": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allCollectedDeliverOneByOne": "All collected — deliver one by one",
+  "openAction": "Open",
+  "deliveryInProgress": "Delivery in Progress",
+  "tapToViewOrderDetails": "Tap to view order details & navigation",
+  "kindHoliday": "Holiday",
+  "kindShift": "Shift",
+  "kindNote": "Note",
+  "kindUpcoming": "Upcoming",
+  "cashDepositDue": "Cash Deposit Due",
+  "detailsAction": "Details",
+  "handOverToStoreToday": "Hand over to darkstore manager today",
+  "couldNotLoadPreOrders": "Could not load your pre-orders.",
+  "addressesUnlocked": "Addresses unlocked for the scanned orders.",
+  "preOrderDeliveriesTitle": "Pre-order deliveries",
+  "noPreOrdersAssigned": "No pre-orders assigned",
+  "collectAtStore": "Collect at {store}",
+  "@collectAtStore": {
+    "placeholders": {
+      "store": {
+        "type": "String"
+      }
+    }
+  },
+  "theDarkStore": "the dark store",
+  "preOrderProgressLine": "{delivered} delivered · {onTheWay} on the way · {toScan} to scan",
+  "@preOrderProgressLine": {
+    "placeholders": {
+      "delivered": {
+        "type": "int"
+      },
+      "onTheWay": {
+        "type": "int"
+      },
+      "toScan": {
+        "type": "int"
+      }
+    }
+  },
+  "failedCount": "{count} failed",
+  "@failedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "preOrdersSalaryBased": "Pre-orders are salary-based — no per-km amount is added to your wallet.",
+  "scanOrderQrsLeft": "Scan order QRs ({count} left)",
+  "@scanOrderQrsLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "preOrdersEmptyHint": "You will get a notification when your Delivery Manager assigns pre-orders to you.",
+  "outForDelivery": "Out for delivery",
+  "atStoreScanToSeeAddress": "At the store — scan to see address",
+  "finishedToday": "Finished today",
+  "paidOnline": "Paid online",
+  "collectCashAmount": "Collect {amount} cash",
+  "@collectCashAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "slotLabel": "Slot {slot}",
+  "@slotLabel": {
+    "placeholders": {
+      "slot": {
+        "type": "String"
+      }
+    }
+  },
+  "itemsCount": "{count} items",
+  "@itemsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scanQr": "Scan QR",
+  "scanBagQrHint": "Scan the QR on this order's bag to see customer address and number.",
+  "callAction": "Call",
+  "deliverAction": "Deliver",
+  "failedStatus": "Failed",
+  "editName": "Edit name",
+  "fullName": "Full name",
+  "saveAction": "Save",
+  "profilePhotoSaved": "Profile photo saved to your account",
+  "ratingsCount": "{count} ratings",
+  "@ratingsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tapPhotoToUpdate": "Tap photo to update · saved to cloud & home avatar",
+  "accountDetails": "Account details",
+  "bankViewOnlyManaged": "View only · managed by Delivery Manager",
+  "detailsUpdatedByManager": "These details can only be updated by your Delivery Manager.",
+  "bankViewOnlyContact": "View only · contact Delivery Manager to update",
+  "salaryAccount": "Salary account",
+  "primaryLabel": "Primary",
+  "bankUpdatedByManager": "Bank details can only be updated by your Delivery Manager.",
+  "yesterday": "Yesterday",
+  "clearAllNotificationsTitle": "Clear all notifications?",
+  "clearAllNotificationsBody": "This removes all notifications from your list.",
+  "clearAll": "Clear all",
+  "noNotificationsYet": "No notifications yet",
+  "noNotificationsHint": "Orders, shifts, gigs and wallet updates will show here.",
+  "markAllAsRead": "Mark all as read",
+  "notifVerifiedTitle": "You're Verified!",
+  "notifVerifiedBody": "You can now receive orders.",
+  "notifShiftStartedTitle": "Shift Started",
+  "notifShiftStartedBody": "You're now online and ready for orders.",
+  "notifShiftReminderTitle": "Shift starting soon",
+  "notifShiftReminderBody": "Your shift starts in about {minutes} min. Be ready to go online.",
+  "@notifShiftReminderBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifNewOrderTitle": "New Order",
+  "notifNewOrderBody": "You have a new order request.",
+  "notifPreOrdersAssignedTitle": "Delivery Manager assigned you {count} pre-order(s)",
+  "@notifPreOrdersAssignedTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifPreOrdersAssignedBody": "Collect them at the dark store. Scan each order's QR to see that customer's address.",
+  "notifOrdersAssignedTitle": "{count} new order(s) assigned",
+  "@notifOrdersAssignedTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notifOrdersAssignedBody": "Orders {numbers} have been assigned to you.",
+  "@notifOrdersAssignedBody": {
+    "placeholders": {
+      "numbers": {
+        "type": "String"
+      }
+    }
+  },
+  "notifOrderCompletedTitle": "Order Completed",
+  "notifOrderCompletedBody": "You earned ₹{amount}. Added to your wallet.",
+  "@notifOrderCompletedBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notifWalletCreditedTitle": "₹{amount} Added",
+  "@notifWalletCreditedTitle": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "notifWalletCreditedBody": "Your earnings have been added to your wallet.",
+  "notifNewGigTitle": "New Gig Available",
+  "notifNewGigBody": "A new gig is available near you.",
+  "monthlyEarnings": "Monthly earnings",
+  "dailyEarnings": "Daily earnings",
+  "onlineDuration": "{time} online",
+  "@onlineDuration": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  }
 }

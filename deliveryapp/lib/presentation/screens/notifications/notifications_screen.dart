@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification_inbox_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shell/shell_navigation.dart';
+import 'notification_text.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key, this.embedded = false});
@@ -49,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final ampm = time.period == DayPeriod.am ? 'AM' : 'PM';
     final clock = '$hh:$mm $ampm';
     if (day == today) return clock;
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    if (day == today.subtract(const Duration(days: 1))) return AppLocalizations.of(context).yesterday;
     return '${local.day}/${local.month}/${local.year}';
   }
 
@@ -116,13 +117,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear all notifications?'),
-        content: const Text('This removes all notifications from your list.'),
+        title: Text(AppLocalizations.of(context).clearAllNotificationsTitle),
+        content: Text(AppLocalizations.of(context).clearAllNotificationsBody),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context).cancel)),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Clear all'),
+            child: Text(AppLocalizations.of(context).clearAll),
           ),
         ],
       ),
@@ -157,7 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No notifications yet',
+                      l10n.noNotificationsYet,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 16,
@@ -167,7 +168,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Orders, shifts, gigs and wallet updates will show here.',
+                      l10n.noNotificationsHint,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 13,
@@ -186,10 +187,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   itemBuilder: (context, index) {
                     final item = items[index];
+                    final text = localizedNotification(l10n, item);
                     return _NotificationRow(
                       id: item.id,
-                      title: item.title,
-                      body: item.body.isEmpty ? item.title : item.body,
+                      title: text.title,
+                      body: text.body,
+                      category: '${item.type} ${item.title}',
                       time: _timeLabel(item.createdAt),
                       isUnread: !item.isRead,
                       onTap: () => _openRelated(item),
@@ -264,7 +267,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Mark all as read',
+                            l10n.markAllAsRead,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -295,7 +298,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Clear all',
+                            l10n.clearAll,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -327,6 +330,7 @@ class _NotificationRow extends StatelessWidget {
     required this.id,
     required this.title,
     required this.body,
+    required this.category,
     required this.time,
     required this.isUnread,
     required this.onTap,
@@ -336,6 +340,7 @@ class _NotificationRow extends StatelessWidget {
   final String id;
   final String title;
   final String body;
+  final String category;
   final String time;
   final bool isUnread;
   final VoidCallback onTap;
@@ -346,8 +351,8 @@ class _NotificationRow extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Detect category emoji
-    final tLower = title.toLowerCase();
-    final bLower = body.toLowerCase();
+    final tLower = category.toLowerCase();
+    final bLower = tLower;
     String emoji = '🔔';
     Color emojiBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
 

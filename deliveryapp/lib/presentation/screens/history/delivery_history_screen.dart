@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -129,15 +130,17 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   String _barLabel(_DayBox d) {
     if (_range == 'month') {
       final parts = d.date.split('-');
-      return parts.length == 3 ? '${int.tryParse(parts[2]) ?? parts[2]}' : d.dayLabel;
+      return parts.length == 3 ? '${int.tryParse(parts[2]) ?? parts[2]}' : _localDayLabel(context, d);
     }
-    if (_range == 'year') return d.dayLabel.split(' ').first;
-    return d.dayLabel;
+    if (_range == 'year') return _localDayLabel(context, d, monthOnly: true);
+    return _localDayLabel(context, d);
   }
 
   String _barTooltip(_DayBox d) {
-    final title = _range == 'year' ? d.dayLabel : '${d.dayLabel} · ${d.date}';
-    return '$title\n${rupeeAmount(d.earnings)} · ${d.trips} trip${d.trips == 1 ? '' : 's'}\n${d.onlineTime} online';
+    final l10n = AppLocalizations.of(context);
+    final label = _localDayLabel(context, d);
+    final title = _range == 'year' ? label : '$label · ${d.date}';
+    return '$title\n${rupeeAmount(d.earnings)} · ${l10n.tripsCount(d.trips)}\n${l10n.onlineDuration(d.onlineTime)}';
   }
 
   Widget _buildBody(AppLocalizations l10n) {
@@ -188,7 +191,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
           else ...[
             AppPanel(
               title: l10n.earnings,
-              subtitle: _range == 'year' ? 'Monthly earnings' : 'Daily earnings',
+              subtitle: _range == 'year' ? l10n.monthlyEarnings : l10n.dailyEarnings,
               child: WeeklyBarChart(
                 bars: [
                   for (final d in chronological)
@@ -383,7 +386,7 @@ class _DayHistoryCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                day.dayLabel,
+                _localDayLabel(context, day),
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -509,6 +512,22 @@ class _MetricChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localDayLabel(BuildContext context, _DayBox d, {bool monthOnly = false}) {
+  final locale = Localizations.localeOf(context).toLanguageTag();
+  final parts = d.date.split('-').map(int.tryParse).toList();
+  if (parts.any((p) => p == null)) return d.dayLabel;
+  try {
+    if (parts.length == 2) {
+      final date = DateTime(parts[0]!, parts[1]!);
+      return monthOnly ? DateFormat.MMM(locale).format(date) : DateFormat.yMMM(locale).format(date);
+    }
+    if (parts.length == 3) {
+      return DateFormat.E(locale).format(DateTime(parts[0]!, parts[1]!, parts[2]!));
+    }
+  } catch (_) {}
+  return d.dayLabel;
 }
 
 class _DayBox {

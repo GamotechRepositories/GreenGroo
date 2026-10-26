@@ -143,9 +143,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       SnackBar(
         duration: const Duration(seconds: 8),
         persist: false,
-        content: Text('Delivery Manager assigned you $count pre-order${count == 1 ? '' : 's'}'),
+        content: Text(AppLocalizations.of(context).managerAssignedPreOrders(count)),
         action: SnackBarAction(
-          label: 'View',
+          label: AppLocalizations.of(context).view,
           onPressed: () => Navigator.pushNamed(context, AppRoutes.preOrderDeliveries),
         ),
       ),
@@ -301,7 +301,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
           content: Text(
             (msg != null && msg.isNotEmpty)
                 ? msg
-                : 'Your shift/gig ended. You are now offline.',
+                : AppLocalizations.of(context).shiftEndedNowOffline,
           ),
           backgroundColor: AppColors.warning,
           duration: const Duration(seconds: 5),
@@ -350,9 +350,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
         await OrderService.instance.fetchActiveDelivery();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Order already accepted — opening active delivery.'),
-              backgroundColor: Color(0xFF059669),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).orderAlreadyAccepted),
+              backgroundColor: const Color(0xFF059669),
             ),
           );
           Navigator.pushNamed(context, AppRoutes.activeDelivery);
@@ -365,7 +365,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              result.message ?? 'This assignment is no longer available.',
+              AppLocalizations.of(context).assignmentNoLongerAvailable,
             ),
             backgroundColor: const Color(0xFFB45309),
           ),
@@ -544,11 +544,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
         setState(() => _isOnline = false);
         _stopHeartbeat();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Your shift/gig ended. You stayed online 5 more minutes and are now offline.',
-            ),
-            duration: Duration(seconds: 5),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).shiftEndedGraceOffline),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -585,7 +583,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       if (!isVerified) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Account verification required to go online.'),
+            content: Text(AppLocalizations.of(context).verificationRequiredToGoOnline),
             backgroundColor: AppColors.warning,
           ),
         );
@@ -650,14 +648,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
           _stopHeartbeat();
           _shiftEndOfflineTimer?.cancel();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You are now Offline.'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).youAreNowOffline),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Failed to update status.'),
+              content: Text(AppLocalizations.of(context).failedToUpdateStatus),
               backgroundColor: AppColors.error,
             ),
           );
@@ -667,7 +665,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(AppLocalizations.of(context).somethingWentWrong),
             backgroundColor: AppColors.error,
           ),
         );
@@ -950,7 +948,7 @@ class _TopHeaderSection extends StatelessWidget {
                       ],
                     ),
                     Text(
-                      'Delivery Partner',
+                      AppLocalizations.of(context).deliveryPartner,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1042,7 +1040,7 @@ class _TopHeaderSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    isOnline ? 'Online' : 'Offline',
+                    isOnline ? AppLocalizations.of(context).online : AppLocalizations.of(context).offline,
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1079,7 +1077,7 @@ class _FeaturedGigBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rawTitle = gig?.title ?? 'Lunch Incentive';
+    final rawTitle = gig?.title ?? AppLocalizations.of(context).lunchIncentive;
     final title = rawTitle.toLowerCase().contains('lunch')
         ? AppLocalizations.of(context).lunchIncentive
         : rawTitle.toLowerCase().contains('dinner')
@@ -1326,7 +1324,7 @@ class _GoOnlineBannerCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isOnline ? 'You are Online' : 'Ready to deliver?',
+                  isOnline ? AppLocalizations.of(context).youAreOnline : AppLocalizations.of(context).readyToDeliver,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -1336,8 +1334,8 @@ class _GoOnlineBannerCard extends StatelessWidget {
                 const SizedBox(height: 1),
                 Text(
                   isOnline
-                      ? 'Receiving nearby delivery requests.'
-                      : 'Go online to receive requests.',
+                      ? AppLocalizations.of(context).receivingNearbyRequests
+                      : AppLocalizations.of(context).goOnlineToReceiveRequests,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -1393,7 +1391,7 @@ class _GoOnlineBannerCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            isOnline ? 'Go Offline' : 'Go Online',
+                            isOnline ? AppLocalizations.of(context).goOffline : AppLocalizations.of(context).goOnline,
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
@@ -1428,6 +1426,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
     final earningsStr = '₹${data.todayEarnings}';
     final tripsStr = '${data.completedTrips}';
     final onlineStr = data.onlineTime;
@@ -1441,7 +1440,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "Today's Progress",
+              l10n.todaysProgressTitle,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -1454,7 +1453,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'View All',
+                    AppLocalizations.of(context).viewAll,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -1503,7 +1502,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                     ),
                   ),
                   value: earningsStr,
-                  label: "Today's Earnings",
+                  label: l10n.todaysEarningsLabel,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1515,7 +1514,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                     color: Color(0xFF047857),
                   ),
                   value: tripsStr,
-                  label: 'Trips Completed',
+                  label: l10n.tripsCompletedLabel,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1527,7 +1526,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                     color: Color(0xFF047857),
                   ),
                   value: onlineStr,
-                  label: 'Online Time',
+                  label: l10n.onlineTime,
                 ),
               ),
             ],
@@ -1541,7 +1540,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                 child: _HorizontalMetricCard(
                   icon: Icons.calendar_today_outlined,
                   value: shiftsStr,
-                  label: 'Shifts Booked',
+                  label: l10n.shiftsBookedLabel,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1549,7 +1548,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                 child: _HorizontalMetricCard(
                   icon: Icons.check_circle_outline_rounded,
                   value: completedStr,
-                  label: 'Completed Shifts',
+                  label: l10n.completedShiftsLabel,
                 ),
               ),
             ],
@@ -1712,7 +1711,8 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = gig?.title ?? 'Lunch Incentive';
+    final l10n = AppLocalizations.of(context);
+    final title = gig?.title ?? l10n.lunchIncentive;
     final tiers = gig?.tiers ?? [];
 
     return Container(
@@ -1754,7 +1754,7 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Current Earnings',
+                              l10n.currentEarningsLabel,
                               style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                             ),
                             const SizedBox(height: 2),
@@ -1773,7 +1773,7 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Current Bonus',
+                              l10n.currentBonusLabel,
                               style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                             ),
                             const SizedBox(height: 2),
@@ -1823,7 +1823,7 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Complete 12 more orders to get +${_kRupee}18 bonus',
+                  l10n.completeMoreOrdersForBonus(12, '${_kRupee}18'),
                   style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1831,7 +1831,7 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '0 / 12 Orders',
+                l10n.ordersProgress(0, 12),
                 style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
               ),
             ],
@@ -2003,6 +2003,7 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
     final hasData = offered > 0 || delivered > 0 || ratingCount > 0 || avg > 0 || acceptance > 0 || onTime > 0;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2020,7 +2021,7 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Performance',
+                  l10n.performance,
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -2035,7 +2036,7 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'View All',
+                    AppLocalizations.of(context).viewAll,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -2093,22 +2094,22 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 _StatPill(
-                                  label: 'Rating',
+                                  label: l10n.ratingLabel,
                                   value: avg > 0 ? '${avg.toStringAsFixed(1)} ★' : '—',
                                   color: const Color(0xFF047857),
                                 ),
                                 _StatPill(
-                                  label: 'Acceptance',
+                                  label: l10n.acceptanceLabel,
                                   value: '${acceptance.toInt()}%',
                                   color: const Color(0xFF10B981),
                                 ),
                                 _StatPill(
-                                  label: 'On-Time',
+                                  label: l10n.onTimeLabel,
                                   value: '${onTime.toInt()}%',
                                   color: const Color(0xFF059669),
                                 ),
                                 _StatPill(
-                                  label: 'Delivered',
+                                  label: l10n.delivered,
                                   value: '$delivered',
                                   color: const Color(0xFF0284C7),
                                 ),
@@ -2119,19 +2120,19 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                               child: WeeklyBarChart(
                                 height: 180,
                                 color: const Color(0xFF047857),
-                                emptyMessage: 'Complete deliveries to see your graph',
+                                emptyMessage: l10n.completeDeliveriesForGraph,
                                 tooltipLabel: (i) {
-                                  const labels = ['Rating', 'Accept', 'On time', 'Decline'];
+                                  final labels = [l10n.ratingLabel, l10n.acceptShort, l10n.onTimeLabel, l10n.declineShort];
                                   final vals = [ratingPct, acceptance, onTime, decline];
                                   final idx = i.clamp(0, 3);
                                   return '${labels[idx]}  ${vals[idx].toStringAsFixed(0)}%';
                                 },
                                 axisLabel: (v) => '${v.toInt()}',
                                 bars: [
-                                  ChartBar(label: 'Rating', value: ratingPct, highlight: true),
-                                  ChartBar(label: 'Accept', value: acceptance),
-                                  ChartBar(label: 'On time', value: onTime),
-                                  ChartBar(label: 'Decline', value: decline, muted: true),
+                                  ChartBar(label: l10n.ratingLabel, value: ratingPct, highlight: true),
+                                  ChartBar(label: l10n.acceptShort, value: acceptance),
+                                  ChartBar(label: l10n.onTimeLabel, value: onTime),
+                                  ChartBar(label: l10n.declineShort, value: decline, muted: true),
                                 ],
                               ),
                             ),
@@ -2220,7 +2221,7 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No performance data yet',
+                              l10n.noPerformanceDataYet,
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -2230,7 +2231,7 @@ class _HomePerformanceCardState extends State<_HomePerformanceCard> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Complete deliveries to see your performance\nand growth here.',
+                              l10n.completeDeliveriesForPerformance,
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w400,
@@ -2315,7 +2316,7 @@ class _PreOrderHomeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$count pre-order${count == 1 ? '' : 's'} assigned to you',
+                  AppLocalizations.of(context).preOrdersAssignedToYou(count),
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -2325,8 +2326,8 @@ class _PreOrderHomeCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   toScan > 0
-                      ? '$toScan to collect — scan each order\'s QR at the store'
-                      : 'All collected — deliver one by one',
+                      ? AppLocalizations.of(context).preOrdersToCollect(toScan)
+                      : AppLocalizations.of(context).allCollectedDeliverOneByOne,
                   style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF047857)),
                 ),
               ],
@@ -2340,7 +2341,7 @@ class _PreOrderHomeCard extends StatelessWidget {
             ),
             onPressed: onOpen,
             child: Text(
-              'Open',
+              AppLocalizations.of(context).openAction,
               style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
@@ -2385,7 +2386,7 @@ class _ActiveDeliveryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Delivery in Progress',
+                  AppLocalizations.of(context).deliveryInProgress,
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -2394,7 +2395,7 @@ class _ActiveDeliveryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Tap to view order details & navigation',
+                  AppLocalizations.of(context).tapToViewOrderDetails,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: const Color(0xFF1D4ED8),
@@ -2519,7 +2520,7 @@ class _CodCashWarningCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Cash Deposit Due',
+                        AppLocalizations.of(context).cashDepositDue,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -2528,7 +2529,7 @@ class _CodCashWarningCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Details',
+                        AppLocalizations.of(context).detailsAction,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -2539,7 +2540,7 @@ class _CodCashWarningCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    'Hand over to darkstore manager today',
+                    AppLocalizations.of(context).handOverToStoreToday,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
@@ -2655,15 +2656,17 @@ class _HrAnnouncementCard extends StatelessWidget {
                 : isUpcoming
                     ? const Color(0xFF92400E)
                     : const Color(0xFF5B21B6);
-    final label = isHoliday
-        ? 'HOLIDAY'
-        : isShift
-            ? 'SHIFT'
-            : isNote
-                ? 'NOTE'
-                : isUpcoming
-                    ? 'UPCOMING'
-                    : 'ANNOUNCEMENT';
+    final l10n = AppLocalizations.of(context);
+    final label = (isHoliday
+            ? l10n.kindHoliday
+            : isShift
+                ? l10n.kindShift
+                : isNote
+                    ? l10n.kindNote
+                    : isUpcoming
+                        ? l10n.kindUpcoming
+                        : l10n.notificationAnnouncement)
+        .toUpperCase();
 
     return Container(
       width: double.infinity,

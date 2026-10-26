@@ -42,15 +42,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit name'),
+        title: Text(AppLocalizations.of(context).editName),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Full name'),
+          decoration: InputDecoration(labelText: AppLocalizations.of(context).fullName),
           textCapitalization: TextCapitalization.words,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppLocalizations.of(context).cancel)),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(AppLocalizations.of(context).saveAction)),
         ],
       ),
     );
@@ -98,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile photo saved to your account')),
+          SnackBar(content: Text(AppLocalizations.of(context).profilePhotoSaved)),
         );
       }
     } catch (e) {
@@ -176,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          boy?.name.isNotEmpty == true ? boy!.name : 'Delivery Partner',
+                          boy?.name.isNotEmpty == true ? boy!.name : l10n.deliveryPartner,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
@@ -222,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: IconButton(
                       onPressed: _busy ? null : _editName,
                       icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
-                      tooltip: 'Edit name',
+                      tooltip: l10n.editName,
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       padding: EdgeInsets.zero,
                     ),
@@ -240,13 +240,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Expanded(
                       child: HeroStat(
-                        label: hasRating ? '${boy!.totalRatingsCount} ratings' : 'Rating',
+                        label: hasRating ? l10n.ratingsCount(boy!.totalRatingsCount) : l10n.ratingLabel,
                         value: hasRating ? '★ ${boy!.rating.toStringAsFixed(1)}' : '—',
                       ),
                     ),
                     Expanded(
                       child: HeroStat(
-                        label: 'Vehicle',
+                        label: l10n.vehicle,
                         value: boy?.vehicleType.isNotEmpty == true ? boy!.vehicleType : '—',
                       ),
                     ),
@@ -255,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Tap photo to update · saved to cloud & home avatar',
+                l10n.tapPhotoToUpdate,
                 style: GoogleFonts.inter(
                   fontSize: 10.5,
                   color: Colors.white.withValues(alpha: 0.8),
@@ -265,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
-        const SectionLabel('Account details'),
+        SectionLabel(l10n.accountDetails),
         DashboardCard(
           padding: EdgeInsets.zero,
           child: Column(
@@ -285,8 +285,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => Navigator.pushNamed(context, AppRoutes.documents),
               ),
               ProfileTile(
-                title: 'Bank details',
-                subtitle: 'View only · managed by Delivery Manager',
+                title: l10n.bankDetails,
+                subtitle: l10n.bankViewOnlyManaged,
                 leadingIcon: Icons.account_balance_outlined,
                 onTap: () => Navigator.pushNamed(context, AppRoutes.bankDetails),
                 showDivider: false,
@@ -296,7 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'These details can only be updated by your Delivery Manager.',
+          l10n.detailsUpdatedByManager,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.textSecondary,

@@ -207,53 +207,6 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Total Earnings',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _rupee(_total),
-                  style: GoogleFonts.inter(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    height: 1.1,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'From verification date to today',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.85),
-                ),
-              ),
-              const SizedBox(height: 14),
               _HeroBlock(
                 icon: Icons.bolt_rounded,
                 label: l10n.todaysIncentive,
@@ -336,7 +289,7 @@ class _WalletScreenState extends State<WalletScreen> {
         if (!_withdrawEnabled) ...[
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Total earnings still show above — only Withdraw is locked.',
+            'Earnings keep updating — only Withdraw is locked.',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
           ),

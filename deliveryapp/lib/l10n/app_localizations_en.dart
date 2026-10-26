@@ -1686,4 +1686,379 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get salaryNotSet => 'Not set yet';
+
+  @override
+  String get shiftEndedNowOffline =>
+      'Your shift/gig ended. You are now offline.';
+
+  @override
+  String get orderAlreadyAccepted =>
+      'Order already accepted — opening active delivery.';
+
+  @override
+  String get assignmentNoLongerAvailable =>
+      'This assignment is no longer available.';
+
+  @override
+  String get shiftEndedGraceOffline =>
+      'Your shift/gig ended. You stayed online 5 more minutes and are now offline.';
+
+  @override
+  String get verificationRequiredToGoOnline =>
+      'Account verification required to go online.';
+
+  @override
+  String get youAreNowOffline => 'You are now Offline.';
+
+  @override
+  String get failedToUpdateStatus => 'Failed to update status.';
+
+  @override
+  String get somethingWentWrong => 'Something went wrong. Please try again.';
+
+  @override
+  String managerAssignedPreOrders(int count) {
+    return 'Delivery Manager assigned you $count pre-order(s)';
+  }
+
+  @override
+  String get view => 'View';
+
+  @override
+  String get readyToDeliver => 'Ready to deliver?';
+
+  @override
+  String get receivingNearbyRequests => 'Receiving nearby delivery requests.';
+
+  @override
+  String get goOnlineToReceiveRequests => 'Go online to receive requests.';
+
+  @override
+  String get todaysProgressTitle => 'Today\'s Progress';
+
+  @override
+  String get todaysEarningsLabel => 'Today\'s Earnings';
+
+  @override
+  String get tripsCompletedLabel => 'Trips Completed';
+
+  @override
+  String get currentEarningsLabel => 'Current Earnings';
+
+  @override
+  String get currentBonusLabel => 'Current Bonus';
+
+  @override
+  String completeMoreOrdersForBonus(int count, String bonus) {
+    return 'Complete $count more orders to get +$bonus bonus';
+  }
+
+  @override
+  String ordersProgress(int done, int total) {
+    return '$done / $total Orders';
+  }
+
+  @override
+  String get ratingLabel => 'Rating';
+
+  @override
+  String get acceptanceLabel => 'Acceptance';
+
+  @override
+  String get onTimeLabel => 'On-Time';
+
+  @override
+  String get acceptShort => 'Accept';
+
+  @override
+  String get declineShort => 'Decline';
+
+  @override
+  String get completeDeliveriesForGraph =>
+      'Complete deliveries to see your graph';
+
+  @override
+  String get noPerformanceDataYet => 'No performance data yet';
+
+  @override
+  String get completeDeliveriesForPerformance =>
+      'Complete deliveries to see your performance\nand growth here.';
+
+  @override
+  String preOrdersAssignedToYou(int count) {
+    return '$count pre-order(s) assigned to you';
+  }
+
+  @override
+  String preOrdersToCollect(int count) {
+    return '$count to collect — scan each order\'s QR at the store';
+  }
+
+  @override
+  String get allCollectedDeliverOneByOne =>
+      'All collected — deliver one by one';
+
+  @override
+  String get openAction => 'Open';
+
+  @override
+  String get deliveryInProgress => 'Delivery in Progress';
+
+  @override
+  String get tapToViewOrderDetails => 'Tap to view order details & navigation';
+
+  @override
+  String get kindHoliday => 'Holiday';
+
+  @override
+  String get kindShift => 'Shift';
+
+  @override
+  String get kindNote => 'Note';
+
+  @override
+  String get kindUpcoming => 'Upcoming';
+
+  @override
+  String get cashDepositDue => 'Cash Deposit Due';
+
+  @override
+  String get detailsAction => 'Details';
+
+  @override
+  String get handOverToStoreToday => 'Hand over to darkstore manager today';
+
+  @override
+  String get couldNotLoadPreOrders => 'Could not load your pre-orders.';
+
+  @override
+  String get addressesUnlocked => 'Addresses unlocked for the scanned orders.';
+
+  @override
+  String get preOrderDeliveriesTitle => 'Pre-order deliveries';
+
+  @override
+  String get noPreOrdersAssigned => 'No pre-orders assigned';
+
+  @override
+  String collectAtStore(String store) {
+    return 'Collect at $store';
+  }
+
+  @override
+  String get theDarkStore => 'the dark store';
+
+  @override
+  String preOrderProgressLine(int delivered, int onTheWay, int toScan) {
+    return '$delivered delivered · $onTheWay on the way · $toScan to scan';
+  }
+
+  @override
+  String failedCount(int count) {
+    return '$count failed';
+  }
+
+  @override
+  String get preOrdersSalaryBased =>
+      'Pre-orders are salary-based — no per-km amount is added to your wallet.';
+
+  @override
+  String scanOrderQrsLeft(int count) {
+    return 'Scan order QRs ($count left)';
+  }
+
+  @override
+  String get preOrdersEmptyHint =>
+      'You will get a notification when your Delivery Manager assigns pre-orders to you.';
+
+  @override
+  String get outForDelivery => 'Out for delivery';
+
+  @override
+  String get atStoreScanToSeeAddress => 'At the store — scan to see address';
+
+  @override
+  String get finishedToday => 'Finished today';
+
+  @override
+  String get paidOnline => 'Paid online';
+
+  @override
+  String collectCashAmount(String amount) {
+    return 'Collect $amount cash';
+  }
+
+  @override
+  String slotLabel(String slot) {
+    return 'Slot $slot';
+  }
+
+  @override
+  String itemsCount(int count) {
+    return '$count items';
+  }
+
+  @override
+  String get scanQr => 'Scan QR';
+
+  @override
+  String get scanBagQrHint =>
+      'Scan the QR on this order\'s bag to see customer address and number.';
+
+  @override
+  String get callAction => 'Call';
+
+  @override
+  String get deliverAction => 'Deliver';
+
+  @override
+  String get failedStatus => 'Failed';
+
+  @override
+  String get editName => 'Edit name';
+
+  @override
+  String get fullName => 'Full name';
+
+  @override
+  String get saveAction => 'Save';
+
+  @override
+  String get profilePhotoSaved => 'Profile photo saved to your account';
+
+  @override
+  String ratingsCount(int count) {
+    return '$count ratings';
+  }
+
+  @override
+  String get tapPhotoToUpdate =>
+      'Tap photo to update · saved to cloud & home avatar';
+
+  @override
+  String get accountDetails => 'Account details';
+
+  @override
+  String get bankViewOnlyManaged => 'View only · managed by Delivery Manager';
+
+  @override
+  String get detailsUpdatedByManager =>
+      'These details can only be updated by your Delivery Manager.';
+
+  @override
+  String get bankViewOnlyContact =>
+      'View only · contact Delivery Manager to update';
+
+  @override
+  String get salaryAccount => 'Salary account';
+
+  @override
+  String get primaryLabel => 'Primary';
+
+  @override
+  String get bankUpdatedByManager =>
+      'Bank details can only be updated by your Delivery Manager.';
+
+  @override
+  String get yesterday => 'Yesterday';
+
+  @override
+  String get clearAllNotificationsTitle => 'Clear all notifications?';
+
+  @override
+  String get clearAllNotificationsBody =>
+      'This removes all notifications from your list.';
+
+  @override
+  String get clearAll => 'Clear all';
+
+  @override
+  String get noNotificationsYet => 'No notifications yet';
+
+  @override
+  String get noNotificationsHint =>
+      'Orders, shifts, gigs and wallet updates will show here.';
+
+  @override
+  String get markAllAsRead => 'Mark all as read';
+
+  @override
+  String get notifVerifiedTitle => 'You\'re Verified!';
+
+  @override
+  String get notifVerifiedBody => 'You can now receive orders.';
+
+  @override
+  String get notifShiftStartedTitle => 'Shift Started';
+
+  @override
+  String get notifShiftStartedBody =>
+      'You\'re now online and ready for orders.';
+
+  @override
+  String get notifShiftReminderTitle => 'Shift starting soon';
+
+  @override
+  String notifShiftReminderBody(int minutes) {
+    return 'Your shift starts in about $minutes min. Be ready to go online.';
+  }
+
+  @override
+  String get notifNewOrderTitle => 'New Order';
+
+  @override
+  String get notifNewOrderBody => 'You have a new order request.';
+
+  @override
+  String notifPreOrdersAssignedTitle(int count) {
+    return 'Delivery Manager assigned you $count pre-order(s)';
+  }
+
+  @override
+  String get notifPreOrdersAssignedBody =>
+      'Collect them at the dark store. Scan each order\'s QR to see that customer\'s address.';
+
+  @override
+  String notifOrdersAssignedTitle(int count) {
+    return '$count new order(s) assigned';
+  }
+
+  @override
+  String notifOrdersAssignedBody(String numbers) {
+    return 'Orders $numbers have been assigned to you.';
+  }
+
+  @override
+  String get notifOrderCompletedTitle => 'Order Completed';
+
+  @override
+  String notifOrderCompletedBody(String amount) {
+    return 'You earned ₹$amount. Added to your wallet.';
+  }
+
+  @override
+  String notifWalletCreditedTitle(String amount) {
+    return '₹$amount Added';
+  }
+
+  @override
+  String get notifWalletCreditedBody =>
+      'Your earnings have been added to your wallet.';
+
+  @override
+  String get notifNewGigTitle => 'New Gig Available';
+
+  @override
+  String get notifNewGigBody => 'A new gig is available near you.';
+
+  @override
+  String get monthlyEarnings => 'Monthly earnings';
+
+  @override
+  String get dailyEarnings => 'Daily earnings';
+
+  @override
+  String onlineDuration(String time) {
+    return '$time online';
+  }
 }

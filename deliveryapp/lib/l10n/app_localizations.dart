@@ -3255,6 +3255,636 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not set yet'**
   String get salaryNotSet;
+
+  /// No description provided for @shiftEndedNowOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shift/gig ended. You are now offline.'**
+  String get shiftEndedNowOffline;
+
+  /// No description provided for @orderAlreadyAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Order already accepted — opening active delivery.'**
+  String get orderAlreadyAccepted;
+
+  /// No description provided for @assignmentNoLongerAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This assignment is no longer available.'**
+  String get assignmentNoLongerAvailable;
+
+  /// No description provided for @shiftEndedGraceOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shift/gig ended. You stayed online 5 more minutes and are now offline.'**
+  String get shiftEndedGraceOffline;
+
+  /// No description provided for @verificationRequiredToGoOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Account verification required to go online.'**
+  String get verificationRequiredToGoOnline;
+
+  /// No description provided for @youAreNowOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'You are now Offline.'**
+  String get youAreNowOffline;
+
+  /// No description provided for @failedToUpdateStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update status.'**
+  String get failedToUpdateStatus;
+
+  /// No description provided for @somethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get somethingWentWrong;
+
+  /// No description provided for @managerAssignedPreOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Manager assigned you {count} pre-order(s)'**
+  String managerAssignedPreOrders(int count);
+
+  /// No description provided for @view.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get view;
+
+  /// No description provided for @readyToDeliver.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to deliver?'**
+  String get readyToDeliver;
+
+  /// No description provided for @receivingNearbyRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Receiving nearby delivery requests.'**
+  String get receivingNearbyRequests;
+
+  /// No description provided for @goOnlineToReceiveRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Go online to receive requests.'**
+  String get goOnlineToReceiveRequests;
+
+  /// No description provided for @todaysProgressTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Progress'**
+  String get todaysProgressTitle;
+
+  /// No description provided for @todaysEarningsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Earnings'**
+  String get todaysEarningsLabel;
+
+  /// No description provided for @tripsCompletedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips Completed'**
+  String get tripsCompletedLabel;
+
+  /// No description provided for @currentEarningsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Earnings'**
+  String get currentEarningsLabel;
+
+  /// No description provided for @currentBonusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Bonus'**
+  String get currentBonusLabel;
+
+  /// No description provided for @completeMoreOrdersForBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete {count} more orders to get +{bonus} bonus'**
+  String completeMoreOrdersForBonus(int count, String bonus);
+
+  /// No description provided for @ordersProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {total} Orders'**
+  String ordersProgress(int done, int total);
+
+  /// No description provided for @ratingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get ratingLabel;
+
+  /// No description provided for @acceptanceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Acceptance'**
+  String get acceptanceLabel;
+
+  /// No description provided for @onTimeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'On-Time'**
+  String get onTimeLabel;
+
+  /// No description provided for @acceptShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get acceptShort;
+
+  /// No description provided for @declineShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get declineShort;
+
+  /// No description provided for @completeDeliveriesForGraph.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete deliveries to see your graph'**
+  String get completeDeliveriesForGraph;
+
+  /// No description provided for @noPerformanceDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No performance data yet'**
+  String get noPerformanceDataYet;
+
+  /// No description provided for @completeDeliveriesForPerformance.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete deliveries to see your performance\nand growth here.'**
+  String get completeDeliveriesForPerformance;
+
+  /// No description provided for @preOrdersAssignedToYou.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pre-order(s) assigned to you'**
+  String preOrdersAssignedToYou(int count);
+
+  /// No description provided for @preOrdersToCollect.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} to collect — scan each order\'s QR at the store'**
+  String preOrdersToCollect(int count);
+
+  /// No description provided for @allCollectedDeliverOneByOne.
+  ///
+  /// In en, this message translates to:
+  /// **'All collected — deliver one by one'**
+  String get allCollectedDeliverOneByOne;
+
+  /// No description provided for @openAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get openAction;
+
+  /// No description provided for @deliveryInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery in Progress'**
+  String get deliveryInProgress;
+
+  /// No description provided for @tapToViewOrderDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to view order details & navigation'**
+  String get tapToViewOrderDetails;
+
+  /// No description provided for @kindHoliday.
+  ///
+  /// In en, this message translates to:
+  /// **'Holiday'**
+  String get kindHoliday;
+
+  /// No description provided for @kindShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift'**
+  String get kindShift;
+
+  /// No description provided for @kindNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get kindNote;
+
+  /// No description provided for @kindUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get kindUpcoming;
+
+  /// No description provided for @cashDepositDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash Deposit Due'**
+  String get cashDepositDue;
+
+  /// No description provided for @detailsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get detailsAction;
+
+  /// No description provided for @handOverToStoreToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Hand over to darkstore manager today'**
+  String get handOverToStoreToday;
+
+  /// No description provided for @couldNotLoadPreOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your pre-orders.'**
+  String get couldNotLoadPreOrders;
+
+  /// No description provided for @addressesUnlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Addresses unlocked for the scanned orders.'**
+  String get addressesUnlocked;
+
+  /// No description provided for @preOrderDeliveriesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-order deliveries'**
+  String get preOrderDeliveriesTitle;
+
+  /// No description provided for @noPreOrdersAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No pre-orders assigned'**
+  String get noPreOrdersAssigned;
+
+  /// No description provided for @collectAtStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect at {store}'**
+  String collectAtStore(String store);
+
+  /// No description provided for @theDarkStore.
+  ///
+  /// In en, this message translates to:
+  /// **'the dark store'**
+  String get theDarkStore;
+
+  /// No description provided for @preOrderProgressLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{delivered} delivered · {onTheWay} on the way · {toScan} to scan'**
+  String preOrderProgressLine(int delivered, int onTheWay, int toScan);
+
+  /// No description provided for @failedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} failed'**
+  String failedCount(int count);
+
+  /// No description provided for @preOrdersSalaryBased.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-orders are salary-based — no per-km amount is added to your wallet.'**
+  String get preOrdersSalaryBased;
+
+  /// No description provided for @scanOrderQrsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan order QRs ({count} left)'**
+  String scanOrderQrsLeft(int count);
+
+  /// No description provided for @preOrdersEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You will get a notification when your Delivery Manager assigns pre-orders to you.'**
+  String get preOrdersEmptyHint;
+
+  /// No description provided for @outForDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Out for delivery'**
+  String get outForDelivery;
+
+  /// No description provided for @atStoreScanToSeeAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'At the store — scan to see address'**
+  String get atStoreScanToSeeAddress;
+
+  /// No description provided for @finishedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished today'**
+  String get finishedToday;
+
+  /// No description provided for @paidOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid online'**
+  String get paidOnline;
+
+  /// No description provided for @collectCashAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect {amount} cash'**
+  String collectCashAmount(String amount);
+
+  /// No description provided for @slotLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {slot}'**
+  String slotLabel(String slot);
+
+  /// No description provided for @itemsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String itemsCount(int count);
+
+  /// No description provided for @scanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR'**
+  String get scanQr;
+
+  /// No description provided for @scanBagQrHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR on this order\'s bag to see customer address and number.'**
+  String get scanBagQrHint;
+
+  /// No description provided for @callAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Call'**
+  String get callAction;
+
+  /// No description provided for @deliverAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliver'**
+  String get deliverAction;
+
+  /// No description provided for @failedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get failedStatus;
+
+  /// No description provided for @editName.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit name'**
+  String get editName;
+
+  /// No description provided for @fullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name'**
+  String get fullName;
+
+  /// No description provided for @saveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get saveAction;
+
+  /// No description provided for @profilePhotoSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo saved to your account'**
+  String get profilePhotoSaved;
+
+  /// No description provided for @ratingsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} ratings'**
+  String ratingsCount(int count);
+
+  /// No description provided for @tapPhotoToUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap photo to update · saved to cloud & home avatar'**
+  String get tapPhotoToUpdate;
+
+  /// No description provided for @accountDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Account details'**
+  String get accountDetails;
+
+  /// No description provided for @bankViewOnlyManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'View only · managed by Delivery Manager'**
+  String get bankViewOnlyManaged;
+
+  /// No description provided for @detailsUpdatedByManager.
+  ///
+  /// In en, this message translates to:
+  /// **'These details can only be updated by your Delivery Manager.'**
+  String get detailsUpdatedByManager;
+
+  /// No description provided for @bankViewOnlyContact.
+  ///
+  /// In en, this message translates to:
+  /// **'View only · contact Delivery Manager to update'**
+  String get bankViewOnlyContact;
+
+  /// No description provided for @salaryAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary account'**
+  String get salaryAccount;
+
+  /// No description provided for @primaryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary'**
+  String get primaryLabel;
+
+  /// No description provided for @bankUpdatedByManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank details can only be updated by your Delivery Manager.'**
+  String get bankUpdatedByManager;
+
+  /// No description provided for @yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get yesterday;
+
+  /// No description provided for @clearAllNotificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all notifications?'**
+  String get clearAllNotificationsTitle;
+
+  /// No description provided for @clearAllNotificationsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes all notifications from your list.'**
+  String get clearAllNotificationsBody;
+
+  /// No description provided for @clearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get clearAll;
+
+  /// No description provided for @noNotificationsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get noNotificationsYet;
+
+  /// No description provided for @noNotificationsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders, shifts, gigs and wallet updates will show here.'**
+  String get noNotificationsHint;
+
+  /// No description provided for @markAllAsRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all as read'**
+  String get markAllAsRead;
+
+  /// No description provided for @notifVerifiedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re Verified!'**
+  String get notifVerifiedTitle;
+
+  /// No description provided for @notifVerifiedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You can now receive orders.'**
+  String get notifVerifiedBody;
+
+  /// No description provided for @notifShiftStartedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift Started'**
+  String get notifShiftStartedTitle;
+
+  /// No description provided for @notifShiftStartedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now online and ready for orders.'**
+  String get notifShiftStartedBody;
+
+  /// No description provided for @notifShiftReminderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift starting soon'**
+  String get notifShiftReminderTitle;
+
+  /// No description provided for @notifShiftReminderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shift starts in about {minutes} min. Be ready to go online.'**
+  String notifShiftReminderBody(int minutes);
+
+  /// No description provided for @notifNewOrderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Order'**
+  String get notifNewOrderTitle;
+
+  /// No description provided for @notifNewOrderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You have a new order request.'**
+  String get notifNewOrderBody;
+
+  /// No description provided for @notifPreOrdersAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Manager assigned you {count} pre-order(s)'**
+  String notifPreOrdersAssignedTitle(int count);
+
+  /// No description provided for @notifPreOrdersAssignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect them at the dark store. Scan each order\'s QR to see that customer\'s address.'**
+  String get notifPreOrdersAssignedBody;
+
+  /// No description provided for @notifOrdersAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new order(s) assigned'**
+  String notifOrdersAssignedTitle(int count);
+
+  /// No description provided for @notifOrdersAssignedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders {numbers} have been assigned to you.'**
+  String notifOrdersAssignedBody(String numbers);
+
+  /// No description provided for @notifOrderCompletedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Completed'**
+  String get notifOrderCompletedTitle;
+
+  /// No description provided for @notifOrderCompletedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You earned ₹{amount}. Added to your wallet.'**
+  String notifOrderCompletedBody(String amount);
+
+  /// No description provided for @notifWalletCreditedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'₹{amount} Added'**
+  String notifWalletCreditedTitle(String amount);
+
+  /// No description provided for @notifWalletCreditedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your earnings have been added to your wallet.'**
+  String get notifWalletCreditedBody;
+
+  /// No description provided for @notifNewGigTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Gig Available'**
+  String get notifNewGigTitle;
+
+  /// No description provided for @notifNewGigBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A new gig is available near you.'**
+  String get notifNewGigBody;
+
+  /// No description provided for @monthlyEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly earnings'**
+  String get monthlyEarnings;
+
+  /// No description provided for @dailyEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily earnings'**
+  String get dailyEarnings;
+
+  /// No description provided for @onlineDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} online'**
+  String onlineDuration(String time);
 }
 
 class _AppLocalizationsDelegate

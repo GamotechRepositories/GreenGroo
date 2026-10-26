@@ -8,6 +8,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../utils/map_navigation.dart';
 import '../active_delivery/pickup_qr_scan_screen.dart';
 import '../fulltime/fulltime_widgets.dart';
@@ -62,7 +63,7 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
     setState(() {
       _loading = false;
       if (data == null) {
-        if (!silent) _error = 'Could not load your pre-orders.';
+        if (!silent) _error = AppLocalizations.of(context).couldNotLoadPreOrders;
         return;
       }
       _error = null;
@@ -86,9 +87,9 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
       await _load(silent: true);
       if (unlocked == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Addresses unlocked for the scanned orders.'),
-            backgroundColor: Color(0xFF059669),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).addressesUnlocked),
+            backgroundColor: const Color(0xFF059669),
           ),
         );
       }
@@ -119,7 +120,7 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: fullTimeAppBar('Pre-order deliveries', onRefresh: _load),
+      appBar: fullTimeAppBar(AppLocalizations.of(context).preOrderDeliveriesTitle, onRefresh: _load),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -138,6 +139,7 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
     final delivered = _n('delivered');
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -150,8 +152,8 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
             children: [
               Text(
                 total == 0
-                    ? 'No pre-orders assigned'
-                    : '$total pre-order${total == 1 ? '' : 's'} assigned to you',
+                    ? l10n.noPreOrdersAssigned
+                    : l10n.preOrdersAssignedToYou(total),
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -161,8 +163,8 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
               if (_store != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  'Collect at ${_store!['name'] ?? 'the dark store'}'
-                  '${(_store!['address'] ?? '').toString().isNotEmpty ? ' · ${_store!['address']}' : ''}',
+                  l10n.collectAtStore((_store!['name'] ?? l10n.theDarkStore).toString()) +
+                      ((_store!['address'] ?? '').toString().isNotEmpty ? ' · ${_store!['address']}' : ''),
                   style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                 ),
               ],
@@ -179,14 +181,14 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$delivered delivered · ${_n('outForDelivery')} on the way · ${_n('toScan')} to scan'
-                  '${_n('failed') > 0 ? ' · ${_n('failed')} failed' : ''}',
+                  l10n.preOrderProgressLine(delivered, _n('outForDelivery'), _n('toScan')) +
+                      (_n('failed') > 0 ? ' · ${l10n.failedCount(_n('failed'))}' : ''),
                   style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
                 ),
               ],
               const SizedBox(height: 6),
               Text(
-                'Pre-orders are salary-based — no per-km amount is added to your wallet.',
+                l10n.preOrdersSalaryBased,
                 style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.textMuted),
               ),
             ],
@@ -200,7 +202,7 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
               onPressed: _scanBags,
               icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
               label: Text(
-                'Scan order QRs (${toScan.length} left)',
+                l10n.scanOrderQrsLeft(toScan.length),
                 style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               style: FilledButton.styleFrom(
@@ -216,14 +218,14 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
             padding: const EdgeInsets.symmetric(vertical: 36),
             child: Center(
               child: Text(
-                'You will get a notification when your Delivery Manager assigns pre-orders to you.',
+                l10n.preOrdersEmptyHint,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMuted),
               ),
             ),
           ),
         if (onTheWay.isNotEmpty) ...[
-          _SectionTitle('🛵 Out for delivery (${onTheWay.length})'),
+          _SectionTitle('🛵 ${l10n.outForDelivery} (${onTheWay.length})'),
           ...onTheWay.map(
             (o) => _UnlockedTile(
               order: o,
@@ -234,11 +236,11 @@ class _PreOrderDeliveriesScreenState extends State<PreOrderDeliveriesScreen> {
           ),
         ],
         if (toScan.isNotEmpty) ...[
-          _SectionTitle('🔒 At the store — scan to see address (${toScan.length})'),
+          _SectionTitle('🔒 ${l10n.atStoreScanToSeeAddress} (${toScan.length})'),
           ...toScan.map((o) => _LockedTile(order: o)),
         ],
         if (done.isNotEmpty) ...[
-          _SectionTitle('✅ Finished today (${done.length})'),
+          _SectionTitle('✅ ${l10n.finishedToday} (${done.length})'),
           ...done.map((o) => _DoneTile(order: o)),
         ],
       ],
@@ -266,10 +268,10 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-String _paymentLine(Map<String, dynamic> o) {
+String _paymentLine(AppLocalizations l10n, Map<String, dynamic> o) {
   final amount = (o['amountToCollect'] as num?) ?? 0;
-  if (o['paymentStatus'] == 'paid_online' || amount <= 0) return 'Paid online';
-  return 'Collect ${formatRupees(amount)} cash';
+  if (o['paymentStatus'] == 'paid_online' || amount <= 0) return l10n.paidOnline;
+  return l10n.collectCashAmount(formatRupees(amount));
 }
 
 class _OrderHeader extends StatelessWidget {
@@ -280,6 +282,7 @@ class _OrderHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final slot = (order['preOrderSlot'] ?? '').toString();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -318,9 +321,9 @@ class _OrderHeader extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           [
-            if (slot.isNotEmpty) 'Slot $slot',
-            '${order['itemCount'] ?? 0} items',
-            _paymentLine(order),
+            if (slot.isNotEmpty) l10n.slotLabel(slot),
+            l10n.itemsCount((order['itemCount'] as num?)?.toInt() ?? 0),
+            _paymentLine(l10n, order),
           ].join(' · '),
           style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
         ),
@@ -340,7 +343,7 @@ class _LockedTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _OrderHeader(order: order, status: 'Scan QR', statusColor: AppColors.warning),
+          _OrderHeader(order: order, status: AppLocalizations.of(context).scanQr, statusColor: AppColors.warning),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -348,7 +351,7 @@ class _LockedTile extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Scan the QR on this order\'s bag to see customer address and number.',
+                  AppLocalizations.of(context).scanBagQrHint,
                   style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary),
                 ),
               ),
@@ -382,10 +385,10 @@ class _UnlockedTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _OrderHeader(order: order, status: 'Out for delivery', statusColor: AppColors.primary),
+          _OrderHeader(order: order, status: AppLocalizations.of(context).outForDelivery, statusColor: AppColors.primary),
           const SizedBox(height: 8),
           Text(
-            name.isEmpty ? 'Customer' : name,
+            name.isEmpty ? AppLocalizations.of(context).customer : name,
             style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
           ),
           if (phone.isNotEmpty)
@@ -403,7 +406,7 @@ class _UnlockedTile extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onCall,
                     icon: const Icon(Icons.call_rounded, size: 14),
-                    label: const Text('Call', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: Text(AppLocalizations.of(context).callAction, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -417,7 +420,7 @@ class _UnlockedTile extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onNavigate,
                   icon: const Icon(Icons.navigation_rounded, size: 14),
-                  label: const Text('Map', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(AppLocalizations.of(context).map, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -434,7 +437,7 @@ class _UnlockedTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Deliver', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  child: Text(AppLocalizations.of(context).deliverAction, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -455,14 +458,14 @@ class _DoneTile extends StatelessWidget {
     final at = DateTime.tryParse(order['deliveredAt']?.toString() ?? '')?.toLocal();
     final time = at == null
         ? ''
-        : ' at ${at.hour % 12 == 0 ? 12 : at.hour % 12}:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'AM' : 'PM'}';
+        : ' · ${at.hour % 12 == 0 ? 12 : at.hour % 12}:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'AM' : 'PM'}';
     return Opacity(
       opacity: 0.8,
       child: FtSectionCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: _OrderHeader(
           order: order,
-          status: failed ? 'Failed' : 'Delivered$time',
+          status: failed ? AppLocalizations.of(context).failedStatus : '${AppLocalizations.of(context).delivered}$time',
           statusColor: failed ? AppColors.error : AppColors.success,
         ),
       ),

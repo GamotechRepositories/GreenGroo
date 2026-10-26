@@ -103,7 +103,10 @@ export async function syncAnnouncementsToInbox(riderId) {
           body: message,
           priority: "normal",
           dedupeKey,
-          data: { announcementId: id, screen: "notifications", badge: "new" },
+          // Backfilled history: listed, but never raises the unread badge.
+          isRead: true,
+          readAt: new Date(),
+          data: { announcementId: id, screen: "notifications" },
         }).catch(() => {});
         created += 1;
       }
