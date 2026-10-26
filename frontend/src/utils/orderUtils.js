@@ -148,6 +148,10 @@ export function isPlacedOrder(order) {
   return order?.status !== "attempted";
 }
 
+export function isActiveOrder(order) {
+  return !["delivered", "cancelled", "return"].includes(order?.status);
+}
+
 export function matchesOrderFilter(order, filter) {
   switch (filter) {
     case "active":

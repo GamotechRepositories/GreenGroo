@@ -14,7 +14,9 @@ function MobileLayout({ children }) {
   const isProductDetail = /^\/product\/[^/]+/.test(pathname);
   const isShop = pathname === "/product";
   const isCategoryBrowse = isShop && Boolean(searchParams.get("categoryName")?.trim());
-  const hideNavs = pathname === "/cart" || pathname === "/checkout";
+  const hideNavs =
+    pathname === "/cart" || pathname === "/checkout" || /^\/orders\/[^/]+\/track\/?$/.test(pathname);
+  const hasOwnHeader = pathname === "/orders";
 
   return (
     <div
@@ -28,7 +30,7 @@ function MobileLayout({ children }) {
         <div className="lg:hidden">
           <HomeStickyCategories />
         </div>
-      ) : isProductDetail || hideNavs || isCategoryBrowse ? null : (
+      ) : isProductDetail || hideNavs || hasOwnHeader || isCategoryBrowse ? null : (
         <MobileHeader />
       )}
 

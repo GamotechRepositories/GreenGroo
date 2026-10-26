@@ -36,7 +36,7 @@ export default function DesktopHeroFeatureCards() {
       description: "Follow your order step-by-step from farms straight to your door.",
       btnText: "Track My Order",
       tag: "Live GPS",
-      link: "/orders",
+      link: "/track-order",
     },
   ];
 

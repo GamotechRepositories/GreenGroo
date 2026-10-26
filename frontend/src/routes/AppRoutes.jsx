@@ -10,6 +10,8 @@ import Signup from "../pages/Signup";
 import Orders from "../pages/Orders";
 import OrderDetail from "../pages/OrderDetail";
 import OrderInvoice from "../pages/OrderInvoice";
+import TrackOrder from "../pages/TrackOrder";
+import TrackLatestOrder from "../pages/TrackLatestOrder";
 import Profile from "../pages/Profile";
 import About from "../pages/About";
 import Careers from "../pages/Careers";
@@ -126,6 +128,15 @@ export function AppRoutes() {
         }
       />
       <Route path="/orders/:id/invoice" element={<OrderInvoice />} />
+      <Route path="/track-order" element={<TrackLatestOrder />} />
+      <Route
+        path="/orders/:id/track"
+        element={
+          <MobileLayout>
+            <TrackOrder />
+          </MobileLayout>
+        }
+      />
       <Route
         path="/profile"
         element={

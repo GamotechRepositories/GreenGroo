@@ -22,6 +22,7 @@ import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
+import TrackOrderBanner from "./TrackOrderBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
 import PreOrderProgress from "./PreOrderProgress";
 import PreOrderSlotCard from "./PreOrderSlotCard";
@@ -220,6 +221,8 @@ function DesktopOrderDetail({
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* Main column */}
           <div className="space-y-4">
+            <TrackOrderBanner order={order} />
+
             {/* Progress */}
             <section className="rounded-xl border border-border-light bg-white p-6 shadow-sm">
               <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">Order progress</p>

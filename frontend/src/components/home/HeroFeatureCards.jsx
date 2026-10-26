@@ -34,7 +34,7 @@ export default function HeroFeatureCards({ className = "" }) {
       subtitle: "ऑर्डरचा मागोवा घ्या",
       description: "शेतापासून तुमच्या घरापर्यंत संपूर्ण प्रवास पाहा.",
       btnText: "माझा ऑर्डर ट्रॅक करा",
-      link: "/orders",
+      link: "/track-order",
     },
   ];
 

@@ -16,6 +16,7 @@ import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
+import TrackOrderBanner from "./TrackOrderBanner";
 import ReturnOrderSection from "./ReturnOrderSection";
 import PreOrderProgress from "./PreOrderProgress";
 import PreOrderSlotCard from "./PreOrderSlotCard";
@@ -111,6 +112,8 @@ function BlinkitOrderDetail({
             <ShipmentTrackingBanner shipment={shipment} className="w-full" />
           </div>
         ) : null}
+
+        <TrackOrderBanner order={order} className="mb-4" />
 
         <div className="mb-4">
           <DeliveryOtpBanner order={order} />

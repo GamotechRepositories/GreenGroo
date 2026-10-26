@@ -167,6 +167,7 @@ export const verifyRazorpayPayment = (data) => api.post("/api/payments/verify", 
 export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-upi-proof", data);
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
+export const getOrderTracking = (id) => api.get(`/api/orders/${id}/tracking`, { live: false });
 export const resendCustomerDeliveryOtp = (id) => api.post(`/api/orders/${id}/resend-delivery-otp`);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 export const reschedulePreOrder = (id, slot) => api.patch(`/api/orders/${id}/preorder-slot`, { slot });
