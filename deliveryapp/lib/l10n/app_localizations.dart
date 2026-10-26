@@ -7,10 +7,7 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_hi.dart';
-import 'app_localizations_kn.dart';
 import 'app_localizations_mr.dart';
-import 'app_localizations_ta.dart';
-import 'app_localizations_te.dart';
 
 // ignore_for_file: type=lint
 
@@ -100,10 +97,7 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('hi'),
-    Locale('kn'),
     Locale('mr'),
-    Locale('ta'),
-    Locale('te'),
   ];
 
   /// No description provided for @appTitle.
@@ -2985,6 +2979,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{km} km'**
   String distanceKmValue(String km);
+
+  /// No description provided for @welcomeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome Back!'**
+  String get welcomeBack;
+
+  /// No description provided for @loginOtpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your mobile number — we\'ll send you an OTP'**
+  String get loginOtpSubtitle;
+
+  /// No description provided for @registerOtpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join as a Delivery Partner with your mobile number'**
+  String get registerOtpSubtitle;
+
+  /// No description provided for @otpSentTo.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ve sent a 6 digit OTP to\n+91 {phone}'**
+  String otpSentTo(String phone);
+
+  /// No description provided for @resendOtpIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend OTP in '**
+  String get resendOtpIn;
+
+  /// No description provided for @resendNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend Now'**
+  String get resendNow;
+
+  /// No description provided for @otpResent.
+  ///
+  /// In en, this message translates to:
+  /// **'OTP resent successfully'**
+  String get otpResent;
+
+  /// No description provided for @agreeTermsPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree to the '**
+  String get agreeTermsPrefix;
+
+  /// No description provided for @termsAndConditions.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & Conditions'**
+  String get termsAndConditions;
+
+  /// No description provided for @andWord.
+  ///
+  /// In en, this message translates to:
+  /// **' and '**
+  String get andWord;
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacyPolicy;
+
+  /// No description provided for @agreeTermsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please agree to Terms & Conditions'**
+  String get agreeTermsError;
+
+  /// No description provided for @noAccountPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account? '**
+  String get noAccountPrompt;
+
+  /// No description provided for @haveAccountPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? '**
+  String get haveAccountPrompt;
+
+  /// No description provided for @registerNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Register Now'**
+  String get registerNow;
+
+  /// No description provided for @pickupDriverLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup driver? Login with password'**
+  String get pickupDriverLogin;
+
+  /// No description provided for @markAsRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as read'**
+  String get markAsRead;
+
+  /// No description provided for @announcementMovedToNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to Notifications'**
+  String get announcementMovedToNotifications;
+
+  /// No description provided for @noSlotAssignedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No slot assigned'**
+  String get noSlotAssignedTitle;
+
+  /// No description provided for @noSlotAssignedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No slot is assigned to you for today. Your Delivery Manager assigns slots — you can also go online while a live gig is running.'**
+  String get noSlotAssignedMessage;
+
+  /// No description provided for @viewMySlots.
+  ///
+  /// In en, this message translates to:
+  /// **'View my slots'**
+  String get viewMySlots;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
+  /// No description provided for @detectingLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Detecting your location…'**
+  String get detectingLocation;
+
+  /// No description provided for @locationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t get your location. Turn on GPS and try again.'**
+  String get locationUnavailable;
+
+  /// No description provided for @locationVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Location verified'**
+  String get locationVerified;
+
+  /// No description provided for @locationCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Location check failed'**
+  String get locationCheckFailed;
+
+  /// No description provided for @slotsAssignedByManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Slots are assigned by your Delivery Manager. You\'ll get a notification when a new slot is assigned.'**
+  String get slotsAssignedByManager;
+
+  /// No description provided for @todaysSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'TODAY\'S SLOTS'**
+  String get todaysSlots;
+
+  /// No description provided for @noSlotAssignedToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No slot assigned for today yet.'**
+  String get noSlotAssignedToday;
+
+  /// No description provided for @noUpcomingSlotsAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No upcoming slots assigned.'**
+  String get noUpcomingSlotsAssigned;
+
+  /// No description provided for @incentivePerKm.
+  ///
+  /// In en, this message translates to:
+  /// **'₹{rate}/km incentive'**
+  String incentivePerKm(String rate);
+
+  /// No description provided for @incentivePerHour.
+  ///
+  /// In en, this message translates to:
+  /// **'₹{rate}/hr incentive'**
+  String incentivePerHour(String rate);
+
+  /// No description provided for @salaryAndIncentives.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary & Incentives'**
+  String get salaryAndIncentives;
+
+  /// No description provided for @slotIncentives.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot Incentives'**
+  String get slotIncentives;
+
+  /// No description provided for @perMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'per month'**
+  String get perMonth;
+
+  /// No description provided for @todayIncentiveEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} incentive earned today'**
+  String todayIncentiveEarned(String amount);
+
+  /// No description provided for @salaryAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary {amount}'**
+  String salaryAmount(String amount);
+
+  /// No description provided for @salaryNotCreditedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary pending'**
+  String get salaryNotCreditedYet;
+
+  /// No description provided for @incentiveAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Incentive {amount}'**
+  String incentiveAmount(String amount);
+
+  /// No description provided for @recentIncentives.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent incentives'**
+  String get recentIncentives;
+
+  /// No description provided for @todaysIncentive.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s incentive'**
+  String get todaysIncentive;
+
+  /// No description provided for @salaryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary'**
+  String get salaryLabel;
+
+  /// No description provided for @perDay.
+  ///
+  /// In en, this message translates to:
+  /// **'per day'**
+  String get perDay;
+
+  /// No description provided for @perWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'per week'**
+  String get perWeek;
+
+  /// No description provided for @salaryNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set yet'**
+  String get salaryNotSet;
 }
 
 class _AppLocalizationsDelegate
@@ -2997,14 +3267,8 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) => <String>[
-    'en',
-    'hi',
-    'kn',
-    'mr',
-    'ta',
-    'te',
-  ].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['en', 'hi', 'mr'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -3017,14 +3281,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'hi':
       return AppLocalizationsHi();
-    case 'kn':
-      return AppLocalizationsKn();
     case 'mr':
       return AppLocalizationsMr();
-    case 'ta':
-      return AppLocalizationsTa();
-    case 'te':
-      return AppLocalizationsTe();
   }
 
   throw FlutterError(

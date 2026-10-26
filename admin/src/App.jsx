@@ -54,6 +54,7 @@ import DeliveryManagement from './pages/ops/DeliveryManagement';
 import DeliveryTeamPage from './pages/ops/DeliveryTeamPage';
 import DeliveryManager360Page from './pages/ops/DeliveryManager360Page';
 import DeliveryBoy360Page from './pages/ops/DeliveryBoy360Page';
+import DeliverySlotsPage from './pages/ops/DeliverySlotsPage';
 import DeliveryTracking from './pages/ops/DeliveryTracking';
 import StoreSupport from './pages/ops/StoreSupport';
 import FinanceManagement from './pages/ops/FinanceManagement';
@@ -161,6 +162,7 @@ export default function App() {
               <Route path="delivery-team" element={<DeliveryTeamPage />} />
               <Route path="delivery-team/managers/:id" element={<DeliveryManager360Page />} />
               <Route path="delivery-team/boys/:id" element={<DeliveryBoy360Page />} />
+              <Route path="delivery-slots" element={<DeliverySlotsPage />} />
               <Route path="delivery-tracking" element={<DeliveryTracking />} />
               <Route path="user-management" element={<UserManagementTypePage />} />
               <Route path="user-management/:accountType" element={<UserManagementZonesPage />} />

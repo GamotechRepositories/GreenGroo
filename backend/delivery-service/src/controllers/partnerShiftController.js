@@ -531,32 +531,38 @@ export const goOnline = async (req, res, next) => {
     const todayStr = formatDateStringIST(new Date());
     const liveGig = await findLiveGigForManager(manager._id);
 
-    const shift = await Shift.findOne({
+    // A rider can be assigned slots in several shifts today — pick the earliest that hasn't ended.
+    const todayShifts = await Shift.find({
       dateString: todayStr,
       "slots.bookings.deliveryPartnerId": rider._id,
     }).populate("managerId");
 
+    let shift = null;
     let todayBooking = null;
     let targetSlot = null;
 
     const nowTime = new Date();
     const currentMinCheck = getCurrentMinutesIST(nowTime);
 
-    if (shift) {
-      for (const slot of shift.slots) {
+    for (const candidateShift of todayShifts) {
+      for (const slot of candidateShift.slots) {
+        if (slot.status === "CANCELLED") continue;
         const isExpired = isSlotEnded(slot.startTime, slot.endTime, currentMinCheck);
+        if (isExpired) continue;
 
         const found = slot.bookings.find(
           (b) =>
             b.deliveryPartnerId.toString() === rider._id.toString() &&
             b.status !== "CANCELLED" &&
-            b.status !== "EXPIRED" &&
-            !isExpired
+            b.status !== "EXPIRED"
         );
-        if (found) {
+        if (
+          found &&
+          (!targetSlot || timeToMinutes(slot.startTime) < timeToMinutes(targetSlot.startTime))
+        ) {
+          shift = candidateShift;
           todayBooking = found;
           targetSlot = slot;
-          break;
         }
       }
     }
@@ -569,7 +575,7 @@ export const goOnline = async (req, res, next) => {
           success: false,
           code: "NO_SHIFT_BOOKED",
           message:
-            "You can go online only if you booked today's shift, or when a live gig is running for your store.",
+            "No slot is assigned to you for today. Your Delivery Manager assigns slots — you can also go online when a live gig is running.",
         });
       }
     }
@@ -721,6 +727,9 @@ export const goOffline = async (req, res, next) => {
     await emitRiderStatusUpdated(rider, {
       todayOnlineMinutes: rider.todayOnlineMinutes || 0,
     });
+
+    const { creditHourIncentiveOnOffline } = await import("../services/slotAssignmentService.js");
+    await creditHourIncentiveOnOffline(rider._id);
 
     return res.json({
       success: true,

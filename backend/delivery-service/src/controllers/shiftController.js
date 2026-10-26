@@ -76,384 +76,15 @@ export const getRiderManager = async (rider) => {
   return manager;
 };
 
-/**
- * 1. bookSlot — Rider books shiftId + slotId
- * Atomically enforces bookedCount < capacity using findOneAndUpdate with arrayFilters and $expr guard.
- * Wrapped in a Mongoose session transaction for two-document consistency.
- */
-export const bookSlot = async (req, res, next) => {
-  try {
-    const inputSlotId = String(req.body.slotId || req.body.shiftId || req.body.id || "").trim();
-    let inputShiftId = String(req.body.shiftId || "").trim();
+const SLOTS_ASSIGNED_MESSAGE =
+  "Slots are assigned by your Delivery Manager. Please contact them to change your slot.";
 
-    if (!inputSlotId) {
-      return res.status(400).json({
-        success: false,
-        message: "slotId is required",
-      });
-    }
+/** Riders no longer book or cancel slots themselves — Admin / Delivery Manager assigns them. */
+export const bookSlot = async (req, res) =>
+  res.status(403).json({ success: false, code: "SLOTS_ASSIGNED_BY_MANAGER", message: SLOTS_ASSIGNED_MESSAGE });
 
-    const rider = await DeliveryBoy.findById(req.user.id);
-    if (!rider) {
-      return res.status(404).json({ success: false, message: "Rider not found" });
-    }
-
-    if (rider.isActive === false) {
-      return res.status(403).json({
-        success: false,
-        message: "Your delivery partner profile is inactive.",
-      });
-    }
-
-    let manager = await getRiderManager(rider);
-
-    // Auto-lookup Shift document by shiftId or slotId
-    let targetShift = null;
-    if (inputShiftId && mongoose.Types.ObjectId.isValid(inputShiftId)) {
-      targetShift = await Shift.findById(inputShiftId);
-    }
-
-    if (!targetShift && mongoose.Types.ObjectId.isValid(inputSlotId)) {
-      targetShift = await Shift.findOne({
-        $or: [{ _id: inputSlotId }, { "slots._id": inputSlotId }],
-      });
-    }
-
-    if (!targetShift) {
-      return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
-    }
-
-    if (manager && (!targetShift.managerId || targetShift.managerId.toString() !== manager._id.toString())) {
-      targetShift.managerId = manager._id;
-      targetShift.storeId = manager._id.toString();
-    }
-
-    let targetSlot = targetShift.slots.find(
-      (s) => s._id.toString() === inputSlotId || targetShift._id.toString() === inputSlotId
-    );
-    if (!targetSlot && targetShift.slots.length > 0) {
-      targetSlot = targetShift.slots[0];
-    }
-
-    if (!targetSlot) {
-      return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
-    }
-
-    const todayStrIST = formatDateStringIST(new Date());
-    if (targetShift.dateString && targetShift.dateString < todayStrIST) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot book a shift for a past date. Please book today's or a future day's shift.",
-      });
-    }
-
-    if (targetSlot.status === "CANCELLED") {
-      return res.status(409).json({
-        success: false,
-        message: "This shift slot has been cancelled by store management.",
-      });
-    }
-
-    // Check if rider already has an active non-cancelled booking in this slot
-    const existingBookingInSlot = targetSlot.bookings.find(
-      (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
-    );
-    if (existingBookingInSlot) {
-      return res.status(200).json({
-        success: true,
-        message: "You already have an active booking for this shift slot.",
-        booking: {
-          id: existingBookingInSlot._id ? existingBookingInSlot._id.toString() : existingBookingInSlot.bookingId,
-          bookingId: existingBookingInSlot._id ? existingBookingInSlot._id.toString() : existingBookingInSlot.bookingId,
-          slotId: targetSlot._id.toString(),
-          shiftId: targetShift._id.toString(),
-          dateString: targetShift.dateString,
-          startTime: targetSlot.startTime,
-          endTime: targetSlot.endTime,
-          status: existingBookingInSlot.status,
-          bookedAt: existingBookingInSlot.bookedAt,
-        },
-        currentBooking: rider.currentBooking,
-        shift: targetShift.toSafeJSON(),
-      });
-    }
-
-    // Check if rider already has an active (not ended) booking on THIS DATE
-    const sameDayShifts = await Shift.find({
-      managerId: targetShift.managerId,
-      dateString: targetShift.dateString,
-    });
-    const todayStr = formatDateStringIST();
-    const currentMin = getCurrentMinutesIST();
-    for (const sh of sameDayShifts) {
-      for (const sl of sh.slots || []) {
-        const found = (sl.bookings || []).find(
-          (b) =>
-            b.deliveryPartnerId?.toString() === rider._id.toString() &&
-            b.status !== "CANCELLED" &&
-            b.status !== "COMPLETED"
-        );
-        if (!found) continue;
-        if (sl._id.toString() === targetSlot._id.toString()) continue;
-        // Allow another booking same day only if existing active slot does not overlap
-        if (
-          isSlotEnded(
-            sl.startTime,
-            sl.endTime,
-            currentMin,
-            sh.dateString,
-            todayStr
-          )
-        ) {
-          found.status = "COMPLETED";
-          found.completedAt = found.completedAt || new Date();
-          sl.bookedCount = (sl.bookings || []).filter(
-            (b) => b.status !== "CANCELLED"
-          ).length;
-          await sh.save().catch(() => {});
-          continue;
-        }
-        const existingStart = timeToMinutes(sl.startTime);
-        const existingEnd = timeToMinutes(sl.endTime);
-        const nextStart = timeToMinutes(targetSlot.startTime);
-        const nextEnd = timeToMinutes(targetSlot.endTime);
-        const existingEnds =
-          existingEnd > existingStart ? existingEnd : existingEnd + 24 * 60;
-        const nextEnds = nextEnd > nextStart ? nextEnd : nextEnd + 24 * 60;
-        const overlaps =
-          nextStart < existingEnds && nextEnds > existingStart;
-        if (!overlaps) continue;
-        return res.status(400).json({
-          success: false,
-          message: `You already have an overlapping shift booked (${sl.startTime}–${sl.endTime}). Pick a non-overlapping slot.`,
-        });
-      }
-    }
-
-    if (targetSlot.bookedCount >= targetSlot.capacity) {
-      return res.status(409).json({
-        success: false,
-        message: "FULLY BOOKED! Capacity reached for this shift slot. Please select another slot.",
-      });
-    }
-
-    const bookingObjectId = new mongoose.Types.ObjectId();
-
-    const newBookingObj = {
-      _id: bookingObjectId,
-      bookingId: bookingObjectId.toString(),
-      deliveryPartnerId: rider._id,
-      deliveryPartnerPhone: rider.phone || "",
-      deliveryPartnerName: rider.name || "Delivery Partner",
-      deliveryPartnerProfileImage: rider.selfie?.imageBase64 || "",
-      bookedAt: new Date(),
-      status: "UPCOMING",
-      notificationEnabled: false,
-      notificationTimeMinutes: 15,
-    };
-
-    targetSlot.bookings.push(newBookingObj);
-    targetSlot.bookedCount = targetSlot.bookings.filter((b) => b.status !== "CANCELLED").length;
-    await targetShift.save();
-
-    rider.currentBooking = {
-      shiftId: targetShift._id,
-      slotId: targetSlot._id,
-      bookingId: bookingObjectId,
-    };
-    await rider.save();
-
-    try {
-      const io = getIO();
-      const payload = {
-        shiftId: targetShift._id.toString(),
-        slotId: targetSlot._id.toString(),
-        bookingId: bookingObjectId.toString(),
-        riderId: rider._id.toString(),
-        name: rider.name || rider.phone,
-        phone: rider.phone,
-        bookedAt: newBookingObj.bookedAt,
-      };
-      if (targetShift.managerId) {
-        io.to(`store_${targetShift.managerId}`).emit("rider_shift_booked", payload);
-      }
-      if (rider.area) {
-        io.to(`area_${rider.area}`).emit("rider_shift_booked", payload);
-      }
-      io.emit("shift_updated", { shiftId: targetShift._id.toString() });
-    } catch (err) {
-      console.warn("[socket] rider_shift_booked emit failed:", err.message);
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: "Shift Booked Successfully!",
-      currentBooking: rider.currentBooking,
-      booking: {
-        id: bookingObjectId.toString(),
-        bookingId: bookingObjectId.toString(),
-        slotId: targetSlot._id.toString(),
-        shiftId: targetShift._id.toString(),
-        dateString: targetShift.dateString,
-        startTime: targetSlot.startTime,
-        endTime: targetSlot.endTime,
-        status: newBookingObj.status,
-        bookedAt: newBookingObj.bookedAt,
-      },
-      shift: targetShift.toSafeJSON(),
-    });
-  } catch (error) {
-    if (inTransaction) {
-      await session.abortTransaction();
-    }
-    session.endSession();
-    next(error);
-  }
-};
-
-/**
- * 2. cancelBooking — Rider cancels their booking.
- * Guard against double-cancellation: returns 409 immediately if booking.status === "CANCELLED".
- * Wrapped in a session transaction.
- */
-export const cancelBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  let inTransaction = false;
-  try {
-    session.startTransaction();
-    inTransaction = true;
-  } catch (err) {
-    inTransaction = false;
-  }
-
-  try {
-    const sessionOptions = inTransaction ? { session } : {};
-
-    const rider = await DeliveryBoy.findById(req.user.id, null, sessionOptions);
-    if (!rider) {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ success: false, message: "Rider not found" });
-    }
-
-    const targetBooking = req.body.bookingId || req.params.bookingId || rider.currentBooking?.bookingId;
-    let targetShiftId = req.body.shiftId || rider.currentBooking?.shiftId;
-    let targetSlotId = req.body.slotId || rider.currentBooking?.slotId;
-
-    let shift = null;
-    if (targetShiftId && mongoose.Types.ObjectId.isValid(targetShiftId)) {
-      shift = await Shift.findById(targetShiftId, null, sessionOptions);
-    }
-
-    if (!shift && targetBooking) {
-      shift = await Shift.findOne(
-        {
-          $or: [
-            { "slots.bookings._id": targetBooking },
-            { "slots.bookings.bookingId": String(targetBooking) },
-            { "slots.bookings.deliveryPartnerId": rider._id },
-          ],
-        },
-        null,
-        sessionOptions
-      );
-    }
-
-    if (!shift) {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ success: false, message: "Shift not found" });
-    }
-
-    let slot = targetSlotId ? shift.slots.id(targetSlotId) : null;
-    if (!slot) {
-      slot = shift.slots.find((s) =>
-        s.bookings.some(
-          (b) =>
-            (b._id && b._id.toString() === String(targetBooking)) ||
-            b.bookingId === String(targetBooking) ||
-            b.deliveryPartnerId.toString() === rider._id.toString()
-        )
-      );
-    }
-
-    if (!slot) {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ success: false, message: "Slot not found" });
-    }
-
-    const booking = slot.bookings.id(targetBooking) || slot.bookings.find(
-      (b) => b._id?.toString() === targetBooking.toString() || b.bookingId === targetBooking.toString()
-    );
-
-    if (!booking) {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ success: false, message: "Booking not found" });
-    }
-
-    if (booking.deliveryPartnerId.toString() !== rider._id.toString()) {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(403).json({ success: false, message: "Forbidden: Booking belongs to another rider" });
-    }
-
-    // DOUBLE-CANCEL GUARD: Prevents phantom free capacity from duplicate cancel requests
-    if (booking.status === "CANCELLED") {
-      if (inTransaction) await session.abortTransaction();
-      session.endSession();
-      return res.status(409).json({
-        success: false,
-        message: "This shift booking is already cancelled.",
-      });
-    }
-
-    booking.status = "CANCELLED";
-    slot.bookedCount = Math.max(0, slot.bookedCount - 1);
-    if (slot.status === "FULL") {
-      slot.status = "AVAILABLE";
-    }
-
-    await shift.save(sessionOptions);
-
-    // Clear DeliveryBoy.currentBooking pointer
-    rider.currentBooking = {
-      shiftId: null,
-      slotId: null,
-      bookingId: null,
-    };
-    await rider.save(sessionOptions);
-
-    if (inTransaction) {
-      await session.commitTransaction();
-    }
-    session.endSession();
-
-    try {
-      getIO().to(`store_${shift.managerId}`).emit("rider_shift_cancelled", {
-        shiftId: shift._id.toString(),
-        slotId: targetSlotId.toString(),
-        bookingId: targetBooking.toString(),
-        riderId: rider._id.toString(),
-      });
-    } catch (err) {
-      console.warn("[socket] rider_shift_cancelled emit failed:", err.message);
-    }
-
-    return res.json({
-      success: true,
-      message: "Shift booking cancelled successfully",
-      currentBooking: rider.currentBooking,
-    });
-  } catch (error) {
-    if (inTransaction) {
-      await session.abortTransaction();
-    }
-    session.endSession();
-    next(error);
-  }
-};
+export const cancelBooking = async (req, res) =>
+  res.status(403).json({ success: false, code: "SLOTS_ASSIGNED_BY_MANAGER", message: SLOTS_ASSIGNED_MESSAGE });
 
 /**
  * 3. getMyBookings — Today's booking + future bookings only.
@@ -482,6 +113,7 @@ export const getMyBookings = async (req, res, next) => {
       .populate("managerId", "storeName storeAddress latitude longitude geofenceRadius");
 
     const upcomingBookings = [];
+    const todayBookings = [];
     let todayBooking = null;
 
     const buildBookingInfo = (shift, slot, userBooking) => ({
@@ -501,6 +133,9 @@ export const getMyBookings = async (req, res, next) => {
       notificationEnabled: userBooking.notificationEnabled || false,
       notificationTimeMinutes: userBooking.notificationTimeMinutes || 15,
       bookedAt: userBooking.bookedAt,
+      assignedBy: userBooking.assignedBy || "rider",
+      incentiveMode: slot.incentiveMode || "none",
+      incentiveRate: Number(slot.incentiveRate) || 0,
     });
 
     for (const shift of shifts) {
@@ -518,6 +153,7 @@ export const getMyBookings = async (req, res, next) => {
         const bookingInfo = buildBookingInfo(shift, slot, userBooking);
 
         if (dateStr === todayStrIST) {
+          todayBookings.push(bookingInfo);
           // Prefer ACTIVE over UPCOMING if multiple slots same day
           if (
             !todayBooking ||
@@ -572,9 +208,12 @@ export const getMyBookings = async (req, res, next) => {
       String(a.dateString).localeCompare(String(b.dateString))
     );
 
+    todayBookings.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
     return res.json({
       success: true,
       todayBooking,
+      todayBookings,
       upcomingBookings,
       booking: todayBooking || upcomingBookings[0] || null,
     });
@@ -669,79 +308,12 @@ export const getAvailableSlots = async (req, res, next) => {
       });
     }
 
-    // 1. Query shifts ONLY for the requested date (never pull other week days)
+    // Query shifts ONLY for the requested date (never pull other week days).
+    // Slots are created by Admin / Delivery Manager — nothing is auto-seeded here.
     let shifts = await Shift.find({
       managerId: manager._id,
       dateString: queryDateStr,
     }).sort({ createdAt: -1 });
-
-    // 2. If none exist for that date, auto-seed default slots for THAT date only
-    if (shifts.length === 0) {
-      const defaultManagerId = manager?._id || new mongoose.Types.ObjectId();
-      const defaultShiftsData = [
-        {
-          name: "Early Morning Shift",
-          type: "early_morning",
-          startTime: "06:00 AM",
-          endTime: "09:00 AM",
-          capacity: 10,
-        },
-        {
-          name: "Morning Shift",
-          type: "morning",
-          startTime: "09:00 AM",
-          endTime: "01:00 PM",
-          capacity: 15,
-        },
-        {
-          name: "Afternoon Shift",
-          type: "afternoon",
-          startTime: "01:00 PM",
-          endTime: "05:00 PM",
-          capacity: 15,
-        },
-        {
-          name: "Evening Shift",
-          type: "evening",
-          startTime: "05:00 PM",
-          endTime: "09:00 PM",
-          capacity: 20,
-        },
-        {
-          name: "Night Shift",
-          type: "night",
-          startTime: "09:00 PM",
-          endTime: "12:00 AM",
-          capacity: 10,
-        },
-      ];
-
-      for (const def of defaultShiftsData) {
-        await Shift.create({
-          managerId: defaultManagerId,
-          storeId: defaultManagerId.toString(),
-          area: manager?.area || rider?.area || "Store Hub",
-          name: def.name,
-          type: def.type,
-          dateString: queryDateStr,
-          slots: [
-            {
-              startTime: def.startTime,
-              endTime: def.endTime,
-              capacity: def.capacity,
-              bookedCount: 0,
-              status: "AVAILABLE",
-              bookings: [],
-            },
-          ],
-        }).catch((err) => console.error("Error auto-seeding shift:", err.message));
-      }
-
-      shifts = await Shift.find({
-        managerId: manager._id,
-        dateString: queryDateStr,
-      }).sort({ createdAt: -1 });
-    }
 
     // Hard filter — never leak other dates into this response
     shifts = shifts.filter((s) => s.dateString === queryDateStr);

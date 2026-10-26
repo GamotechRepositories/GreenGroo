@@ -4,10 +4,12 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   deleteNotification,
+  syncAnnouncementsToInbox,
 } from "../services/RiderNotificationService.js";
 
 export const listMyNotifications = async (req, res, next) => {
   try {
+    await syncAnnouncementsToInbox(req.user.id);
     const limit = Number(req.query.limit) || 50;
     const skip = Number(req.query.skip) || 0;
     const result = await listRiderNotifications(req.user.id, { limit, skip });
@@ -22,6 +24,7 @@ export const listMyNotifications = async (req, res, next) => {
 
 export const getMyUnreadNotificationCount = async (req, res, next) => {
   try {
+    await syncAnnouncementsToInbox(req.user.id);
     const unreadCount = await getUnreadCount(req.user.id);
     return res.json({ success: true, unreadCount });
   } catch (error) {

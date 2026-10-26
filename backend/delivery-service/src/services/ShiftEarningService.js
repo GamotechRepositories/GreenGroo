@@ -147,6 +147,15 @@ export async function resolveShiftForEarning({
 
   const dateString = istDateString(atDate);
   if (managerId && riderId) {
+    // Salary-paid slot: no per-order KM earning, never borrow another shift's slabs.
+    const salaried = await Shift.findOne({
+      managerId,
+      dateString,
+      "slots.bookings.deliveryPartnerId": riderId,
+      monthlySalary: { $gt: 0 },
+    }).lean();
+    if (salaried) return salaried;
+
     const booked = await Shift.findOne({
       managerId,
       dateString,

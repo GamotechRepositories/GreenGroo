@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/config/feature_flags.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
@@ -14,6 +13,8 @@ import 'widgets/auth_brand_header.dart';
 import 'widgets/auth_screen_background.dart';
 import 'widgets/auth_text_field.dart';
 
+/// Phone-only login / register. The OTP is sent here and verified on
+/// [AppRoutes.otpVerification].
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -22,13 +23,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   bool _isRegister = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
   bool _agreedTerms = false;
   bool _loading = false;
 
@@ -45,10 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -57,130 +50,109 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isRegister = register;
       _agreedTerms = false;
-      _obscurePassword = true;
-      _obscureConfirm = true;
     });
   }
 
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context);
-    final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
 
-    if (_isRegister && name.isEmpty) {
-      _showError('Please enter your full name');
-      return;
-    }
-    if (phone.length != 10) {
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
       _showError(l10n.mobileNumberHint);
       return;
     }
-    // Vendor-created pickup drivers may have passwords shorter than 6.
-    if (password.isEmpty || (_isRegister && password.length < 6)) {
-      _showError(l10n.passwordHint);
-      return;
-    }
-    if (_isRegister && password != confirmPassword) {
-      _showError('Passwords do not match');
-      return;
-    }
     if (_isRegister && !_agreedTerms) {
-      _showError('Please agree to Terms & Conditions');
+      _showError(l10n.agreeTermsError);
       return;
     }
 
     setState(() => _loading = true);
     try {
-      final result = _isRegister
-          ? await AuthService.instance.register(
-              phone: phone,
-              password: password,
-              name: name,
-            )
-          : await AuthService.instance.login(
-              phone: phone,
-              password: password,
-            );
-
-      if (!mounted) return;
-      if (PickupDriverService.instance.isLoggedIn) {
-        await PickupDriverService.instance.logout();
-        if (!mounted) return;
-      }
-
-      final boy = result.deliveryBoy;
-      var route = AuthService.routeForStep(
-        boy.onboardingStep,
-        complete: boy.onboardingComplete,
-        boy: boy,
+      await AuthService.instance.sendOtp(
+        phone: phone,
+        purpose: _isRegister ? 'register' : 'login',
       );
-      // New registrations choose Part-Time / Full-Time before vehicle selection.
-      if (kFullTimeSignupEnabled &&
-          _isRegister &&
-          route == AppRoutes.selectVehicle) {
-        route = AppRoutes.selectEmploymentType;
-      }
-      Navigator.pushReplacementNamed(
+      if (!mounted) return;
+      Navigator.pushNamed(
         context,
-        route,
-        arguments: AuthService.argumentsForStep(boy),
+        AppRoutes.otpVerification,
+        arguments: {'phone': phone, 'isRegister': _isRegister},
       );
     } on AuthApiException catch (e) {
-      if (!_isRegister && await _tryPickupDriverLogin(phone, password)) return;
       if (mounted) _showError(e.message);
     } catch (_) {
-      if (!_isRegister && await _tryPickupDriverLogin(phone, password)) return;
       if (mounted) _showError(l10n.authError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  /// Same credentials may belong to a vendor-created pickup driver
-  /// (farm → collection centre). Returns true when handled.
-  Future<bool> _tryPickupDriverLogin(String phone, String password) async {
+  /// Vendor-created pickup drivers (farm → collection centre) still sign in
+  /// with the password their vendor gave them.
+  Future<void> _pickupDriverLogin() async {
+    final l10n = AppLocalizations.of(context);
+    final phoneCtrl = TextEditingController(text: _phoneController.text.trim());
+    final passCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.pickupDriverLogin),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(labelText: l10n.mobileNumber),
+            ),
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              decoration: InputDecoration(labelText: l10n.password),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.login),
+          ),
+        ],
+      ),
+    );
+    final phone = phoneCtrl.text.trim();
+    final password = passCtrl.text;
+    phoneCtrl.dispose();
+    passCtrl.dispose();
+    if (ok != true || phone.length != 10 || password.isEmpty) return;
+
+    setState(() => _loading = true);
     try {
-      await PickupDriverService.instance.login(
-        mobile: phone,
-        password: password,
+      await PickupDriverService.instance.login(mobile: phone, password: password);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.pickupDriverHome,
+        (_) => false,
       );
     } on PickupDriverException catch (e) {
-      if (e.statusCode == 403 && mounted) {
-        _showError(e.message);
-        return true;
-      }
-      return false;
+      if (mounted) _showError(e.message);
     } catch (_) {
-      return false;
+      if (mounted) _showError(l10n.authError);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    if (!mounted) return true;
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      AppRoutes.pickupDriverHome,
-      (_) => false,
-    );
-    return true;
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
-  }
-
-  Widget _passwordToggle({
-    required bool obscure,
-    required VoidCallback onTap,
-  }) {
-    return IconButton(
-      icon: Icon(
-        obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        color: const Color(0xFF9CA3AF),
-        size: 20,
-      ),
-      onPressed: onTap,
     );
   }
 
@@ -208,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const AuthBrandHeader(),
                       const SizedBox(height: 28),
                       Text(
-                        _isRegister ? l10n.createAccount : 'Welcome Back!',
+                        _isRegister ? l10n.createAccount : l10n.welcomeBack,
                         style: GoogleFonts.inter(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
@@ -218,8 +190,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 6),
                       Text(
                         _isRegister
-                            ? 'Join Delivery Partner'
-                            : 'Login to continue delivering smiles',
+                            ? l10n.registerOtpSubtitle
+                            : l10n.loginOtpSubtitle,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 14,
@@ -228,16 +200,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      if (_isRegister) ...[
-                        AuthTextField(
-                          label: 'Full Name',
-                          hint: 'Enter your full name',
-                          icon: Icons.person_outline_rounded,
-                          controller: _nameController,
-                          textCapitalization: TextCapitalization.words,
-                        ),
-                        const SizedBox(height: 18),
-                      ],
                       AuthTextField(
                         label: l10n.mobileNumber,
                         hint: '+91 00000 00000',
@@ -247,52 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         maxLength: 10,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       ),
-                      const SizedBox(height: 18),
-                      AuthTextField(
-                        label: l10n.password,
-                        hint: 'Enter your password',
-                        icon: Icons.lock_outline_rounded,
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        suffix: _passwordToggle(
-                          obscure: _obscurePassword,
-                          onTap: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                        ),
-                      ),
-                      if (!_isRegister)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => _showError(
-                              'Please contact support to reset password.',
-                            ),
-                            child: Text(
-                              'Forgot Password?',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
                       if (_isRegister) ...[
-                        const SizedBox(height: 18),
-                        AuthTextField(
-                          label: 'Confirm Password',
-                          hint: 'Confirm your password',
-                          icon: Icons.lock_outline_rounded,
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirm,
-                          suffix: _passwordToggle(
-                            obscure: _obscureConfirm,
-                            onTap: () => setState(
-                              () => _obscureConfirm = !_obscureConfirm,
-                            ),
-                          ),
-                        ),
                         const SizedBox(height: 14),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,17 +238,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                       height: 1.4,
                                     ),
                                     children: [
-                                      const TextSpan(text: 'I agree to the '),
+                                      TextSpan(text: l10n.agreeTermsPrefix),
                                       TextSpan(
-                                        text: 'Terms & Conditions',
+                                        text: l10n.termsAndConditions,
                                         style: TextStyle(
                                           color: AppColors.primary,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const TextSpan(text: ' and '),
+                                      TextSpan(text: l10n.andWord),
                                       TextSpan(
-                                        text: 'Privacy Policy',
+                                        text: l10n.privacyPolicy,
                                         style: TextStyle(
                                           color: AppColors.primary,
                                           fontWeight: FontWeight.w600,
@@ -345,84 +262,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ],
-                      SizedBox(height: _isRegister ? 22 : 12),
+                      const SizedBox(height: 22),
                       PrimaryButton(
-                        label: _loading
-                            ? '...'
-                            : (_isRegister ? l10n.register : l10n.login),
+                        label: _loading ? '...' : l10n.sendOtp,
                         onPressed: _loading ? null : _submit,
                       ),
-                      if (!_isRegister) ...[
-                        const SizedBox(height: 22),
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: Color(0xFFE5E7EB))),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'or',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            ),
-                            const Expanded(child: Divider(color: Color(0xFFE5E7EB))),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: OutlinedButton(
-                            onPressed: _loading
-                                ? null
-                                : () => _showError('Google login coming soon'),
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: const BorderSide(color: Color(0xFFE5E7EB)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 22,
-                                  height: 22,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      'G',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                        color: Color(0xFF4285F4),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Login with Google',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 24),
                       GestureDetector(
                         onTap: _loading
@@ -438,11 +282,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               TextSpan(
                                 text: _isRegister
-                                    ? 'Already have an account? '
-                                    : "Don't have an account? ",
+                                    ? l10n.haveAccountPrompt
+                                    : l10n.noAccountPrompt,
                               ),
                               TextSpan(
-                                text: _isRegister ? l10n.login : 'Register Now',
+                                text: _isRegister ? l10n.login : l10n.registerNow,
                                 style: TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w700,
@@ -452,6 +296,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+                      if (!_isRegister) ...[
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: _loading ? null : _pickupDriverLogin,
+                          child: Text(
+                            l10n.pickupDriverLogin,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

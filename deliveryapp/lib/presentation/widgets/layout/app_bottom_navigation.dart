@@ -96,16 +96,31 @@ class AppBottomNavigation extends StatelessWidget {
                   size: 24,
                   color: color,
                 ),
-                if (isNotification)
+                if (isNotification && notificationBadgeCount > 0)
                   Positioned(
-                    top: -1,
-                    right: -2,
+                    top: -6,
+                    right: -10,
                     child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEF4444),
-                        shape: BoxShape.circle,
+                      constraints: const BoxConstraints(minWidth: 18),
+                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: ThemeController.instance.isDark ? AppColors.surface : Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        notificationBadgeCount > 99 ? '99+' : '$notificationBadgeCount',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1,
+                        ),
                       ),
                     ),
                   ),

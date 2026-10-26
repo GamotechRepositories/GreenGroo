@@ -223,6 +223,20 @@ import {
 } from "./marketPriceControllers.js";
 import { getAnalytics } from "./analyticsControllers.js";
 import {
+  withManagerOverride,
+  adminListShifts,
+  adminCreateShift,
+  adminUpdateSlot,
+  adminDeleteSlot,
+  adminSlotDetails,
+  adminAssignableRiders,
+  adminAssignSlotRiders,
+  adminUnassignSlotRider,
+  getRiderSalaryAdmin,
+  setRiderMonthlySalaryAdmin,
+  creditRiderSalaryAdmin,
+} from "./deliverySlotsAdminControllers.js";
+import {
   getBillingZonesAndStores,
   getBillingCatalog,
   getBillingCustomers,
@@ -489,6 +503,22 @@ router.get("/delivery/riders", listRidersLite);
 router.get("/delivery/team", listDeliveryTeam);
 router.get("/delivery/managers/:id", getDeliveryManagerAdmin);
 router.get("/delivery/boys/:id", getDeliveryBoyAdmin);
+router.get("/delivery/boys/:id/salary", getRiderSalaryAdmin);
+router.put("/delivery/boys/:id/salary", setRiderMonthlySalaryAdmin);
+router.post("/delivery/boys/:id/salary-credits", creditRiderSalaryAdmin);
+// Delivery slots of a dark store — same handlers the Delivery Manager uses
+router.get("/delivery/managers/:managerId/shifts", withManagerOverride, adminListShifts);
+router.post("/delivery/managers/:managerId/shifts", withManagerOverride, adminCreateShift);
+router.get("/delivery/managers/:managerId/assignable-riders", withManagerOverride, adminAssignableRiders);
+router.put("/delivery/managers/:managerId/shifts/slots/:slotId", withManagerOverride, adminUpdateSlot);
+router.delete("/delivery/managers/:managerId/shifts/slots/:slotId", withManagerOverride, adminDeleteSlot);
+router.get("/delivery/managers/:managerId/shifts/slots/:slotId/details", withManagerOverride, adminSlotDetails);
+router.post("/delivery/managers/:managerId/shifts/slots/:slotId/assign", withManagerOverride, adminAssignSlotRiders);
+router.delete(
+  "/delivery/managers/:managerId/shifts/slots/:slotId/assign/:riderId",
+  withManagerOverride,
+  adminUnassignSlotRider
+);
 router.patch("/delivery/orders/:id/assign", assignDeliveryOrder);
 router.patch("/delivery/orders/:id/status", updateDeliveryOrderStatus);
 router.get("/tracking", listDeliveryTracking);

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
+import RiderSalaryPanel from '../../components/delivery/RiderSalaryPanel';
 
 function when(value) {
   if (!value) return '—';
@@ -87,6 +88,7 @@ export default function DeliveryBoy360Page() {
     { id: 'overview', label: 'Overview' },
     { id: 'documents', label: 'Documents' },
     { id: 'bank', label: 'Bank' },
+    { id: 'salary', label: 'Salary & incentives' },
     { id: 'orders', label: `Orders (${data.orders?.length || 0})` },
     { id: 'meetings', label: `Meetings (${meetings.length})` },
   ];
@@ -225,6 +227,8 @@ export default function DeliveryBoy360Page() {
           </div>
         </section>
       ) : null}
+
+      {tab === 'salary' ? <RiderSalaryPanel riderId={id} /> : null}
 
       {tab === 'orders' ? (
         <div className={PANEL}>

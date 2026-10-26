@@ -217,6 +217,11 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     await session.commitTransaction();
     committed = true;
 
+    {
+      const { creditKmIncentiveForOrder } = await import("./slotAssignmentService.js");
+      await creditKmIncentiveForOrder(order, riderId);
+    }
+
     // 5-minute delayed wallet credit and notification
     if (riderEarning > 0) {
       try {

@@ -64,6 +64,10 @@ async function notifyDeliveryBoysAnnouncement(row) {
         badge: "new",
       },
     });
+    await DeliveryBoy.updateMany(
+      { _id: { $in: riders.map((r) => r._id) } },
+      { $addToSet: { syncedAnnouncementIds: String(row._id || "") } }
+    );
   } catch (err) {
     console.warn("[HR] announcement notify failed:", err.message);
   }

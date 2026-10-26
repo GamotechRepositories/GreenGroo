@@ -56,6 +56,17 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /** Who put the rider on this slot: the rider (legacy self-booking), a manager or admin. */
+    assignedBy: {
+      type: String,
+      enum: ["rider", "manager", "admin"],
+      default: "rider",
+    },
+    /** Per-hour slot incentive has been paid for online time up to this moment. */
+    hourIncentivePaidUntil: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: true, timestamps: true }
 );
@@ -85,6 +96,17 @@ const slotSchema = new mongoose.Schema(
       type: String,
       enum: ["AVAILABLE", "FEW_SPOTS_LEFT", "FULL", "CANCELLED"],
       default: "AVAILABLE",
+    },
+    /** Extra pay on top of order earnings: per km delivered, or per hour online in the slot. */
+    incentiveMode: {
+      type: String,
+      enum: ["none", "per_km", "per_hour"],
+      default: "none",
+    },
+    incentiveRate: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     bookings: [bookingSchema],
   },
@@ -166,6 +188,14 @@ const shiftSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    /** Slot pay is a salary (no per-order KM slabs) when set; monthlySalary is its monthly equivalent. */
+    monthlySalary: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    salaryAmount: { type: Number, default: null, min: 0 },
+    salaryPeriod: { type: String, enum: ["day", "week", "month"], default: "month" },
     shiftCategory: {
       type: String,
       enum: ['PART_TIME', 'FULL_TIME'],
@@ -203,6 +233,7 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
       status: b.status,
       notificationEnabled: b.notificationEnabled,
       notificationTimeMinutes: b.notificationTimeMinutes,
+      assignedBy: b.assignedBy || "rider",
     }));
 
     return {
@@ -216,6 +247,8 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
       remainingCapacity: remaining,
       spotsRemaining: remaining,
       status: computedStatus,
+      incentiveMode: slot.incentiveMode || "none",
+      incentiveRate: slot.incentiveRate || 0,
       bookingsCount: safeBookings.length,
       bookings: safeBookings,
     };
@@ -240,6 +273,9 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
     totalBooked,
     totalCapacity,
     isCustomized: this.isCustomized,
+    monthlySalary: this.monthlySalary ?? null,
+    salaryAmount: this.salaryAmount ?? this.monthlySalary ?? null,
+    salaryPeriod: this.salaryAmount != null ? this.salaryPeriod || "month" : "month",
     shiftCategory: this.shiftCategory || 'PART_TIME',
     deliveryEarningSlabs: (this.deliveryEarningSlabs || []).map((s) => ({
       id: s._id ? s._id.toString() : undefined,

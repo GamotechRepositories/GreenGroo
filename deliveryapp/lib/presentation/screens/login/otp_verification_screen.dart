@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../pickup_driver/pickup_driver_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   const OtpVerificationScreen({super.key});
@@ -15,8 +18,8 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  String _phone = '9876543210';
-  bool _isRegister = true;
+  String _phone = '';
+  bool _isRegister = false;
   String _otp = '';
   int _resendSeconds = 25;
   Timer? _timer;
@@ -74,17 +77,41 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (_verifying) return;
     setState(() => _verifying = true);
     try {
-      await AuthService.instance.verifyOtp(
+      final result = await AuthService.instance.verifyOtp(
         phone: _phone,
         otp: _otp,
         purpose: _isRegister ? 'register' : 'login',
       );
       if (!mounted) return;
-      if (_isRegister) {
-        Navigator.pushNamed(context, AppRoutes.selectState);
-      } else {
-        Navigator.pushReplacementNamed(context, AppRoutes.home);
+      if (PickupDriverService.instance.isLoggedIn) {
+        await PickupDriverService.instance.logout();
+        if (!mounted) return;
       }
+
+      final boy = result.deliveryBoy;
+      var route = AuthService.routeForStep(
+        boy.onboardingStep,
+        complete: boy.onboardingComplete,
+        boy: boy,
+      );
+      // New registrations choose Part-Time / Full-Time before vehicle selection.
+      if (kFullTimeSignupEnabled &&
+          _isRegister &&
+          route == AppRoutes.selectVehicle) {
+        route = AppRoutes.selectEmploymentType;
+      }
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        route,
+        (_) => false,
+        arguments: AuthService.argumentsForStep(boy),
+      );
+    } on AuthApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red.shade700),
+      );
+      setState(() => _otp = '');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,7 +136,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('OTP resent successfully'),
+          content: Text(AppLocalizations.of(context).otpResent),
           backgroundColor: AppColors.primary,
         ),
       );
@@ -126,6 +153,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final timerString = '00:${_resendSeconds.toString().padLeft(2, '0')}';
 
     return Scaffold(
@@ -146,7 +174,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   children: [
                     const SizedBox(height: 12),
                     Text(
-                      'Enter OTP',
+                      l10n.enterOtp,
                       style: GoogleFonts.inter(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -155,7 +183,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "We've sent a 6 digit OTP to\n+91 $_phone",
+                      l10n.otpSentTo(_phone),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -206,12 +234,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           text: TextSpan(
                             style: GoogleFonts.inter(fontSize: 13),
                             children: [
+                              if (_resendSeconds > 0)
+                                TextSpan(
+                                  text: l10n.resendOtpIn,
+                                  style: TextStyle(color: AppColors.textSecondary),
+                                ),
                               TextSpan(
-                                text: 'Resend OTP in ',
-                                style: TextStyle(color: AppColors.textSecondary),
-                              ),
-                              TextSpan(
-                                text: _resendSeconds > 0 ? timerString : 'Resend Now',
+                                text: _resendSeconds > 0 ? timerString : l10n.resendNow,
                                 style: TextStyle(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w700,

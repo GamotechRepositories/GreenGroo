@@ -37,16 +37,85 @@ function screenForType(type) {
       return "assigned_orders";
     case "ORDER_COMPLETED":
     case "WALLET_CREDITED":
+    case "SALARY_CREDITED":
+    case "INCENTIVE_CREDITED":
       return "wallet";
     case "NEW_GIG":
       return "gigs";
     case "SHIFT_STARTED":
     case "SHIFT_REMINDER":
+    case "SHIFT_ASSIGNED":
       return "shifts";
     case "VERIFICATION_COMPLETED":
       return "home";
     default:
       return "notifications";
+  }
+}
+
+const announcementSyncAt = new Map();
+
+/**
+ * Copies live admin announcements (published within 30 days) into the rider's inbox once each,
+ * so ones published before the rider joined — or before fan-out existed — still show up.
+ * Synced ids are remembered so a deleted notification is not recreated.
+ */
+export async function syncAnnouncementsToInbox(riderId) {
+  const key = String(riderId || "");
+  if (!key) return 0;
+  const last = announcementSyncAt.get(key) || 0;
+  if (Date.now() - last < 60_000) return 0;
+  announcementSyncAt.set(key, Date.now());
+  try {
+    const { HrAnnouncement } = await import("../../../admin-ops-service/src/models.js");
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [rider, rows] = await Promise.all([
+      DeliveryBoy.findById(key).select("syncedAnnouncementIds").lean(),
+      HrAnnouncement.find({
+        status: "published",
+        roleKey: { $in: ["all", "delivery_boy"] },
+        vendorId: { $in: ["", null] },
+        $or: [{ publishedAt: { $gte: since } }, { publishedAt: null, createdAt: { $gte: since } }],
+      })
+        .sort({ publishedAt: 1, createdAt: 1 })
+        .limit(20)
+        .select("title body publishedAt createdAt")
+        .lean(),
+    ]);
+    if (!rider || !rows.length) return 0;
+    const synced = new Set(rider.syncedAnnouncementIds || []);
+    const pending = rows.filter((row) => !synced.has(String(row._id)));
+    if (!pending.length) return 0;
+
+    let created = 0;
+    for (const row of pending) {
+      const id = String(row._id);
+      const dedupeKey = `ANNOUNCEMENT:${key}:announcement:${id}`;
+      const exists = await DeliveryBoyNotification.exists({ deliveryPartnerId: key, dedupeKey });
+      if (!exists) {
+        const message = row.body || "You have a new announcement";
+        await DeliveryBoyNotification.create({
+          deliveryPartnerId: key,
+          deliveryBoyId: key,
+          type: "ANNOUNCEMENT",
+          title: row.title || "New announcement",
+          message,
+          body: message,
+          priority: "normal",
+          dedupeKey,
+          data: { announcementId: id, screen: "notifications", badge: "new" },
+        }).catch(() => {});
+        created += 1;
+      }
+    }
+    await DeliveryBoy.updateOne(
+      { _id: key },
+      { $addToSet: { syncedAnnouncementIds: { $each: pending.map((row) => String(row._id)) } } }
+    );
+    return created;
+  } catch (err) {
+    console.warn("[PartnerNotify] announcement sync failed:", err.message);
+    return 0;
   }
 }
 

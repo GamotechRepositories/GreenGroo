@@ -61,6 +61,9 @@ import {
   getSlotDetailsWithRiders,
   updateShiftEarningSlabs,
   getShiftEarningSlabs,
+  listAssignableRiders,
+  assignSlotRiders,
+  unassignSlotRider,
 } from "../controllers/shiftManagementController.js";
 
 import {
@@ -173,6 +176,9 @@ router.get("/shifts/slots", listManagerSlots);
 router.put("/shifts/slots/:slotId", updateSlotDateWise);
 router.delete("/shifts/slots/:slotId", deleteSlotDateWise);
 router.get("/shifts/slots/:slotId/details", getSlotDetailsWithRiders);
+router.get("/shifts/assignable-riders", listAssignableRiders);
+router.post("/shifts/slots/:slotId/assign", assignSlotRiders);
+router.delete("/shifts/slots/:slotId/assign/:riderId", unassignSlotRider);
 // Shift-level earning slabs management
 router.get("/shifts/:shiftId/earning-slabs", getShiftEarningSlabs);
 router.put("/shifts/:shiftId/earning-slabs", updateShiftEarningSlabs);

@@ -37,9 +37,9 @@ const deliveryBoySchema = new mongoose.Schema(
       trim: true,
       match: [/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"],
     },
+    // Optional: delivery partners sign in with phone OTP; legacy accounts may still have one.
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
@@ -290,9 +290,14 @@ const deliveryBoySchema = new mongoose.Schema(
       enum: ['PART_TIME', 'FULL_TIME'],
       default: 'PART_TIME',
     },
-    /** Full-Time only: overrides the store's fullTimeMonthlySalary when set. */
+    /** Monthly salary set by admin (any rider) or the store (full-time override). */
     monthlySalary: { type: Number, default: null, min: 0 },
-    /** Full-Time only: one wallet credit per salary month (YYYY-MM). */
+    /** Admin announcements already copied into this rider's notification inbox. */
+    syncedAnnouncementIds: { type: [String], default: [] },
+    /** Salary as set on the assigned slot (day / week / month); monthlySalary holds the monthly equivalent. */
+    salaryAmount: { type: Number, default: null, min: 0 },
+    salaryPeriod: { type: String, enum: ["day", "week", "month"], default: "month" },
+    /** One wallet credit per salary month (YYYY-MM). */
     salaryCredits: {
       type: [
         {
@@ -304,8 +309,29 @@ const deliveryBoySchema = new mongoose.Schema(
             ref: "DeliveryManager",
             default: null,
           },
+          creditedByRole: { type: String, enum: ["manager", "admin"], default: "manager" },
+          note: { type: String, default: "" },
           /** { baseSalary, leaveDeduction, lateDeduction, unpaidLeaves, lateCount } at credit time. */
           breakdown: { type: mongoose.Schema.Types.Mixed, default: null },
+        },
+      ],
+      default: [],
+    },
+    /** Slot incentives, credited to the wallet the moment they are earned. */
+    incentiveCredits: {
+      type: [
+        {
+          month: { type: String, required: true },
+          dateString: { type: String, default: "" },
+          mode: { type: String, enum: ["per_km", "per_hour"], required: true },
+          rate: { type: Number, default: 0 },
+          units: { type: Number, default: 0 },
+          amount: { type: Number, required: true, min: 0 },
+          shiftId: { type: mongoose.Schema.Types.ObjectId, default: null },
+          slotId: { type: mongoose.Schema.Types.ObjectId, default: null },
+          orderId: { type: mongoose.Schema.Types.ObjectId, default: null },
+          label: { type: String, default: "" },
+          creditedAt: { type: Date, default: Date.now },
         },
       ],
       default: [],
@@ -315,13 +341,14 @@ const deliveryBoySchema = new mongoose.Schema(
 );
 
 deliveryBoySchema.pre("save", async function hashPassword() {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
   this.password = await bcrypt.hash(this.password, 10);
 });
 
 deliveryBoySchema.methods.comparePassword = async function comparePassword(
   candidate
 ) {
+  if (!this.password || !candidate) return false;
   return bcrypt.compare(candidate, this.password);
 };
 
@@ -384,6 +411,8 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     onboardingStep: this.onboardingStep,
     employmentType: this.employmentType || 'PART_TIME',
     monthlySalary: this.monthlySalary ?? null,
+    salaryAmount: this.salaryAmount ?? this.monthlySalary ?? null,
+    salaryPeriod: this.salaryAmount != null ? this.salaryPeriod || "month" : "month",
     pendingSlotAlerts: (this.pendingSlotAlerts || [])
       .filter((a) => !a.seen)
       .map((a) => ({

@@ -22,6 +22,7 @@ import CreateGigPage from "./pages/incentives/CreateGigPage";
 import AlertsPage from "./pages/alerts/AlertsPage";
 import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 import PoliciesPage from "./pages/policies/PoliciesPage";
+import AnnouncementsPage from "./pages/announcements/AnnouncementsPage";
 import SupportPage from "./pages/support/SupportPage";
 import MeetingsPage from "./pages/meetings/MeetingsPage";
 import FullTimeSalaryPage from "./pages/fulltime/FullTimeSalaryPage";
@@ -60,6 +61,7 @@ function App() {
               <Route path="/incentives/create" element={<CreateGigPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
               <Route path="/policies" element={<PoliciesPage />} />
+              <Route path="/announcements" element={<AnnouncementsPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/leave" element={<ApplyLeavePage />} />
               <Route path="/meetings" element={<MeetingsPage />} />

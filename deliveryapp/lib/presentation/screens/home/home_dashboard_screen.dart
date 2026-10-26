@@ -13,13 +13,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/announcement_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/location_service.dart';
+import '../../../data/services/notification_inbox_service.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/rider_live_service.dart';
 import '../../../data/services/shift_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shell/shell_navigation.dart';
-import '../shifts/select_shift_screen.dart';
 import '../fulltime/fulltime_widgets.dart';
 import '../../widgets/charts/weekly_bar_chart.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
@@ -105,6 +105,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     } catch (_) {}
   }
 
+  Future<void> _markAnnouncementRead(HrAnnouncement item) async {
+    setState(() => _announcements = _announcements.where((a) => a.id != item.id).toList());
+    await AnnouncementService.instance.markRead(item.id);
+    final inbox = NotificationInboxService.instance;
+    for (final n in inbox.items) {
+      if (!n.isRead && n.data['announcementId']?.toString() == item.id) {
+        inbox.markRead(n.id);
+      }
+    }
+  }
+
   bool get _hasActiveTrip {
     final d = OrderService.instance.activeDelivery;
     if (d == null) return false;
@@ -131,6 +142,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 8),
+        persist: false,
         content: Text('Delivery Manager assigned you $count pre-order${count == 1 ? '' : 's'}'),
         action: SnackBarAction(
           label: 'View',
@@ -616,11 +628,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
           });
 
           if (res.code == 'SHIFT_REQUIRED' || res.code == 'NO_SHIFT_BOOKED') {
-            _showShiftRequiredDialog(
-              res.message.isNotEmpty
-                  ? res.message
-                  : 'Book a shift for today, or go online only while a live gig is running.',
-            );
+            _showShiftRequiredDialog(AppLocalizations.of(context).noSlotAssignedMessage);
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -672,6 +680,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
   }
 
   void _showShiftRequiredDialog(String message) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -682,7 +691,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Shift or live gig required',
+                l10n.noSlotAssignedTitle,
                 style: GoogleFonts.inter(fontWeight: FontWeight.bold),
               ),
             ),
@@ -695,7 +704,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -707,12 +716,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
-              );
+              ShellNavigation.instance.goToTab(1);
             },
-            child: const Text('Book Shift'),
+            child: Text(l10n.viewMySlots),
           ),
         ],
       ),
@@ -784,6 +790,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsB
                         kind: item.kind,
                         status: item.status,
                         date: item.date,
+                        onRead: () => _markAnnouncementRead(item),
                       ),
                     ),
                   ),
@@ -2587,6 +2594,7 @@ class _HrAnnouncementCard extends StatelessWidget {
     this.kind = 'announcement',
     this.status = 'published',
     this.date,
+    this.onRead,
   });
 
   final String title;
@@ -2594,6 +2602,7 @@ class _HrAnnouncementCard extends StatelessWidget {
   final String kind;
   final String status;
   final String? date;
+  final VoidCallback? onRead;
 
   @override
   Widget build(BuildContext context) {
@@ -2711,6 +2720,24 @@ class _HrAnnouncementCard extends StatelessWidget {
               ),
             ),
           ],
+          if (onRead != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onRead,
+                style: TextButton.styleFrom(
+                  foregroundColor: labelColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.done_all_rounded, size: 16),
+                label: Text(
+                  AppLocalizations.of(context).markAsRead,
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
         ],
       ),
     );

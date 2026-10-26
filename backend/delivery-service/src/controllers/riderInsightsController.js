@@ -452,6 +452,59 @@ export const getWalletSummary = async (req, res, next) => {
         currentMonthPayroll: await computeMonthPayroll({ rider, manager, shift, rule }),
       };
     }
+
+    // Month-wise salary (set/credited by admin) + slot incentives — for every rider.
+    const salaryCreditsAll = [...(rider.salaryCredits || [])];
+    const incentiveCreditsAll = [...(rider.incentiveCredits || [])].sort(
+      (a, b) => new Date(b.creditedAt) - new Date(a.creditedAt)
+    );
+    const incentiveByMonth = {};
+    for (const c of incentiveCreditsAll) {
+      incentiveByMonth[c.month] = (incentiveByMonth[c.month] || 0) + Number(c.amount || 0);
+    }
+    const totalIncentives = incentiveCreditsAll.reduce((s, c) => s + Number(c.amount || 0), 0);
+    const todayIst = istDateString();
+    const todayIncentives = incentiveCreditsAll
+      .filter((c) => c.dateString === todayIst)
+      .reduce((s, c) => s + Number(c.amount || 0), 0);
+    if (rider.employmentType !== "FULL_TIME") {
+      totalEarnings += salaryCreditsAll.reduce((s, c) => s + Number(c.amount || 0), 0);
+    }
+    totalEarnings += totalIncentives;
+    const salaryMonths = [
+      ...new Set([...salaryCreditsAll.map((c) => c.month), ...Object.keys(incentiveByMonth), istMonthString()]),
+    ]
+      .sort()
+      .reverse()
+      .slice(0, 12);
+    const salary = {
+      monthlySalary: rider.monthlySalary ?? fullTime?.monthlySalary ?? null,
+      salaryAmount:
+        rider.salaryAmount ?? rider.monthlySalary ?? fullTime?.monthlySalary ?? null,
+      salaryPeriod: rider.salaryAmount != null ? rider.salaryPeriod || "month" : "month",
+      currentMonth: istMonthString(),
+      months: salaryMonths.map((month) => {
+        const credit = salaryCreditsAll.find((c) => c.month === month) || null;
+        return {
+          month,
+          salaryCredited: credit ? Number(credit.amount) || 0 : 0,
+          salaryCreditedAt: credit?.creditedAt || null,
+          incentives: Math.round((incentiveByMonth[month] || 0) * 100) / 100,
+        };
+      }),
+      totalIncentives: Math.round(totalIncentives * 100) / 100,
+      todayIncentives: Math.round(todayIncentives * 100) / 100,
+      recentIncentives: incentiveCreditsAll.slice(0, 30).map((c) => ({
+        dateString: c.dateString,
+        mode: c.mode,
+        rate: c.rate,
+        units: c.units,
+        amount: c.amount,
+        label: c.label,
+        creditedAt: c.creditedAt,
+      })),
+    };
+
     const withdrawEnabled = Boolean(rider.withdrawEnabled);
     const canWithdraw = withdrawEnabled && totalEarnings > 0;
 
@@ -460,7 +513,7 @@ export const getWalletSummary = async (req, res, next) => {
       verificationDate: since.toISOString(),
       totalEarnings,
       totalDeliveries: totalAgg[0]?.count || 0,
-      todayEarnings: todayAgg[0]?.total || 0,
+      todayEarnings: (todayAgg[0]?.total || 0) + salary.todayIncentives,
       todayDeliveries: todayAgg[0]?.count || 0,
       weekTotalEarnings: weekTotal,
       weekDays,
@@ -478,6 +531,7 @@ export const getWalletSummary = async (req, res, next) => {
           ? "No earnings available to withdraw yet."
           : "Withdraw is inactive until Admin activates it.",
       fullTime,
+      salary,
     });
   } catch (error) {
     next(error);

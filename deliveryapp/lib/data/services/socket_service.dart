@@ -36,6 +36,11 @@ class SocketService {
   final StreamController<Map<String, dynamic>> _deliveryUpdatedController =
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<bool> _connectionController = StreamController<bool>.broadcast();
+  final StreamController<Map<String, dynamic>> _walletUpdatedController =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  /// Wallet credited (order earning, slot incentive, salary) — wallet screens refresh on this.
+  Stream<Map<String, dynamic>> get onWalletUpdated => _walletUpdatedController.stream;
 
   /// Any server-side change to this rider's deliveries (assignment, pickup
   /// approval, status change, cancellation…). Screens refresh on this instead of polling.
@@ -245,6 +250,14 @@ class SocketService {
         final map = Map<String, dynamic>.from(data);
         _riderNotificationController.add(map);
         final type = map['type']?.toString();
+        if (type == 'SHIFT_ASSIGNED') {
+          PushNotificationService.instance.showLocalNotification(
+            id: (map['_id'] ?? map['id'] ?? DateTime.now().millisecondsSinceEpoch).toString().hashCode,
+            title: map['title']?.toString() ?? 'Slot update',
+            body: map['message']?.toString() ?? '',
+            data: {'screen': 'shifts', 'type': 'SHIFT_ASSIGNED'},
+          );
+        }
         if (type == 'WALLET_CREDITED') {
           AuthService.instance.fetchMe();
           final amt = map['amount']?.toString() ?? '';
@@ -269,16 +282,27 @@ class SocketService {
       debugPrint('[Socket] Event wallet credit: $data');
       if (data is Map) {
         final map = Map<String, dynamic>.from(data);
+        _walletUpdatedController.add(map);
         AuthService.instance.fetchMe();
         final amt = map['amount']?.toString() ?? '';
         final orderNum = map['orderNumber']?.toString() ?? '';
         final idStr = map['orderId']?.toString() ?? '';
+        final reason = map['reason']?.toString() ?? '';
+        final serverMessage = map['message']?.toString() ?? '';
+        // wallet_updated and rider_wallet_credited arrive together — same id collapses them.
+        final dedupeKey = idStr.isNotEmpty ? idStr : '$reason:$amt:${map['timestamp'] ?? ''}';
         PushNotificationService.instance.showLocalNotification(
-          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          title: '₹$amt Credited to Wallet!',
-          body: orderNum.isNotEmpty
-              ? '₹$amt credited to your wallet for Order #$orderNum'
-              : '₹$amt has been credited to your wallet.',
+          id: dedupeKey.hashCode,
+          title: reason == 'slot_incentive'
+              ? '₹$amt Incentive Added!'
+              : reason.startsWith('salary_')
+                  ? '₹$amt Salary Credited!'
+                  : '₹$amt Credited to Wallet!',
+          body: serverMessage.isNotEmpty
+              ? serverMessage
+              : orderNum.isNotEmpty
+                  ? '₹$amt credited to your wallet for Order #$orderNum'
+                  : '₹$amt has been credited to your wallet.',
           data: {
             'screen': 'wallet',
             'type': 'WALLET_CREDITED',

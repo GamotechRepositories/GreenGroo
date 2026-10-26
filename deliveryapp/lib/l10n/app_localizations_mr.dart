@@ -510,7 +510,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get placeholderEarnings => '₹ —';
 
   @override
-  String get placeholderTimeMin => '— min';
+  String get placeholderTimeMin => '— मिनिटे';
 
   @override
   String get placeholderPercent => '—%';
@@ -603,7 +603,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get enRoute => 'मार्गावर';
 
   @override
-  String get etaMin => 'ETA — min';
+  String get etaMin => 'अंदाजे वेळ — मिनिटे';
 
   @override
   String get store => 'स्टोअर';
@@ -984,7 +984,7 @@ class AppLocalizationsMr extends AppLocalizations {
   String get noAreasFound => 'कोणतेही क्षेत्र सापडले नाही';
 
   @override
-  String get verificationPendingTitle => 'Verification in progress';
+  String get verificationPendingTitle => 'पडताळणी सुरू आहे';
 
   @override
   String get verificationPendingHours =>
@@ -992,27 +992,27 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get verificationOfflineVisit =>
-      'Please visit your area Delivery Manager for offline verification with original documents.';
+      'कृपया मूळ कागदपत्रांसह ऑफलाइन पडताळणीसाठी तुमच्या भागातील डिलिव्हरी मॅनेजरला भेटा.';
 
   @override
-  String get verificationManagerLabel => 'Delivery Manager';
+  String get verificationManagerLabel => 'डिलिव्हरी मॅनेजर';
 
   @override
-  String get verificationStoreLabel => 'Store';
+  String get verificationStoreLabel => 'स्टोअर';
 
   @override
-  String get verificationAddressLabel => 'Address';
+  String get verificationAddressLabel => 'पत्ता';
 
   @override
-  String get verificationPhoneLabel => 'Phone';
+  String get verificationPhoneLabel => 'फोन';
 
   @override
   String get verificationNoManagerYet =>
-      'No delivery manager is registered for your area yet. Stay offline until verification is assigned.';
+      'तुमच्या भागासाठी अद्याप कोणताही डिलिव्हरी मॅनेजर नोंदणीकृत नाही. पडताळणी होईपर्यंत ऑफलाइन राहा.';
 
   @override
   String get verificationCannotGoOnline =>
-      'You can go online after verification is complete.';
+      'पडताळणी पूर्ण झाल्यानंतर तुम्ही ऑनलाइन जाऊ शकता.';
 
   @override
   String get verificationApprovedTitle => 'You are verified';
@@ -1022,181 +1022,183 @@ class AppLocalizationsMr extends AppLocalizations {
       'सत्यापित! आता तुम्ही ऑनलाइन जाऊ शकता.';
 
   @override
-  String get verificationRejectedTitle => 'Verification rejected';
+  String get verificationRejectedTitle => 'पडताळणी नाकारली';
 
   @override
   String get verificationRejectedHint =>
-      'Contact your area delivery manager for help.';
+      'मदतीसाठी तुमच्या भागातील डिलिव्हरी मॅनेजरशी संपर्क साधा.';
 
   @override
   String get myShifts => 'माझ्या शिफ्ट्स';
 
   @override
-  String get myShiftsSubtitle => 'Your booked and available delivery shifts';
+  String get myShiftsSubtitle =>
+      'तुमच्या बुक केलेल्या आणि उपलब्ध डिलिव्हरी शिफ्ट';
 
   @override
   String get availableShifts => 'उपलब्ध शिफ्ट्स';
 
   @override
-  String get myProgress => 'My Progress';
+  String get myProgress => 'माझी प्रगती';
 
   @override
-  String get loginHours => 'Login Hours';
+  String get loginHours => 'लॉगिन तास';
 
   @override
-  String get totalOrdersToday => 'Total Orders Today';
+  String get totalOrdersToday => 'आजच्या एकूण ऑर्डर';
 
   @override
-  String get shiftBooked => 'Booked';
+  String get shiftBooked => 'बुक केले';
 
   @override
-  String get shiftAvailable => 'Available';
+  String get shiftAvailable => 'उपलब्ध';
 
   @override
-  String get bookShift => 'Book Shift';
+  String get bookShift => 'शिफ्ट बुक करा';
 
   @override
-  String get shiftBookedSuccess => 'Shift booked successfully!';
+  String get shiftBookedSuccess => 'शिफ्ट यशस्वीरित्या बुक झाली!';
 
   @override
-  String get noShiftsYet => 'No shifts booked yet';
+  String get noShiftsYet => 'अद्याप कोणतीही शिफ्ट बुक केलेली नाही';
 
   @override
-  String get noShiftsYetHint => 'Book a shift from available slots below';
+  String get noShiftsYetHint => 'खालील उपलब्ध स्लॉटमधून शिफ्ट बुक करा';
 
   @override
-  String get noAvailableShifts => 'No shifts available';
+  String get noAvailableShifts => 'कोणतीही शिफ्ट उपलब्ध नाही';
 
   @override
-  String get noAvailableShiftsHint => 'Check back later for new slots';
+  String get noAvailableShiftsHint => 'नवीन स्लॉटसाठी नंतर पुन्हा तपासा';
 
   @override
-  String get ordersExpected => 'orders expected';
+  String get ordersExpected => 'ऑर्डर अपेक्षित';
 
   @override
-  String get viewAllShifts => 'View all shifts';
+  String get viewAllShifts => 'सर्व शिफ्ट पहा';
 
   @override
-  String get dailyProgress => 'Daily Progress';
+  String get dailyProgress => 'दैनिक प्रगती';
 
   @override
-  String get dailyProgressSubtitle => 'Track your goals for today';
+  String get dailyProgressSubtitle => 'आजची तुमची उद्दिष्टे ट्रॅक करा';
 
   @override
-  String get complete => 'complete';
+  String get complete => 'पूर्ण';
 
   @override
-  String get onlineForToday => 'Online for';
+  String get onlineForToday => 'ऑनलाइन वेळ';
 
   @override
-  String get peakHoursBanner => 'Peak hours right now — earn extra per order';
+  String get peakHoursBanner =>
+      'आता पीक अवर्स आहेत — प्रत्येक ऑर्डरवर जास्त कमवा';
 
   @override
   String shiftBookedBanner(String label, String time) {
-    return 'You\'re booked for $label ($time)';
+    return 'तुम्ही $label ($time) साठी बुक आहात';
   }
 
   @override
   String get shiftBookingHint =>
-      'Booking a shift helps the store plan — you can still go online/offline anytime';
+      'शिफ्ट बुक केल्याने स्टोअरला नियोजन करण्यास मदत होते — तुम्ही कधीही ऑनलाइन/ऑफलाइन होऊ शकता';
 
   @override
-  String get bookTomorrowShift => 'Book Tomorrow\'s Shift';
+  String get bookTomorrowShift => 'उद्याची शिफ्ट बुक करा';
 
   @override
-  String get youreOnline => 'You\'re online';
+  String get youreOnline => 'तुम्ही ऑनलाइन आहात';
 
   @override
-  String get goOnlineToReceive => 'Go online to receive orders';
+  String get goOnlineToReceive => 'ऑर्डर मिळवण्यासाठी ऑनलाइन जा';
 
   @override
-  String get tapToStartReceiving => 'Tap the switch to start receiving orders';
+  String get tapToStartReceiving => 'ऑर्डर मिळवणे सुरू करण्यासाठी स्विच दाबा';
 
   @override
-  String get waitingForOrders => 'Waiting for orders...';
+  String get waitingForOrders => 'ऑर्डरची प्रतीक्षा...';
 
   @override
-  String get waitingForOrdersHint =>
-      'Stay nearby — new deliveries will appear here';
+  String get waitingForOrdersHint => 'जवळपास राहा — नवीन डिलिव्हरी येथे दिसतील';
 
   @override
-  String get onADelivery => 'On a delivery';
+  String get onADelivery => 'डिलिव्हरीवर';
 
   @override
-  String get reachedStore => 'Reached store';
+  String get reachedStore => 'स्टोअरला पोहोचलो';
 
   @override
   String incentiveOrdersLeft(int count) {
-    return 'Complete $count more orders for today\'s bonus';
+    return 'आजच्या बोनससाठी आणखी $count ऑर्डर पूर्ण करा';
   }
 
   @override
-  String get dailyTargetReached => 'Daily order target reached — great work!';
+  String get dailyTargetReached => 'दैनिक ऑर्डर लक्ष्य पूर्ण — उत्तम काम!';
 
   @override
-  String get referAndEarn => 'Refer & Earn';
+  String get referAndEarn => 'रेफर करा आणि कमवा';
 
   @override
   String get referAndEarnSubtitle =>
       'तुमच्या मित्रांना आमंत्रित करा आणि उत्तम बक्षिसे कमवा';
 
   @override
-  String get earnBonus => 'Earn Bonus';
+  String get earnBonus => 'बोनस कमवा';
 
   @override
   String get earnBonusSubtitle => 'अधिक गिग्स पूर्ण करा आणि आकर्षक बोनस कमवा';
 
   @override
-  String get viewWallet => 'View Wallet';
+  String get viewWallet => 'वॉलेट पहा';
 
   @override
-  String get verifiedPartner => 'Verified Partner';
+  String get verifiedPartner => 'सत्यापित पार्टनर';
 
   @override
-  String get youAreOnline => 'You are Online';
+  String get youAreOnline => 'तुम्ही ऑनलाइन आहात';
 
   @override
-  String get youAreOffline => 'You are Offline';
+  String get youAreOffline => 'तुम्ही ऑफलाइन आहात';
 
   @override
-  String get receiveDeliveryRequests => 'You will receive delivery requests.';
+  String get receiveDeliveryRequests => 'तुम्हाला डिलिव्हरी विनंत्या मिळतील.';
 
   @override
-  String get offlineDeliveryHint => 'Go online to receive delivery requests.';
+  String get offlineDeliveryHint =>
+      'डिलिव्हरी विनंत्या मिळवण्यासाठी ऑनलाइन जा.';
 
   @override
   String completeMoreDeliveriesBonus(int count, String amount) {
-    return 'Complete $count more deliveries to earn extra $amount bonus';
+    return 'अतिरिक्त $amount बोनस मिळवण्यासाठी आणखी $count डिलिव्हरी पूर्ण करा';
   }
 
   @override
-  String get currentOrder => 'Current Order';
+  String get currentOrder => 'सध्याची ऑर्डर';
 
   @override
-  String get orderEarnings => 'Order Earnings';
+  String get orderEarnings => 'ऑर्डर कमाई';
 
   @override
-  String get acceptOrder => 'Accept Order';
+  String get acceptOrder => 'ऑर्डर स्वीकारा';
 
   @override
   String kmAway(String distance) {
-    return '$distance km away';
+    return '$distance किमी दूर';
   }
 
   @override
-  String get todaysOrders => 'Today\'s Orders';
+  String get todaysOrders => 'आजच्या ऑर्डर';
 
   @override
-  String get completed => 'Completed';
+  String get completed => 'पूर्ण';
 
   @override
-  String get myOrders => 'My Orders';
+  String get myOrders => 'माझ्या ऑर्डर';
 
   @override
-  String get thisWeekEarnings => 'This Week';
+  String get thisWeekEarnings => 'या आठवड्यात';
 
   @override
-  String get continueDelivery => 'Continue Delivery';
+  String get continueDelivery => 'डिलिव्हरी सुरू ठेवा';
 
   @override
   String get goOnlineToReceiveOrders =>
@@ -1530,4 +1532,159 @@ class AppLocalizationsMr extends AppLocalizations {
   String distanceKmValue(String km) {
     return '$km किमी';
   }
+
+  @override
+  String get welcomeBack => 'पुन्हा स्वागत आहे!';
+
+  @override
+  String get loginOtpSubtitle =>
+      'तुमचा मोबाइल नंबर टाका — आम्ही तुम्हाला OTP पाठवू';
+
+  @override
+  String get registerOtpSubtitle =>
+      'तुमच्या मोबाइल नंबरने डिलिव्हरी पार्टनर व्हा';
+
+  @override
+  String otpSentTo(String phone) {
+    return 'आम्ही 6 अंकी OTP पाठवला आहे\n+91 $phone';
+  }
+
+  @override
+  String get resendOtpIn => 'OTP पुन्हा पाठवा ';
+
+  @override
+  String get resendNow => 'आता पाठवा';
+
+  @override
+  String get otpResent => 'OTP पुन्हा पाठवला';
+
+  @override
+  String get agreeTermsPrefix => 'मी सहमत आहे ';
+
+  @override
+  String get termsAndConditions => 'नियम व अटी';
+
+  @override
+  String get andWord => ' आणि ';
+
+  @override
+  String get privacyPolicy => 'गोपनीयता धोरण';
+
+  @override
+  String get agreeTermsError => 'कृपया नियम व अटींना सहमती द्या';
+
+  @override
+  String get noAccountPrompt => 'खाते नाही? ';
+
+  @override
+  String get haveAccountPrompt => 'आधीच खाते आहे? ';
+
+  @override
+  String get registerNow => 'आता नोंदणी करा';
+
+  @override
+  String get pickupDriverLogin => 'पिकअप ड्रायव्हर? पासवर्डने लॉगिन करा';
+
+  @override
+  String get markAsRead => 'वाचले म्हणून चिन्हांकित करा';
+
+  @override
+  String get announcementMovedToNotifications => 'सूचनांमध्ये हलवले';
+
+  @override
+  String get noSlotAssignedTitle => 'स्लॉट नियुक्त नाही';
+
+  @override
+  String get noSlotAssignedMessage =>
+      'आज तुम्हाला कोणताही स्लॉट नियुक्त केलेला नाही. स्लॉट तुमचे डिलिव्हरी मॅनेजर नियुक्त करतात — लाइव्ह गिग सुरू असताना तुम्ही ऑनलाइन जाऊ शकता.';
+
+  @override
+  String get viewMySlots => 'माझे स्लॉट पहा';
+
+  @override
+  String get cancel => 'रद्द करा';
+
+  @override
+  String get ok => 'ठीक आहे';
+
+  @override
+  String get detectingLocation => 'तुमचे लोकेशन शोधत आहे…';
+
+  @override
+  String get locationUnavailable =>
+      'लोकेशन मिळाले नाही. GPS चालू करून पुन्हा प्रयत्न करा.';
+
+  @override
+  String get locationVerified => 'लोकेशन सत्यापित';
+
+  @override
+  String get locationCheckFailed => 'लोकेशन तपासणी अयशस्वी';
+
+  @override
+  String get slotsAssignedByManager =>
+      'स्लॉट तुमचे डिलिव्हरी मॅनेजर नियुक्त करतात. नवीन स्लॉट नियुक्त झाल्यावर तुम्हाला सूचना मिळेल.';
+
+  @override
+  String get todaysSlots => 'आजचे स्लॉट';
+
+  @override
+  String get noSlotAssignedToday => 'आजसाठी अजून कोणताही स्लॉट नियुक्त नाही.';
+
+  @override
+  String get noUpcomingSlotsAssigned => 'कोणतेही आगामी स्लॉट नियुक्त नाहीत.';
+
+  @override
+  String incentivePerKm(String rate) {
+    return '₹$rate/किमी इन्सेंटिव्ह';
+  }
+
+  @override
+  String incentivePerHour(String rate) {
+    return '₹$rate/तास इन्सेंटिव्ह';
+  }
+
+  @override
+  String get salaryAndIncentives => 'पगार आणि इन्सेंटिव्ह';
+
+  @override
+  String get slotIncentives => 'स्लॉट इन्सेंटिव्ह';
+
+  @override
+  String get perMonth => 'दरमहा';
+
+  @override
+  String todayIncentiveEarned(String amount) {
+    return 'आज $amount इन्सेंटिव्ह मिळाले';
+  }
+
+  @override
+  String salaryAmount(String amount) {
+    return 'पगार $amount';
+  }
+
+  @override
+  String get salaryNotCreditedYet => 'पगार बाकी';
+
+  @override
+  String incentiveAmount(String amount) {
+    return 'इन्सेंटिव्ह $amount';
+  }
+
+  @override
+  String get recentIncentives => 'अलीकडील इन्सेंटिव्ह';
+
+  @override
+  String get todaysIncentive => 'आजचा इन्सेंटिव्ह';
+
+  @override
+  String get salaryLabel => 'पगार';
+
+  @override
+  String get perDay => 'दररोज';
+
+  @override
+  String get perWeek => 'दर आठवड्याला';
+
+  @override
+  String get salaryNotSet => 'अजून ठरलेला नाही';
 }

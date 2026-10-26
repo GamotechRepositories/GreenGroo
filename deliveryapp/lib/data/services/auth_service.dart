@@ -406,6 +406,7 @@ class AuthService {
           'phone': phone,
           'otp': otp,
           'purpose': purpose,
+          'language': _currentLanguage,
         }),
       );
       return await _parseAuthResponse(res);

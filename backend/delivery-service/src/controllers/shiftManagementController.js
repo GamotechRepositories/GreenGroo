@@ -9,8 +9,17 @@ import {
   timeToMinutes,
 } from "../utils/shiftTimeHelper.js";
 import { istDateString, listRecentIstDates } from "../utils/onlineHoursHelper.js";
+import { riderQuery } from "./managerDashboardController.js";
+import {
+  assignSlotToRiders,
+  refreshRiderCurrentBooking,
+  unassignRiderFromSlot,
+} from "../services/slotAssignmentService.js";
+import { notifyRiders } from "../services/RiderNotificationService.js";
 
+// Admin routes set req.managerOverride so the same handlers work for any dark store.
 const getManager = async (req) => {
+  if (req.managerOverride) return req.managerOverride;
   const manager = await DeliveryManager.findById(req.user.id);
   if (!manager) {
     const err = new Error("Delivery manager not found");
@@ -33,6 +42,14 @@ const formatDateString = (d) => {
   }).format(date);
 };
 
+const INCENTIVE_MODES = ["none", "per_km", "per_hour"];
+
+export function normalizeSlotIncentive(s = {}) {
+  const mode = INCENTIVE_MODES.includes(s.incentiveMode) ? s.incentiveMode : "none";
+  const rate = Math.max(0, Number(s.incentiveRate) || 0);
+  return { incentiveMode: rate > 0 ? mode : "none", incentiveRate: mode === "none" ? 0 : rate };
+}
+
 /** Default time slots generator for standard shift types */
 const getDefaultSlotsForType = (type, customSlots = [], defaultCapacity = 10) => {
   if (customSlots && customSlots.length > 0) {
@@ -43,6 +60,7 @@ const getDefaultSlotsForType = (type, customSlots = [], defaultCapacity = 10) =>
       bookedCount: 0,
       status: "AVAILABLE",
       bookings: [],
+      ...normalizeSlotIncentive(s),
     }));
   }
 
@@ -155,6 +173,8 @@ function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
         status: existing.status === "CANCELLED" ? "AVAILABLE" : existing.status,
         bookings,
         bookedCount: bookings.filter((b) => b.status !== "CANCELLED").length,
+        incentiveMode: template.incentiveMode ?? existing.incentiveMode ?? "none",
+        incentiveRate: template.incentiveRate ?? existing.incentiveRate ?? 0,
       });
     } else {
       preserved.push({
@@ -164,6 +184,8 @@ function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
         bookedCount: 0,
         status: "AVAILABLE",
         bookings: [],
+        incentiveMode: template.incentiveMode || "none",
+        incentiveRate: template.incentiveRate || 0,
       });
     }
   }
@@ -184,7 +206,13 @@ function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
 }
 
 /** Generates date-wise Shift documents directly in single Shift collection */
-const generateDateWiseShifts = async ({
+const SALARY_PERIODS = {
+  day: { unit: "day", perMonth: 30 },
+  week: { unit: "week", perMonth: 30 / 7 },
+  month: { unit: "month", perMonth: 1 },
+};
+
+export const generateDateWiseShifts = async ({
   name,
   type,
   capacity,
@@ -195,6 +223,7 @@ const generateDateWiseShifts = async ({
   targetDate,
   targetMonth,
   daysOfWeek = [],
+  salary,
 }) => {
   const createdShifts = [];
   const now = new Date();
@@ -249,6 +278,7 @@ const generateDateWiseShifts = async ({
         dateString: dateStr,
         slots: defaultSlots,
         deliveryEarningSlabs: deliveryEarningSlabs || [],
+        ...(salary || {}),
       });
       createdShifts.push(newShift);
     } else {
@@ -258,6 +288,7 @@ const generateDateWiseShifts = async ({
       if (deliveryEarningSlabs !== undefined) {
         existing.deliveryEarningSlabs = deliveryEarningSlabs;
       }
+      if (salary) Object.assign(existing, salary);
       existing.markModified("slots");
       await existing.save();
       createdShifts.push(existing);
@@ -281,13 +312,45 @@ export const createShift = async (req, res, next) => {
       targetMonth,
       daysOfWeek = [],
       deliveryEarningSlabs,
+      riderIds = [],
     } = req.body;
 
-    if (deliveryEarningSlabs !== undefined) {
+    if (deliveryEarningSlabs !== undefined && deliveryEarningSlabs.length) {
       const slabValidation = validateEarningSlabs(deliveryEarningSlabs);
       if (!slabValidation.valid) {
         return res.status(400).json({ success: false, message: slabValidation.message });
       }
+    }
+
+    let salary;
+    const salaryRaw = req.body.salaryAmount ?? req.body.monthlySalary;
+    if (salaryRaw !== undefined && salaryRaw !== null && salaryRaw !== "") {
+      const amount = Number(salaryRaw);
+      if (!Number.isFinite(amount) || amount < 0) {
+        return res.status(400).json({ success: false, message: "Salary must be 0 or more" });
+      }
+      const period = req.body.salaryAmount != null ? String(req.body.salaryPeriod || "month") : "month";
+      if (!SALARY_PERIODS[period]) {
+        return res.status(400).json({ success: false, message: "Salary period must be day, week or month" });
+      }
+      salary = {
+        salaryAmount: Math.round(amount),
+        salaryPeriod: period,
+        monthlySalary: Math.round(amount * SALARY_PERIODS[period].perMonth),
+      };
+    }
+
+    const requestedRiderIds = Array.isArray(riderIds)
+      ? [...new Set(riderIds.map(String).filter(Boolean))]
+      : [];
+    const riders = requestedRiderIds.length
+      ? await DeliveryBoy.find(riderQuery(manager, { _id: { $in: requestedRiderIds } })).select("_id name")
+      : [];
+    if (requestedRiderIds.length && riders.length !== requestedRiderIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Some selected drivers do not belong to this Delivery Manager",
+      });
     }
 
     const shiftType = String(type).toLowerCase();
@@ -305,12 +368,65 @@ export const createShift = async (req, res, next) => {
       targetDate,
       targetMonth,
       daysOfWeek,
+      salary,
     });
+
+    let assignedSlots = 0;
+    if (riders.length) {
+      const riderIdList = riders.map((r) => r._id);
+      const assignedBy = req.managerOverride ? "admin" : "manager";
+      for (const shift of generatedShifts) {
+        for (const slot of shift.slots) {
+          if (slot.status === "CANCELLED") continue;
+          try {
+            const fresh = await Shift.findById(shift._id);
+            const result = await assignSlotToRiders({
+              shift: fresh,
+              slotId: slot._id,
+              riderIds: riderIdList,
+              assignedBy,
+              notify: false,
+            });
+            if (result.assigned.length) assignedSlots += 1;
+          } catch (_) {
+            // Slot already ended today — nothing to assign.
+          }
+        }
+      }
+
+      if (salary) {
+        await DeliveryBoy.updateMany({ _id: { $in: riderIdList } }, { $set: salary });
+      }
+      for (const id of riderIdList) await refreshRiderCurrentBooking(id).catch(() => {});
+
+      const first = generatedShifts[0];
+      const timeText = (first?.slots || []).map((s) => `${s.startTime} – ${s.endTime}`).join(", ");
+      const dateText =
+        generatedShifts.length > 1
+          ? `${generatedShifts[0].dateString} to ${generatedShifts[generatedShifts.length - 1].dateString}`
+          : first?.dateString || "";
+      const salaryText = salary?.salaryAmount
+        ? ` · ₹${salary.salaryAmount}/${SALARY_PERIODS[salary.salaryPeriod].unit}`
+        : "";
+      await notifyRiders({
+        riderIds: riderIdList,
+        type: "SHIFT_ASSIGNED",
+        title: "New slot assigned",
+        message: `${shiftName}: ${timeText} · ${dateText}${salaryText}`,
+        priority: "high",
+        dedupeKey: `shift-create:${first?._id}:${Date.now()}`,
+        data: { screen: "shifts", event: "shift_assigned" },
+      }).catch(() => {});
+    }
 
     return res.status(201).json({
       success: true,
-      message: `Created '${shiftName}' with ${generatedShifts.length} date shifts in single Shift collection!`,
+      message: riders.length
+        ? `Created '${shiftName}' for ${generatedShifts.length} day(s) and assigned ${riders.length} driver(s)`
+        : `Created '${shiftName}' for ${generatedShifts.length} day(s)`,
       generatedCount: generatedShifts.length,
+      assignedDrivers: riders.length,
+      assignedSlots,
       shifts: generatedShifts.map((s) => s.toSafeJSON()),
     });
   } catch (error) {
@@ -528,6 +644,15 @@ export const updateSlotDateWise = async (req, res, next) => {
       if (status) slot.status = status;
       if (startTime) slot.startTime = startTime;
       if (endTime) slot.endTime = endTime;
+      if (req.body.incentiveMode !== undefined || req.body.incentiveRate !== undefined) {
+        Object.assign(
+          slot,
+          normalizeSlotIncentive({
+            incentiveMode: req.body.incentiveMode ?? slot.incentiveMode,
+            incentiveRate: req.body.incentiveRate ?? slot.incentiveRate,
+          })
+        );
+      }
       shift.isCustomized = true;
 
       await shift.save();
@@ -552,7 +677,7 @@ async function notifyRidersSlotCancelled(slot, dateString) {
   );
   if (!activeBookings.length) return 0;
 
-  const message = `Slot ${slot.startTime} – ${slot.endTime} on ${dateString} has been cancelled. Please book the next available slot.`;
+  const message = `Slot ${slot.startTime} – ${slot.endTime} on ${dateString} has been cancelled. Your Delivery Manager will assign you another slot.`;
   let notified = 0;
 
   for (const booking of activeBookings) {
@@ -784,6 +909,7 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
         deliveryPartnerProfileImage: b.deliveryPartnerProfileImage || "",
         bookedAt: b.bookedAt,
         status: b.status,
+        assignedBy: b.assignedBy || "rider",
         onlineAt: b.onlineAt || null,
         completedAt: b.completedAt || null,
       }));
@@ -909,6 +1035,8 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
       capacity: slot.capacity,
       bookedCount: slot.bookedCount,
       remainingCapacity: Math.max(0, slot.capacity - slot.bookedCount),
+      incentiveMode: slot.incentiveMode || "none",
+      incentiveRate: Number(slot.incentiveRate) || 0,
       lifecycle,
       statusLabel: lifecycleToLabel(lifecycle),
       isExpired: lifecycle === "past",
@@ -934,3 +1062,102 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
     next(error);
   }
 };
+
+const findShiftForSlot = (manager, slotId) =>
+  Shift.findOne({ managerId: manager._id, "slots._id": slotId });
+
+/** Part-time riders of this dark store that can be assigned to slots. */
+export const listAssignableRiders = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const riders = await DeliveryBoy.find(
+      riderQuery(manager, { isActive: true, employmentType: { $ne: "FULL_TIME" } })
+    )
+      .select("name phone status vehicleType employmentType")
+      .sort({ name: 1 })
+      .lean();
+    return res.json({
+      success: true,
+      riders: riders.map((r) => ({
+        id: String(r._id),
+        name: r.name || "Delivery Partner",
+        phone: r.phone || "",
+        status: r.status,
+        vehicleType: r.vehicleType,
+        employmentType: r.employmentType || "PART_TIME",
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /shifts/slots/:slotId/assign  body: { riderIds: [...] } or { all: true } */
+export const assignSlotRiders = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const shift = await findShiftForSlot(manager, req.params.slotId);
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Slot not found" });
+    }
+
+    const all = req.body?.all === true;
+    const requested = Array.isArray(req.body?.riderIds)
+      ? [...new Set(req.body.riderIds.map(String).filter(Boolean))]
+      : [];
+    if (!all && !requested.length) {
+      return res.status(400).json({ success: false, message: "Select at least one delivery partner" });
+    }
+
+    const filter = all
+      ? { isActive: true, employmentType: { $ne: "FULL_TIME" } }
+      : { _id: { $in: requested } };
+    const riders = await DeliveryBoy.find(riderQuery(manager, filter)).select("_id");
+    if (!riders.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No delivery partners found under this Delivery Manager",
+      });
+    }
+
+    const result = await assignSlotToRiders({
+      shift,
+      slotId: req.params.slotId,
+      riderIds: riders.map((r) => r._id),
+      assignedBy: req.managerOverride ? "admin" : "manager",
+    });
+    return res.json({
+      success: true,
+      message: `${result.assigned.length} delivery partner(s) assigned`,
+      ...result,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
+/** DELETE /shifts/slots/:slotId/assign/:riderId */
+export const unassignSlotRider = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const shift = await findShiftForSlot(manager, req.params.slotId);
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Slot not found" });
+    }
+    const result = await unassignRiderFromSlot({
+      shift,
+      slotId: req.params.slotId,
+      riderId: req.params.riderId,
+    });
+    return res.json({ success: true, message: "Delivery partner removed from slot", ...result });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+

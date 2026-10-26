@@ -190,7 +190,7 @@
   "timelineDelivered": "Delivered",
   "timelineDeliveredSubtitle": "Hand over to customer",
   "callCustomer": "Call Customer",
-  "pickedUp": "Picked Up",
+  "pickedUp": "Picked up",
   "delivered": "Delivered",
   "liveMap": "Live Map",
   "mapIntegrationComingSoon": "Map integration coming soon",
@@ -327,7 +327,6 @@
   "selectAreaSubtitle": "Choose your delivery area",
   "searchArea": "Search area",
   "noAreasFound": "No areas found",
-
   "verificationPendingTitle": "Verification in progress",
   "verificationPendingHours": "Document & identity verification usually completes within 3–6 hours.",
   "verificationOfflineVisit": "Please visit your area Delivery Manager for offline verification with original documents.",
@@ -341,7 +340,6 @@
   "verificationApprovedToast": "Verified! You can go online now.",
   "verificationRejectedTitle": "Verification rejected",
   "verificationRejectedHint": "Contact your area delivery manager for help.",
-
   "myShifts": "My Shifts",
   "myShiftsSubtitle": "Your booked and available delivery shifts",
   "availableShifts": "Available Shifts",
@@ -358,23 +356,24 @@
   "noAvailableShiftsHint": "Check back later for new slots",
   "ordersExpected": "orders expected",
   "viewAllShifts": "View all shifts",
-
   "dailyProgress": "Daily Progress",
   "dailyProgressSubtitle": "Track your goals for today",
   "complete": "complete",
-
   "onlineForToday": "Online for",
   "peakHoursBanner": "Peak hours right now — earn extra per order",
   "shiftBookedBanner": "You're booked for {label} ({time})",
   "@shiftBookedBanner": {
     "placeholders": {
-      "label": { "type": "String" },
-      "time": { "type": "String" }
+      "label": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
     }
   },
   "shiftBookingHint": "Booking a shift helps the store plan — you can still go online/offline anytime",
   "bookTomorrowShift": "Book Tomorrow's Shift",
-
   "youreOnline": "You're online",
   "goOnlineToReceive": "Go online to receive orders",
   "tapToStartReceiving": "Tap the switch to start receiving orders",
@@ -382,20 +381,19 @@
   "waitingForOrdersHint": "Stay nearby — new deliveries will appear here",
   "onADelivery": "On a delivery",
   "reachedStore": "Reached store",
-  "pickedUp": "Picked up",
   "incentiveOrdersLeft": "Complete {count} more orders for today's bonus",
   "@incentiveOrdersLeft": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "dailyTargetReached": "Daily order target reached — great work!",
-
   "referAndEarn": "Refer & Earn",
-  "referAndEarnSubtitle": "Invite friends and earn rewards",
+  "referAndEarnSubtitle": "Invite your friends and earn amazing rewards",
   "earnBonus": "Earn Bonus",
-  "earnBonusSubtitle": "Do extra to earn bonus",
-
+  "earnBonusSubtitle": "Complete more gigs and earn exciting bonuses",
   "viewWallet": "View Wallet",
   "verifiedPartner": "Verified Partner",
   "youAreOnline": "You are Online",
@@ -405,8 +403,12 @@
   "completeMoreDeliveriesBonus": "Complete {count} more deliveries to earn extra {amount} bonus",
   "@completeMoreDeliveriesBonus": {
     "placeholders": {
-      "count": { "type": "int" },
-      "amount": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "currentOrder": "Current Order",
@@ -415,7 +417,9 @@
   "kmAway": "{distance} km away",
   "@kmAway": {
     "placeholders": {
-      "distance": { "type": "String" }
+      "distance": {
+        "type": "String"
+      }
     }
   },
   "todaysOrders": "Today's Orders",
@@ -423,7 +427,6 @@
   "myOrders": "My Orders",
   "thisWeekEarnings": "This Week",
   "continueDelivery": "Continue Delivery",
-
   "goOnlineToReceiveOrders": "Go online to receive delivery requests",
   "moreOrders": "More orders",
   "moreEarnings": "More earnings",
@@ -439,19 +442,18 @@
   "shifts": "Shifts",
   "incentiveSlabsBonusLevels": "INCENTIVE SLABS & BONUS LEVELS",
   "earnBonusTitle": "Earn Bonus",
-  "earnBonusSubtitle": "Complete more gigs and earn exciting bonuses",
   "exploreBonuses": "Explore Bonuses",
   "referAndEarnTitle": "Refer & Earn",
-  "referAndEarnSubtitle": "Invite your friends and earn amazing rewards",
   "referNow": "Refer Now",
   "gigsAndIncentives": "Gigs & Incentives",
   "earnUpToExtra": "Earn up to ₹{bonus} extra",
   "@earnUpToExtra": {
     "placeholders": {
-      "bonus": { "type": "Object" }
+      "bonus": {
+        "type": "Object"
+      }
     }
   },
-
   "lunchIncentive": "Lunch Incentive",
   "dinnerIncentive": "Dinner Incentive",
   "specialGigDesc": "Special Gig • You can go online even now",
@@ -468,20 +470,23 @@
   "filterServerTimeHint": "Past and full slots are automatically filtered by server time.",
   "noActiveGigsTitle": "No Active Gigs",
   "noActiveGigsSubtitle": "There are no active gig incentives for your store right now.",
-
   "shiftStatusYourBooked": "YOUR BOOKED SHIFT ✓",
   "shiftStatusEnded": "SHIFT ENDED",
   "shiftStatusFull": "FULLY BOOKED",
   "spotsLeftCount": "{count} spots left!",
   "@spotsLeftCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "spotsAvailableCount": "{count} spots available",
   "@spotsAvailableCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "badgeBooked": "Booked ✓",
@@ -497,14 +502,10 @@
   "verificationPendingBody": "Your profile is under review by our verification team. This usually takes 24-48 hours.",
   "verificationPendingDarkStoreHint": "Visit your registered dark store for instant offline verification.",
   "verificationRejectedBody": "Your document verification was rejected. Please re-upload valid documents.",
-
-  "myShifts": "My Shifts",
-  "availableShifts": "Available Shifts",
   "selectYourShift": "Select Your Shift",
   "noAvailableSlotsForDate": "No Available Slots for this date",
   "allSlotsBookedOrEnded": "All slots for this date are booked or ended.",
   "liveServerTime": "Live Server Time",
-
   "year": "Year",
   "onlineTime": "Online Time",
   "shiftsBookedLabel": "Shifts Booked",
@@ -516,50 +517,68 @@
   "tripsCount": "{count} Trips",
   "@tripsCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tripCountOne": "{count} Trip",
   "@tripCountOne": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shiftsCount": "{count} Shifts",
   "@shiftsCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shiftCountOne": "{count} Shift",
   "@shiftCountOne": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "completedCountLabel": "{count} Completed",
   "@completedCountLabel": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shiftsBookedValue": "{count} booked",
   "@shiftsBookedValue": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "shiftsDoneValue": "{count} shifts",
   "@shiftsDoneValue": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "tripsAndOnlineSummary": "{trips} trips · {onlineTime}",
   "@tripsAndOnlineSummary": {
     "placeholders": {
-      "trips": { "type": "int" },
-      "onlineTime": { "type": "String" }
+      "trips": {
+        "type": "int"
+      },
+      "onlineTime": {
+        "type": "String"
+      }
     }
   },
   "thisWeekEarningsTitle": "This week earnings",
@@ -567,14 +586,20 @@
   "deliveriesAndToday": "{count} deliveries · Today {amount}",
   "@deliveriesAndToday": {
     "placeholders": {
-      "count": { "type": "int" },
-      "amount": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "withdrawRequestSubmitted": "Withdraw request for {amount} submitted.",
   "@withdrawRequestSubmitted": {
     "placeholders": {
-      "amount": { "type": "String" }
+      "amount": {
+        "type": "String"
+      }
     }
   },
   "withdrawAvailableSaturday": "Withdraw is available today (Saturday).",
@@ -587,20 +612,28 @@
   "deliveriesCount": "{count} deliveries",
   "@deliveriesCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "todayWithLabel": "Today · {label}",
   "@todayWithLabel": {
     "placeholders": {
-      "label": { "type": "String" }
+      "label": {
+        "type": "String"
+      }
     }
   },
   "dayWithDate": "{label} · {date}",
   "@dayWithDate": {
     "placeholders": {
-      "label": { "type": "String" },
-      "date": { "type": "String" }
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
     }
   },
   "todayTrips": "Today trips",
@@ -609,20 +642,86 @@
   "orderNumberHash": "Order #{number}",
   "@orderNumberHash": {
     "placeholders": {
-      "number": { "type": "String" }
+      "number": {
+        "type": "String"
+      }
     }
   },
   "deliveriesUpdatedLive": "{count} deliveries · {updatedLive}",
   "@deliveriesUpdatedLive": {
     "placeholders": {
-      "count": { "type": "int" },
-      "updatedLive": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "updatedLive": {
+        "type": "String"
+      }
     }
   },
   "distanceKmValue": "{km} km",
   "@distanceKmValue": {
     "placeholders": {
-      "km": { "type": "String" }
+      "km": {
+        "type": "String"
+      }
     }
-  }
+  },
+  "welcomeBack": "Welcome Back!",
+  "loginOtpSubtitle": "Enter your mobile number — we'll send you an OTP",
+  "registerOtpSubtitle": "Join as a Delivery Partner with your mobile number",
+  "otpSentTo": "We've sent a 6 digit OTP to\n+91 {phone}",
+  "@otpSentTo": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "resendOtpIn": "Resend OTP in ",
+  "resendNow": "Resend Now",
+  "otpResent": "OTP resent successfully",
+  "agreeTermsPrefix": "I agree to the ",
+  "termsAndConditions": "Terms & Conditions",
+  "andWord": " and ",
+  "privacyPolicy": "Privacy Policy",
+  "agreeTermsError": "Please agree to Terms & Conditions",
+  "noAccountPrompt": "Don't have an account? ",
+  "haveAccountPrompt": "Already have an account? ",
+  "registerNow": "Register Now",
+  "pickupDriverLogin": "Pickup driver? Login with password",
+  "markAsRead": "Mark as read",
+  "announcementMovedToNotifications": "Moved to Notifications",
+  "noSlotAssignedTitle": "No slot assigned",
+  "noSlotAssignedMessage": "No slot is assigned to you for today. Your Delivery Manager assigns slots — you can also go online while a live gig is running.",
+  "viewMySlots": "View my slots",
+  "cancel": "Cancel",
+  "ok": "OK",
+  "detectingLocation": "Detecting your location…",
+  "locationUnavailable": "Couldn't get your location. Turn on GPS and try again.",
+  "locationVerified": "Location verified",
+  "locationCheckFailed": "Location check failed",
+  "slotsAssignedByManager": "Slots are assigned by your Delivery Manager. You'll get a notification when a new slot is assigned.",
+  "todaysSlots": "TODAY'S SLOTS",
+  "noSlotAssignedToday": "No slot assigned for today yet.",
+  "noUpcomingSlotsAssigned": "No upcoming slots assigned.",
+  "incentivePerKm": "₹{rate}/km incentive",
+  "@incentivePerKm": {"placeholders":{"rate":{"type":"String"}}},
+  "incentivePerHour": "₹{rate}/hr incentive",
+  "@incentivePerHour": {"placeholders":{"rate":{"type":"String"}}},
+  "salaryAndIncentives": "Salary & Incentives",
+  "slotIncentives": "Slot Incentives",
+  "perMonth": "per month",
+  "todayIncentiveEarned": "{amount} incentive earned today",
+  "@todayIncentiveEarned": {"placeholders":{"amount":{"type":"String"}}},
+  "salaryAmount": "Salary {amount}",
+  "@salaryAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "salaryNotCreditedYet": "Salary pending",
+  "incentiveAmount": "Incentive {amount}",
+  "@incentiveAmount": {"placeholders":{"amount":{"type":"String"}}},
+  "recentIncentives": "Recent incentives",
+  "todaysIncentive": "Today's incentive",
+  "salaryLabel": "Salary",
+  "perDay": "per day",
+  "perWeek": "per week",
+  "salaryNotSet": "Not set yet"
 }

@@ -60,6 +60,10 @@ class ShiftBookingInfo {
   final bool notificationEnabled;
   final int notificationTimeMinutes;
   final DateTime? bookedAt;
+  final String assignedBy;
+  /// none | per_km | per_hour
+  final String incentiveMode;
+  final double incentiveRate;
 
   const ShiftBookingInfo({
     required this.id,
@@ -73,7 +77,12 @@ class ShiftBookingInfo {
     required this.notificationEnabled,
     required this.notificationTimeMinutes,
     this.bookedAt,
+    this.assignedBy = 'rider',
+    this.incentiveMode = 'none',
+    this.incentiveRate = 0,
   });
+
+  bool get hasIncentive => incentiveMode != 'none' && incentiveRate > 0;
 
   factory ShiftBookingInfo.fromJson(Map<String, dynamic> json) {
     return ShiftBookingInfo(
@@ -88,6 +97,9 @@ class ShiftBookingInfo {
       notificationEnabled: json['notificationEnabled'] == true,
       notificationTimeMinutes: (json['notificationTimeMinutes'] as num?)?.toInt() ?? 15,
       bookedAt: json['bookedAt'] != null ? DateTime.tryParse(json['bookedAt'].toString()) : null,
+      assignedBy: json['assignedBy']?.toString() ?? 'rider',
+      incentiveMode: json['incentiveMode']?.toString() ?? 'none',
+      incentiveRate: (json['incentiveRate'] as num?)?.toDouble() ?? 0,
     );
   }
 }
@@ -179,27 +191,6 @@ class ShiftService {
     }
   }
 
-  Future<ShiftBookingInfo?> bookSlot(String slotId) async {
-    try {
-      final res = await apiPost(
-        ApiConfig.shiftBookings,
-        headers: _headers,
-        body: jsonEncode({'slotId': slotId}),
-      );
-
-      if (res.statusCode != 200 && res.statusCode != 201) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        throw Exception(body['message']?.toString() ?? 'Booking failed');
-      }
-
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final bookingJson = body['booking'] as Map<String, dynamic>;
-      return ShiftBookingInfo.fromJson(bookingJson);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   Future<Map<String, dynamic>> fetchMyBookings() async {
     try {
       final res = await apiGet(ApiConfig.shiftBookings + '/my', headers: _headers);
@@ -224,8 +215,15 @@ class ShiftService {
           .where((b) => b.dateString.isEmpty || b.dateString.compareTo(todayStr) > 0)
           .toList();
 
+      final todayList = (body['todayBookings'] as List? ?? [])
+          .map((b) => ShiftBookingInfo.fromJson(b as Map<String, dynamic>))
+          .where((b) => b.dateString.isEmpty || b.dateString == todayStr)
+          .toList();
+      if (todayList.isEmpty && todayBooking != null) todayList.add(todayBooking);
+
       return {
         'todayBooking': todayBooking,
+        'todayBookings': todayList,
         'upcomingBookings': upcoming,
       };
     } catch (e) {
@@ -253,16 +251,6 @@ class ShiftService {
           'notificationTimeMinutes': minutes,
         }),
       );
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> cancelBooking(String bookingId) async {
-    try {
-      final path = '${ApiConfig.shiftBookings}/$bookingId/cancel';
-      final res = await apiPatch(path, headers: _headers);
       return res.statusCode == 200;
     } catch (_) {
       return false;

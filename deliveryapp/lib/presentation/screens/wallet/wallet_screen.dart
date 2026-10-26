@@ -38,6 +38,7 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _canWithdraw = false;
   bool _withdrawEnabled = false;
   Map<String, dynamic>? _fullTime;
+  Map<String, dynamic>? _salary;
   VoidCallback? _boyListener;
 
   @override
@@ -94,6 +95,9 @@ class _WalletScreenState extends State<WalletScreen> {
         _fullTime = body['fullTime'] is Map
             ? Map<String, dynamic>.from(body['fullTime'] as Map)
             : null;
+        _salary = body['salary'] is Map
+            ? Map<String, dynamic>.from(body['salary'] as Map)
+            : null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -105,6 +109,26 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   String _rupee(num n) => rupeeAmount(n);
+
+  num get _todayIncentive => (_salary?['todayIncentives'] as num?) ?? 0;
+
+  num? get _salaryValue {
+    final v = (_salary?['salaryAmount'] as num?) ??
+        (_salary?['monthlySalary'] as num?) ??
+        (_fullTime?['monthlySalary'] as num?);
+    return v != null && v > 0 ? v : null;
+  }
+
+  String _salaryPeriodLabel(AppLocalizations l10n) {
+    switch (_salary?['salaryPeriod']?.toString()) {
+      case 'day':
+        return l10n.perDay;
+      case 'week':
+        return l10n.perWeek;
+      default:
+        return l10n.perMonth;
+    }
+  }
 
   static String _iso(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -229,7 +253,21 @@ class _WalletScreenState extends State<WalletScreen> {
                   color: Colors.white.withValues(alpha: 0.85),
                 ),
               ),
+              const SizedBox(height: 14),
+              _HeroBlock(
+                icon: Icons.bolt_rounded,
+                label: l10n.todaysIncentive,
+                value: _rupee(_todayIncentive),
+              ),
               const SizedBox(height: 12),
+              _HeroBlock(
+                icon: Icons.payments_outlined,
+                label: _salaryValue == null
+                    ? l10n.salaryLabel
+                    : '${l10n.salaryLabel} · ${_salaryPeriodLabel(l10n)}',
+                value: _salaryValue == null ? l10n.salaryNotSet : _rupee(_salaryValue!),
+              ),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -536,6 +574,57 @@ class _HistoryRow extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w800,
               color: isDark ? const Color(0xFF34D399) : AppColors.success,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroBlock extends StatelessWidget {
+  const _HeroBlock({required this.icon, required this.label, required this.value});
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: Colors.white.withValues(alpha: 0.9)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              height: 1.1,
             ),
           ),
         ],

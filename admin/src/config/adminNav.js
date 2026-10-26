@@ -47,6 +47,7 @@ import {
   ArrowLeftRight,
   Layers,
   FolderTree,
+  CalendarClock,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -414,6 +415,13 @@ export const NAV_GROUPS = [
         icon: Bike,
         implemented: true,
         description: 'Delivery managers, dark stores, and delivery boy profiles.',
+      },
+      {
+        name: 'Delivery Slots',
+        href: '/delivery-slots',
+        icon: CalendarClock,
+        implemented: true,
+        description: 'Create delivery slots with KM / hour incentives and assign them to delivery partners.',
       },
       {
         name: 'Delivery Tracking',

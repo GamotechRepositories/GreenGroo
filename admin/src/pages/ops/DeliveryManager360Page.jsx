@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
+import AdminSlotsPanel from '../../components/delivery/AdminSlotsPanel';
 
 function when(value) {
   if (!value) return '—';
@@ -78,6 +79,7 @@ export default function DeliveryManager360Page() {
   const tabs = [
     { id: 'store', label: 'Store' },
     { id: 'riders', label: `Riders (${data.riders?.length || 0})` },
+    { id: 'slots', label: 'Slots' },
     { id: 'orders', label: `Orders (${data.orders?.length || 0})` },
     { id: 'meetings', label: `Meetings (${meetings.length})` },
   ];
@@ -187,6 +189,8 @@ export default function DeliveryManager360Page() {
           </div>
         </div>
       ) : null}
+
+      {tab === 'slots' ? <AdminSlotsPanel managerId={id} /> : null}
 
       {tab === 'orders' ? (
         <div className={PANEL}>

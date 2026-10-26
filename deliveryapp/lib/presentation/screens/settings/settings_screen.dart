@@ -54,9 +54,6 @@ class _SettingsBodyState extends State<_SettingsBody> {
     return switch (code) {
       'hi' => l10n.languageHindi,
       'mr' => l10n.languageMarathi,
-      'ta' => l10n.languageTamil,
-      'te' => l10n.languageTelugu,
-      'kn' => l10n.languageKannada,
       _ => l10n.languageEnglish,
     };
   }

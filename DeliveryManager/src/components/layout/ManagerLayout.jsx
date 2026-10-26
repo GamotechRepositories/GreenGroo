@@ -4,9 +4,6 @@ import { Icon, LogoIcon } from "../ui/Icon";
 import { useAuth } from "../../context/AuthContext";
 import Header from "./Header";
 import StoreQrModal from "../StoreQrModal";
-import { managerApi } from "../../api/managerApi";
-import RoleAnnouncements from "../RoleAnnouncements";
-
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
   { to: "/orders", label: "Incoming Orders", icon: "orders" },
@@ -47,6 +44,7 @@ const navItems = [
   { to: "/stock", label: "Stock Inventory", icon: "box" },
   { to: "/drivers", label: "Approved Drivers", icon: "truck", end: true },
   { to: "/drivers/pending", label: "Driver Verification", icon: "user" },
+  { to: "/announcements", label: "Announcements", icon: "megaphone" },
   { to: "/alerts", label: "Operational Alerts", icon: "bell" },
   { to: "/policies", label: "Policies", icon: "clipboard" },
   { to: "/support", label: "Support", icon: "support" },
@@ -222,11 +220,6 @@ export default function ManagerLayout() {
         {/* Right Content Viewport - Independent Scroll Viewport */}
         <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 lg:p-8">
           <div className="max-w-7xl w-full mx-auto space-y-6">
-            <RoleAnnouncements
-              roleKey="delivery_manager"
-              load={() => managerApi.liveAnnouncements()}
-              loadCalendar={() => managerApi.liveCalendar()}
-            />
             <Outlet />
           </div>
         </main>

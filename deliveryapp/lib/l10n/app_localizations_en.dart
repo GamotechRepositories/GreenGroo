@@ -1531,4 +1531,159 @@ class AppLocalizationsEn extends AppLocalizations {
   String distanceKmValue(String km) {
     return '$km km';
   }
+
+  @override
+  String get welcomeBack => 'Welcome Back!';
+
+  @override
+  String get loginOtpSubtitle =>
+      'Enter your mobile number — we\'ll send you an OTP';
+
+  @override
+  String get registerOtpSubtitle =>
+      'Join as a Delivery Partner with your mobile number';
+
+  @override
+  String otpSentTo(String phone) {
+    return 'We\'ve sent a 6 digit OTP to\n+91 $phone';
+  }
+
+  @override
+  String get resendOtpIn => 'Resend OTP in ';
+
+  @override
+  String get resendNow => 'Resend Now';
+
+  @override
+  String get otpResent => 'OTP resent successfully';
+
+  @override
+  String get agreeTermsPrefix => 'I agree to the ';
+
+  @override
+  String get termsAndConditions => 'Terms & Conditions';
+
+  @override
+  String get andWord => ' and ';
+
+  @override
+  String get privacyPolicy => 'Privacy Policy';
+
+  @override
+  String get agreeTermsError => 'Please agree to Terms & Conditions';
+
+  @override
+  String get noAccountPrompt => 'Don\'t have an account? ';
+
+  @override
+  String get haveAccountPrompt => 'Already have an account? ';
+
+  @override
+  String get registerNow => 'Register Now';
+
+  @override
+  String get pickupDriverLogin => 'Pickup driver? Login with password';
+
+  @override
+  String get markAsRead => 'Mark as read';
+
+  @override
+  String get announcementMovedToNotifications => 'Moved to Notifications';
+
+  @override
+  String get noSlotAssignedTitle => 'No slot assigned';
+
+  @override
+  String get noSlotAssignedMessage =>
+      'No slot is assigned to you for today. Your Delivery Manager assigns slots — you can also go online while a live gig is running.';
+
+  @override
+  String get viewMySlots => 'View my slots';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get ok => 'OK';
+
+  @override
+  String get detectingLocation => 'Detecting your location…';
+
+  @override
+  String get locationUnavailable =>
+      'Couldn\'t get your location. Turn on GPS and try again.';
+
+  @override
+  String get locationVerified => 'Location verified';
+
+  @override
+  String get locationCheckFailed => 'Location check failed';
+
+  @override
+  String get slotsAssignedByManager =>
+      'Slots are assigned by your Delivery Manager. You\'ll get a notification when a new slot is assigned.';
+
+  @override
+  String get todaysSlots => 'TODAY\'S SLOTS';
+
+  @override
+  String get noSlotAssignedToday => 'No slot assigned for today yet.';
+
+  @override
+  String get noUpcomingSlotsAssigned => 'No upcoming slots assigned.';
+
+  @override
+  String incentivePerKm(String rate) {
+    return '₹$rate/km incentive';
+  }
+
+  @override
+  String incentivePerHour(String rate) {
+    return '₹$rate/hr incentive';
+  }
+
+  @override
+  String get salaryAndIncentives => 'Salary & Incentives';
+
+  @override
+  String get slotIncentives => 'Slot Incentives';
+
+  @override
+  String get perMonth => 'per month';
+
+  @override
+  String todayIncentiveEarned(String amount) {
+    return '$amount incentive earned today';
+  }
+
+  @override
+  String salaryAmount(String amount) {
+    return 'Salary $amount';
+  }
+
+  @override
+  String get salaryNotCreditedYet => 'Salary pending';
+
+  @override
+  String incentiveAmount(String amount) {
+    return 'Incentive $amount';
+  }
+
+  @override
+  String get recentIncentives => 'Recent incentives';
+
+  @override
+  String get todaysIncentive => 'Today\'s incentive';
+
+  @override
+  String get salaryLabel => 'Salary';
+
+  @override
+  String get perDay => 'per day';
+
+  @override
+  String get perWeek => 'per week';
+
+  @override
+  String get salaryNotSet => 'Not set yet';
 }

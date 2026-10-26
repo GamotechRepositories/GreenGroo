@@ -2,6 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { managerApi } from "../../api/managerApi";
+import AssignRidersModal from "../../components/shifts/AssignRidersModal";
+
+const incentiveLabel = (slot) =>
+  slot?.incentiveMode === "per_km" && slot.incentiveRate > 0
+    ? `₹${slot.incentiveRate} / km`
+    : slot?.incentiveMode === "per_hour" && slot.incentiveRate > 0
+      ? `₹${slot.incentiveRate} / hr`
+      : "—";
 
 const getTodayString = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -165,7 +173,11 @@ export default function ShiftManagementPage() {
   const [editStatus, setEditStatus] = useState("AVAILABLE");
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
+  const [editIncentiveMode, setEditIncentiveMode] = useState("none");
+  const [editIncentiveRate, setEditIncentiveRate] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [assignSlot, setAssignSlot] = useState(null);
+  const loadAssignableRiders = useCallback(() => managerApi.getAssignableRiders(), []);
 
   // Pagination state
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -359,6 +371,8 @@ export default function ShiftManagementPage() {
         status: editStatus,
         startTime: editStartTime,
         endTime: editEndTime,
+        incentiveMode: editIncentiveMode,
+        incentiveRate: editIncentiveMode === "none" ? 0 : Number(editIncentiveRate) || 0,
       });
       showToast(res.data.message || "Shift slot updated!");
       setEditingSlot(null);
@@ -375,6 +389,18 @@ export default function ShiftManagementPage() {
       endTime: slot.endTime,
       dateString: shift.dateString,
     });
+  };
+
+  const handleUnassignRider = async (rider) => {
+    const slotId = riderDetailsModalData?.slotId;
+    if (!slotId || !window.confirm(`Remove ${rider.deliveryPartnerName} from this slot?`)) return;
+    try {
+      const res = await managerApi.unassignSlotRider(slotId, rider.deliveryPartnerId);
+      showToast(res.data.message || "Removed from slot");
+      await Promise.all([handleOpenSlotDetails(slotId), loadShifts()]);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to remove delivery partner");
+    }
   };
 
   const confirmDeleteSlot = async (scope) => {
@@ -504,21 +530,19 @@ export default function ShiftManagementPage() {
                   <th className="px-5 py-2">TIME</th>
                   <th className="px-5 py-2">STATUS</th>
                   <th className="px-5 py-2">AVAILABLE</th>
-                  <th className="px-5 py-2">RIDERS JOINED</th>
-                  <th className="px-5 py-2">KM EARNING</th>
+                  <th className="px-5 py-2">ASSIGNED</th>
+                  <th className="px-5 py-2">INCENTIVE</th>
+                  <th className="px-5 py-2">SALARY</th>
                   <th className="px-5 py-2 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shifts.map((shift) => {
                   const shiftDateObj = formatDateWithDay(shift.dateString);
-                  const slabs = shift.deliveryEarningSlabs || [];
-                  const slabSummary =
-                    slabs.length > 0
-                      ? slabs
-                          .slice(0, 2)
-                          .map((s) => `${s.minKm}-${s.maxKm}km ₹${s.riderAmount}`)
-                          .join(" · ")
+                  const salaryValue = Number(shift.salaryAmount ?? shift.monthlySalary);
+                  const salaryLabel =
+                    salaryValue > 0
+                      ? `₹${salaryValue.toLocaleString("en-IN")}/${shift.salaryPeriod || "month"}`
                       : "—";
                   return (shift.slots || []).map((slot, index) => {
                     const availableCount = Math.max(0, slot.capacity - slot.bookedCount);
@@ -553,19 +577,34 @@ export default function ShiftManagementPage() {
                         </td>
                         <td className="px-5 py-4">
                           <span className="font-bold text-emerald-700 underline">
-                            {slot.bookedCount || 0} joined · View
+                            {slot.bookedCount || 0} assigned · View
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-xs font-semibold text-slate-600 max-w-[180px]">
-                          {slot.deliveryEarningSlabs?.length
-                            ? slot.deliveryEarningSlabs
-                                .slice(0, 2)
-                                .map((s) => `${s.minKm}-${s.maxKm}km ₹${s.riderAmount}`)
-                                .join(" · ")
-                            : slabSummary}
+                        <td className="px-5 py-4 text-xs font-bold text-amber-700 whitespace-nowrap">
+                          {incentiveLabel(slot)}
+                        </td>
+                        <td className="px-5 py-4 text-xs font-bold text-emerald-700 whitespace-nowrap">
+                          {salaryLabel}
                         </td>
                         <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
+                            {label !== "Expired" && slot.status !== "CANCELLED" && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAssignSlot({
+                                    ...slot,
+                                    dateString: shift.dateString,
+                                    assignedRiderIds: (slot.bookings || [])
+                                      .filter((b) => b.status !== "CANCELLED")
+                                      .map((b) => b.deliveryPartnerId),
+                                  })
+                                }
+                                className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                              >
+                                Assign
+                              </button>
+                            )}
                             {label !== "Expired" && (
                               <button
                                 type="button"
@@ -575,6 +614,8 @@ export default function ShiftManagementPage() {
                                   setEditStatus(slot.status);
                                   setEditStartTime(slot.startTime);
                                   setEditEndTime(slot.endTime);
+                                  setEditIncentiveMode(slot.incentiveMode || "none");
+                                  setEditIncentiveRate(slot.incentiveRate || "");
                                 }}
                                 className="rounded-lg border border-emerald-500 bg-white px-3 py-1 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
                               >
@@ -929,7 +970,36 @@ export default function ShiftManagementPage() {
                   onChange={(e) => setEditCapacity(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-medium"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">Currently booked: {editingSlot.bookedCount || 0}</p>
+                <p className="text-[11px] text-slate-400 mt-1">Currently assigned: {editingSlot.bookedCount || 0}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Incentive</label>
+                  <select
+                    value={editIncentiveMode}
+                    onChange={(e) => setEditIncentiveMode(e.target.value)}
+                    className="w-full rounded-xl border border-amber-200 px-3 py-2 text-xs font-medium"
+                  >
+                    <option value="none">No incentive</option>
+                    <option value="per_km">₹ per KM delivered</option>
+                    <option value="per_hour">₹ per hour online</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">
+                    {editIncentiveMode === "per_hour" ? "₹ / hour" : "₹ / KM"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    disabled={editIncentiveMode === "none"}
+                    value={editIncentiveRate}
+                    onChange={(e) => setEditIncentiveRate(e.target.value)}
+                    className="w-full rounded-xl border border-amber-200 px-3.5 py-2 text-xs font-medium disabled:opacity-40"
+                  />
+                </div>
               </div>
 
               <div>
@@ -996,7 +1066,7 @@ export default function ShiftManagementPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                ["Riders joined", riderDetailsModalData.summary?.ridersJoined ?? riderDetailsModalData.bookedCount ?? 0],
+                ["Assigned", riderDetailsModalData.summary?.ridersJoined ?? riderDetailsModalData.bookedCount ?? 0],
                 ["Orders received", riderDetailsModalData.summary?.ordersReceived ?? 0],
                 ["Orders taken", riderDetailsModalData.summary?.ordersTaken ?? 0],
                 ["Completed", riderDetailsModalData.summary?.ordersCompleted ?? 0],
@@ -1014,7 +1084,7 @@ export default function ShiftManagementPage() {
               </h4>
               {(riderDetailsModalData.deliveryPartners || []).length === 0 ? (
                 <p className="py-6 text-center text-xs text-slate-400 font-semibold">
-                  No delivery partners joined this slot.
+                  No delivery partners assigned to this slot yet.
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -1042,6 +1112,17 @@ export default function ShiftManagementPage() {
                           <p className="text-[10px] text-slate-500 mt-1">
                             Taken {rider.ordersTaken ?? 0} · Done {rider.ordersCompleted ?? 0}
                           </p>
+                          {!rider.notBookedOnSlot &&
+                            !riderDetailsModalData.isExpired &&
+                            rider.status !== "COMPLETED" && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnassignRider(rider)}
+                                className="mt-1 text-[10px] font-bold text-rose-600 hover:underline"
+                              >
+                                Remove
+                              </button>
+                            )}
                         </div>
                       </div>
 
@@ -1267,6 +1348,20 @@ export default function ShiftManagementPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {assignSlot && (
+        <AssignRidersModal
+          slot={assignSlot}
+          loadRiders={loadAssignableRiders}
+          assign={(body) => managerApi.assignSlotRiders(assignSlot.id || assignSlot.slotId, body)}
+          onClose={() => setAssignSlot(null)}
+          onAssigned={async (msg) => {
+            setAssignSlot(null);
+            showToast(msg);
+            await loadShifts();
+          }}
+        />
       )}
 
       {deleteTarget && (

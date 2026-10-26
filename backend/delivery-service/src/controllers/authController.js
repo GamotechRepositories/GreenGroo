@@ -120,7 +120,7 @@ const ALLOWED_STEPS = [
   "home",
 ];
 
-const ALLOWED_LANGUAGES = ["en", "hi", "mr", "ta", "te", "kn"];
+const ALLOWED_LANGUAGES = ["en", "hi", "mr"];
 const ALLOWED_VEHICLES = [
   "motorcycle",
   "bicycle",
@@ -443,7 +443,12 @@ export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
       });
     }
 
-    const verification = await verifyOtp({ phone, otp, purpose });
+    const isRegister = purpose === "register" || purpose === "signup";
+    const verification = await verifyOtp({
+      phone,
+      otp,
+      purpose: isRegister ? "register" : "login",
+    });
     if (!verification.ok) {
       return res.status(400).json({
         success: false,
@@ -451,17 +456,19 @@ export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
       });
     }
 
-    const isRegister = purpose === "register" || purpose === "signup";
-    if (isRegister) {
-      return res.json({
-        success: true,
-        verified: true,
+    const language = String(req.body.language || "").trim();
+    let deliveryBoy = await DeliveryBoy.findOne({ phone });
+
+    if (isRegister && !deliveryBoy) {
+      deliveryBoy = await DeliveryBoy.create({
         phone,
-        message: "Phone number verified successfully. You can complete registration.",
+        language: ALLOWED_LANGUAGES.includes(language) ? language : "en",
+        employmentType: "PART_TIME",
       });
+      const token = signToken(deliveryBoy);
+      return res.status(201).json(authResponse(deliveryBoy, token));
     }
 
-    const deliveryBoy = await DeliveryBoy.findOne({ phone });
     if (!deliveryBoy) {
       return res.status(404).json({
         success: false,
@@ -474,6 +481,11 @@ export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
         success: false,
         message: "Account is deactivated. Contact support.",
       });
+    }
+
+    if (ALLOWED_LANGUAGES.includes(language) && deliveryBoy.language !== language) {
+      deliveryBoy.language = language;
+      await deliveryBoy.save();
     }
 
     const token = signToken(deliveryBoy);
@@ -1280,6 +1292,9 @@ export const getTodayProgress = async (req, res, next) => {
         (sum, o) => sum + Number(o.riderDeliveryEarning || 0),
         0
       );
+      computedEarnings += (rider.incentiveCredits || [])
+        .filter((c) => c.dateString === todayISTDateString)
+        .reduce((sum, c) => sum + Number(c.amount || 0), 0);
     } catch (_) {
       // Fallback only if query fails — still clamp to today's counters after day reset above
       computedEarnings = Math.max(0, Number(rider.todayEarnings || 0));

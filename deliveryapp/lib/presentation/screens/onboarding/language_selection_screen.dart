@@ -58,13 +58,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   String _displayName(AppLocalizations l10n, String code) {
     return switch (code) {
       'en' => 'English',
-      'hi' => 'हिंदी (Hindi)',
-      'bn' => 'বাংলা (Bengali)',
-      'gu' => 'ગુજરાતી (Gujarati)',
       'mr' => 'मराठी (Marathi)',
-      'ta' => 'தமிழ் (Tamil)',
-      'te' => 'తెలుగు (Telugu)',
-      'kn' => 'ಕನ್ನಡ (Kannada)',
+      'hi' => 'हिंदी (Hindi)',
       _ => SupportedLocales.nativeName(code),
     };
   }

@@ -254,6 +254,10 @@ export async function sendOtp({
     console.warn(`[OTP Store DB Note] ${dbErr.message}`);
   }
 
+  if (process.env.OTP_DEBUG_LOG === "true") {
+    console.log(`[OTP DEBUG] +91${phone10}: ${otpCode} (${purpose})`);
+  }
+
   if (!isMsg91Configured()) {
     console.warn(
       `[MSG91 DEV MOCK] OTP for +91${phone10}: ${otpCode} | Template: ${finalTemplateId} (Configure MSG91_AUTH_KEY in .env for live SMS)`
@@ -273,9 +277,14 @@ export async function sendOtp({
       template_id: finalTemplateId,
       short_url: "0",
       recipients: [
+        // DLT templates name the OTP variable differently; MSG91 ignores unused keys.
         {
           mobiles: toMsg91Mobile(phone10),
           number: otpCode,
+          OTP: otpCode,
+          otp: otpCode,
+          var: otpCode,
+          var1: otpCode,
         },
       ],
     };

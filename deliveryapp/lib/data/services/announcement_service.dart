@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/config/api_config.dart';
 
 class HrAnnouncement {
@@ -46,11 +48,31 @@ class AnnouncementService {
   AnnouncementService._();
   static final AnnouncementService instance = AnnouncementService._();
 
+  static const _readIdsKey = 'read_announcement_ids';
+
+  Future<Set<String>> _readIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_readIdsKey) ?? const []).toSet();
+  }
+
+  /// Read announcements leave the home page; they stay in Notifications.
+  Future<void> markRead(String id) async {
+    if (id.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final ids = (prefs.getStringList(_readIdsKey) ?? <String>[]).toList();
+    if (ids.contains(id)) return;
+    ids.add(id);
+    // Keep the list bounded — old announcements expire server-side anyway.
+    final trimmed = ids.length > 200 ? ids.sublist(ids.length - 200) : ids;
+    await prefs.setStringList(_readIdsKey, trimmed);
+  }
+
   Future<List<HrAnnouncement>> fetchLive() async {
     final results = await Future.wait([
       _getList('/api/admin-ops/hr/announcements/live?role=delivery_boy'),
       _getList('/api/admin-ops/hr/calendar/live?role=delivery_boy'),
     ]);
+    final readIds = await _readIds();
     final announcements = results[0]
         .map(HrAnnouncement.fromJson)
         .where((item) => item.title.isNotEmpty)
@@ -69,7 +91,10 @@ class AnnouncementService {
           }
           return true;
         });
-    return [...announcements, ...calendarExtras].take(5).toList();
+    return [...announcements, ...calendarExtras]
+        .where((item) => !readIds.contains(item.id))
+        .take(5)
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> _getList(String path) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,11 +8,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/shift_service.dart';
+import '../../../data/services/socket_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../widgets/buttons/primary_button.dart';
+import '../../widgets/dialogs/status_dialog.dart';
 import '../../widgets/layout/custom_app_bar.dart';
-import 'select_shift_screen.dart';
 
+/// Slots assigned by Admin / Delivery Manager. Riders can no longer book or cancel slots.
 class MyShiftsScreen extends StatefulWidget {
   const MyShiftsScreen({super.key, this.embedded = false});
 
@@ -21,581 +24,264 @@ class MyShiftsScreen extends StatefulWidget {
 }
 
 class _MyShiftsScreenState extends State<MyShiftsScreen> {
-  int _activeTab = 0; // 0 = My Shifts, 1 = Available Shifts
   bool _loading = true;
-  ShiftBookingInfo? _todayBooking;
+  List<ShiftBookingInfo> _todayBookings = const [];
   List<ShiftBookingInfo> _upcomingBookings = const [];
+  StreamSubscription<Map<String, dynamic>>? _deliverySub;
+  StreamSubscription<Map<String, dynamic>>? _notificationSub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _deliverySub = SocketService.instance.onActiveDeliveryUpdated.listen((event) {
+      final reason = event['reason']?.toString() ?? '';
+      if (reason.startsWith('shift_')) _load(silent: true);
+    });
+    _notificationSub = SocketService.instance.onRiderNotification.listen((event) {
+      if (event['type']?.toString() == 'SHIFT_ASSIGNED') _load(silent: true);
+    });
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _deliverySub?.cancel();
+    _notificationSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     final res = await ShiftService.instance.fetchMyBookings();
-    if (mounted) {
-      setState(() {
-        _todayBooking = res['todayBooking'] as ShiftBookingInfo?;
-        _upcomingBookings = (res['upcomingBookings'] as List<ShiftBookingInfo>?) ?? [];
-        _loading = false;
-      });
-      final msgs = await AuthService.instance.consumeSlotCancellationAlerts();
-      if (!mounted || msgs.isEmpty) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msgs.join('\n')),
-          duration: const Duration(seconds: 6),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  Future<void> _cancelBooking(String bookingId) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Shift Booking'),
-        content: const Text('Are you sure you want to cancel this shift booking? Your slot will be released to other partners.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Booking', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+    if (!mounted) return;
+    setState(() {
+      _todayBookings = (res['todayBookings'] as List<ShiftBookingInfo>?) ?? const [];
+      _upcomingBookings = (res['upcomingBookings'] as List<ShiftBookingInfo>?) ?? const [];
+      _loading = false;
+    });
+    final msgs = await AuthService.instance.consumeSlotCancellationAlerts();
+    if (!mounted || msgs.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msgs.join('\n')),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
       ),
     );
-
-    if (ok == true) {
-      final success = await ShiftService.instance.cancelBooking(bookingId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? 'Booking cancelled' : 'Failed to cancel booking')),
-        );
-        if (success) _load();
-      }
-    }
   }
 
   Future<void> _goOnlineWithLocation() async {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Detecting GPS location and verifying at store...'),
-        duration: Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(l10n.detectingLocation), duration: const Duration(seconds: 2)),
     );
 
     final position = await LocationService.instance.getCurrentLocation();
-    final lat = position?.latitude ?? 18.5959;
-    final lng = position?.longitude ?? 73.7181;
-
-    final result = await ShiftService.instance.goOnlineWithLocation(lat, lng);
-
-    if (mounted) {
-      if (result.success) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: Color(0xFF0F5A32), size: 28),
-                SizedBox(width: 8),
-                Text('Location Verified!'),
-              ],
-            ),
-            content: Text(result.message),
-            actions: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Start Taking Orders', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
-        _load();
-      } else {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-                SizedBox(width: 8),
-                Text('Location Check Failed'),
-              ],
-            ),
-            content: Text(result.message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
+    if (!mounted) return;
+    if (position == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.locationUnavailable), backgroundColor: AppColors.error),
+      );
+      return;
     }
+
+    final result = await ShiftService.instance.goOnlineWithLocation(position.latitude, position.longitude);
+    if (!mounted) return;
+    await showStatusDialog(
+      context,
+      success: result.success,
+      title: result.success ? l10n.locationVerified : l10n.locationCheckFailed,
+      message: result.message,
+      buttonLabel: l10n.ok,
+    );
+    if (result.success) _load(silent: true);
+  }
+
+  String _incentiveText(AppLocalizations l10n, ShiftBookingInfo b) {
+    final rate = b.incentiveRate % 1 == 0 ? b.incentiveRate.toStringAsFixed(0) : b.incentiveRate.toStringAsFixed(1);
+    return b.incentiveMode == 'per_hour' ? l10n.incentivePerHour(rate) : l10n.incentivePerKm(rate);
+  }
+
+  String _dateLabel(String dateString) {
+    final d = DateTime.tryParse(dateString);
+    if (d == null) return dateString;
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${days[d.weekday - 1]}, ${d.day} ${months[d.month - 1]}';
+  }
+
+  Widget _sectionTitle(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          text,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSecondary,
+            letterSpacing: 1.2,
+          ),
+        ),
+      );
+
+  Widget _slotCard(AppLocalizations l10n, ShiftBookingInfo b, {bool today = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final green = isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: today ? green : AppColors.cardBorder,
+          width: today ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${b.startTime} – ${b.endTime}',
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  b.status,
+                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: green),
+                ),
+              ),
+            ],
+          ),
+          if (!today) ...[
+            const SizedBox(height: 2),
+            Text(_dateLabel(b.dateString),
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  b.storeName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+          if (b.hasIncentive) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.local_fire_department_rounded, size: 14, color: Color(0xFFC2410C)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _incentiveText(l10n, b),
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFC2410C)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    Widget content;
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    Widget tabView;
-    if (_activeTab == 1) {
-      tabView = SelectShiftScreen(
-        embedded: true,
-        onBookingDone: _load,
-      );
+      content = const Center(child: CircularProgressIndicator());
     } else {
-      tabView = RefreshIndicator(
+      content = RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            // TODAY'S SHIFT CARD
-            Text(
-              "TODAY'S SHIFT BOOKING",
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            if (_todayBooking == null && _upcomingBookings.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.cardBorder),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.event_busy_rounded, color: Colors.orange, size: 48),
-                    const SizedBox(height: 12),
-                    Text(
-                      l10n.noShiftsBookedYet,
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'You have no active or upcoming shift bookings. Would you like to book a shift slot now?',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 18),
-                    PrimaryButton(
-                      label: l10n.bookShiftNow,
-                      onPressed: () {
-                        setState(() => _activeTab = 1);
-                      },
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              if (_todayBooking == null)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: ThemeController.instance.isDark ? const Color(0xFF451A1A) : const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: ThemeController.instance.isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 22),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l10n.noShiftBookedForToday,
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                color: ThemeController.instance.isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        l10n.mandatoryBookShiftHint,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: ThemeController.instance.isDark ? const Color(0xFFFECACA) : const Color(0xFF7F1D1D),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      PrimaryButton(
-                        label: l10n.selectShiftSlotNow,
-                        onPressed: () {
-                          setState(() => _activeTab = 1);
-                        },
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFF0F5A32),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadow,
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _todayBooking!.status,
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${_todayBooking!.startTime} – ${_todayBooking!.endTime}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: () => _cancelBooking(_todayBooking!.id),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            icon: const Icon(Icons.close_rounded, size: 14, color: Colors.red),
-                            label: const Text(
-                              'Cancel',
-                              style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              _todayBooking!.storeName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 40,
-                        child: ElevatedButton(
-                          onPressed: _goOnlineWithLocation,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            l10n.verifyLocationAndGoOnline,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 28),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Row(
                 children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      l10n.upcomingShiftsTitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textSecondary,
-                        letterSpacing: 1.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      l10n.slotsAssignedByManager,
+                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _activeTab = 1);
-                    },
-                    child: Text(l10n.bookMore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              if (_upcomingBookings.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.cardBorder),
+            ),
+            const SizedBox(height: 20),
+            _sectionTitle(l10n.todaysSlots),
+            if (_todayBookings.isEmpty)
+              _emptyCard(l10n.noSlotAssignedToday)
+            else ...[
+              for (final b in _todayBookings) ...[
+                _slotCard(l10n, b, today: true),
+                const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: _goOnlineWithLocation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: Center(
-                    child: Text(
-                      l10n.noFutureUpcomingShifts,
-                      style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 13),
-                    ),
+                  child: Text(
+                    l10n.verifyLocationAndGoOnline,
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _upcomingBookings.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final b = _upcomingBookings[index];
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBackground,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.cardBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF064E3B) : const Color(0xFF0F5A32).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Text('📅', style: TextStyle(fontSize: 14)),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '${b.startTime} – ${b.endTime}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  b.storeName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => _cancelBooking(b.id),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
                 ),
+              ),
             ],
-        ],
-      ),
-    );
-    }
-
-    final segmentedTabBar = Container(
-      color: AppColors.background,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: AppColors.cardSubBg,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _activeTab = 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: _activeTab == 0 ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.assignment_turned_in_rounded,
-                          size: 18,
-                          color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          l10n.myShifts,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _activeTab = 1),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: _activeTab == 1 ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.event_available_rounded,
-                          size: 18,
-                          color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          l10n.availableShifts,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 28),
+            _sectionTitle(l10n.upcomingShiftsTitle),
+            if (_upcomingBookings.isEmpty)
+              _emptyCard(l10n.noUpcomingSlotsAssigned)
+            else
+              for (final b in _upcomingBookings) ...[
+                _slotCard(l10n, b),
+                const SizedBox(height: 8),
+              ],
           ],
         ),
-      ),
-    );
+      );
+    }
 
-    final body = Column(
-      children: [
-        segmentedTabBar,
-        Expanded(child: tabView),
-      ],
-    );
-
-    if (widget.embedded) return body;
+    if (widget.embedded) return content;
 
     return Scaffold(
       appBar: CustomAppBar(
@@ -603,7 +289,28 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
         subtitle: l10n.myShiftsSubtitle,
         showBackButton: true,
       ),
-      body: body,
+      body: content,
     );
   }
+
+  Widget _emptyCard(String text) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.event_busy_rounded, color: Colors.orange, size: 36),
+            const SizedBox(height: 8),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
+        ),
+      );
 }

@@ -1123,6 +1123,10 @@ export const completeDelivery = async (req, res, next) => {
     if (!salaryBased) {
       await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
     }
+    {
+      const { creditKmIncentiveForOrder } = await import("../services/slotAssignmentService.js");
+      await creditKmIncentiveForOrder(order, riderId);
+    }
 
     if (riderDeliveryEarning > 0) {
       try {

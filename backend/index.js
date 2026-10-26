@@ -168,6 +168,16 @@ connectDB("server").then(async () => {
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();
   initWalletCreditCron();
+  {
+    const { settleEndedHourIncentives } = await import(
+      "./delivery-service/src/services/slotAssignmentService.js"
+    );
+    setInterval(() => {
+      settleEndedHourIncentives().catch((err) =>
+        console.warn("[slotIncentive] hourly settle failed:", err.message)
+      );
+    }, 60 * 1000);
+  }
   try {
     const { getFirebaseAdmin, getCustomerFirebaseAdmin } = await import(
       "./legacy/config/firebaseAdmin.js"

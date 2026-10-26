@@ -129,6 +129,10 @@ export const managerApi = {
   deleteSlotDateWise: (slotId, data = {}) =>
     api.delete(`${BASE}/shifts/slots/${slotId}`, { data }),
   getSlotDetailsWithRiders: (slotId) => api.get(`${BASE}/shifts/slots/${slotId}/details`),
+  getAssignableRiders: () => api.get(`${BASE}/shifts/assignable-riders`),
+  assignSlotRiders: (slotId, body) => api.post(`${BASE}/shifts/slots/${slotId}/assign`, body),
+  unassignSlotRider: (slotId, riderId) =>
+    api.delete(`${BASE}/shifts/slots/${slotId}/assign/${riderId}`),
   getShiftEarningSlabs: (shiftId) => api.get(`${BASE}/shifts/${shiftId}/earning-slabs`),
   updateShiftEarningSlabs: (shiftId, deliveryEarningSlabs) =>
     api.put(`${BASE}/shifts/${shiftId}/earning-slabs`, { deliveryEarningSlabs }),
