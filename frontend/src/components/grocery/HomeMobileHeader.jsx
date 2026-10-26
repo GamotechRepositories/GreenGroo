@@ -21,13 +21,55 @@ function SearchIcon({ className = "h-4 w-4" }) {
   );
 }
 
+const STORE_ACCENT = {
+  main: { text: "text-[#0C831F]", ring: "ring-emerald-600/15" },
+  festive: { text: "text-[#B45309]", ring: "ring-amber-600/20" },
+  mall: { text: "text-[#2563EB]", ring: "ring-blue-600/15" },
+};
+
+function StoreIcon({ storeKey, className = "h-4 w-4" }) {
+  const common = {
+    className,
+    fill: "none",
+    viewBox: "0 0 24 24",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+  if (storeKey === "festive") {
+    return (
+      <svg {...common}>
+        <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
+        <path d="M6 17h12" />
+      </svg>
+    );
+  }
+  if (storeKey === "mall") {
+    return (
+      <svg {...common}>
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18M12 14v3l2 1" />
+    </svg>
+  );
+}
+
 function ProfileButton({ theme }) {
   const { user, openAuthModal } = useAuth();
-  const className = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${theme.profileClass} shadow-sm transition active:scale-95`;
+  const accent = STORE_ACCENT[theme.key] || STORE_ACCENT.main;
+  const className = `flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white ${accent.text} shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 transition active:scale-95`;
 
   const icon = (
-    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+    <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
     </svg>
   );
 
@@ -52,31 +94,23 @@ function storeTabLabel(storeKey) {
   return "PreOrder";
 }
 
-/**
- * Compact store pills — brand color when active, soft tint when idle.
- */
+/** One segment of the store switcher — white card with the store accent when active. */
 function StoreTab({ storeKey, isCurrentActive, onSelect, children }) {
-  let idleClass = "bg-white/70 text-emerald-900/75";
-  let activeClass = "bg-white text-[#0C831F] shadow-[0_1px_4px_rgba(12,131,31,0.18)] ring-1 ring-white";
-
-  if (storeKey === "festive") {
-    idleClass = "bg-[#FDE68A]/70 text-[#92400E]/85";
-    activeClass =
-      "bg-[#FACC15] text-[#422006] shadow-[0_1px_4px_rgba(202,138,4,0.28)] ring-1 ring-white";
-  } else if (storeKey === "mall") {
-    idleClass = "bg-[#93C5FD]/65 text-[#1E3A8A]/90";
-    activeClass =
-      "bg-[#3B82F6] text-white shadow-[0_1px_4px_rgba(37,99,235,0.3)] ring-1 ring-white";
-  }
+  const accent = STORE_ACCENT[storeKey] || STORE_ACCENT.main;
 
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={isCurrentActive}
       onClick={() => onSelect(storeKey)}
-      className={`relative flex h-8 min-w-0 flex-1 items-center justify-center rounded-full px-2 text-center transition-all duration-200 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10 ${
-        isCurrentActive ? `${activeClass} font-bold` : `${idleClass} font-semibold`
+      className={`flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[9px] px-1.5 text-[12px] tracking-tight transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10 ${
+        isCurrentActive
+          ? `bg-white font-bold ${accent.text} shadow-[0_1px_3px_rgba(15,23,42,0.12)] ring-1 ${accent.ring}`
+          : "font-semibold text-slate-500 hover:text-slate-700"
       }`}
     >
+      <StoreIcon storeKey={storeKey} className="h-[15px] w-[15px] shrink-0" />
       {children}
     </button>
   );
@@ -108,19 +142,22 @@ export function HomeDeliveryBar() {
   const displaySections = sections.length ? sections : DEFAULT_STORE_SECTIONS;
 
   return (
-    <div className={`${theme.deliveryBg} px-3 pb-0 pt-1 transition-colors duration-300`}>
+    <div className={`${theme.deliveryBg} px-4 pb-0 pt-1.5 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-2">
-        <Link to="/" className="min-w-0 shrink leading-none py-0.5">
+        <Link to="/" className="min-w-0 shrink py-0.5 leading-none">
           <img
             src={LOGO_URL}
             alt="GreenGroo"
-            className="h-8 sm:h-9 w-auto max-w-[130px] sm:max-w-[150px] object-contain object-left"
+            className="h-8 w-auto max-w-[130px] object-contain object-left sm:h-9 sm:max-w-[150px]"
           />
         </Link>
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-2.5 flex w-full items-center gap-2">
+      <div
+        role="tablist"
+        className="mt-2 flex w-full items-center gap-1 rounded-[12px] bg-slate-900/[0.05] p-[3px]"
+      >
         {displaySections.map((sec) => {
           const storeKey = sectionToStoreKey(sec.slug || sec.storeType);
           const isCurrentActive = currentStore === storeKey;
@@ -133,7 +170,7 @@ export function HomeDeliveryBar() {
               isCurrentActive={isCurrentActive}
               onSelect={setStore}
             >
-              <span className="truncate px-0.5 text-[11px] tracking-tight">{label}</span>
+              <span className="truncate">{label}</span>
             </StoreTab>
           );
         })}
@@ -161,32 +198,32 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.searchBg || theme.contentBg} px-3 pb-1.5 pt-2.5 transition-colors duration-300`}>
+    <div className={`${theme.searchBg || theme.contentBg} px-4 pb-1 pt-2 transition-colors duration-300`}>
       <div className="flex items-center gap-2">
-        <form onSubmit={handleSearch} className="min-w-0 flex-1">
-          <div className="flex h-9 items-center rounded-full border border-black/5 bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            <SearchIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-500" />
+        <form onSubmit={handleSearch} className="min-w-0 flex-1" role="search">
+          <label className="flex h-9 items-center gap-2 rounded-[10px] bg-white px-3 ring-1 ring-slate-200 transition focus-within:ring-2 focus-within:ring-emerald-600/40">
+            <SearchIcon className="h-4 w-4 shrink-0 text-slate-500" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={theme.placeholder}
-              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              aria-label="Search products"
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none"
             />
-          </div>
+          </label>
         </form>
 
         <Link
           to="/coupons"
-          className="flex h-9 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-emerald-200/70 bg-white px-2.5 pl-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-95"
+          aria-label="Offers"
+          className={`flex h-9 shrink-0 items-center gap-1 rounded-[10px] bg-white px-2.5 ${(STORE_ACCENT[currentStore] || STORE_ACCENT.main).text} ring-1 ring-slate-200 transition active:scale-95`}
         >
-          <span className="text-[10px] font-black leading-tight text-[#047857]">
-            Offers
-            <span className="ml-0.5 text-amber-500">🎁</span>
-          </span>
-          <span className="flex h-6 min-w-[28px] items-center justify-center rounded-full bg-[#0C831F] px-1.5 text-[10px] font-black text-amber-300">
-            50%
-          </span>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
+            <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" />
+          </svg>
+          <span className="text-[11.5px] font-bold leading-none">Offers</span>
         </Link>
       </div>
     </div>

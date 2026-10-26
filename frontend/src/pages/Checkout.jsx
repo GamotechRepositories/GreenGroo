@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Banknote, Bike, Check, Coins, CreditCard, Gift, Receipt, Store, Tag } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
@@ -1116,7 +1117,7 @@ function Checkout() {
                 <path className="checkmark-draw" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-slate-900">Order Confirmed! 🎉</h3>
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">Order Confirmed!</h3>
             <p className="mb-6 text-sm leading-relaxed text-slate-500">{orderSuccessNote}</p>
             {orderStore ? (
               <div className="mb-5 text-left">
@@ -1233,13 +1234,13 @@ function Checkout() {
               subtitle: isPickup
                 ? "Cash or UPI when you collect your order"
                 : "Cash or UPI when your order arrives",
-              icon: "💵",
+              icon: <Banknote className="h-5 w-5" strokeWidth={2} />,
             },
             {
               plan: PAYMENT_PLAN.FULL,
               title: "Pay now",
               subtitle: `${formatPrice(orderTotal, 2)} by UPI or card`,
-              icon: "💳",
+              icon: <CreditCard className="h-5 w-5" strokeWidth={2} />,
             },
           ].map((option) => {
             const selected = paymentPlan === option.plan;
@@ -1254,7 +1255,11 @@ function Checkout() {
                     : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
                 }`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    selected ? "bg-emerald-100 text-[#047857]" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
                   {option.icon}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -1466,13 +1471,13 @@ function Checkout() {
                           onClick={() =>
                             setDeliveryInstructions((prev) => ({ ...prev, [option.key]: !prev[option.key] }))
                           }
-                          className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                          className={`inline-flex items-center gap-1 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
                             active
                               ? "border-[#047857] bg-emerald-50 text-[#047857]"
                               : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                           }`}
                         >
-                          {active ? "✓ " : ""}
+                          {active ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
                           {option.label}
                         </button>
                       );
@@ -1589,8 +1594,9 @@ function Checkout() {
                   {rewardsActive ? (
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-[13px] font-extrabold text-slate-900">
-                          🪙 Reward points{" "}
+                        <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-extrabold text-slate-900">
+                          <Coins className="h-4 w-4 text-amber-500" strokeWidth={2.2} />
+                          Reward points{" "}
                           <span className="font-semibold text-slate-500">
                             · {userRewardPoints} pts ({formatPrice((userRewardPoints || 0) * (rewardSettings?.pointValueInRupees || 1), 2)})
                           </span>
@@ -1678,14 +1684,14 @@ function Checkout() {
                 <SectionLabel>BILL DETAILS</SectionLabel>
                 <Card>
                   <BillRow
-                    icon="🧾"
+                    icon={<Receipt />}
                     label="Item Total"
                     struck={savings > 0 ? formatPrice(mrpTotal) : null}
                     value={formatPrice(subtotal)}
                   />
                   {couponDiscount > 0 ? (
                     <BillRow
-                      icon="🏷️"
+                      icon={<Tag />}
                       label={`Coupon (${appliedCoupon?.code})`}
                       value={`-${formatPrice(couponDiscount)}`}
                       valueClass="text-[#0B7A3B]"
@@ -1693,7 +1699,7 @@ function Checkout() {
                   ) : null}
                   {giftCardDiscount > 0 ? (
                     <BillRow
-                      icon="🎁"
+                      icon={<Gift />}
                       label="Gift card"
                       value={`-${formatPrice(giftCardDiscount)}`}
                       valueClass="text-[#0B7A3B]"
@@ -1701,14 +1707,14 @@ function Checkout() {
                   ) : null}
                   {rewardDiscount > 0 ? (
                     <BillRow
-                      icon="🪙"
+                      icon={<Coins />}
                       label={`Reward points (${effectiveRewardPoints} pts)`}
                       value={`-${formatPrice(rewardDiscount, 2)}`}
                       valueClass="text-[#0B7A3B]"
                     />
                   ) : null}
                   <BillRow
-                    icon={isPickup ? "🏪" : "🛵"}
+                    icon={isPickup ? <Store /> : <Bike />}
                     label={isPickup ? "Store pickup" : "Delivery Fee"}
                     value={!deliveryFeeKnown ? "Calculating…" : deliveryCharges <= 0 ? "FREE" : formatPrice(deliveryCharges)}
                     valueClass={deliveryFeeKnown && deliveryCharges <= 0 ? "text-[#0B7A3B]" : "text-slate-900"}
@@ -1734,8 +1740,9 @@ function Checkout() {
                     <span className="text-[15px] font-extrabold">{formatPrice(orderTotal)}</span>
                   </div>
                   {rewardsActive && pointsToEarn > 0 ? (
-                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
-                      🪙 You will earn +{pointsToEarn} reward points on this order
+                    <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                      <Coins className="h-4 w-4 shrink-0 text-amber-500" strokeWidth={2.2} />
+                      You will earn +{pointsToEarn} reward points on this order
                     </p>
                   ) : null}
                 </Card>
@@ -1778,7 +1785,11 @@ function Checkout() {
                       <p className="text-[10.5px] font-bold tracking-wider text-slate-500">PAY USING</p>
                       <p className="flex items-center gap-1.5 truncate text-sm font-extrabold">
                         {paymentPlan ? (
-                          <span aria-hidden="true">{paymentPlan === PAYMENT_PLAN.COD ? "💵" : "💳"}</span>
+                          paymentPlan === PAYMENT_PLAN.COD ? (
+                            <Banknote className="h-4 w-4 shrink-0 text-[#047857]" strokeWidth={2.2} aria-hidden="true" />
+                          ) : (
+                            <CreditCard className="h-4 w-4 shrink-0 text-[#047857]" strokeWidth={2.2} aria-hidden="true" />
+                          )
                         ) : null}
                         <span className="truncate">{paymentLabel || "Choose payment method"}</span>
                       </p>

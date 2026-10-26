@@ -34,7 +34,7 @@ function MobileLayout({ children }) {
 
       <main
         className={`mx-auto w-full flex-1 pt-0 ${
-          isHome ? "pb-0 lg:pb-0" : isShop ? "pb-[56px] pt-0 lg:pb-0" : "pb-24 lg:pb-8"
+          isHome || hideNavs ? "pb-0 lg:pb-0" : isShop ? "pb-[56px] pt-0 lg:pb-0" : "pb-24 lg:pb-8"
         }`}
       >
         {children}
@@ -42,7 +42,7 @@ function MobileLayout({ children }) {
 
       {showsFloatingCartBar(pathname) ? <FloatingCartBar /> : null}
 
-      <Footer />
+      {!hideNavs && <Footer />}
 
       {!hideNavs && <BottomNav />}
     </div>

@@ -1,4 +1,11 @@
-import { DEPARTMENT_META, FULFILLMENT } from "../../utils/departments";
+import { Bike, CalendarClock, CookingPot, Phone, Store, Zap } from "lucide-react";
+import { DEPARTMENT, DEPARTMENT_META, FULFILLMENT } from "../../utils/departments";
+
+const DEPARTMENT_ICONS = {
+  [DEPARTMENT.PREORDER]: CalendarClock,
+  [DEPARTMENT.READY2COOK]: CookingPot,
+  [DEPARTMENT.INSTANT]: Zap,
+};
 
 function ChoiceCard({ selected, title, subtitle, icon, onClick }) {
   return (
@@ -12,7 +19,13 @@ function ChoiceCard({ selected, title, subtitle, icon, onClick }) {
       }`}
     >
       <div className="flex w-full items-center justify-between">
-        <span className="text-xl">{icon}</span>
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+            selected ? "bg-emerald-100 text-[#0C831F]" : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          {icon}
+        </span>
         <span
           className={`h-4 w-4 rounded-full border-2 ${
             selected ? "border-[#0C831F] bg-[#0C831F] ring-2 ring-inset ring-white" : "border-slate-300"
@@ -30,14 +43,14 @@ export function FulfillmentChoice({ value, onChange }) {
     <div className="flex flex-col gap-2.5 sm:flex-row">
       <ChoiceCard
         selected={value === FULFILLMENT.DELIVERY}
-        icon="🛵"
+        icon={<Bike className="h-5 w-5" strokeWidth={2} />}
         title="Home delivery"
         subtitle="Rider brings it to your address"
         onClick={() => onChange(FULFILLMENT.DELIVERY)}
       />
       <ChoiceCard
         selected={value === FULFILLMENT.PICKUP}
-        icon="🏪"
+        icon={<Store className="h-5 w-5" strokeWidth={2} />}
         title="Store pickup"
         subtitle="Collect from the dark store · no delivery fee"
         onClick={() => onChange(FULFILLMENT.PICKUP)}
@@ -68,7 +81,9 @@ export function DarkStoreCard({ store, loading }) {
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-lg">🏪</div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[#0C831F]">
+        <Store className="h-[18px] w-[18px]" strokeWidth={2} />
+      </div>
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-semibold text-slate-500">Pick up from</p>
         <p className="text-sm font-bold text-slate-900">
@@ -83,9 +98,10 @@ export function DarkStoreCard({ store, loading }) {
       {phone ? (
         <a
           href={`tel:${tel}`}
-          className="shrink-0 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-bold text-[#0C831F] transition hover:bg-emerald-200"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-bold text-[#0C831F] transition hover:bg-emerald-200"
         >
-          📞 Call
+          <Phone className="h-3.5 w-3.5" strokeWidth={2.4} />
+          Call
         </a>
       ) : null}
     </div>
@@ -94,9 +110,10 @@ export function DarkStoreCard({ store, loading }) {
 
 export function DepartmentGroupHeader({ department, itemCount, etaText }) {
   const meta = DEPARTMENT_META[department] || DEPARTMENT_META.preorder;
+  const Icon = DEPARTMENT_ICONS[department] || CalendarClock;
   return (
     <div className={`mb-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${meta.tone}`}>
-      <span>{meta.icon}</span>
+      <Icon className="h-4 w-4 shrink-0" strokeWidth={2.2} />
       <div className="min-w-0">
         <p className="text-xs font-bold">
           {meta.label} · {itemCount} item{itemCount === 1 ? "" : "s"}

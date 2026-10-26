@@ -112,7 +112,9 @@ export function BillRow({ icon, label, value, struck, valueClass = "text-slate-9
   return (
     <div className="pb-2.5">
       <div className="flex items-center gap-3 text-[13px]">
-        <span className="w-5 shrink-0 text-center text-base leading-none">{icon}</span>
+        <span className="flex w-5 shrink-0 items-center justify-center text-slate-500 [&>svg]:h-[17px] [&>svg]:w-[17px] [&>svg]:stroke-[2]">
+          {icon}
+        </span>
         <span className="min-w-0 flex-1 font-medium text-slate-700">{label}</span>
         {struck ? <span className="text-xs font-medium text-slate-400 line-through">{struck}</span> : null}
         <span className={`font-bold ${valueClass}`}>{value}</span>
