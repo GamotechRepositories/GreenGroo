@@ -265,6 +265,48 @@ export default function OrderDetailPage() {
     }
   };
 
+  const onResolveFailed = async (action) => {
+    const currentOid = order?.id || order?._id;
+    if (!currentOid) return;
+    const question =
+      action === "return"
+        ? `Goods for #${order.orderNumber} are back at the store? Stock will be restored and the customer order cancelled.`
+        : `Goods for #${order.orderNumber} are back at the store? The order will be sent to a new rider.`;
+    if (!window.confirm(question)) return;
+    const note = (window.prompt("Note (optional):") || "").trim();
+    setBusyKey(`failed-${action}-${currentOid}`);
+    try {
+      const res = await managerApi.resolveFailedOrder(currentOid, action, note);
+      showToast(res.data.message || "Updated");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not update the order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onReviewOnlinePayment = async (decision) => {
+    const currentOid = order?.id || order?._id;
+    if (!currentOid) return;
+    if (
+      decision === "approve" &&
+      !window.confirm(`Confirm you can see ${formatRupee(order.amountToCollect)} received online for #${order.orderNumber}?`)
+    ) {
+      return;
+    }
+    setBusyKey(`pay-${decision}-${currentOid}`);
+    try {
+      const res = await managerApi.reviewOnlinePayment(currentOid, decision);
+      showToast(res.data.message || "Updated");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not update the payment");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!requestItem) return;
@@ -315,7 +357,7 @@ export default function OrderDetailPage() {
 
   if (loading && !order) {
     return (
-      <PageShell title="Order Details" subtitle="Loading order…">
+      <PageShell title="Order Details">
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       </PageShell>
     );
@@ -323,7 +365,7 @@ export default function OrderDetailPage() {
 
   if (!order) {
     return (
-      <PageShell title="Order Details" subtitle="Order not found">
+      <PageShell title="Order Details">
         {error && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
             {error}
@@ -343,7 +385,7 @@ export default function OrderDetailPage() {
   return (
     <PageShell
       title={`Order #${order.orderNumber}`}
-      subtitle={`Placed ${formatOrderTime(order.createdAt)}`}
+      meta={`Placed ${formatOrderTime(order.createdAt)}`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -373,7 +415,7 @@ export default function OrderDetailPage() {
               {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
             </button>
           )}
-          {order.status !== "delivered" && order.status !== "cancelled" && (
+          {!["delivered", "cancelled", "delivery_failed"].includes(order.status) && (
             <button
               type="button"
               disabled={busyKey === `cancel-${oid}`}
@@ -419,9 +461,9 @@ export default function OrderDetailPage() {
                 : "Confirm & pack the order, then hand it over at the counter"}
           </h3>
           <p className="mt-1 text-xs text-slate-600">
-            No rider is assigned. Ask the customer for the 4-digit OTP shown in their order.
+            Customer OTP required
             {isCodPayment(order.paymentMethod) && Number(order.amountToCollect) > 0
-              ? ` Collect ${formatRupee(order.amountToCollect)} at the counter.`
+              ? ` · collect ${formatRupee(order.amountToCollect)}`
               : ""}
           </p>
           {order.status === "packed" && (
@@ -494,9 +536,6 @@ export default function OrderDetailPage() {
                       Collect {formatRupee(collectAmount)} from driver ({driverName})
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-slate-600">
-                    COD — physical cash must be handed to this dark store.
-                  </p>
                 </div>
                 {!cashDone && (
                   <button
@@ -590,6 +629,29 @@ export default function OrderDetailPage() {
               {order.failureReason || "—"}
             </p>
           </div>
+          {order.paymentStatus === "collected" && (
+            <p className="text-sm font-bold text-rose-800">
+              Rider holds {formatRupee(order.amountCollected || order.amountToCollect)} cash — flagged for review
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busyKey === `failed-return-${oid}`}
+              onClick={() => onResolveFailed("return")}
+              className={actionBtnDanger}
+            >
+              {busyKey === `failed-return-${oid}` ? "Saving…" : "Returned to store"}
+            </button>
+            <button
+              type="button"
+              disabled={busyKey === `failed-reattempt-${oid}`}
+              onClick={() => onResolveFailed("reattempt")}
+              className={actionBtnPrimary}
+            >
+              {busyKey === `failed-reattempt-${oid}` ? "Saving…" : "Reattempt delivery"}
+            </button>
+          </div>
           {order.deliveryProofImageUrl ? (
             <div>
               <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Proof on file</p>
@@ -600,6 +662,50 @@ export default function OrderDetailPage() {
               />
             </div>
           ) : null}
+        </div>
+      )}
+
+      {order.onlinePaymentClaim?.status === "pending" && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700">Online payment — approval needed</p>
+              <p className="mt-1 text-lg font-extrabold text-slate-900">{formatRupee(order.amountToCollect)}</p>
+              <p className="text-xs font-semibold text-slate-600">
+                {driverName}
+                {order.onlinePaymentClaim.claimedAt ? ` · ${formatOrderTime(order.onlinePaymentClaim.claimedAt)}` : ""}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busyKey === `pay-reject-${oid}`}
+                onClick={() => onReviewOnlinePayment("reject")}
+                className={actionBtnDanger}
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                disabled={busyKey === `pay-approve-${oid}`}
+                onClick={() => onReviewOnlinePayment("approve")}
+                className={actionBtnPrimary}
+              >
+                Approve payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {order.manualCompletion && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Marked delivered manually</p>
+          <p className="mt-1 text-sm font-bold text-slate-900">
+            {order.manualCompletion.byName || order.manualCompletion.byRole}
+            {order.manualCompletion.at ? ` · ${formatOrderTime(order.manualCompletion.at)}` : ""}
+          </p>
+          <p className="text-sm text-slate-700">{order.manualCompletion.reason}</p>
         </div>
       )}
 
@@ -661,9 +767,6 @@ export default function OrderDetailPage() {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
                 Item Proof — Pending Approval
-              </p>
-              <p className="mt-1 text-sm text-amber-900">
-                Driver sent a photo of packed items. Approve to unlock customer address.
               </p>
             </div>
             <button

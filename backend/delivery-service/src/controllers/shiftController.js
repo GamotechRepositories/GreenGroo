@@ -5,6 +5,7 @@ import DeliveryManager from "../models/DeliveryManager.js";
 import { getIO } from "../../../socket.js";
 import {
   getCurrentMinutesIST,
+  getSlotLifecycle,
   isSlotEnded,
   isWithinSlot,
   timeToMinutes,
@@ -116,7 +117,16 @@ export const getMyBookings = async (req, res, next) => {
     const todayBookings = [];
     let todayBooking = null;
 
+    const nowMinutes = getCurrentMinutesIST();
+    const bookingPhase = (dateString, slot, userBooking) => {
+      if (userBooking.status === "COMPLETED") return "completed";
+      const life = getSlotLifecycle(dateString, slot.startTime, slot.endTime, todayStrIST, nowMinutes);
+      if (life === "past") return "completed";
+      return life === "current" ? "running" : "upcoming";
+    };
+
     const buildBookingInfo = (shift, slot, userBooking) => ({
+      phase: bookingPhase(shift.dateString, slot, userBooking),
       id: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
       bookingId: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
       slotId: slot._id.toString(),
@@ -136,6 +146,8 @@ export const getMyBookings = async (req, res, next) => {
       assignedBy: userBooking.assignedBy || "rider",
       incentiveMode: slot.incentiveMode || "none",
       incentiveRate: Number(slot.incentiveRate) || 0,
+      incentiveAfterKm: Number(slot.incentiveAfterKm) || 0,
+      kmDelivered: Number(userBooking.kmDelivered) || 0,
     });
 
     for (const shift of shifts) {

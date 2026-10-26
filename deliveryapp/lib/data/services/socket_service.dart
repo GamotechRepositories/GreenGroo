@@ -139,20 +139,7 @@ class SocketService {
       if (data is Map) {
         final map = Map<String, dynamic>.from(data);
         _orderAssignedController.add(map);
-        final num = map['orderNumber']?.toString() ?? '';
-        final idStr = map['orderId']?.toString() ?? '';
-        PushNotificationService.instance.showLocalNotification(
-          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          title: 'New Order Assigned!',
-          body: num.isNotEmpty
-              ? 'Order #$num has been assigned to you. Tap to view.'
-              : 'You have a new order assigned. Tap to view.',
-          data: {
-            'screen': 'assigned_orders',
-            'type': 'ORDER_ASSIGNED',
-            'orderId': idStr,
-          },
-        );
+        PushNotificationService.instance.cancelForOrder(map['orderId']?.toString() ?? '');
       }
     });
 
@@ -165,7 +152,6 @@ class SocketService {
         final earnTxt = earn.toString().isNotEmpty ? ' · Earn ₹$earn' : '';
         final idStr = map['orderId']?.toString() ?? '';
         PushNotificationService.instance.showLocalNotification(
-          id: idStr.isNotEmpty ? idStr.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
           title: 'New Delivery Offer!$earnTxt',
           body: num.isNotEmpty
               ? 'New delivery offer for Order #$num. Tap to review and accept!'
@@ -206,7 +192,9 @@ class SocketService {
     _socket!.on('order_offer_expired', (data) {
       debugPrint('[Socket] Event order_offer_expired: $data');
       if (data is Map) {
-        _orderOfferExpiredController.add(Map<String, dynamic>.from(data));
+        final map = Map<String, dynamic>.from(data);
+        _orderOfferExpiredController.add(map);
+        PushNotificationService.instance.cancelForOrder(map['orderId']?.toString() ?? '');
       }
     });
 
@@ -220,7 +208,6 @@ class SocketService {
           AuthService.instance.applyVerificationStatus('approved');
           AuthService.instance.fetchMe();
           PushNotificationService.instance.showLocalNotification(
-            id: 2001,
             title: "You're Verified!",
             body: 'Your profile has been verified! You can now go online and receive orders.',
             data: {'screen': 'home', 'type': 'VERIFICATION_COMPLETED'},
@@ -228,7 +215,6 @@ class SocketService {
         } else if (status == 'rejected') {
           AuthService.instance.applyVerificationStatus('rejected');
           PushNotificationService.instance.showLocalNotification(
-            id: 2002,
             title: 'Verification Status Update',
             body: map['remarks']?.toString() ?? 'Please review your verification details in the app.',
             data: {'screen': 'home', 'type': 'DOCUMENT_REJECTED'},
@@ -249,32 +235,8 @@ class SocketService {
       if (data is Map) {
         final map = Map<String, dynamic>.from(data);
         _riderNotificationController.add(map);
-        final type = map['type']?.toString();
-        if (type == 'SHIFT_ASSIGNED') {
-          PushNotificationService.instance.showLocalNotification(
-            id: (map['_id'] ?? map['id'] ?? DateTime.now().millisecondsSinceEpoch).toString().hashCode,
-            title: map['title']?.toString() ?? 'Slot update',
-            body: map['message']?.toString() ?? '',
-            data: {'screen': 'shifts', 'type': 'SHIFT_ASSIGNED'},
-          );
-        }
-        if (type == 'WALLET_CREDITED') {
-          AuthService.instance.fetchMe();
-          final amt = map['amount']?.toString() ?? '';
-          final orderNum = (map['data'] is Map ? map['data']['orderNumber'] : map['orderNumber'])?.toString() ?? '';
-          PushNotificationService.instance.showLocalNotification(
-            id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-            title: map['title']?.toString() ?? '₹$amt Credited to Wallet!',
-            body: map['message']?.toString() ??
-                (orderNum.isNotEmpty
-                    ? '₹$amt credited to your wallet for Order #$orderNum'
-                    : '₹$amt has been credited to your wallet.'),
-            data: {
-              'screen': 'wallet',
-              'type': 'WALLET_CREDITED',
-            },
-          );
-        }
+        final type = map['type']?.toString() ?? '';
+        if (type.endsWith('_CREDITED')) AuthService.instance.fetchMe();
       }
     });
 
@@ -284,31 +246,6 @@ class SocketService {
         final map = Map<String, dynamic>.from(data);
         _walletUpdatedController.add(map);
         AuthService.instance.fetchMe();
-        final amt = map['amount']?.toString() ?? '';
-        final orderNum = map['orderNumber']?.toString() ?? '';
-        final idStr = map['orderId']?.toString() ?? '';
-        final reason = map['reason']?.toString() ?? '';
-        final serverMessage = map['message']?.toString() ?? '';
-        // wallet_updated and rider_wallet_credited arrive together — same id collapses them.
-        final dedupeKey = idStr.isNotEmpty ? idStr : '$reason:$amt:${map['timestamp'] ?? ''}';
-        PushNotificationService.instance.showLocalNotification(
-          id: dedupeKey.hashCode,
-          title: reason == 'slot_incentive'
-              ? '₹$amt Incentive Added!'
-              : reason.startsWith('salary_')
-                  ? '₹$amt Salary Credited!'
-                  : '₹$amt Credited to Wallet!',
-          body: serverMessage.isNotEmpty
-              ? serverMessage
-              : orderNum.isNotEmpty
-                  ? '₹$amt credited to your wallet for Order #$orderNum'
-                  : '₹$amt has been credited to your wallet.',
-          data: {
-            'screen': 'wallet',
-            'type': 'WALLET_CREDITED',
-            'orderId': idStr,
-          },
-        );
       }
     }
 

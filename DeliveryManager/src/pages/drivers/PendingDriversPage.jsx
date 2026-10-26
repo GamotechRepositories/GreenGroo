@@ -36,8 +36,8 @@ export default function PendingDriversPage() {
 
   return (
     <PageShell
-      title="Driver Verification Desk"
-      subtitle={`Review background verification & bank accounts for ${manager?.area || "Store Area"}`}
+      title="Rider Verification"
+      meta={riders.length ? `${riders.length} pending` : undefined}
     >
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-600">
@@ -45,27 +45,11 @@ export default function PendingDriversPage() {
         </div>
       )}
 
-      {/* Header Bar */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">
-            Pending Applications ({riders.length})
-          </h2>
-          <p className="text-xs text-slate-500">
-            Click on any row to open the complete document verification detail view
-          </p>
-        </div>
-      </div>
-
-      {/* Tabular Roster Queue */}
       {loading ? (
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : riders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
-          <h3 className="text-base font-bold text-slate-800">Verification Queue Empty</h3>
-          <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-            No new delivery partner applications awaiting document verification in this store area.
-          </p>
+          <h3 className="text-sm font-semibold text-slate-700">No pending applications</h3>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">

@@ -39,7 +39,6 @@ export default function FullTimeAttendancePage() {
   return (
     <PageShell
       title="Full-Time Attendance"
-      subtitle="Daily attendance marked by Full-Time drivers from the app, validated against the dark store location."
     >
       <div className="flex flex-wrap items-end gap-3">
         <div>

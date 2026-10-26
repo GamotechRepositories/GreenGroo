@@ -29,11 +29,15 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
   List<ShiftBookingInfo> _upcomingBookings = const [];
   StreamSubscription<Map<String, dynamic>>? _deliverySub;
   StreamSubscription<Map<String, dynamic>>? _notificationSub;
+  Timer? _phaseTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _phaseTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) _load(silent: true);
+    });
     _deliverySub = SocketService.instance.onActiveDeliveryUpdated.listen((event) {
       final reason = event['reason']?.toString() ?? '';
       if (reason.startsWith('shift_')) _load(silent: true);
@@ -45,6 +49,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
 
   @override
   void dispose() {
+    _phaseTimer?.cancel();
     _deliverySub?.cancel();
     _notificationSub?.cancel();
     super.dispose();
@@ -97,9 +102,17 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
     if (result.success) _load(silent: true);
   }
 
+  String _num(double v) => v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
   String _incentiveText(AppLocalizations l10n, ShiftBookingInfo b) {
-    final rate = b.incentiveRate % 1 == 0 ? b.incentiveRate.toStringAsFixed(0) : b.incentiveRate.toStringAsFixed(1);
-    return b.incentiveMode == 'per_hour' ? l10n.incentivePerHour(rate) : l10n.incentivePerKm(rate);
+    final rate = _num(b.incentiveRate);
+    if (b.incentiveMode == 'per_hour') return l10n.incentivePerHour(rate);
+    if (b.incentiveAfterKm > 0) {
+      final text = l10n.incentivePerKmAfter(rate, _num(b.incentiveAfterKm));
+      if (b.isCompleted || b.kmDelivered <= 0) return text;
+      return '$text · ${l10n.kmDoneInSlot(_num(b.kmDelivered), _num(b.incentiveAfterKm))}';
+    }
+    return l10n.incentivePerKm(rate);
   }
 
   String _dateLabel(String dateString) {
@@ -126,14 +139,28 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
   Widget _slotCard(AppLocalizations l10n, ShiftBookingInfo b, {bool today = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final green = isDark ? const Color(0xFF6EE7B7) : const Color(0xFF0F5A32);
-    return Container(
+    const grey = Color(0xFF64748B);
+    final badgeColor = b.isCompleted
+        ? grey
+        : b.isRunning
+            ? green
+            : (isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8));
+    final badgeText = b.isCompleted
+        ? l10n.completed
+        : b.isRunning
+            ? l10n.shiftRunning
+            : l10n.shiftUpcoming;
+    final highlight = today && b.isRunning;
+    return Opacity(
+      opacity: b.isCompleted ? 0.7 : 1,
+      child: Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: today ? green : AppColors.cardBorder,
-          width: today ? 1.5 : 1,
+          color: highlight ? green : AppColors.cardBorder,
+          width: highlight ? 1.5 : 1,
         ),
       ),
       child: Column(
@@ -150,12 +177,21 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: green.withValues(alpha: 0.12),
+                  color: badgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
-                  b.status,
-                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: green),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (b.isCompleted) ...[
+                      Icon(Icons.check_circle_rounded, size: 12, color: badgeColor),
+                      const SizedBox(width: 3),
+                    ],
+                    Text(
+                      badgeText,
+                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: badgeColor),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -204,6 +240,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
           ],
         ],
       ),
+      ),
     );
   }
 
@@ -248,24 +285,26 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                 _slotCard(l10n, b, today: true),
                 const SizedBox(height: 8),
               ],
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: _goOnlineWithLocation,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(
-                    l10n.verifyLocationAndGoOnline,
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+              if (_todayBookings.any((b) => !b.isCompleted)) ...[
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: _goOnlineWithLocation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      l10n.verifyLocationAndGoOnline,
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
             const SizedBox(height: 28),
             _sectionTitle(l10n.upcomingShiftsTitle),

@@ -126,7 +126,6 @@ export default function FullTimeRulesPage() {
   return (
     <PageShell
       title="Full-Time Rules"
-      subtitle="Attendance and conduct rules for Full-Time drivers. Drivers see these on the My Rules page in the app."
     >
       {message && (
         <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 shadow-xs">

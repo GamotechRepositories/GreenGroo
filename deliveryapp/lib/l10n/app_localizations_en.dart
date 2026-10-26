@@ -1192,6 +1192,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get completed => 'Completed';
 
   @override
+  String get shiftRunning => 'Running';
+
+  @override
+  String get shiftUpcoming => 'Upcoming';
+
+  @override
   String get myOrders => 'My Orders';
 
   @override
@@ -1607,6 +1613,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ok => 'OK';
 
   @override
+  String get orderDeliveredTitle => 'Order delivered successfully';
+
+  @override
+  String orderDeliveredBody(String number) {
+    return 'Order #$number has been delivered.';
+  }
+
+  @override
+  String get goToHome => 'Go to Home';
+
+  @override
+  String get nextDelivery => 'Next delivery';
+
+  @override
   String get detectingLocation => 'Detecting your location…';
 
   @override
@@ -1635,6 +1655,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String incentivePerKm(String rate) {
     return '₹$rate/km incentive';
+  }
+
+  @override
+  String incentivePerKmAfter(String rate, String km) {
+    return '₹$rate/km after $km km';
+  }
+
+  @override
+  String kmDoneInSlot(String done, String km) {
+    return '$done / $km km done';
   }
 
   @override
@@ -1989,11 +2019,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifVerifiedBody => 'You can now receive orders.';
 
   @override
-  String get notifShiftStartedTitle => 'Shift Started';
+  String get notifShiftStartedTitle => 'Time to go online';
 
   @override
   String get notifShiftStartedBody =>
-      'You\'re now online and ready for orders.';
+      'Your slot has started. Go online to receive orders.';
 
   @override
   String get notifShiftReminderTitle => 'Shift starting soon';

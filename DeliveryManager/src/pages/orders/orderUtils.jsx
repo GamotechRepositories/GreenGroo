@@ -216,7 +216,12 @@ export function DriverAssignmentText({ order, onRiderClick }) {
             {order.assignedRider.name || order.assignedRider.phone}
           </p>
         )}
-        {order.pickupProofStatus === "pending" ? (
+        {order.onlinePaymentClaim?.status === "pending" ? (
+          <p className="mt-1 text-[10px] font-semibold text-sky-700">Online payment — approve or reject</p>
+        ) : null}
+        {order.status === "delivery_failed" ? (
+          <p className="mt-1 text-[10px] font-semibold text-rose-700">Failed — return or reattempt</p>
+        ) : order.pickupProofStatus === "pending" ? (
           <p className="mt-1 text-[10px] font-semibold text-amber-700">Item proof pending approval</p>
         ) : order.pickupVerified ? (
           <p className="mt-1 text-[10px] font-semibold text-emerald-700">Pickup verified</p>
@@ -275,7 +280,11 @@ export const STATUS_BADGE = Object.fromEntries(
   ])
 );
 
+export const needsManagerAction = (order) =>
+  order.status === "delivery_failed" || order.onlinePaymentClaim?.status === "pending";
+
 export const STATUS_TABS = [
+  { id: "attention", label: "Needs action" },
   { id: "incoming", label: "Incoming" },
   { id: "ongoing", label: "Ongoing" },
   { id: "pickup", label: "Store pickup" },
@@ -288,6 +297,7 @@ export const STATUS_TABS = [
 export function matchesTab(order, tab) {
   const s = order.status;
   if (tab === "all") return true;
+  if (tab === "attention") return needsManagerAction(order);
   if (tab === "pickup") {
     return isPickupOrder(order) && !["delivered", "cancelled", "delivery_failed"].includes(s);
   }
@@ -300,7 +310,7 @@ export function matchesTab(order, tab) {
   if (tab === "ongoing") {
     return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
   }
-  if (tab === "delivered") return s === "delivered" || s === "delivery_failed";
+  if (tab === "delivered") return s === "delivered";
   if (tab === "cancelled") return s === "cancelled";
   // legacy aliases
   if (tab === "active") {
@@ -313,6 +323,7 @@ export function matchesTab(order, tab) {
 
 export function countBySummaryBucket(orders = []) {
   return {
+    attention: orders.filter((o) => matchesTab(o, "attention")).length,
     incoming: orders.filter((o) => matchesTab(o, "incoming")).length,
     ongoing: orders.filter((o) => matchesTab(o, "ongoing")).length,
     pickup: orders.filter((o) => matchesTab(o, "pickup")).length,

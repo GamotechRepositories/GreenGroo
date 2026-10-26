@@ -1,10 +1,11 @@
-import StoreOrder, { deliveryDelayJSON } from "../models/StoreOrder.js";
+import StoreOrder, { deliveryDelayJSON, randomDeliveryOtp } from "../models/StoreOrder.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import {
   acceptDriverOffer,
   assignNextDriver,
   declineDriverOffer,
+  retryWaitingAssignmentsForStore,
 } from "../services/OrderAssignmentService.js";
 import {
   generateDriverPickupToken,
@@ -24,8 +25,75 @@ import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
 import { resolveStoreOrderType, isStoreOrderTrackable } from "../services/orderTrackingService.js";
 import { sendDeliveryVerificationOtp } from "@greengrocc/shared";
+import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
+import { resolveCashForOrder } from "../services/CashSettlementService.js";
 
 const MAX_OTP_ATTEMPTS = 5;
+const OTP_LOCK_MS = 15 * 60 * 1000;
+const OTP_HARD_LOCK_MS = 2 * 60 * 60 * 1000;
+const OTP_HARD_LOCK_AFTER = 15;
+const OTP_STATUSES = ["pickup_verified", "out_for_delivery"];
+
+/**
+ * Checks the customer OTP with lockouts; repeated lockouts lock the order for hours and alert the store.
+ * Returns null when the OTP is correct, otherwise { status, body } to send back.
+ */
+async function checkCustomerOtp(order, otp) {
+  const now = new Date();
+  if (order.otpLockedUntil && order.otpLockedUntil > now) {
+    const waitMins = Math.ceil((order.otpLockedUntil - now) / 60000);
+    return {
+      status: 429,
+      body: { success: false, message: `Too many incorrect OTP attempts. Try again in ${waitMins} min.` },
+    };
+  }
+
+  const expectedOtp = String(order.otpCode || order.deliveryOtp || "").trim();
+  if (expectedOtp && otp === expectedOtp) return null;
+
+  order.otpAttempts = (order.otpAttempts || 0) + 1;
+  order.otpFailedTotal = (order.otpFailedTotal || 0) + 1;
+  let lockedFor = 0;
+  if (order.otpFailedTotal >= OTP_HARD_LOCK_AFTER) {
+    lockedFor = OTP_HARD_LOCK_MS;
+  } else if (order.otpAttempts >= MAX_OTP_ATTEMPTS) {
+    lockedFor = OTP_LOCK_MS;
+  }
+  if (lockedFor) {
+    order.otpLockedUntil = new Date(now.getTime() + lockedFor);
+    order.otpAttempts = 0;
+  }
+  await order.save();
+
+  if (lockedFor) {
+    try {
+      getIO().to(`store_${order.managerId}`).emit("otp_lockout_alert", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        riderId: order.assignedRiderId ? String(order.assignedRiderId) : null,
+        failedAttempts: order.otpFailedTotal,
+        lockedUntil: order.otpLockedUntil,
+      });
+    } catch (_) {}
+    return {
+      status: 429,
+      body: {
+        success: false,
+        message: `Too many incorrect OTP attempts. Locked for ${Math.round(lockedFor / 60000)} min — your Delivery Manager has been alerted.`,
+      },
+    };
+  }
+
+  const remaining = Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts);
+  return {
+    status: 400,
+    body: {
+      success: false,
+      message: `Incorrect OTP. Ask the customer for the code in their GreenGroo order. ${remaining} attempt(s) remaining.`,
+      attemptsRemaining: remaining,
+    },
+  };
+}
 
 function distanceLabel(meters) {
   if (meters == null) return "—";
@@ -92,10 +160,6 @@ export const getPendingOffer = async (req, res, next) => {
 
     const manager = await DeliveryManager.findById(order.managerId);
     const rider = await DeliveryBoy.findById(riderId).select("currentBooking");
-    const totalAmount = order.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
 
     const remainingMs = new Date(order.offerExpiresAt).getTime() - Date.now();
     const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
@@ -113,9 +177,6 @@ export const getPendingOffer = async (req, res, next) => {
       });
       estimatedEarnings = Math.round(estimate.earnUpTo || estimate.estimatedEarnings || 0);
     } catch (_) {}
-    if (estimatedEarnings <= 0) {
-      estimatedEarnings = Math.round(totalAmount * 0.12 + 45);
-    }
 
     return res.json({
       success: true,
@@ -129,8 +190,8 @@ export const getPendingOffer = async (req, res, next) => {
         darkStoreLng: manager?.longitude,
         itemCount: order.items.length,
         itemsSummary: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
-        estimatedEarnings,
-        earnUpTo: estimatedEarnings,
+        estimatedEarnings: estimatedEarnings > 0 ? estimatedEarnings : null,
+        earnUpTo: estimatedEarnings > 0 ? estimatedEarnings : null,
         distanceKm: order.distanceKm != null ? `${order.distanceKm} km` : "nearby",
         remainingSeconds,
         timeoutSeconds: OFFER_TIMEOUT_SECONDS,
@@ -605,7 +666,7 @@ export const getManagerOrderPickupQr = async (req, res, next) => {
       });
     }
 
-    const pickupQr = await generateDriverPickupToken(order);
+    const pickupQr = await generateDriverPickupToken(order, { issuedFor: "store" });
     const rider = await DeliveryBoy.findById(order.assignedRiderId).select("name phone");
 
     return res.json({
@@ -614,67 +675,6 @@ export const getManagerOrderPickupQr = async (req, res, next) => {
       pickupQrPayload: pickupQr.qrPayload,
       expiresAt: pickupQr.expiresAt,
       driverName: rider?.name || rider?.phone || "Delivery Partner",
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/** Legacy rider-initiated store QR scan — prefer scanPickupQr */
-export const scanStoreQr = async (req, res, next) => {
-  try {
-    const { orderId } = req.params;
-    const riderId = req.user.id;
-    const scannedQr = String(req.body.qrCode || "").trim();
-
-    const order = await StoreOrder.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    if (order.assignedRiderId?.toString() !== riderId) {
-      return res.status(403).json({ success: false, message: "You are not assigned to this order" });
-    }
-
-    const expectedQr = order.darkStoreQrCode || `DARKSTORE_${order.managerId}`;
-    if (scannedQr !== expectedQr && !scannedQr.startsWith("DARKSTORE_")) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid QR. Show your pickup QR to the Dark Store for scanning.",
-      });
-    }
-
-    order.pickupQrScanned = true;
-    order.pickupQrScannedAt = new Date();
-    order.qrScannedAt = new Date();
-    order.assignmentStatus = "PICKUP_PENDING";
-    order.routeBatchWindowEndsAt = undefined;
-    await order.save();
-
-    try {
-      getIO().to(`store_${order.managerId}`).emit("pickup_qr_scanned", {
-        orderId: order._id.toString(),
-        orderNumber: order.orderNumber,
-        scannedAt: order.pickupQrScannedAt.toISOString(),
-        routeBatchWindowEndsAt: null,
-      });
-      getIO().to(`store_${order.managerId}`).emit("order_batch_window_ended", {
-        orderId: order._id.toString(),
-        orderNumber: order.orderNumber,
-        reason: "pickup_qr_scanned",
-      });
-    } catch (err) {}
-
-    return res.json({
-      success: true,
-      message: "Store QR scanned. Capture item photo for manager approval.",
-      activeDelivery: {
-        id: order._id.toString(),
-        pickupQrScanned: true,
-        pickupProofStatus: order.pickupProofStatus || "none",
-        isCustomerLocationLocked: true,
-        customerAddressUnlocked: false,
-      },
     });
   } catch (error) {
     next(error);
@@ -765,42 +765,24 @@ export const verifyCustomerOtp = async (req, res, next) => {
     const order = await StoreOrder.findOne({
       _id: orderId,
       assignedRiderId: riderId,
-      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
+      status: { $in: OTP_STATUSES },
     });
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Active order not found" });
+      return res.status(404).json({
+        success: false,
+        message: "OTP can be checked only after pickup, when the order is out for delivery",
+      });
     }
 
     if (order.customerOtpVerified) {
       return res.json({ success: true, alreadyVerified: true, message: "OTP already verified" });
     }
 
-    // Rate-limit OTP attempts
+    const otpError = await checkCustomerOtp(order, otp);
+    if (otpError) return res.status(otpError.status).json(otpError.body);
+
     const now = new Date();
-    if (order.otpLockedUntil && order.otpLockedUntil > now) {
-      const waitSecs = Math.ceil((order.otpLockedUntil - now) / 1000);
-      return res.status(429).json({
-        success: false,
-        message: `Too many incorrect OTP attempts. Try again in ${waitSecs} seconds.`,
-      });
-    }
-
-    const expectedOtp = String(order.otpCode || order.deliveryOtp || "").trim();
-    if (!expectedOtp || otp !== expectedOtp) {
-      order.otpAttempts = (order.otpAttempts || 0) + 1;
-      if (order.otpAttempts >= MAX_OTP_ATTEMPTS) {
-        order.otpLockedUntil = new Date(now.getTime() + 5 * 60 * 1000); // locked 5 min
-      }
-      await order.save();
-      return res.status(400).json({
-        success: false,
-        message: `Incorrect OTP. Ask the customer for the code in their GreenGroo order. ${Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts)} attempt(s) remaining.`,
-        attemptsRemaining: Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts),
-      });
-    }
-
-    // OTP correct
     order.customerOtpVerified = true;
     order.customerOtpVerifiedAt = now;
     order.otpAttempts = 0;
@@ -829,28 +811,36 @@ export const sendCustomerDeliveryOtp = async (req, res, next) => {
     const order = await StoreOrder.findOne({
       _id: orderId,
       assignedRiderId: riderId,
-      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
+      status: { $in: OTP_STATUSES },
     });
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Active order not found" });
+      return res.status(404).json({
+        success: false,
+        message: "OTP can be sent only after pickup, when the order is out for delivery",
+      });
     }
 
     if (order.customerOtpVerified) {
       return res.json({ success: true, alreadyVerified: true, message: "OTP already verified" });
     }
 
-    // Get customer phone from source Ecommerce Order
     let customerPhone = "";
     if (order.sourceOrderId) {
       try {
         const { default: EcommerceOrder } = await import("../../../legacy/models/order/Order.js");
         const ecomOrder = await EcommerceOrder.findById(order.sourceOrderId).populate("user", "phone").lean();
-        customerPhone = ecomOrder?.deliveryAddress?.phone || ecomOrder?.user?.phone || "";
+        customerPhone =
+          ecomOrder?.deliveryAddress?.number ||
+          ecomOrder?.deliveryAddress?.phone ||
+          ecomOrder?.user?.phone ||
+          "";
       } catch (err) {
         console.warn("[sendCustomerDeliveryOtp] could not fetch customer phone from Order:", err.message);
       }
     }
+    if (!customerPhone) customerPhone = order.customerPhone || "";
+    customerPhone = String(customerPhone).replace(/\D/g, "").slice(-10);
 
     if (!customerPhone) {
       return res.status(400).json({
@@ -859,7 +849,7 @@ export const sendCustomerDeliveryOtp = async (req, res, next) => {
       });
     }
 
-    const otpCode = String(order.otpCode || order.deliveryOtp || Math.floor(1000 + Math.random() * 9000)).trim();
+    const otpCode = String(order.otpCode || order.deliveryOtp || randomDeliveryOtp()).trim();
     if (!order.otpCode || order.otpCode !== otpCode) {
       order.otpCode = otpCode;
       order.deliveryOtp = otpCode;
@@ -889,46 +879,66 @@ export const confirmCashCollection = async (req, res, next) => {
     const { orderId } = req.params;
     const riderId = req.user.id;
 
-    const order = await StoreOrder.findOne({
-      _id: orderId,
-      assignedRiderId: riderId,
-      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
-    });
-
-    if (!order) {
+    const existing = await StoreOrder.findOne({ _id: orderId, assignedRiderId: riderId });
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Active order not found" });
     }
-
-    // Guard: don't allow cash collection if already paid online
-    if (order.paymentStatus === "paid_online") {
+    if (existing.paymentStatus === "paid_online") {
       return res.status(400).json({
         success: false,
         message: "This order is already paid online. No cash collection required.",
       });
     }
-
-    if (order.paymentStatus === "collected") {
+    if (existing.paymentStatus === "collected") {
       return res.json({ success: true, alreadyCollected: true, message: "Cash already marked as collected" });
     }
+    if (!OTP_STATUSES.includes(existing.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Collect cash only at the customer's door, after pickup",
+      });
+    }
+    if (!existing.customerOtpVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Verify the customer's OTP before collecting cash",
+      });
+    }
 
-    const amountToCollect = order.amountToCollect || 0;
-    if (amountToCollect <= 0) {
-      // Backfill from items for older orders missing amountToCollect
-      const itemsTotal = (order.items || []).reduce(
+    let amount = Math.round(Number(existing.amountToCollect || 0));
+    if (amount <= 0) {
+      // Older orders: the billed part total already includes the delivery fee.
+      const itemsTotal = (existing.items || []).reduce(
         (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
         0
       );
-      if (itemsTotal <= 0) {
+      amount = Math.round(Number(existing.partTotal || 0) || itemsTotal);
+      if (amount <= 0) {
         return res.status(400).json({ success: false, message: "No amount to collect for this order" });
       }
-      order.amountToCollect = Math.round(itemsTotal);
     }
 
-    // Update order payment status
-    order.paymentMethod = "COD";
-    order.paymentStatus = "collected";
-    order.amountCollected = order.amountToCollect;
-    await order.save();
+    const order = await StoreOrder.findOneAndUpdate(
+      {
+        _id: orderId,
+        assignedRiderId: riderId,
+        status: { $in: OTP_STATUSES },
+        customerOtpVerified: true,
+        paymentStatus: { $nin: ["collected", "paid_online"] },
+      },
+      {
+        $set: {
+          paymentMethod: "COD",
+          paymentStatus: "collected",
+          amountToCollect: amount,
+          amountCollected: amount,
+        },
+      },
+      { new: true }
+    );
+    if (!order) {
+      return res.json({ success: true, alreadyCollected: true, message: "Cash already marked as collected" });
+    }
 
     // Create cash liability record and increment rider's pending cash
     const darkStoreId = order.darkStoreId || order.managerId;
@@ -973,7 +983,7 @@ export const completeDelivery = async (req, res, next) => {
     const { orderId } = req.params;
     const riderId = req.user.id;
 
-    const order = await StoreOrder.findById(orderId);
+    let order = await StoreOrder.findById(orderId);
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
@@ -985,6 +995,13 @@ export const completeDelivery = async (req, res, next) => {
     // Already delivered?
     if (order.status === "delivered") {
       return res.json({ success: true, alreadyDelivered: true, message: "Order already delivered", order: order.toRiderJSON() });
+    }
+
+    if (!OTP_STATUSES.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Order is ${order.status.replace(/_/g, " ")} — it cannot be completed`,
+      });
     }
 
     // ── Condition 1: Customer address must have been unlocked ──────────────
@@ -1013,58 +1030,61 @@ export const completeDelivery = async (req, res, next) => {
         });
       }
 
-      if (order.otpLockedUntil && order.otpLockedUntil > new Date()) {
-        const waitSecs = Math.ceil((order.otpLockedUntil - new Date()) / 1000);
-        return res.status(429).json({
-          success: false,
-          message: `Too many incorrect OTP attempts. Try again in ${waitSecs} seconds.`,
-        });
-      }
-
-      const expectedOtp = String(order.otpCode || order.deliveryOtp || "").trim();
-      if (!expectedOtp || otp !== expectedOtp) {
-        order.otpAttempts = (order.otpAttempts || 0) + 1;
-        if (order.otpAttempts >= MAX_OTP_ATTEMPTS) {
-          order.otpLockedUntil = new Date(Date.now() + 5 * 60 * 1000);
-        }
-        await order.save();
-        return res.status(400).json({
-          success: false,
-          message: `Incorrect OTP. Ask the customer for the code in their GreenGroo order. ${Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts)} attempt(s) remaining.`,
-          attemptsRemaining: Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts),
-        });
-      }
-
-      order.customerOtpVerified = true;
-      order.customerOtpVerifiedAt = new Date();
-      order.otpAttempts = 0;
-      order.otpLockedUntil = undefined;
+      const otpError = await checkCustomerOtp(order, otp);
+      if (otpError) return res.status(otpError.status).json(otpError.body);
     }
 
     // ── Condition 4: Payment must be resolved ──────────────────────────────
-    // Accept: paid_online, collected (cash), or free/zero-amount orders
+    const itemsTotal = (order.items || []).reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const amountDue = Number(order.amountToCollect || 0) || Number(order.partTotal || 0) || itemsTotal;
     const paymentOk =
       order.paymentStatus === "paid_online" ||
       order.paymentStatus === "collected" ||
-      (order.amountToCollect || 0) === 0;
+      amountDue <= 0;
 
     if (!paymentOk) {
       return res.status(400).json({
         success: false,
-        message: "Payment must be collected or confirmed before completing delivery",
+        message:
+          order.onlinePaymentClaim?.status === "pending"
+            ? "Online payment is waiting for your Delivery Manager's approval"
+            : "Payment must be collected or confirmed before completing delivery",
       });
     }
 
     const now = new Date();
-
-    // ── Mark order delivered ───────────────────────────────────────────────
-    order.status = "delivered";
-    order.assignmentStatus = "DELIVERED";
-    order.deliveredAt = now;
     const comment = String(req.body.deliveryComment || req.body.comment || "")
       .trim()
       .slice(0, 500);
-    if (comment) order.deliveryComment = comment;
+
+    // Only one request can move the order to delivered — retries and double taps stop here.
+    const claimed = await StoreOrder.findOneAndUpdate(
+      { _id: order._id, assignedRiderId: riderId, status: { $in: OTP_STATUSES } },
+      {
+        $set: {
+          status: "delivered",
+          assignmentStatus: "DELIVERED",
+          deliveredAt: now,
+          customerOtpVerified: true,
+          customerOtpVerifiedAt: order.customerOtpVerifiedAt || now,
+          otpAttempts: 0,
+          ...(comment ? { deliveryComment: comment } : {}),
+        },
+        $unset: { otpLockedUntil: 1 },
+      },
+      { new: true }
+    );
+    if (!claimed) {
+      const fresh = await StoreOrder.findById(order._id);
+      if (fresh?.status === "delivered") {
+        return res.json({ success: true, alreadyDelivered: true, message: "Order already delivered", order: fresh.toRiderJSON() });
+      }
+      return res.status(409).json({ success: false, message: "Order changed — refresh and try again" });
+    }
+    order = claimed;
 
     // ── Calculate rider delivery earning from Shift KM slabs ───────────────
     const rider = await DeliveryBoy.findById(riderId);
@@ -1165,7 +1185,7 @@ export const completeDelivery = async (req, res, next) => {
         assignedRiderId: riderId,
         _id: { $ne: order._id },
         status: {
-          $in: ["assigned", "pickup_verified", "out_for_delivery", "offered"],
+          $in: ["assigned", "pickup_verified", "out_for_delivery"],
         },
       }).select("_id");
       if (otherActive) {
@@ -1174,6 +1194,8 @@ export const completeDelivery = async (req, res, next) => {
         await rider.save();
       }
     }
+
+    retryWaitingAssignmentsForStore(order.managerId).catch(() => {});
 
     return res.json({
       success: true,
@@ -1224,15 +1246,39 @@ export const failDelivery = async (req, res, next) => {
         message: `Order already ${order.status}`,
       });
     }
+    if (!OTP_STATUSES.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "You haven't picked this order up yet — ask your Delivery Manager to reassign it",
+      });
+    }
 
     const now = new Date();
-    order.status = "delivery_failed";
-    order.assignmentStatus = "FAILED";
-    order.failureReason = reason;
-    order.failedAt = now;
-    order.failedByRiderId = riderId;
-    await order.save();
-    await syncCustomerOrderFromStore(order, "cancelled").catch(() => {});
+    const failed = await StoreOrder.findOneAndUpdate(
+      { _id: order._id, assignedRiderId: riderId, status: { $in: OTP_STATUSES } },
+      {
+        $set: {
+          status: "delivery_failed",
+          assignmentStatus: "FAILED",
+          failureReason: reason,
+          failedAt: now,
+          failedByRiderId: riderId,
+          failureResolution: { status: "pending", byName: "", note: "", at: null },
+        },
+        $inc: { deliveryAttempts: 1 },
+      },
+      { new: true }
+    );
+    if (!failed) {
+      return res.status(409).json({ success: false, message: "Order changed — refresh and try again" });
+    }
+    if (failed.paymentStatus === "collected") {
+      await resolveCashForOrder({
+        orderId: failed._id,
+        outcome: "flag",
+        note: `Delivery failed after cash was collected: ${reason}`,
+      }).catch(() => {});
+    }
 
     const rider = await DeliveryBoy.findById(riderId);
     if (rider) {
@@ -1254,6 +1300,8 @@ export const failDelivery = async (req, res, next) => {
       await rider.save();
     }
 
+    retryWaitingAssignmentsForStore(order.managerId).catch(() => {});
+
     try {
       getIO().to(`store_${order.managerId}`).emit("order_delivery_failed", {
         orderId: order._id.toString(),
@@ -1272,8 +1320,8 @@ export const failDelivery = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: "Delivery marked as failed",
-      order: order.toRiderJSON(),
+      message: "Delivery marked as failed — bring the order back to the store",
+      order: failed.toRiderJSON(),
     });
   } catch (error) {
     next(error);
@@ -1463,19 +1511,150 @@ export const confirmOnlinePaymentForOrder = async (req, res, next) => {
     if (order.paymentStatus === "paid_online") {
       return res.json({ success: true, message: "Order already marked as paid online.", paymentStatus: "paid_online" });
     }
+    if (!OTP_STATUSES.includes(order.status) || !order.customerOtpVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Verify the customer's OTP at the door before confirming payment",
+      });
+    }
 
-    // TODO: In production, verify Razorpay payment here using razorpay_payment_id + signature
-    // For now, allow manager-confirmed / backend flow
-    order.paymentMethod = "online";
-    order.paymentStatus = "paid_online";
-    order.amountCollected = order.amountToCollect || 0;
+    // A Razorpay payment confirmed on the customer order (webhook / checkout verify) is the only automatic proof.
+    if (order.sourceOrderId) {
+      const { default: EcommerceOrder } = await import("../../../legacy/models/order/Order.js");
+      const customerOrder = await EcommerceOrder.findById(order.sourceOrderId)
+        .select("paymentStatus razorpayPaymentId")
+        .lean();
+      if (customerOrder?.paymentStatus === "paid" && customerOrder?.razorpayPaymentId) {
+        order.paymentMethod = "online";
+        order.paymentStatus = "paid_online";
+        order.amountCollected = order.amountToCollect || 0;
+        order.onlinePaymentClaim = {
+          ...(order.onlinePaymentClaim?.toObject?.() || {}),
+          status: "approved",
+          reviewedAt: new Date(),
+          reviewedByName: "Razorpay",
+        };
+        await order.save();
+        return res.json({
+          success: true,
+          message: "Online payment verified.",
+          paymentStatus: "paid_online",
+          amountCollected: order.amountCollected,
+        });
+      }
+    }
+
+    const claim = order.onlinePaymentClaim || {};
+    if (claim.status === "rejected") {
+      return res.status(400).json({
+        success: false,
+        message: "Your Delivery Manager rejected the online payment — collect cash from the customer",
+      });
+    }
+    if (claim.status !== "pending") {
+      order.onlinePaymentClaim = {
+        status: "pending",
+        riderId,
+        claimedAt: new Date(),
+        reviewedAt: null,
+        reviewedByName: "",
+        note: "",
+      };
+      await order.save();
+      try {
+        getIO().to(`store_${order.managerId}`).emit("online_payment_claim", {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          amount: order.amountToCollect || 0,
+          riderId: String(riderId),
+        });
+        getIO().to(`store_${order.managerId}`).emit("order_status_updated", {
+          orderId: order._id.toString(),
+          status: order.status,
+        });
+      } catch (_) {}
+    }
+
+    return res.status(409).json({
+      success: false,
+      pendingApproval: true,
+      message: "Online payment sent to your Delivery Manager for approval. Tap Online again once it is approved.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /orders/:orderId/failed/:action (return | reattempt) — manager decides what happens to a failed delivery. */
+export const resolveFailedOrderByManager = async (req, res, next) => {
+  try {
+    const managerId = req.user.id;
+    const manager = await DeliveryManager.findById(managerId).select("name storeName");
+    const { resolveFailedDelivery } = await import("../services/storeOrderLifecycle.js");
+    const result = await resolveFailedDelivery({
+      orderId: req.params.orderId,
+      managerId,
+      action: req.params.action,
+      note: req.body?.note,
+      byName: manager?.name || manager?.storeName || "Delivery Manager",
+    });
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({ success: false, message: result.message });
+    }
+    return res.json({ success: true, message: result.message, order: result.order.toSafeJSON() });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** POST /orders/:orderId/online-payment/:decision (approve | reject) — manager reviews a rider's online-payment claim. */
+export const reviewOnlinePaymentClaim = async (req, res, next) => {
+  try {
+    const managerId = req.user.id;
+    const { orderId, decision } = req.params;
+    if (!["approve", "reject"].includes(decision)) {
+      return res.status(400).json({ success: false, message: "Decision must be approve or reject" });
+    }
+    const order = await StoreOrder.findOne({ _id: orderId, managerId });
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+    if (order.onlinePaymentClaim?.status !== "pending") {
+      return res.status(400).json({ success: false, message: "No online payment waiting for approval" });
+    }
+
+    const manager = await DeliveryManager.findById(managerId).select("name storeName");
+    const now = new Date();
+    order.onlinePaymentClaim.status = decision === "approve" ? "approved" : "rejected";
+    order.onlinePaymentClaim.reviewedAt = now;
+    order.onlinePaymentClaim.reviewedByName = manager?.name || manager?.storeName || "Delivery Manager";
+    order.onlinePaymentClaim.note = String(req.body?.note || "").trim().slice(0, 300);
+    if (decision === "approve") {
+      order.paymentMethod = "online";
+      order.paymentStatus = "paid_online";
+      order.amountCollected = order.amountToCollect || 0;
+    }
     await order.save();
+
+    try {
+      const payload = {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        decision,
+        message:
+          decision === "approve"
+            ? "Online payment approved — you can complete the delivery"
+            : "Online payment rejected — collect cash from the customer",
+      };
+      getIO().to(`rider_${order.assignedRiderId}`).emit("online_payment_reviewed", payload);
+      getIO().to(`rider_${order.assignedRiderId}`).emit("active_delivery_updated", {
+        reason: "online_payment_reviewed",
+        orderId: order._id.toString(),
+      });
+    } catch (_) {}
 
     return res.json({
       success: true,
-      message: "Online payment confirmed.",
-      paymentStatus: "paid_online",
-      amountCollected: order.amountCollected,
+      message: decision === "approve" ? "Online payment approved" : "Online payment rejected",
+      order: order.toSafeJSON(),
     });
   } catch (error) {
     next(error);

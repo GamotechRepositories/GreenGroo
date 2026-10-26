@@ -2389,6 +2389,12 @@ export async function updateDeliveryOrderStatus(req, res, next) {
       status,
       skipCompletionGuards: true,
       restoreStockOnCancel: true,
+      reason: String(req.body.reason || "").trim(),
+      actor: {
+        id: req.user?._id || req.user?.id || null,
+        role: "admin",
+        name: req.user?.name || req.user?.email || "Admin",
+      },
     });
     if (!result.success) return fail(res, result.statusCode || 400, result.message);
     return ok(res, result.order, { message: result.message });

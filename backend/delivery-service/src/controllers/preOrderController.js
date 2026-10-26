@@ -558,12 +558,17 @@ export const adminSetPreOrderProgress = async (req, res, next) => {
       if (target === "cancelled" && !reason) {
         return res.status(400).json({ success: false, message: "A cancellation reason is required" });
       }
+      if (target === "delivered" && !reason) {
+        return res.status(400).json({ success: false, message: "A reason is required to mark delivered" });
+      }
       await order.save();
       const result = await applyStoreOrderStatus({
         storeOrderId: order._id,
         status: target,
         skipCompletionGuards: true,
         restoreStockOnCancel: false,
+        reason,
+        actor: { id: req.user?.id || null, role: "admin", name: byName },
       });
       if (!result.success) {
         return res.status(result.statusCode || 400).json({ success: false, message: result.message });
@@ -852,6 +857,10 @@ export const markPreOrdersDelivered = async (req, res, next) => {
     if (!orderIds) return;
 
     const byName = manager.name || manager.storeName || "Delivery Manager";
+    const reason = String(req.body?.reason || "").trim().slice(0, 300);
+    if (!reason) {
+      return res.status(400).json({ success: false, message: "A reason is required to mark pre-orders delivered" });
+    }
     const delivered = [];
     const failed = [];
     for (const id of orderIds) {
@@ -876,12 +885,12 @@ export const markPreOrdersDelivered = async (req, res, next) => {
         continue;
       }
 
-      order.notes = [order.notes, `Marked delivered by ${byName} (Delivery Manager)`].filter(Boolean).join("\n");
-      await order.save();
       const result = await applyStoreOrderStatus({
         storeOrderId: order._id,
         status: "delivered",
         skipCompletionGuards: true,
+        reason,
+        actor: { id: manager._id, role: "delivery_manager", name: byName },
       });
       if (!result.success) {
         failed.push({ id, orderNumber: order.orderNumber, message: result.message });

@@ -14,7 +14,7 @@ const SHIFT_TYPES = [
   { id: "custom", label: "Custom Shift", defaultStart: "09:00 AM", defaultEnd: "05:00 PM" },
 ];
 
-const NO_INCENTIVE = { incentiveMode: "none", incentiveRate: "" };
+const NO_INCENTIVE = { incentiveMode: "none", incentiveRate: "", incentiveAfterKm: "" };
 
 const INCENTIVE_OPTIONS = [
   { id: "none", label: "No incentive" },
@@ -59,14 +59,11 @@ function initials(name) {
   );
 }
 
-function Card({ title, subtitle, action, children }) {
+function Card({ title, action, children }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
-        </div>
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {action}
       </div>
       <div className="p-5">{children}</div>
@@ -312,6 +309,10 @@ export default function CreateShiftPage() {
         showToast(`Slot ${i + 1}: enter the incentive amount (₹) or choose "No incentive"`);
         return;
       }
+      if (s.incentiveMode === "per_km" && s.incentiveAfterKm !== "" && !(Number(s.incentiveAfterKm) >= 0)) {
+        showToast(`Slot ${i + 1}: "After km" must be 0 or more`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -327,6 +328,7 @@ export default function CreateShiftPage() {
           capacity: parseInt(s.capacity || newCapacity, 10) || 10,
           incentiveMode: s.incentiveMode || "none",
           incentiveRate: s.incentiveMode === "none" ? 0 : Number(s.incentiveRate) || 0,
+          incentiveAfterKm: s.incentiveMode === "per_km" ? Number(s.incentiveAfterKm) || 0 : 0,
         })),
         recurrenceMode,
         targetDate,
@@ -385,7 +387,7 @@ export default function CreateShiftPage() {
         </div>
       ) : null}
 
-      <Card title="Shift details" subtitle="Preset, name, capacity, pay and the drivers who will work it">
+      <Card title="Shift details">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <div>
             <label className={LABEL}>Shift preset</label>
@@ -453,7 +455,6 @@ export default function CreateShiftPage() {
 
       <Card
         title="Time slots"
-        subtitle="Working hours per slot, with an optional hour or KM incentive credited instantly on top of salary"
         action={
           <button
             type="button"
@@ -465,7 +466,7 @@ export default function CreateShiftPage() {
         }
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[880px] text-sm">
             <thead>
               <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 <th className="w-10 pb-2">#</th>
@@ -474,6 +475,7 @@ export default function CreateShiftPage() {
                 <th className="pb-2 pr-3">Capacity</th>
                 <th className="pb-2 pr-3">Incentive</th>
                 <th className="pb-2 pr-3">Rate</th>
+                <th className="pb-2 pr-3">Pay after</th>
                 <th className="w-10 pb-2" />
               </tr>
             </thead>
@@ -539,6 +541,24 @@ export default function CreateShiftPage() {
                       </span>
                     </div>
                   </td>
+                  <td className="py-2.5 pr-3">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        disabled={cs.incentiveMode !== "per_km"}
+                        value={cs.incentiveMode === "per_km" ? cs.incentiveAfterKm : ""}
+                        onChange={(e) => updateSlotRow(idx, "incentiveAfterKm", e.target.value)}
+                        placeholder="0"
+                        title="Km the rider must deliver in this slot before each further km is paid"
+                        className={`${FIELD} pr-10`}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                        km
+                      </span>
+                    </div>
+                  </td>
                   <td className="py-2.5 text-right">
                     <button
                       type="button"
@@ -557,7 +577,7 @@ export default function CreateShiftPage() {
         </div>
       </Card>
 
-      <Card title="Schedule" subtitle="Which dates these slots are generated for">
+      <Card title="Schedule">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div>
             <label className={LABEL}>Repeat</label>

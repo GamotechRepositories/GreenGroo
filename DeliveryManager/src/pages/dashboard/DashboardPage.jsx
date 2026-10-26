@@ -1,12 +1,30 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
-import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { Icon } from "../../components/ui/Icon";
 import { useLive } from "../../realtime/useLive";
 
+const rupee = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+
+const TONES = {
+  emerald: "bg-emerald-50 text-emerald-600",
+  sky: "bg-sky-50 text-sky-600",
+  amber: "bg-amber-50 text-amber-600",
+  violet: "bg-violet-50 text-violet-600",
+  rose: "bg-rose-50 text-rose-600",
+  slate: "bg-slate-100 text-slate-600",
+};
+
+const DOTS = {
+  sky: "bg-sky-500",
+  amber: "bg-amber-500",
+  violet: "bg-violet-500",
+  rose: "bg-rose-500",
+  slate: "bg-slate-400",
+};
+
 export default function DashboardPage() {
-  const { manager } = useAuth();
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,9 +35,7 @@ export default function DashboardPage() {
       if (res.data?.summary) setSummary(res.data.summary);
       setError("");
     } catch (err) {
-      if (!silent) {
-        setError(err.response?.data?.message || "Failed to load dashboard data");
-      }
+      if (!silent) setError(err.response?.data?.message || "Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -27,200 +43,163 @@ export default function DashboardPage() {
 
   useLive(fetchDashboardData, []);
 
-  const kpis = [
+  const s = summary || {};
+
+  const stats = [
+    { label: "New orders", value: s.incomingOrders ?? 0, icon: "orders", tone: "emerald", to: "/orders" },
+    { label: "Out for delivery", value: s.outForDelivery ?? 0, icon: "scooter", tone: "sky", to: "/orders" },
+    { label: "Delivered today", value: s.deliveredToday ?? 0, icon: "check", tone: "emerald", to: "/orders" },
     {
-      label: "Incoming Orders",
-      value: summary?.incomingOrders ?? 0,
-      subtext: "Awaiting pack & dispatch",
-      to: "/orders",
-      urgent: (summary?.incomingOrders ?? 0) > 0,
-    },
-    {
-      label: "Pre-Orders to Assign",
-      value: summary?.preOrdersReadyToAssign ?? 0,
-      subtext: `${summary?.preOrdersWithProductManager ?? 0} still with vendor`,
-      to: "/preorders",
-      urgent: (summary?.preOrdersReadyToAssign ?? 0) > 0,
-    },
-    {
-      label: "Riders Online",
-      value: `${summary?.ridersOnline ?? 0} / ${summary?.ridersTotal ?? 0}`,
-      subtext: "Available for delivery",
+      label: "Riders online",
+      value: `${s.ridersOnline ?? 0}/${s.ridersTotal ?? 0}`,
+      icon: "truck",
+      tone: "violet",
       to: "/drivers",
-      urgent: false,
     },
-    {
-      label: "Driver Applications",
-      value: summary?.pendingDrivers ?? 0,
-      subtext: "Awaiting verification",
-      to: "/drivers/pending",
-      urgent: (summary?.pendingDrivers ?? 0) > 0,
-    },
-    {
-      label: "Inventory SKUs",
-      value: summary?.inventorySkus ?? 0,
-      subtext: "Products in store",
-      to: "/stock",
-      urgent: false,
-    },
-    {
-      label: "Low Stock Items",
-      value: summary?.lowStockItems ?? 0,
-      subtext: "Items below threshold",
-      to: "/stock",
-      urgent: (summary?.lowStockItems ?? 0) > 0,
-    },
-    {
-      label: "Restock Requests",
-      value: summary?.pendingInventoryRequests ?? 0,
-      subtext: "Waiting on vendor approval",
-      to: "/stock",
-      urgent: (summary?.pendingInventoryRequests ?? 0) > 0,
-    },
+    { label: "Pre-orders to assign", value: s.preOrdersReadyToAssign ?? 0, icon: "clock", tone: "amber", to: "/preorders" },
+    { label: "Cash pending", value: rupee(s.cashPending), icon: "cash", tone: "slate", to: "/orders" },
+    { label: "Low stock items", value: s.lowStockItems ?? 0, icon: "box", tone: "rose", to: "/stock" },
+    { label: "Inventory SKUs", value: s.inventorySkus ?? 0, icon: "bag", tone: "slate", to: "/stock" },
+  ];
+
+  const attention = [
+    { label: "Failed deliveries awaiting decision", value: s.failedAwaitingDecision, to: "/orders", tone: "rose" },
+    { label: "Online payments to approve", value: s.onlinePaymentApprovals, to: "/orders", tone: "sky" },
+    { label: "Orders waiting for a rider", value: s.waitingForRider, to: "/orders", tone: "amber" },
+    { label: "Pickup photos to approve", value: s.pickupProofPending, to: "/orders", tone: "amber" },
+    { label: "Rider applications", value: s.pendingDrivers, to: "/drivers/pending", tone: "violet" },
+    { label: "Restock requests pending", value: s.pendingInventoryRequests, to: "/stock", tone: "slate" },
+    { label: "Pre-orders with vendor", value: s.preOrdersWithProductManager, to: "/preorders", tone: "slate" },
+  ];
+  const openItems = attention.filter((a) => Number(a.value) > 0);
+
+  const shortcuts = [
+    { to: "/orders", label: "Orders", icon: "orders" },
+    { to: "/revenue", label: "Revenue", icon: "chart" },
+    { to: "/preorders", label: "Pre-Orders", icon: "clock" },
+    { to: "/drivers", label: "Riders", icon: "truck" },
+    { to: "/stock", label: "Stock", icon: "box" },
+    { to: "/shifts", label: "Shifts", icon: "calendar" },
+    { to: "/alerts", label: "Alerts", icon: "bell" },
   ];
 
   return (
-    <PageShell>
-      {/* Dashboard Top Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">Store Dashboard</h1>
-          <p className="text-xs md:text-sm text-slate-500">
-            Live operations for {manager?.storeName || "Dark Store"} · {manager?.area || "your area"}
-            {manager?.deliveryRadiusKm ? ` · ${manager.deliveryRadiusKm} km radius` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/orders"
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
-          >
-            View Orders {summary?.incomingOrders > 0 && `(${summary.incomingOrders})`}
-          </Link>
-          <button
-            type="button"
-            onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-          >
+    <PageShell
+      title="Dashboard"
+      actions={
+        <>
+          <button type="button" onClick={() => fetchDashboardData()} className="btn-outline">
             Refresh
           </button>
-        </div>
-      </div>
-
+          <Link to="/orders" className="btn-primary">
+            Orders{s.incomingOrders > 0 ? ` (${s.incomingOrders})` : ""}
+          </Link>
+        </>
+      }
+    >
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
           {error}
         </div>
       )}
 
-      {/* KPI Cards */}
+      <Link
+        to="/revenue"
+        className="card flex flex-wrap items-center justify-between gap-4 p-5 transition hover:border-emerald-300"
+      >
+        <div className="flex items-center gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+            <Icon name="chart" size="md" />
+          </span>
+          <div>
+            <p className="stat-label">Revenue till date</p>
+            <p className="text-2xl font-bold tabular-nums text-slate-900">
+              {loading ? "—" : rupee(s.revenueToDate)}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="stat-label">Today</p>
+            <p className="text-lg font-bold tabular-nums text-emerald-700">{loading ? "—" : rupee(s.revenueToday)}</p>
+          </div>
+          <span className="flex items-center gap-1 text-sm font-semibold text-emerald-700">
+            View report
+            <Icon name="arrowRight" size="sm" />
+          </span>
+        </div>
+      </Link>
+
       {loading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-2xl bg-slate-200/60 animate-pulse" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-[92px] animate-pulse rounded-xl bg-slate-200/60" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {kpis.map((kpi) => (
-            <Link
-              key={kpi.label}
-              to={kpi.to}
-              className="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">KPI</span>
-                  {kpi.urgent && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-                  )}
-                </div>
-                <p className="mt-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  {kpi.label}
-                </p>
-                <p className="mt-0.5 text-2xl font-extrabold text-slate-900 tracking-tight">
-                  {kpi.value}
-                </p>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {stats.map((st) => (
+            <Link key={st.label} to={st.to} className="card flex items-center gap-4 p-4 transition hover:border-slate-300">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${TONES[st.tone]}`}>
+                <Icon name={st.icon} size="md" />
+              </span>
+              <div className="min-w-0">
+                <p className="stat-label truncate">{st.label}</p>
+                <p className="stat-value">{st.value}</p>
               </div>
-              <p className="mt-3 text-[11px] text-slate-400 border-t border-slate-100 pt-2">
-                {kpi.subtext}
-              </p>
             </Link>
           ))}
         </div>
       )}
 
-      {/* Quick Action Links */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Link
-          to="/orders"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-emerald-50 hover:border-emerald-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Incoming Orders</p>
-            <p className="text-xs text-slate-500 mt-0.5">Pack, dispatch & track orders</p>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="card lg:col-span-2">
+          <div className="card-header">
+            <h2 className="card-title">Needs attention</h2>
+            {openItems.length > 0 && <span className="badge bg-rose-50 text-rose-700">{openItems.length}</span>}
           </div>
-        </Link>
+          {openItems.length === 0 ? (
+            <div className="flex items-center gap-2 px-4 py-8 text-sm font-medium text-slate-500">
+              <Icon name="check" size="sm" className="text-emerald-500" />
+              All clear
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {openItems.map((a) => (
+                <li key={a.label}>
+                  <Link to={a.to} className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50">
+                    <span className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                      <span className={`h-2 w-2 rounded-full ${DOTS[a.tone]}`} />
+                      {a.label}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-bold tabular-nums text-slate-900">{a.value}</span>
+                      <Icon name="arrowRight" size="sm" className="text-slate-400" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-        <Link
-          to="/preorders"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-amber-50 hover:border-amber-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Pre-Orders</p>
-            <p className="text-xs text-slate-500 mt-0.5">Next-day slot orders · assign riders manually</p>
+        <section className="card">
+          <div className="card-header">
+            <h2 className="card-title">Shortcuts</h2>
           </div>
-        </Link>
-
-        <Link
-          to="/drivers"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-indigo-50 hover:border-indigo-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Drivers</p>
-            <p className="text-xs text-slate-500 mt-0.5">Online riders & assignments</p>
+          <div className="grid grid-cols-3 gap-2 p-3">
+            {shortcuts.map((sc) => (
+              <Link
+                key={sc.to}
+                to={sc.to}
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-slate-100 px-2 py-3 text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                <Icon name={sc.icon} size="md" className="text-slate-500" />
+                {sc.label}
+              </Link>
+            ))}
           </div>
-        </Link>
-
-        <Link
-          to="/drivers/pending"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-purple-50 hover:border-purple-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Driver Verification</p>
-            <p className="text-xs text-slate-500 mt-0.5">Approve new driver applications</p>
-          </div>
-        </Link>
-
-        <Link
-          to="/stock"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-blue-50 hover:border-blue-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Stock Inventory</p>
-            <p className="text-xs text-slate-500 mt-0.5">Live stock · request restock from your vendor</p>
-          </div>
-        </Link>
-
-        <Link
-          to="/shifts"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-teal-50 hover:border-teal-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Shifts & Slots</p>
-            <p className="text-xs text-slate-500 mt-0.5">Manage rider shift schedule</p>
-          </div>
-        </Link>
-
-        <Link
-          to="/alerts"
-          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-rose-50 hover:border-rose-200 transition group"
-        >
-          <div>
-            <p className="font-bold text-slate-900">Alerts</p>
-            <p className="text-xs text-slate-500 mt-0.5">Operational alerts & notifications</p>
-          </div>
-        </Link>
+        </section>
       </div>
     </PageShell>
   );

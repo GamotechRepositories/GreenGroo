@@ -424,6 +424,8 @@
   },
   "todaysOrders": "Today's Orders",
   "completed": "Completed",
+  "shiftRunning": "Running",
+  "shiftUpcoming": "Upcoming",
   "myOrders": "My Orders",
   "thisWeekEarnings": "This Week",
   "continueDelivery": "Continue Delivery",
@@ -696,6 +698,17 @@
   "viewMySlots": "View my slots",
   "cancel": "Cancel",
   "ok": "OK",
+  "orderDeliveredTitle": "Order delivered successfully",
+  "orderDeliveredBody": "Order #{number} has been delivered.",
+  "@orderDeliveredBody": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "goToHome": "Go to Home",
+  "nextDelivery": "Next delivery",
   "detectingLocation": "Detecting your location…",
   "locationUnavailable": "Couldn't get your location. Turn on GPS and try again.",
   "locationVerified": "Location verified",
@@ -708,6 +721,28 @@
   "@incentivePerKm": {
     "placeholders": {
       "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "incentivePerKmAfter": "₹{rate}/km after {km} km",
+  "@incentivePerKmAfter": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "kmDoneInSlot": "{done} / {km} km done",
+  "@kmDoneInSlot": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "km": {
         "type": "String"
       }
     }
@@ -943,8 +978,8 @@
   "markAllAsRead": "Mark all as read",
   "notifVerifiedTitle": "You're Verified!",
   "notifVerifiedBody": "You can now receive orders.",
-  "notifShiftStartedTitle": "Shift Started",
-  "notifShiftStartedBody": "You're now online and ready for orders.",
+  "notifShiftStartedTitle": "Time to go online",
+  "notifShiftStartedBody": "Your slot has started. Go online to receive orders.",
   "notifShiftReminderTitle": "Shift starting soon",
   "notifShiftReminderBody": "Your shift starts in about {minutes} min. Be ready to go online.",
   "@notifShiftReminderBody": {

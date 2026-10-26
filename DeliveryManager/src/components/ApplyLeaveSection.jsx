@@ -23,7 +23,6 @@ function formatDates(row) {
 
 export default function ApplyLeaveSection({
   title = "Apply for leave",
-  subtitle = "Choose leave type, add a reason, and select one or more dates.",
   applicantName = "",
   applyLeave,
   listMyLeaves,
@@ -95,10 +94,7 @@ export default function ApplyLeaveSection({
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-      </div>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div>

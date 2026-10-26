@@ -111,7 +111,13 @@ export async function syncStorePartsAfterAdminEdit({ previous, order, body = {} 
 
   if (statusChanged && order.status === "delivered") {
     for (const part of await openParts(orderId)) {
-      await applyStoreOrderStatus({ storeOrderId: part._id, status: "delivered", skipCompletionGuards: true });
+      await applyStoreOrderStatus({
+        storeOrderId: part._id,
+        status: "delivered",
+        skipCompletionGuards: true,
+        reason: "Customer order marked delivered by admin",
+        actor: { role: "admin", name: "Admin (order edit)" },
+      });
     }
     return;
   }

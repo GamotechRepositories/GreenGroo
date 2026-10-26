@@ -273,10 +273,7 @@ export default function DriversPage() {
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : riders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
-          <h3 className="text-base font-bold text-slate-800">No Approved Drivers</h3>
-          <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-            No delivery partners approved for this location yet. Click "+ Create Delivery Partner" above to register credentials.
-          </p>
+          <h3 className="text-sm font-semibold text-slate-700">No approved riders yet</h3>
         </div>
       ) : (
         <>

@@ -47,7 +47,13 @@ const INCENTIVE_MODES = ["none", "per_km", "per_hour"];
 export function normalizeSlotIncentive(s = {}) {
   const mode = INCENTIVE_MODES.includes(s.incentiveMode) ? s.incentiveMode : "none";
   const rate = Math.max(0, Number(s.incentiveRate) || 0);
-  return { incentiveMode: rate > 0 ? mode : "none", incentiveRate: mode === "none" ? 0 : rate };
+  const finalMode = rate > 0 ? mode : "none";
+  const afterKm = Math.max(0, Number(s.incentiveAfterKm) || 0);
+  return {
+    incentiveMode: finalMode,
+    incentiveRate: finalMode === "none" ? 0 : rate,
+    incentiveAfterKm: finalMode === "per_km" ? Math.round(afterKm * 100) / 100 : 0,
+  };
 }
 
 /** Default time slots generator for standard shift types */
@@ -175,6 +181,7 @@ function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
         bookedCount: bookings.filter((b) => b.status !== "CANCELLED").length,
         incentiveMode: template.incentiveMode ?? existing.incentiveMode ?? "none",
         incentiveRate: template.incentiveRate ?? existing.incentiveRate ?? 0,
+        incentiveAfterKm: template.incentiveAfterKm ?? existing.incentiveAfterKm ?? 0,
       });
     } else {
       preserved.push({
@@ -186,6 +193,7 @@ function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
         bookings: [],
         incentiveMode: template.incentiveMode || "none",
         incentiveRate: template.incentiveRate || 0,
+        incentiveAfterKm: template.incentiveAfterKm || 0,
       });
     }
   }
@@ -414,7 +422,7 @@ export const createShift = async (req, res, next) => {
         title: "New slot assigned",
         message: `${shiftName}: ${timeText} · ${dateText}${salaryText}`,
         priority: "high",
-        dedupeKey: `shift-create:${first?._id}:${Date.now()}`,
+        dedupeKey: `shift-create:${first?._id}`,
         data: { screen: "shifts", event: "shift_assigned" },
       }).catch(() => {});
     }
@@ -644,12 +652,17 @@ export const updateSlotDateWise = async (req, res, next) => {
       if (status) slot.status = status;
       if (startTime) slot.startTime = startTime;
       if (endTime) slot.endTime = endTime;
-      if (req.body.incentiveMode !== undefined || req.body.incentiveRate !== undefined) {
+      if (
+        req.body.incentiveMode !== undefined ||
+        req.body.incentiveRate !== undefined ||
+        req.body.incentiveAfterKm !== undefined
+      ) {
         Object.assign(
           slot,
           normalizeSlotIncentive({
             incentiveMode: req.body.incentiveMode ?? slot.incentiveMode,
             incentiveRate: req.body.incentiveRate ?? slot.incentiveRate,
+            incentiveAfterKm: req.body.incentiveAfterKm ?? slot.incentiveAfterKm,
           })
         );
       }
@@ -1037,6 +1050,7 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
       remainingCapacity: Math.max(0, slot.capacity - slot.bookedCount),
       incentiveMode: slot.incentiveMode || "none",
       incentiveRate: Number(slot.incentiveRate) || 0,
+      incentiveAfterKm: Number(slot.incentiveAfterKm) || 0,
       lifecycle,
       statusLabel: lifecycleToLabel(lifecycle),
       isExpired: lifecycle === "past",

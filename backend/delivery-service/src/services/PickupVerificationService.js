@@ -8,15 +8,27 @@ import { isS3Configured, uploadDataUrlToS3 } from "./s3Service.js";
 
 const PRE_ORDER_UNLOCK_MESSAGE = "Pre-order picked up. Customer address unlocked.";
 const PRE_ORDER_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const STORE_SCREEN_TOKEN_TTL_MS = 10 * 60 * 1000;
 
 function buildQrPayload(orderId, token) {
   return `PICKUP:${orderId}:${token}`;
 }
 
-export async function generateDriverPickupToken(order) {
+function tokenTtl(order, issuedFor) {
+  // Pre-order QR labels are printed in advance, so they need to outlive a normal pickup window.
+  if (order.isPreOrder) return Math.max(PICKUP_TOKEN_TTL_MS, PRE_ORDER_TOKEN_TTL_MS);
+  return issuedFor === "store" ? STORE_SCREEN_TOKEN_TTL_MS : PICKUP_TOKEN_TTL_MS;
+}
+
+/**
+ * issuedFor "rider": shown in the rider app, redeemable only by the manager's scan.
+ * issuedFor "store": shown on the manager screen / bag label, redeemable only by the rider's scan.
+ */
+export async function generateDriverPickupToken(order, { issuedFor = "rider" } = {}) {
   const existing = await PickupVerificationToken.findOne({
     orderId: order._id,
     driverId: order.assignedRiderId,
+    issuedFor,
     used: false,
     verified: false,
     tokenExpiresAt: { $gt: new Date() },
@@ -31,9 +43,7 @@ export async function generateDriverPickupToken(order) {
   }
 
   const token = crypto.randomBytes(24).toString("hex");
-  // Pre-order QR labels are printed in advance, so they need to outlive a normal pickup window.
-  const ttl = order.isPreOrder ? Math.max(PICKUP_TOKEN_TTL_MS, PRE_ORDER_TOKEN_TTL_MS) : PICKUP_TOKEN_TTL_MS;
-  const expiresAt = new Date(Date.now() + ttl);
+  const expiresAt = new Date(Date.now() + tokenTtl(order, issuedFor));
 
   await PickupVerificationToken.create({
     orderId: order._id,
@@ -41,6 +51,7 @@ export async function generateDriverPickupToken(order) {
     darkStoreId: order.managerId,
     verificationToken: token,
     tokenExpiresAt: expiresAt,
+    issuedFor,
   });
 
   return {
@@ -51,7 +62,7 @@ export async function generateDriverPickupToken(order) {
 }
 
 /** QR scanned — address stays locked until manager approves item proof photo. */
-export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, verifiedBy }) {
+export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, verifiedBy, scannedBy = "manager" }) {
   const raw = String(scannedPayload || "").trim();
   let token = raw;
   if (raw.startsWith("PICKUP:")) {
@@ -110,6 +121,19 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
 
   if (!record) {
     return { success: false, status: 400, message: "Invalid or mismatched pickup verification token" };
+  }
+
+  // Each side must scan the other side's code, so a rider can't verify their own pickup.
+  const expectedIssuer = scannedBy === "rider" ? "store" : "rider";
+  if ((record.issuedFor || "rider") !== expectedIssuer) {
+    return {
+      success: false,
+      status: 403,
+      message:
+        scannedBy === "rider"
+          ? "Scan the pickup QR shown on the store's screen or bag label — not your own QR"
+          : "Scan the QR shown in the rider's app",
+    };
   }
 
   if (record.used || record.verified) {
@@ -393,5 +417,6 @@ export async function verifyPickupByDriverScan({ driverId, scannedPayload }) {
     orderId: order._id,
     scannedPayload: raw,
     verifiedBy: null,
+    scannedBy: "rider",
   });
 }

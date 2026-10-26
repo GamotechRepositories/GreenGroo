@@ -19,12 +19,12 @@ const INCENTIVE_OPTIONS = [
 
 const incentiveLabel = (slot) =>
   slot?.incentiveMode === 'per_km' && slot.incentiveRate > 0
-    ? `₹${slot.incentiveRate} / km`
+    ? `₹${slot.incentiveRate} / km${slot.incentiveAfterKm > 0 ? ` after ${slot.incentiveAfterKm} km` : ''}`
     : slot?.incentiveMode === 'per_hour' && slot.incentiveRate > 0
       ? `₹${slot.incentiveRate} / hr`
       : '—';
 
-const blankSlot = () => ({ startTime: '09:00 AM', endTime: '01:00 PM', capacity: 10, incentiveMode: 'none', incentiveRate: '' });
+const blankSlot = () => ({ startTime: '09:00 AM', endTime: '01:00 PM', capacity: 10, incentiveMode: 'none', incentiveRate: '', incentiveAfterKm: '' });
 
 const input = 'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800';
 
@@ -348,6 +348,7 @@ function CreateSlotsModal({ base, defaultDate, onClose, onCreated }) {
           capacity: parseInt(s.capacity, 10) || 10,
           incentiveMode: s.incentiveMode,
           incentiveRate: s.incentiveMode === 'none' ? 0 : Number(s.incentiveRate) || 0,
+          incentiveAfterKm: s.incentiveMode === 'per_km' ? Number(s.incentiveAfterKm) || 0 : 0,
         })),
         salaryAmount: Math.round(Number(salaryAmount)),
         salaryPeriod,
@@ -388,7 +389,7 @@ function CreateSlotsModal({ base, defaultDate, onClose, onCreated }) {
 
         <div className="space-y-2">
           {slots.map((s, idx) => (
-            <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 md:grid-cols-6">
+            <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 md:grid-cols-7">
               <input value={s.startTime} onChange={(e) => update(idx, 'startTime', e.target.value)} placeholder="06:00 AM" className={input} />
               <input value={s.endTime} onChange={(e) => update(idx, 'endTime', e.target.value)} placeholder="10:00 AM" className={input} />
               <input type="number" min="1" value={s.capacity} onChange={(e) => update(idx, 'capacity', e.target.value)} placeholder="Capacity" className={input} />
@@ -405,6 +406,17 @@ function CreateSlotsModal({ base, defaultDate, onClose, onCreated }) {
                 value={s.incentiveRate}
                 onChange={(e) => update(idx, 'incentiveRate', e.target.value)}
                 placeholder={s.incentiveMode === 'per_hour' ? '₹ / hour' : '₹ / km'}
+                className={`${input} disabled:opacity-40`}
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                disabled={s.incentiveMode !== 'per_km'}
+                value={s.incentiveMode === 'per_km' ? s.incentiveAfterKm : ''}
+                onChange={(e) => update(idx, 'incentiveAfterKm', e.target.value)}
+                placeholder="Pay after km"
+                title="Km the rider must deliver in this slot before each further km is paid"
                 className={`${input} disabled:opacity-40`}
               />
               <button

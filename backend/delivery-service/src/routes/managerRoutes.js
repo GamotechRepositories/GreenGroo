@@ -28,6 +28,8 @@ import {
   getManagerOrderPickupQr,
   verifyPickupByManager,
   approvePickupProofByManager,
+  reviewOnlinePaymentClaim,
+  resolveFailedOrderByManager,
 } from "../controllers/riderOrderController.js";
 import {
   createInventoryRequest,
@@ -116,6 +118,7 @@ import {
   approveReturnProof,
   markReturnSuccessful,
 } from "../controllers/returnPickupController.js";
+import { getRevenueReport } from "../controllers/managerRevenueController.js";
 
 const router = express.Router();
 
@@ -127,6 +130,7 @@ router.use(protect, requireDeliveryManager);
 
 router.get("/me", me);
 router.get("/dashboard", getDashboardSummary);
+router.get("/revenue", getRevenueReport);
 router.get("/orders", listIncomingOrders);
 router.get("/preorders", listManagerPreOrders);
 router.post("/preorders/receive", markPreOrdersReceived);
@@ -160,6 +164,8 @@ router.post("/orders/assign-same-route", assignSameRouteOrders);
 router.get("/orders/:orderId/pickup-qr", getManagerOrderPickupQr);
 router.post("/orders/:orderId/verify-pickup", verifyPickupByManager);
 router.post("/orders/:orderId/approve-pickup-proof", approvePickupProofByManager);
+router.post("/orders/:orderId/online-payment/:decision", reviewOnlinePaymentClaim);
+router.post("/orders/:orderId/failed/:action", resolveFailedOrderByManager);
 router.post("/orders/:orderId/confirm-cash", confirmOrderCash);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);

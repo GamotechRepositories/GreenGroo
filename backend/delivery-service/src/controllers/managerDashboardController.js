@@ -26,6 +26,7 @@ import {
   formatOnlineMinutes,
 } from "../utils/onlineHoursHelper.js";
 import { buildRiderActivityHistory } from "../services/activityHistoryService.js";
+import { revenueTotals } from "./managerRevenueController.js";
 import { areaMatches, placesEqual } from "../utils/matchPlace.js";
 import {
   BATCHING_WAIT_MS,
@@ -252,10 +253,53 @@ export const getDashboardSummary = async (req, res, next) => {
       }),
     ]);
 
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const [
+      failedAwaitingDecision,
+      onlinePaymentApprovals,
+      waitingForRider,
+      pickupProofPending,
+      outForDelivery,
+      deliveredToday,
+      cashRows,
+      revenue,
+    ] = await Promise.all([
+      StoreOrder.countDocuments({
+        managerId: manager._id,
+        status: "delivery_failed",
+        "failureResolution.status": { $in: ["pending", "", null] },
+      }),
+      StoreOrder.countDocuments({ managerId: manager._id, "onlinePaymentClaim.status": "pending" }),
+      StoreOrder.countDocuments({
+        managerId: manager._id,
+        isPreOrder: { $ne: true },
+        status: "packed",
+        assignmentStatus: { $in: ["WAITING_FOR_DRIVER", "SEARCHING_FOR_DRIVER"] },
+      }),
+      StoreOrder.countDocuments({ managerId: manager._id, pickupProofStatus: "pending", customerAddressUnlocked: false }),
+      StoreOrder.countDocuments({ managerId: manager._id, status: { $in: ["pickup_verified", "out_for_delivery"] } }),
+      StoreOrder.countDocuments({ managerId: manager._id, status: "delivered", deliveredAt: { $gte: dayStart } }),
+      CashSettlement.aggregate([
+        { $match: { darkStoreId: manager._id, status: { $in: ["PENDING", "SUBMITTED", "DISPUTED"] } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
+      revenueTotals(manager._id),
+    ]);
+
     return res.json({
       success: true,
       manager: manager.toSafeJSON(),
       summary: {
+        failedAwaitingDecision,
+        onlinePaymentApprovals,
+        waitingForRider,
+        pickupProofPending,
+        outForDelivery,
+        deliveredToday,
+        cashPending: Math.round(cashRows[0]?.total || 0),
+        revenueToDate: revenue.allTime,
+        revenueToday: revenue.today,
         preOrdersWithProductManager,
         preOrdersReadyToAssign,
         incomingOrders: incoming,
@@ -692,13 +736,21 @@ export const assignSameRouteOrders = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Rider not found for this store" });
     }
 
-    const { batchId } = await attachOrdersToSameRider({
-      primary,
-      companion,
-      rider,
-      manager,
-      compat,
-    });
+    let batchId;
+    try {
+      ({ batchId } = await attachOrdersToSameRider({
+        primary,
+        companion,
+        rider,
+        manager,
+        compat,
+      }));
+    } catch (err) {
+      if (err.statusCode === 400) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      throw err;
+    }
 
     const stockMap = await stockMapForManager(manager._id);
     const freshPrimary = await StoreOrder.findById(primary._id);
@@ -792,7 +844,6 @@ export const createDemoStoreOrder = async (req, res, next) => {
       items: demoItems,
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
-      otpCode: "4321",
       paymentMethod: "COD",
       paymentStatus: "pending",
       amountToCollect,
@@ -811,7 +862,8 @@ export const createDemoStoreOrder = async (req, res, next) => {
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
-      message: `Demo order #${orderNum} created successfully!`,
+      message: `Demo order #${orderNum} created — customer OTP ${newOrder.otpCode}`,
+      demoOtp: newOrder.otpCode,
       order: newOrder.toSafeJSON(stockMap),
     });
   } catch (error) {
@@ -1215,23 +1267,25 @@ export const markDelivered = async (req, res, next) => {
         message: "Only assigned orders can be marked delivered",
       });
     }
-    order.status = "delivered";
-    order.deliveredAt = new Date();
-    order.assignmentStatus = "DELIVERED";
-    await order.save();
-
-    if (order.assignedRiderId) {
-      await DeliveryBoy.findByIdAndUpdate(order.assignedRiderId, {
-        $set: { status: "online", lastStatusAt: new Date(), activeOrderId: null },
-      });
+    const result = await applyStoreOrderStatus({
+      storeOrderId: order._id,
+      status: "delivered",
+      skipCompletionGuards: true,
+      reason: String(req.body?.reason || "").trim(),
+      actor: {
+        id: manager._id,
+        role: "delivery_manager",
+        name: manager.name || manager.storeName || "Delivery Manager",
+      },
+    });
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({ success: false, message: result.message });
     }
-
-    await syncCustomerOrderFromStore(order, "delivered");
 
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
-      order: order.toSafeJSON(stockMap),
+      order: result.order.toSafeJSON(stockMap),
     });
   } catch (error) {
     next(error);

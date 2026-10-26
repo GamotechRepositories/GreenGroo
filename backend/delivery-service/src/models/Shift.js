@@ -67,6 +67,12 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    /** Delivered km counted for the per-km incentive in this slot. */
+    kmDelivered: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { _id: true, timestamps: true }
 );
@@ -104,6 +110,12 @@ const slotSchema = new mongoose.Schema(
       default: "none",
     },
     incentiveRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    /** per_km only: km a rider must deliver in this slot before each further km is paid. 0 = from the first km. */
+    incentiveAfterKm: {
       type: Number,
       default: 0,
       min: 0,
@@ -234,6 +246,7 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
       notificationEnabled: b.notificationEnabled,
       notificationTimeMinutes: b.notificationTimeMinutes,
       assignedBy: b.assignedBy || "rider",
+      kmDelivered: b.kmDelivered || 0,
     }));
 
     return {
@@ -249,6 +262,7 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
       status: computedStatus,
       incentiveMode: slot.incentiveMode || "none",
       incentiveRate: slot.incentiveRate || 0,
+      incentiveAfterKm: slot.incentiveAfterKm || 0,
       bookingsCount: safeBookings.length,
       bookings: safeBookings,
     };

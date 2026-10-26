@@ -64,6 +64,11 @@ class ShiftBookingInfo {
   /// none | per_km | per_hour
   final String incentiveMode;
   final double incentiveRate;
+  /// per_km: km to deliver in the slot before each further km is paid.
+  final double incentiveAfterKm;
+  final double kmDelivered;
+  /// completed | running | upcoming (computed by the server in IST)
+  final String phase;
 
   const ShiftBookingInfo({
     required this.id,
@@ -80,9 +85,44 @@ class ShiftBookingInfo {
     this.assignedBy = 'rider',
     this.incentiveMode = 'none',
     this.incentiveRate = 0,
+    this.incentiveAfterKm = 0,
+    this.kmDelivered = 0,
+    this.phase = 'upcoming',
   });
 
   bool get hasIncentive => incentiveMode != 'none' && incentiveRate > 0;
+  bool get isCompleted => phase == 'completed';
+  bool get isRunning => phase == 'running';
+
+  static int _minutesOf(String time) {
+    final s = time.trim().toUpperCase();
+    final isPm = s.contains('PM');
+    final isAm = s.contains('AM');
+    final parts = s.replaceAll(RegExp(r'AM|PM'), '').trim().split(':');
+    var h = int.tryParse(parts.first.trim()) ?? 0;
+    final m = parts.length > 1 ? int.tryParse(parts[1].trim()) ?? 0 : 0;
+    if (isPm && h < 12) h += 12;
+    if (isAm && h == 12) h = 0;
+    return h * 60 + m;
+  }
+
+  /// Fallback when the server did not send a phase.
+  static String _localPhase(String dateString, String start, String end, String status) {
+    if (status == 'COMPLETED') return 'completed';
+    final day = DateTime.tryParse(dateString);
+    if (day == null) return 'upcoming';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(day.year, day.month, day.day);
+    if (d.isAfter(today)) return 'upcoming';
+    if (d.isBefore(today)) return 'completed';
+    final nowMin = now.hour * 60 + now.minute;
+    final s = _minutesOf(start);
+    final e = _minutesOf(end);
+    if (nowMin < s) return 'upcoming';
+    if (e > s && nowMin >= e) return 'completed';
+    return 'running';
+  }
 
   factory ShiftBookingInfo.fromJson(Map<String, dynamic> json) {
     return ShiftBookingInfo(
@@ -100,6 +140,16 @@ class ShiftBookingInfo {
       assignedBy: json['assignedBy']?.toString() ?? 'rider',
       incentiveMode: json['incentiveMode']?.toString() ?? 'none',
       incentiveRate: (json['incentiveRate'] as num?)?.toDouble() ?? 0,
+      incentiveAfterKm: (json['incentiveAfterKm'] as num?)?.toDouble() ?? 0,
+      kmDelivered: (json['kmDelivered'] as num?)?.toDouble() ?? 0,
+      phase: const ['completed', 'running', 'upcoming'].contains(json['phase'])
+          ? json['phase'] as String
+          : _localPhase(
+              json['dateString']?.toString() ?? '',
+              json['startTime']?.toString() ?? '',
+              json['endTime']?.toString() ?? '',
+              json['status']?.toString() ?? '',
+            ),
     );
   }
 }

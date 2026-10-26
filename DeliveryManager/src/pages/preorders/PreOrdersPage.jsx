@@ -358,14 +358,17 @@ export default function PreOrdersPage() {
     runOrderAction(order, { key: "ofd", call: managerApi.preOrdersOutForDelivery, fallback: "Out for delivery" });
 
   const onDeliver = (order) => {
-    if (
-      !window.confirm(
-        `Mark pre-order #${order.orderNumber} as delivered? Normally the delivery boy completes it with the customer's OTP.`
-      )
-    ) {
-      return;
-    }
-    runOrderAction(order, { key: "deliver", call: managerApi.deliverPreOrders, fallback: "Marked delivered" });
+    const reason = (
+      window.prompt(
+        `Mark pre-order #${order.orderNumber} as delivered without the customer's OTP?\n\nReason (required):`
+      ) || ""
+    ).trim();
+    if (!reason) return;
+    runOrderAction(order, {
+      key: "deliver",
+      call: (ids) => managerApi.deliverPreOrders(ids, reason),
+      fallback: "Marked delivered",
+    });
   };
 
   const onCancel = async (order) => {
@@ -473,7 +476,6 @@ export default function PreOrdersPage() {
   return (
     <PageShell
       title="Pre-Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · Next-day slot orders. The vendor confirms, packs and ships them here — you mark the goods received, assign a delivery boy, then mark out for delivery / delivered. The delivery boy can also complete delivery with the customer's OTP.`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">

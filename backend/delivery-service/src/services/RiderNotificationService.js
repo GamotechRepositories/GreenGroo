@@ -346,8 +346,8 @@ export async function notifyShiftStarted(riderId, { shiftId, slotId, startTime, 
   return notifyRiders({
     riderIds: [riderId],
     type: "SHIFT_STARTED",
-    title: "Shift Started",
-    message: "You're now online and ready for orders.",
+    title: "Time to go online",
+    message: `Your slot ${startTime || ""}${endTime ? ` – ${endTime}` : ""} has started. Go online to receive orders.`,
     priority: "high",
     dedupeKey: `${shiftId || ""}:${slotId || ""}:start`,
     data: {

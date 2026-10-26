@@ -1192,6 +1192,12 @@ class AppLocalizationsMr extends AppLocalizations {
   String get completed => 'पूर्ण';
 
   @override
+  String get shiftRunning => 'सुरू आहे';
+
+  @override
+  String get shiftUpcoming => 'आगामी';
+
+  @override
   String get myOrders => 'माझ्या ऑर्डर';
 
   @override
@@ -1608,6 +1614,20 @@ class AppLocalizationsMr extends AppLocalizations {
   String get ok => 'ठीक आहे';
 
   @override
+  String get orderDeliveredTitle => 'ऑर्डर यशस्वीरित्या डिलिव्हर झाली';
+
+  @override
+  String orderDeliveredBody(String number) {
+    return 'ऑर्डर #$number डिलिव्हर झाली आहे.';
+  }
+
+  @override
+  String get goToHome => 'होमवर जा';
+
+  @override
+  String get nextDelivery => 'पुढील डिलिव्हरी';
+
+  @override
   String get detectingLocation => 'तुमचे लोकेशन शोधत आहे…';
 
   @override
@@ -1636,6 +1656,16 @@ class AppLocalizationsMr extends AppLocalizations {
   @override
   String incentivePerKm(String rate) {
     return '₹$rate/किमी इन्सेंटिव्ह';
+  }
+
+  @override
+  String incentivePerKmAfter(String rate, String km) {
+    return '$km किमी नंतर ₹$rate/किमी';
+  }
+
+  @override
+  String kmDoneInSlot(String done, String km) {
+    return '$done / $km किमी पूर्ण';
   }
 
   @override
@@ -1993,11 +2023,11 @@ class AppLocalizationsMr extends AppLocalizations {
   String get notifVerifiedBody => 'तुम्ही आता ऑर्डर घेऊ शकता.';
 
   @override
-  String get notifShiftStartedTitle => 'शिफ्ट सुरू झाली';
+  String get notifShiftStartedTitle => 'ऑनलाइन होण्याची वेळ';
 
   @override
   String get notifShiftStartedBody =>
-      'तुम्ही आता ऑनलाइन आहात आणि ऑर्डरसाठी तयार आहात.';
+      'तुमचा स्लॉट सुरू झाला आहे. ऑर्डर मिळवण्यासाठी ऑनलाइन व्हा.';
 
   @override
   String get notifShiftReminderTitle => 'शिफ्ट लवकरच सुरू होईल';

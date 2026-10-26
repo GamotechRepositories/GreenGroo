@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreOrder from "../models/StoreOrder.js";
@@ -14,8 +13,16 @@ import {
 import { estimateOfferEarning } from "./ShiftEarningService.js";
 
 const activeOfferTimers = new Map();
-const waitingOrderIds = new Set();
 const currentlyAssigningOrders = new Set();
+
+/** DB lock lifetime — long enough for one assignment pass, short enough to recover from a crash. */
+const ASSIGNMENT_LOCK_MS = 15 * 1000;
+const SWEEP_INTERVAL_MS = 30 * 1000;
+/** Grace after offer expiry before the sweeper takes over from a missed in-memory timer. */
+const OFFER_EXPIRY_GRACE_MS = 5 * 1000;
+/** Riders who just finished a drop and are heading back can be offered from further out. */
+const RETURNING_RIDER_WINDOW_MS = 20 * 60 * 1000;
+const RETURNING_RIDER_RADIUS_M = Number(process.env.RETURNING_RIDER_RADIUS_M || 3000);
 
 function darkStoreIdOf(orderOrManager) {
   return String(orderOrManager?.darkStoreId || orderOrManager?.managerId || "");
@@ -50,6 +57,10 @@ function assignmentMaxDistanceM(darkStore) {
   return MAX_ASSIGNMENT_DISTANCE_M; // Default 500m
 }
 
+function escapeRegex(value) {
+  return value.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function findEligibleDrivers(darkStore, excludedIds = []) {
   const storeLat = darkStore.latitude;
   const storeLng = darkStore.longitude;
@@ -63,39 +74,29 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
     return [];
   }
 
-  // Exclude drivers who currently have an active pending offer to prevent duplicate assignments
-  const pendingOfferedOrders = await StoreOrder.find({
-    status: "offered",
-    currentOfferDriverId: { $ne: null },
-    offerExpiresAt: { $gt: new Date() },
-  }).select("currentOfferDriverId");
-  const activeOfferedDriverIds = pendingOfferedOrders
-    .map((o) => String(o.currentOfferDriverId))
-    .filter(Boolean);
-
-  const allExcludedIds = [
-    ...new Set([...excludedIds.map(String), ...activeOfferedDriverIds]),
+  const now = new Date();
+  const storeAreaRegex = darkStore.area ? new RegExp(escapeRegex(darkStore.area), "i") : null;
+  const unattachedLocalMatch = [
+    ...(storeAreaRegex ? [{ area: { $regex: storeAreaRegex } }] : []),
+    ...(darkStore.cityId ? [{ cityId: darkStore.cityId }] : []),
+    ...(darkStore.city ? [{ city: darkStore.city }] : []),
   ];
-
-  const storeAreaRegex = darkStore.area
-    ? new RegExp(darkStore.area.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
-    : null;
 
   const drivers = await DeliveryBoy.find({
     isActive: true,
     status: "online",
     activeOrderId: null,
     employmentType: { $ne: "FULL_TIME" },
-    _id: { $nin: allExcludedIds },
+    _id: { $nin: [...new Set(excludedIds.map(String))] },
     $and: [
       {
+        // This store's riders, or riders not attached to any store who are local to it.
         $or: [
           { managerId: storeId },
           { storeId: String(storeId) },
-          { managerId: { $in: [null, undefined] } },
-          ...(storeAreaRegex ? [{ area: { $regex: storeAreaRegex } }] : []),
-          { cityId: darkStore.cityId },
-          { city: darkStore.city },
+          ...(unattachedLocalMatch.length
+            ? [{ managerId: { $in: [null, undefined] }, $or: unattachedLocalMatch }]
+            : []),
         ],
       },
       {
@@ -104,56 +105,62 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
           { verificationStatus: { $exists: false } },
         ],
       },
+      {
+        $or: [
+          { pendingOfferExpiresAt: null },
+          { pendingOfferExpiresAt: { $exists: false } },
+          { pendingOfferExpiresAt: { $lt: now } },
+        ],
+      },
     ],
   });
 
-  const now = Date.now();
-  const eligible = [];
+  const nowMs = now.getTime();
+  const inRadius = [];
+  const returning = [];
 
   for (const driver of drivers) {
     const loc = driver.currentLocation;
-    if (loc?.lat == null || loc?.lng == null) {
-      console.warn(`[assignment] skip ${driver._id}: missing currentLocation`);
-      continue;
-    }
+    if (loc?.lat == null || loc?.lng == null) continue;
 
     const locUpdatedAt = loc.updatedAt || driver.lastStatusAt || driver.lastOnlineAt;
-    if (!locUpdatedAt || now - new Date(locUpdatedAt).getTime() > LOCATION_FRESHNESS_MS) {
-      console.warn(`[assignment] skip ${driver._id}: stale/missing location timestamp`);
-      continue;
-    }
+    if (!locUpdatedAt || nowMs - new Date(locUpdatedAt).getTime() > LOCATION_FRESHNESS_MS) continue;
 
     const distanceM = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
-    if (distanceM == null) {
-      console.warn(`[assignment] skip ${driver._id}: cannot compute distance (store coords?)`);
-      continue;
-    }
-    if (distanceM < MIN_ASSIGNMENT_DISTANCE_M || distanceM > maxDistanceM) {
-      console.warn(
-        `[assignment] skip ${driver._id}: ${Math.round(distanceM)}m outside store radius (${maxDistanceM}m)`
-      );
+    if (distanceM == null || distanceM < MIN_ASSIGNMENT_DISTANCE_M) continue;
+
+    if (distanceM <= maxDistanceM) {
+      inRadius.push({ driver, distanceM });
       continue;
     }
 
-    eligible.push({ driver, distanceM });
+    const justDelivered =
+      driver.lastOrderCompletedAt &&
+      nowMs - new Date(driver.lastOrderCompletedAt).getTime() <= RETURNING_RIDER_WINDOW_MS &&
+      String(driver.managerId || "") === String(storeId);
+    if (justDelivered && distanceM <= RETURNING_RIDER_RADIUS_M) {
+      returning.push({ driver, distanceM, returning: true });
+    }
   }
 
-  eligible.sort((a, b) => {
-    // 1) Round-robin rotation across eligible drivers within 500m
+  const byRotation = (a, b) => {
+    // 1) Round-robin rotation across eligible drivers
     const rrA = a.driver.roundRobinPosition ?? 0;
     const rrB = b.driver.roundRobinPosition ?? 0;
     if (rrA !== rrB) return rrA - rrB;
-
-    // 2) Longest waiting (online / idle longest) next
+    // 2) Longest waiting next
     const waitA = new Date(waitingSince(a.driver)).getTime();
     const waitB = new Date(waitingSince(b.driver)).getTime();
     if (waitA !== waitB) return waitA - waitB;
-
     // 3) Nearest distance tie-break
     return a.distanceM - b.distanceM;
-  });
+  };
 
-  return eligible;
+  inRadius.sort(byRotation);
+  if (inRadius.length) return inRadius;
+  // Nobody at the store: riders on their way back, nearest first.
+  returning.sort((a, b) => a.distanceM - b.distanceM);
+  return returning;
 }
 
 function clearOfferTimer(orderId) {
@@ -170,6 +177,56 @@ async function recordOfferResponse(orderId, driverId, response) {
     { response, respondedAt: new Date() },
     { sort: { createdAt: -1 } }
   );
+}
+
+/** Atomically holds the rider for this offer; fails if another order already holds them. */
+async function reserveRider(driverId, orderId, expiresAt) {
+  const now = new Date();
+  return DeliveryBoy.findOneAndUpdate(
+    {
+      _id: driverId,
+      status: "online",
+      activeOrderId: null,
+      $or: [
+        { pendingOfferExpiresAt: null },
+        { pendingOfferExpiresAt: { $exists: false } },
+        { pendingOfferExpiresAt: { $lt: now } },
+        { pendingOfferOrderId: orderId },
+      ],
+    },
+    { $set: { pendingOfferOrderId: orderId, pendingOfferExpiresAt: expiresAt } },
+    { new: true }
+  );
+}
+
+async function releaseRider(driverId, orderId) {
+  if (!driverId) return;
+  await DeliveryBoy.updateOne(
+    { _id: driverId, pendingOfferOrderId: orderId },
+    { $set: { pendingOfferOrderId: null, pendingOfferExpiresAt: null } }
+  ).catch(() => {});
+}
+
+/** Cross-server lock on one order's assignment pass. */
+async function acquireAssignmentLock(orderId) {
+  const now = new Date();
+  const locked = await StoreOrder.findOneAndUpdate(
+    {
+      _id: orderId,
+      $or: [
+        { assignmentLockUntil: null },
+        { assignmentLockUntil: { $exists: false } },
+        { assignmentLockUntil: { $lt: now } },
+      ],
+    },
+    { $set: { assignmentLockUntil: new Date(now.getTime() + ASSIGNMENT_LOCK_MS) } },
+    { new: true }
+  );
+  return Boolean(locked);
+}
+
+async function releaseAssignmentLock(orderId) {
+  await StoreOrder.updateOne({ _id: orderId }, { $set: { assignmentLockUntil: null } }).catch(() => {});
 }
 
 export async function startAssignmentForOrder(orderId) {
@@ -209,8 +266,14 @@ export async function assignNextDriver(orderId, opts = {}) {
     return { success: false, message: "Assignment already in progress for this order" };
   }
   currentlyAssigningOrders.add(orderKey);
+  let dbLocked = false;
 
   try {
+    dbLocked = await acquireAssignmentLock(orderId);
+    if (!dbLocked) {
+      return { success: false, message: "Assignment already in progress for this order" };
+    }
+
     const timedOutDriverId = opts.timedOutDriverId
       ? String(opts.timedOutDriverId)
       : null;
@@ -227,19 +290,23 @@ export async function assignNextDriver(orderId, opts = {}) {
     }
 
     if (!["packed", "offered"].includes(order.status)) {
-      console.warn(
-        `[assignment] BLOCKED premature assignment for order ${order._id} (${order.orderNumber}) in state '${order.status}'. Must be packed by Delivery Manager first. Called by:\n${new Error().stack}`
-      );
       return {
         success: false,
         message: `Order is in state '${order.status}', cannot assign. Order must be packed first by Delivery Manager.`,
       };
     }
 
-    if (!order.stockDeductedAt && !order.isPreOrder && order.fulfillmentType !== "pickup") {
-      console.warn(
-        `[assignment] BLOCKED premature assignment for order ${order._id} (${order.orderNumber}): stock has not been deducted by Delivery Manager!`
-      );
+    // An open offer to someone else is still running — leave it alone.
+    if (
+      order.status === "offered" &&
+      order.currentOfferDriverId &&
+      order.offerExpiresAt &&
+      new Date(order.offerExpiresAt) > new Date()
+    ) {
+      return { success: false, message: "Offer already open for this order" };
+    }
+
+    if (!order.stockDeductedAt && order.fulfillmentType !== "pickup") {
       return {
         success: false,
         message: `Order must be packed and stock deducted by Delivery Manager before driver assignment.`,
@@ -262,9 +329,6 @@ export async function assignNextDriver(orderId, opts = {}) {
 
     // Soft cycle (timeouts only) — clear soft exclusions so next round-robin pass can run
     if (!eligible.length && softExcluded.length) {
-      console.warn(
-        `[assignment] order ${order.orderNumber || order._id}: cycling soft exclusions (kept ${declinedIds.length} decliners)`
-      );
       order.excludedDriverIds = [];
       order.roundRobinRidersAttempted = [];
       await order.save();
@@ -278,15 +342,7 @@ export async function assignNextDriver(orderId, opts = {}) {
       !declinedIds.includes(timedOutDriverId)
     ) {
       const prev = await DeliveryBoy.findById(timedOutDriverId);
-      if (
-        prev &&
-        prev.isActive &&
-        prev.status === "online" &&
-        !prev.activeOrderId
-      ) {
-        console.warn(
-          `[assignment] order ${order.orderNumber || order._id}: no other drivers — re-offering to previous ${timedOutDriverId}`
-        );
+      if (prev && prev.isActive && prev.status === "online" && !prev.activeOrderId) {
         order.excludedDriverIds = (order.excludedDriverIds || []).filter(
           (id) => String(id) !== timedOutDriverId
         );
@@ -303,63 +359,62 @@ export async function assignNextDriver(orderId, opts = {}) {
             prev.currentLocation?.lng
           ) ?? 0;
 
-        return sendOfferToDriver(order, prev, darkStore, distanceM);
+        const reOffer = await sendOfferToDriver(order, prev, darkStore, distanceM);
+        if (reOffer.success) return reOffer;
       }
     }
 
-    if (!eligible.length) {
-      order.status = "packed";
-      order.assignmentStatus = "WAITING_FOR_DRIVER";
-      order.currentOfferDriverId = null;
-      order.offeredRiderId = null;
-      order.offerStartedAt = null;
-      order.offerExpiresAt = null;
-      await order.save();
-      waitingOrderIds.add(String(order._id));
-
-      try {
-        getIO()
-          .to(`store_${darkStore._id}`)
-          .emit("search_driver", {
-            orderId: order._id.toString(),
-            orderNumber: order.orderNumber,
-            assignmentStatus: "WAITING_FOR_DRIVER",
-            message: "Waiting for nearby Delivery Partner...",
-          });
-        getIO()
-          .to(`store_${darkStore._id}`)
-          .emit("dispatch_no_riders_available", {
-            orderId: order._id.toString(),
-            orderNumber: order.orderNumber,
-            message: "Waiting for nearby Delivery Partner...",
-          });
-      } catch (err) {
-        console.warn("[assignment] socket emit failed:", err.message);
+    // Try riders in rotation order until one can be reserved for this offer.
+    for (const { driver, distanceM } of eligible) {
+      const result = await sendOfferToDriver(order, driver, darkStore, distanceM);
+      if (result.success) {
+        await DeliveryBoy.updateOne(
+          { _id: driver._id },
+          { $set: { roundRobinPosition: Date.now() } }
+        ).catch(() => {});
+        return result;
       }
-
-      return {
-        success: false,
-        noRiders: true,
-        message: "Waiting for nearby Delivery Partner...",
-      };
+      if (!result.riderBusy) return result;
     }
 
-    waitingOrderIds.delete(String(order._id));
-    const { driver: selectedDriver, distanceM } = eligible[0];
+    order.status = "packed";
+    order.assignmentStatus = "WAITING_FOR_DRIVER";
+    order.currentOfferDriverId = null;
+    order.offeredRiderId = null;
+    order.offerStartedAt = null;
+    order.offerExpiresAt = null;
+    await order.save();
 
-    // Bind store hub if driver was online via area match without managerId
-    if (!selectedDriver.managerId || String(selectedDriver.managerId) !== String(darkStore._id)) {
-      selectedDriver.managerId = darkStore._id;
+    try {
+      getIO()
+        .to(`store_${darkStore._id}`)
+        .emit("search_driver", {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          assignmentStatus: "WAITING_FOR_DRIVER",
+          message: "Waiting for nearby Delivery Partner...",
+        });
+      getIO()
+        .to(`store_${darkStore._id}`)
+        .emit("dispatch_no_riders_available", {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          message: "Waiting for nearby Delivery Partner...",
+        });
+    } catch (err) {
+      console.warn("[assignment] socket emit failed:", err.message);
     }
-    // Advance round-robin rotation for successive assignments
-    selectedDriver.roundRobinPosition = Date.now();
-    await selectedDriver.save().catch(() => {});
 
-    return sendOfferToDriver(order, selectedDriver, darkStore, distanceM);
+    return {
+      success: false,
+      noRiders: true,
+      message: "Waiting for nearby Delivery Partner...",
+    };
   } catch (error) {
     console.error("[assignment] assignNextDriver error:", error);
     return { success: false, error: error.message };
   } finally {
+    if (dbLocked) await releaseAssignmentLock(orderId);
     currentlyAssigningOrders.delete(orderKey);
   }
 }
@@ -404,11 +459,10 @@ export async function offerToSpecificDriver(orderId, driverId) {
     const darkStore = await DeliveryManager.findById(order.managerId || order.darkStoreId);
     if (!darkStore) return { success: false, message: "Dark store not found" };
 
-    if (!driver.managerId || String(driver.managerId) !== String(darkStore._id)) {
-      driver.managerId = darkStore._id;
-      await driver.save().catch(() => {});
+    // Withdraw any open offer on this order before offering it to the chosen rider.
+    if (order.status === "offered" && order.currentOfferDriverId) {
+      await releaseRider(order.currentOfferDriverId, order._id);
     }
-
     clearOfferTimer(order._id);
 
     const distanceM =
@@ -419,11 +473,48 @@ export async function offerToSpecificDriver(orderId, driverId) {
         driver.currentLocation?.lng ?? driver.longitude
       ) ?? 0;
 
-    return sendOfferToDriver(order, driver, darkStore, distanceM);
+    const result = await sendOfferToDriver(order, driver, darkStore, distanceM);
+    if (result.riderBusy) {
+      return { success: false, message: "This rider already has another offer open — try again in a few seconds" };
+    }
+    return result;
   } catch (error) {
     console.error("[assignment] offerToSpecificDriver error:", error);
     return { success: false, message: error.message };
   }
+}
+
+async function handleOfferExpired(orderId, driverId) {
+  // Atomic claim: only one of the in-memory timer or the sweeper handles this expiry.
+  const fresh = await StoreOrder.findOneAndUpdate(
+    { _id: orderId, status: "offered", currentOfferDriverId: driverId },
+    {
+      $set: {
+        currentOfferDriverId: null,
+        offeredRiderId: null,
+        offerStartedAt: null,
+        offerExpiresAt: null,
+        assignmentStatus: "SEARCHING_FOR_DRIVER",
+      },
+    },
+    { new: true }
+  );
+  if (!fresh) return;
+
+  await releaseRider(driverId, fresh._id);
+  await recordOfferResponse(fresh._id, driverId, "TIMEOUT");
+  try {
+    const payload = { orderId: fresh._id.toString() };
+    getIO().to(`rider_${driverId}`).emit("driver_offer_timeout", payload);
+    getIO().to(`rider_${driverId}`).emit("order_offer_expired", payload);
+  } catch (_) {}
+
+  if (fresh.isPreOrder) {
+    const rider = await DeliveryBoy.findById(driverId).select("name");
+    await returnPreOrderToManualQueue(fresh, `${rider?.name || "Rider"} did not respond — assign another rider`);
+    return;
+  }
+  setImmediate(() => assignNextDriver(fresh._id, { timedOutDriverId: driverId }));
 }
 
 async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
@@ -431,6 +522,11 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
     const offerDurationMs = OFFER_TIMEOUT_SECONDS * 1000;
     const startedAt = new Date();
     const expiresAt = new Date(Date.now() + offerDurationMs);
+
+    const reserved = await reserveRider(selectedDriver._id, order._id, expiresAt);
+    if (!reserved) {
+      return { success: false, riderBusy: true, message: "Rider is busy with another offer" };
+    }
 
     order.status = "offered";
     order.assignmentStatus = "OFFER_SENT";
@@ -458,7 +554,6 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
       distanceMeters: distanceM,
     });
 
-    const orderTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     let estimatedEarnings = 0;
     try {
       const shiftId =
@@ -478,9 +573,8 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
     } catch (_) {
       estimatedEarnings = 0;
     }
-    if (estimatedEarnings <= 0) {
-      estimatedEarnings = Math.round(orderTotal * 0.12 + 45);
-    }
+    // Unknown earning is shown as nothing rather than a guess.
+    const shownEarnings = estimatedEarnings > 0 ? estimatedEarnings : null;
 
     const offerPayload = {
       orderId: order._id.toString(),
@@ -492,8 +586,8 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
       darkStoreLng: darkStore.longitude,
       itemCount: order.items.length,
       itemsSummary: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
-      estimatedEarnings,
-      earnUpTo: estimatedEarnings,
+      estimatedEarnings: shownEarnings,
+      earnUpTo: shownEarnings,
       distanceMeters: Math.round(distanceM),
       distanceKm: formatDistance(distanceM),
       offerStartedAt: startedAt.toISOString(),
@@ -541,60 +635,18 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
       await notifyOrderReceived(selectedDriver._id, {
         orderId: order._id,
         orderNumber: order.orderNumber,
-        estimatedEarnings,
+        estimatedEarnings: shownEarnings,
       });
     } catch (err) {
       console.warn("[assignment] rider notification failed:", err.message);
     }
 
     clearOfferTimer(order._id);
-    const timerId = setTimeout(async () => {
+    const timerId = setTimeout(() => {
       activeOfferTimers.delete(String(order._id));
-      try {
-        const fresh = await StoreOrder.findById(order._id);
-        if (
-          fresh &&
-          fresh.status === "offered" &&
-          String(fresh.currentOfferDriverId) === String(selectedDriver._id)
-        ) {
-          await recordOfferResponse(fresh._id, selectedDriver._id, "TIMEOUT");
-          if (fresh.isPreOrder) {
-            await returnPreOrderToManualQueue(
-              fresh,
-              `${selectedDriver.name || "Rider"} did not respond — assign another rider`
-            );
-            try {
-              const payload = { orderId: fresh._id.toString() };
-              getIO().to(`rider_${selectedDriver._id}`).emit("driver_offer_timeout", payload);
-              getIO().to(`rider_${selectedDriver._id}`).emit("order_offer_expired", payload);
-            } catch (_) {}
-            return;
-          }
-          fresh.currentOfferDriverId = null;
-          fresh.offeredRiderId = null;
-          fresh.offerStartedAt = null;
-          fresh.offerExpiresAt = null;
-          fresh.assignmentStatus = "SEARCHING_FOR_DRIVER";
-          await fresh.save();
-          try {
-            getIO()
-              .to(`rider_${selectedDriver._id}`)
-              .emit("driver_offer_timeout", {
-                orderId: fresh._id.toString(),
-              });
-            getIO()
-              .to(`rider_${selectedDriver._id}`)
-              .emit("order_offer_expired", {
-                orderId: fresh._id.toString(),
-              });
-          } catch (_) {}
-          setImmediate(() =>
-            assignNextDriver(fresh._id, { timedOutDriverId: selectedDriver._id })
-          );
-        }
-      } catch (err) {
-        console.warn("[assignment] offer timeout handler failed:", err.message);
-      }
+      handleOfferExpired(order._id, selectedDriver._id).catch((err) =>
+        console.warn("[assignment] offer timeout handler failed:", err.message)
+      );
     }, offerDurationMs);
     activeOfferTimers.set(String(order._id), timerId);
 
@@ -610,6 +662,7 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
     };
   } catch (error) {
     console.error("[assignment] sendOfferToDriver error:", error);
+    await releaseRider(selectedDriver?._id, order?._id);
     return { success: false, error: error.message };
   }
 }
@@ -652,6 +705,7 @@ export async function acceptDriverOffer(orderId, driverId) {
     return { success: false, message: "Offer expired or already taken" };
   }
 
+  // The rider joins this store only once they accept.
   const driver = await DeliveryBoy.findOneAndUpdate(
     {
       _id: driverId,
@@ -668,21 +722,31 @@ export async function acceptDriverOffer(orderId, driverId) {
         lastAssignedAt: now,
         lastStatusAt: now,
         roundRobinPosition: Date.now(),
+        pendingOfferOrderId: null,
+        pendingOfferExpiresAt: null,
       },
     },
     { new: true }
   );
 
   if (!driver) {
-    order.status = "offered";
-    order.assignmentStatus = "OFFER_SENT";
-    order.currentOfferDriverId = driverId;
+    // Rider went offline or got another order in between — put this order straight back in the queue.
+    await releaseRider(driverId, order._id);
+    await recordOfferResponse(order._id, driverId, "TIMEOUT").catch(() => {});
+    order.status = "packed";
+    order.assignmentStatus = "SEARCHING_FOR_DRIVER";
+    order.assignedRiderId = null;
+    order.assignedAt = null;
     await order.save();
+    if (order.isPreOrder) {
+      await returnPreOrderToManualQueue(order, "Rider became unavailable — assign another rider");
+    } else {
+      setImmediate(() => assignNextDriver(order._id));
+    }
     return { success: false, message: "Driver no longer available" };
   }
 
   await recordOfferResponse(order._id, driverId, "ACCEPTED");
-  waitingOrderIds.delete(String(order._id));
 
   const darkStore = await DeliveryManager.findById(order.managerId);
 
@@ -784,6 +848,7 @@ export async function declineDriverOffer(orderId, driverId) {
   if (!order) return { success: true, rotated: false };
 
   clearOfferTimer(orderId);
+  await releaseRider(driverId, order._id);
   await recordOfferResponse(order._id, driverId, "DECLINED");
 
   if (!order.declinedDriverIds) order.declinedDriverIds = [];
@@ -827,22 +892,91 @@ export async function declineDriverOffer(orderId, driverId) {
   return { success: true, rotated: true };
 }
 
-export async function retryWaitingAssignmentsForStore(darkStoreId) {
-  const storeId = String(darkStoreId);
-  const waitingOrders = await StoreOrder.find({
-    managerId: darkStoreId,
+function waitingOrdersFilter(extra = {}) {
+  return {
     isPreOrder: { $ne: true },
     fulfillmentType: { $ne: "pickup" },
-    status: { $in: ["packed", "offered"] },
-    assignmentStatus: { $in: ["WAITING_FOR_DRIVER", "SEARCHING_FOR_DRIVER", null] },
-  }).limit(20);
+    stockDeductedAt: { $ne: null },
+    ...extra,
+    $or: [
+      { status: "packed", assignmentStatus: { $in: ["WAITING_FOR_DRIVER", "SEARCHING_FOR_DRIVER", null] } },
+      { status: "offered", $or: [{ offerExpiresAt: null }, { offerExpiresAt: { $lt: new Date() } }] },
+    ],
+  };
+}
+
+export async function retryWaitingAssignmentsForStore(darkStoreId) {
+  const waitingOrders = await StoreOrder.find(waitingOrdersFilter({ managerId: darkStoreId }))
+    .sort({ packedAt: 1, createdAt: 1 })
+    .limit(20)
+    .select("_id");
 
   for (const order of waitingOrders) {
-    if (order.status === "offered" && order.offerExpiresAt > new Date()) continue;
     await assignNextDriver(order._id);
   }
 }
 
+let sweeperTimer = null;
+
+/**
+ * Background safety net (every 30s): expires offers whose in-memory timer was lost
+ * (restart / other server) and retries orders still waiting for a rider.
+ */
+export async function sweepStuckAssignments() {
+  const now = Date.now();
+
+  const expiredOffers = await StoreOrder.find({
+    status: "offered",
+    currentOfferDriverId: { $ne: null },
+    offerExpiresAt: { $lt: new Date(now - OFFER_EXPIRY_GRACE_MS) },
+  })
+    .limit(50)
+    .select("_id currentOfferDriverId");
+  for (const row of expiredOffers) {
+    clearOfferTimer(row._id);
+    await handleOfferExpired(row._id, row.currentOfferDriverId).catch((err) =>
+      console.warn("[assignment-sweep] expire failed:", err.message)
+    );
+  }
+
+  // Offer state without a rider or expiry (old crash leftovers) is treated as waiting.
+  const waiting = await StoreOrder.find(
+    waitingOrdersFilter({
+      updatedAt: { $lt: new Date(now - 20 * 1000) },
+      $and: [
+        {
+          $or: [
+            { assignmentLockUntil: null },
+            { assignmentLockUntil: { $exists: false } },
+            { assignmentLockUntil: { $lt: new Date(now) } },
+          ],
+        },
+      ],
+    })
+  )
+    .sort({ packedAt: 1, createdAt: 1 })
+    .limit(50)
+    .select("_id");
+  for (const row of waiting) {
+    await assignNextDriver(row._id).catch(() => {});
+  }
+
+  // Reservations whose offer is gone.
+  await DeliveryBoy.updateMany(
+    { pendingOfferExpiresAt: { $lt: new Date(now - OFFER_EXPIRY_GRACE_MS) } },
+    { $set: { pendingOfferOrderId: null, pendingOfferExpiresAt: null } }
+  ).catch(() => {});
+}
+
+export function startAssignmentSweeper() {
+  if (sweeperTimer) return;
+  sweeperTimer = setInterval(() => {
+    sweepStuckAssignments().catch((err) =>
+      console.warn("[assignment-sweep] failed:", err.message)
+    );
+  }, SWEEP_INTERVAL_MS);
+  sweeperTimer.unref?.();
+}
 
 /** @deprecated use assignNextDriver */
 export const dispatchNextRider = assignNextDriver;

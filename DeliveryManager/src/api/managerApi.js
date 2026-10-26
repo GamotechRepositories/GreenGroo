@@ -32,6 +32,7 @@ export const managerApi = {
   login: (data) => api.post(`${BASE}/login`, data),
   me: () => api.get(`${BASE}/me`),
   dashboard: () => api.get(`${BASE}/dashboard`),
+  revenue: (params) => api.get(`${BASE}/revenue`, { params }),
   liveAnnouncements: () =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "delivery_manager" } })
@@ -90,14 +91,18 @@ export const managerApi = {
     api.post(`${BASE}/preorders/assign`, { riderId, orderIds }),
   receivePreOrders: (orderIds) => api.post(`${BASE}/preorders/receive`, { orderIds }),
   preOrdersOutForDelivery: (orderIds) => api.post(`${BASE}/preorders/out-for-delivery`, { orderIds }),
-  deliverPreOrders: (orderIds) => api.post(`${BASE}/preorders/deliver`, { orderIds }),
+  deliverPreOrders: (orderIds, reason) => api.post(`${BASE}/preorders/deliver`, { orderIds, reason }),
   routeSuggestions: () => api.get(`${BASE}/orders/route-suggestions`),
   dispatchOrderNow: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/dispatch-now`),
   assignSameRoute: (body) =>
     api.post(`${BASE}/orders/assign-same-route`, body),
-  markDelivered: (orderId) =>
-    api.patch(`${BASE}/orders/${orderId}/delivered`),
+  markDelivered: (orderId, reason) =>
+    api.patch(`${BASE}/orders/${orderId}/delivered`, { reason }),
+  resolveFailedOrder: (orderId, action, note = "") =>
+    api.post(`${BASE}/orders/${orderId}/failed/${action}`, { note }),
+  reviewOnlinePayment: (orderId, decision, note = "") =>
+    api.post(`${BASE}/orders/${orderId}/online-payment/${decision}`, { note }),
   handOverPickup: (orderId, otp) =>
     api.post(`${BASE}/orders/${orderId}/pickup-handover`, { otp }),
   cancelOrder: (orderId) =>

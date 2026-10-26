@@ -41,7 +41,6 @@ import {
   getRiderPreOrders,
   reportDeliveryDelay,
   scanPickupQr,
-  scanStoreQr,
   submitPickupProofByDriver,
   uploadDeliveryProof,
   verifyCustomerOtp,
@@ -136,7 +135,6 @@ router.get("/preorders", protect, getRiderPreOrders);
 router.get("/orders/:orderId/pickup-qr", protect, getDriverPickupQr);
 router.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
 router.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);
-router.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
 // New delivery completion flow
 router.post("/orders/:orderId/delivery-proof", protect, uploadDeliveryProof);
 router.post("/orders/:orderId/verify-otp", protect, verifyCustomerOtp);

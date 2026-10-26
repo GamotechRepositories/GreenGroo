@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { managerApi } from "../../api/managerApi";
-import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { useLive } from "../../realtime/useLive";
 
@@ -14,7 +13,6 @@ const REQUEST_STATUS = {
 };
 
 export default function StockPage() {
-  const { manager } = useAuth();
   const [inventory, setInventory] = useState([]);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState("");
@@ -124,7 +122,6 @@ export default function StockPage() {
   return (
     <PageShell
       title="Store Stock & Inventory Management"
-      subtitle={`Live catalog for ${manager?.storeName || "Dark Store"} · request restock from your vendor`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -145,11 +142,6 @@ export default function StockPage() {
                 ? `Catalog Inventory (${filteredInventory.length} Products)`
                 : `Restock Requests (${requests.length})`}
             </h2>
-            <p className="text-xs text-slate-500">
-              {view === "inventory"
-                ? "Stock is deducted when you confirm & pack an order"
-                : "Your vendor approves these to add stock to this dark store"}
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

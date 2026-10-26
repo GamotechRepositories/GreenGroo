@@ -6,7 +6,7 @@ import AssignRidersModal from "../../components/shifts/AssignRidersModal";
 
 const incentiveLabel = (slot) =>
   slot?.incentiveMode === "per_km" && slot.incentiveRate > 0
-    ? `₹${slot.incentiveRate} / km`
+    ? `₹${slot.incentiveRate} / km${slot.incentiveAfterKm > 0 ? ` after ${slot.incentiveAfterKm} km` : ""}`
     : slot?.incentiveMode === "per_hour" && slot.incentiveRate > 0
       ? `₹${slot.incentiveRate} / hr`
       : "—";
@@ -175,6 +175,7 @@ export default function ShiftManagementPage() {
   const [editEndTime, setEditEndTime] = useState("");
   const [editIncentiveMode, setEditIncentiveMode] = useState("none");
   const [editIncentiveRate, setEditIncentiveRate] = useState("");
+  const [editIncentiveAfterKm, setEditIncentiveAfterKm] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [assignSlot, setAssignSlot] = useState(null);
   const loadAssignableRiders = useCallback(() => managerApi.getAssignableRiders(), []);
@@ -373,6 +374,7 @@ export default function ShiftManagementPage() {
         endTime: editEndTime,
         incentiveMode: editIncentiveMode,
         incentiveRate: editIncentiveMode === "none" ? 0 : Number(editIncentiveRate) || 0,
+        incentiveAfterKm: editIncentiveMode === "per_km" ? Number(editIncentiveAfterKm) || 0 : 0,
       });
       showToast(res.data.message || "Shift slot updated!");
       setEditingSlot(null);
@@ -616,6 +618,7 @@ export default function ShiftManagementPage() {
                                   setEditEndTime(slot.endTime);
                                   setEditIncentiveMode(slot.incentiveMode || "none");
                                   setEditIncentiveRate(slot.incentiveRate || "");
+                                  setEditIncentiveAfterKm(slot.incentiveAfterKm || "");
                                 }}
                                 className="rounded-lg border border-emerald-500 bg-white px-3 py-1 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
                               >
@@ -1001,6 +1004,20 @@ export default function ShiftManagementPage() {
                   />
                 </div>
               </div>
+              {editIncentiveMode === "per_km" && (
+                <div>
+                  <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Pay after (km in slot)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={editIncentiveAfterKm}
+                    onChange={(e) => setEditIncentiveAfterKm(e.target.value)}
+                    placeholder="0 = from the first km"
+                    className="w-full rounded-xl border border-amber-200 px-3.5 py-2 text-xs font-medium"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status Override</label>

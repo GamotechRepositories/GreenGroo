@@ -65,7 +65,7 @@ export default function AssignRidersModal({ slot, loadRiders, assign, onClose, o
 
   const incentiveText =
     slot?.incentiveMode === "per_km"
-      ? `₹${slot.incentiveRate}/km incentive`
+      ? `₹${slot.incentiveRate}/km incentive${slot.incentiveAfterKm > 0 ? ` after ${slot.incentiveAfterKm} km` : ""}`
       : slot?.incentiveMode === "per_hour"
         ? `₹${slot.incentiveRate}/hr incentive`
         : "No incentive";

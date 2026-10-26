@@ -189,8 +189,9 @@ export default function PreOrders() {
     if (!progress || progress === order.preOrderProgress) return;
     const label = PROGRESS_OPTIONS.find((p) => p.key === progress)?.label || progress;
     let reason = '';
-    if (progress === 'cancelled') {
-      reason = window.prompt(`Reason for cancelling #${order.orderNumber}?`)?.trim() || '';
+    if (progress === 'cancelled' || progress === 'delivered') {
+      const verb = progress === 'cancelled' ? 'cancelling' : 'marking delivered';
+      reason = window.prompt(`Reason for ${verb} #${order.orderNumber}?`)?.trim() || '';
       if (!reason) return;
     } else if (!window.confirm(`Move #${order.orderNumber} to "${label}"?`)) {
       return;

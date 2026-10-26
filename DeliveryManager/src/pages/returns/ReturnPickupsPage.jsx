@@ -108,7 +108,6 @@ export default function ReturnPickupsPage() {
   return (
     <PageShell
       title="Return pickups"
-      subtitle="Assign a boy for admin-accepted returns, show QR for confirm pickup, then mark successful when the item is back at store."
     >
       {toast ? (
         <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

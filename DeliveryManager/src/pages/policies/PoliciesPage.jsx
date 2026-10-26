@@ -29,7 +29,6 @@ export default function PoliciesPage() {
   return (
     <PageShell
       title="Policies"
-      subtitle="Policies published by admin for delivery managers."
     >
       {error ? (
         <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

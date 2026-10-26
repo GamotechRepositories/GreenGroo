@@ -103,7 +103,6 @@ export default function AnnouncementsPage() {
   return (
     <PageShell
       title="Announcements"
-      subtitle="Announcements, holidays and notices published by admin for delivery managers."
     >
       <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="flex flex-wrap gap-1.5">

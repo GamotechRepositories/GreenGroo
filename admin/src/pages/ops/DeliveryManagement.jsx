@@ -72,12 +72,19 @@ export default function DeliveryManagement() {
         : nextStatus === 'cancelled'
           ? 'Cancel this order? The customer order will also be cancelled.'
           : '';
-    if (confirmComplete && !window.confirm(confirmComplete)) {
+    let reason = '';
+    if (nextStatus === 'delivered') {
+      reason = (window.prompt(`${confirmComplete}\n\nReason (required):`) || '').trim();
+      if (!reason) {
+        await load();
+        return;
+      }
+    } else if (confirmComplete && !window.confirm(confirmComplete)) {
       await load();
       return;
     }
     try {
-      await opsApi.patch(`delivery/orders/${orderId}/status`, { status: nextStatus });
+      await opsApi.patch(`delivery/orders/${orderId}/status`, { status: nextStatus, reason });
       await load();
     } catch (err) {
       setError(err.response?.data?.message || 'Could not update status');

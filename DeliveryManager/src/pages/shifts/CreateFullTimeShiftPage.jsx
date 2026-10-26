@@ -150,7 +150,6 @@ export default function CreateFullTimeShiftPage() {
   return (
     <PageShell
       title={isEdit ? "Edit Full-Time Shift" : "Create Full-Time Shift"}
-      subtitle="Full-Time shifts are separate from Part-Time shifts & slots. They have no per-KM earning slabs — drivers earn a monthly salary."
     >
       <div className="flex items-center gap-3">
         <Link
@@ -240,10 +239,7 @@ export default function CreateFullTimeShiftPage() {
           <div>
             <label className={labelCls}>Applicable Full-Time Drivers</label>
             {drivers.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                No Full-Time drivers yet. Drivers choose Full-Time during registration, or you can change a
-                driver&apos;s employment type from their profile.
-              </p>
+              <p className="text-xs text-slate-500">No Full-Time drivers yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {drivers.map((d) => {

@@ -46,12 +46,7 @@ export default function SupportPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Support</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Send a request to GreenGrocc admin. It appears under Delivery Manager in Store Support.
-        </p>
-      </div>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">Support</h1>
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

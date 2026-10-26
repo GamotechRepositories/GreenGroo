@@ -11,8 +11,11 @@ import '../../../core/services/secure_screen.dart';
 import '../../../core/utils/image_upload_utils.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../utils/map_navigation.dart';
+import '../../shell/shell_navigation.dart';
 import '../../widgets/buttons/primary_button.dart';
+import '../../widgets/dialogs/status_dialog.dart';
 import 'delivery_sheets.dart';
 import 'pickup_qr_scan_screen.dart';
 import 'order_items_screen.dart';
@@ -480,6 +483,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
     if (_delivery == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
+    final l10n = AppLocalizations.of(context);
+    final orderNumber = _delivery!.orderNumber;
 
     final result = await OrderService.instance.completeDelivery(
       _delivery!.id,
@@ -488,18 +493,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with Widget
     );
 
     if (result.success) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Order delivered successfully!'),
-          backgroundColor: Color(0xFF059669),
-        ),
-      );
+      if (!mounted) return;
       final remaining = OrderService.instance.activeDeliveries;
+      await showStatusDialog(
+        context,
+        success: true,
+        title: l10n.orderDeliveredTitle,
+        message: l10n.orderDeliveredBody(orderNumber),
+        buttonLabel: remaining.isEmpty ? l10n.goToHome : l10n.nextDelivery,
+      );
+      if (!mounted) return;
       if (remaining.isEmpty) {
-        if (mounted && nav.canPop()) {
-          nav.pop();
-        } else if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.home);
+        if (nav.canPop()) {
+          nav.popUntil((route) => route.isFirst);
+          ShellNavigation.instance.goToTab(0);
+        } else {
+          nav.pushReplacementNamed(AppRoutes.home);
         }
       } else {
         await _loadDelivery();

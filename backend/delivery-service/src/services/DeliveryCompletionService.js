@@ -142,7 +142,18 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
 
     if (order.status === "delivered") {
       await session.abortTransaction();
-      return { success: true, message: "Order already delivered.", order };
+      return { success: true, alreadyDelivered: true, message: "Order already delivered.", order };
+    }
+
+    const completable = skipConditionCheck
+      ? ["assigned", "pickup_verified", "out_for_delivery"]
+      : ["pickup_verified", "out_for_delivery"];
+    if (!completable.includes(order.status)) {
+      await session.abortTransaction();
+      return {
+        success: false,
+        message: `Order is ${order.status.replace(/_/g, " ")} — it cannot be completed`,
+      };
     }
 
     if (!skipConditionCheck) {

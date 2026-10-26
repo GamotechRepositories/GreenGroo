@@ -123,15 +123,14 @@ class NotificationInboxService extends ChangeNotifier {
         final n = RiderNotification.fromJson(data);
         upsertLocal(n);
         PushNotificationService.instance.showLocalNotification(
-          id: n.id.isNotEmpty ? n.id.hashCode : DateTime.now().millisecondsSinceEpoch ~/ 1000,
           title: n.title.isNotEmpty ? n.title : 'GreenGroc Alert',
           body: n.body,
           data: {
-            'id': n.id,
+            ...n.data,
+            'notificationId': n.id,
             'type': n.type,
             'screen': n.screen,
-            'orderId': n.orderId ?? '',
-            ...n.data,
+            'orderId': n.orderId ?? (n.data['orderId'] ?? '').toString(),
           },
         );
       } catch (_) {}

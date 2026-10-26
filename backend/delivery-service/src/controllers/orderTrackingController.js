@@ -50,7 +50,6 @@ const TRANSITIONS_BY_ORDER_TYPE = {
 
 /** A rider may only move their own order out for delivery and mark it delivered. */
 const RIDER_TRANSITIONS = {
-  pickup_verified: ["out_for_delivery"],
   out_for_delivery: ["delivered"],
 };
 
@@ -158,6 +157,12 @@ export async function updateOrderStatus(req, res) {
       storeOrderId: storeOrder._id,
       status: target,
       skipCompletionGuards: !isRider,
+      reason: String(req.body?.reason || "").trim(),
+      actor: {
+        id: req.user?.id || null,
+        role,
+        name: req.user?.name || req.user?.storeName || role,
+      },
     });
     if (!result.success) {
       return res.status(result.statusCode || 400).json({ success: false, message: result.message });

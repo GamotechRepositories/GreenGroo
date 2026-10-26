@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/routes/app_routes.dart';
@@ -34,12 +35,61 @@ class PushNotificationService {
   bool _initialized = false;
   Map<String, dynamic>? _pendingTap;
 
+  static const _shownKeysPref = 'shown_notification_keys';
+  static const _maxShownKeys = 300;
+  List<String>? _shownKeys;
+
+  static int _idForKey(String key) => key.hashCode & 0x7fffffff;
+
+  /// One key per real-world event, so the socket copy, the FCM copy and any
+  /// extra socket event for the same thing collapse into a single banner.
+  static String _keyFor(String title, String body, Map<String, dynamic>? data) {
+    final d = data ?? const {};
+    String v(String k) => (d[k] ?? '').toString();
+    final type = v('type').toUpperCase();
+    final orderId = v('orderId');
+    if ((type == 'ORDER_RECEIVED' || type == 'SAME_ROUTE_ORDER') && orderId.isNotEmpty) {
+      return 'offer:$orderId';
+    }
+    if (type == 'ORDER_ASSIGNED' && v('orderIds').isNotEmpty) return 'assigned:${v('orderIds')}';
+    if (type == 'ORDER_ASSIGNED' && orderId.isNotEmpty) return 'assigned:$orderId';
+    if (type == 'VERIFICATION_COMPLETED') return 'verified';
+    final notificationId = v('notificationId').isNotEmpty ? v('notificationId') : v('id');
+    if (notificationId.isNotEmpty) return 'n:$notificationId';
+    return 't:$type:$title:$body';
+  }
+
+  Future<bool> _claimKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = _shownKeys ??= prefs.getStringList(_shownKeysPref) ?? <String>[];
+    if (keys.contains(key)) return false;
+    keys.add(key);
+    if (keys.length > _maxShownKeys) keys.removeRange(0, keys.length - _maxShownKeys);
+    await prefs.setStringList(_shownKeysPref, keys);
+    return true;
+  }
+
+  /// Removes the tray banner for an order offer/assignment once it is handled.
+  Future<void> cancelForOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+    try {
+      await flutterLocalNotificationsPlugin.cancel(id: _idForKey('offer:$orderId'));
+      await flutterLocalNotificationsPlugin.cancel(id: _idForKey('assigned:$orderId'));
+    } catch (_) {}
+  }
+
+  /// Shows a banner at most once per event, and only while the app is in the
+  /// foreground — in the background Android already shows the FCM banner.
   Future<void> showLocalNotification({
-    required int id,
     required String title,
     required String body,
     Map<String, dynamic>? data,
+    String? dedupeKey,
   }) async {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state != null && state != AppLifecycleState.resumed) return;
+    final key = dedupeKey ?? _keyFor(title, body, data);
+    if (!await _claimKey(key)) return;
     try {
       final androidDetails = AndroidNotificationDetails(
         highImportanceChannel.id,
@@ -54,7 +104,7 @@ class PushNotificationService {
       );
       final details = NotificationDetails(android: androidDetails);
       await flutterLocalNotificationsPlugin.show(
-        id: id,
+        id: _idForKey(key),
         title: title,
         body: body,
         notificationDetails: details,
@@ -105,7 +155,6 @@ class PushNotificationService {
 
         if (title.isNotEmpty || body.isNotEmpty) {
           await showLocalNotification(
-            id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
             title: title,
             body: body,
             data: message.data,

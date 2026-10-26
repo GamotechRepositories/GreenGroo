@@ -137,6 +137,21 @@ function schedulePickupQrUnlock(order) {
   batchWindowTimers.set(String(order._id), timerId);
 }
 
+/** Why an order can't join a batch, or "" when it can (packed with stock taken, not yet picked up). */
+export function batchBlockReason(order, riderId) {
+  const label = `#${order.orderNumber}`;
+  if (["delivered", "delivery_failed", "cancelled"].includes(order.status)) return `${label} is already ${order.status}`;
+  if (["pickup_verified", "out_for_delivery"].includes(order.status)) return `${label} is already picked up`;
+  if (!["packed", "offered", "assigned"].includes(order.status)) return `${label} must be packed first`;
+  if (!order.isPreOrder && order.fulfillmentType !== "pickup" && !order.stockDeductedAt) {
+    return `${label} must be packed first`;
+  }
+  if (order.assignedRiderId && riderId && String(order.assignedRiderId) !== String(riderId)) {
+    return `${label} is assigned to another rider`;
+  }
+  return "";
+}
+
 /**
  * Force-assign both orders onto one rider as a multi-stop batch,
  * then unlock pickup QR for both so manager can show QR codes.
@@ -148,6 +163,21 @@ export async function attachOrdersToSameRider({
   manager,
   compat,
 }) {
+  const blocked = batchBlockReason(primary, rider._id) || batchBlockReason(companion, rider._id);
+  if (blocked) {
+    const err = new Error(blocked);
+    err.statusCode = 400;
+    throw err;
+  }
+  // Withdraw open offers to other riders so their reservations don't linger.
+  for (const order of [primary, companion]) {
+    if (order.status === "offered" && order.currentOfferDriverId && String(order.currentOfferDriverId) !== String(rider._id)) {
+      await DeliveryBoy.updateOne(
+        { _id: order.currentOfferDriverId, pendingOfferOrderId: order._id },
+        { $set: { pendingOfferOrderId: null, pendingOfferExpiresAt: null } }
+      ).catch(() => {});
+    }
+  }
   const seq = compat?.suggestedSequence || ["A", "B"];
   const batchId = primary.batchId || companion.batchId || makeBatchId(primary._id);
   const now = new Date();
@@ -173,11 +203,7 @@ export async function attachOrdersToSameRider({
     order.offerStartedAt = null;
     order.assignedRiderId = rider._id;
     order.assignedAt = order.assignedAt || now;
-    if (
-      ["incoming", "order_received", "stock_issue", "packed", "offered"].includes(
-        order.status
-      )
-    ) {
+    if (["packed", "offered"].includes(order.status)) {
       order.status = "assigned";
     }
     order.assignmentStatus = "DRIVER_ASSIGNED";

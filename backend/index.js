@@ -169,6 +169,12 @@ connectDB("server").then(async () => {
   initShiftStartNotifyCron();
   initWalletCreditCron();
   {
+    const { startAssignmentSweeper } = await import(
+      "./delivery-service/src/services/OrderAssignmentService.js"
+    );
+    startAssignmentSweeper();
+  }
+  {
     const { settleEndedHourIncentives } = await import(
       "./delivery-service/src/services/slotAssignmentService.js"
     );

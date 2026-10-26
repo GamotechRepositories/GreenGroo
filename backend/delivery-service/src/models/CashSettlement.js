@@ -21,10 +21,11 @@ const cashSettlementSchema = new mongoose.Schema(
       ref: "DeliveryManager",
       required: true,
     },
+    /** Null when an order was closed manually without a rider — the store itself holds the cash. */
     riderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "DeliveryBoy",
-      required: true,
+      default: null,
     },
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +45,7 @@ const cashSettlementSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["PENDING", "SUBMITTED", "COMPLETED", "DISPUTED"],
+      enum: ["PENDING", "SUBMITTED", "COMPLETED", "DISPUTED", "CANCELLED"],
       default: "PENDING",
       index: true,
     },
@@ -72,7 +73,7 @@ cashSettlementSchema.methods.toSafeJSON = function () {
   return {
     id: this._id.toString(),
     darkStoreId: this.darkStoreId.toString(),
-    riderId: this.riderId.toString(),
+    riderId: this.riderId ? this.riderId.toString() : null,
     orderId: this.orderId.toString(),
     orderNumber: this.orderNumber || "",
     amount: this.amount,

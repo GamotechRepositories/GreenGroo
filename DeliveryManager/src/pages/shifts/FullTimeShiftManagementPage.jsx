@@ -39,7 +39,6 @@ export default function FullTimeShiftManagementPage() {
   return (
     <PageShell
       title="Full-Time Shifts"
-      subtitle="Recurring shifts for Full-Time drivers. Part-Time shifts & slots are managed separately under My Shift & Slots."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">

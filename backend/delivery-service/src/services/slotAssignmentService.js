@@ -172,7 +172,9 @@ export async function assignSlotToRiders({
   if (assigned.length && notify) {
     const incentive =
       slot.incentiveMode === "per_km"
-        ? ` · ₹${slot.incentiveRate}/km incentive`
+        ? slot.incentiveAfterKm > 0
+          ? ` · ₹${slot.incentiveRate}/km after ${slot.incentiveAfterKm} km`
+          : ` · ₹${slot.incentiveRate}/km incentive`
         : slot.incentiveMode === "per_hour"
           ? ` · ₹${slot.incentiveRate}/hr incentive`
           : "";
@@ -182,7 +184,7 @@ export async function assignSlotToRiders({
       title: "New slot assigned",
       message: `${shift.dateString} · ${slot.startTime} – ${slot.endTime}${incentive}`,
       priority: "high",
-      dedupeKey: `${slot._id}:assigned:${Date.now()}`,
+      dedupeKey: `${slot._id}:assigned:${assigned.map((a) => String(a.bookingId)).sort().join(",")}`,
       data: {
         screen: "shifts",
         shiftId: String(shift._id),
@@ -303,7 +305,7 @@ export async function creditSlotIncentive({
     title: `₹${value} incentive added`,
     message: label,
     amount: value,
-    dedupeKey: `${slotId || ""}:${orderId || mode}:${Date.now()}`,
+    dedupeKey: orderId ? `${slotId || ""}:${orderId}` : `${slotId || ""}:${mode}:${Date.now()}`,
     data: { screen: "wallet", amount: String(value), event: "incentive_credited" },
   }).catch(() => {});
 
@@ -341,18 +343,45 @@ export async function creditKmIncentiveForOrder(order, riderId) {
     }
     const km = Number(order.distanceKm ?? order.earningSnapshot?.distanceKm ?? 0);
     if (!(km > 0)) return null;
-    const units = Math.round(km * 100) / 100;
+    const orderKm = Math.round(km * 100) / 100;
+
+    const alreadyCounted = await DeliveryBoy.exists({
+      _id: riderId,
+      incentiveCredits: { $elemMatch: { orderId: order._id, mode: "per_km" } },
+    });
+    if (alreadyCounted) return null;
+
+    const updated = await Shift.findOneAndUpdate(
+      { _id: match.shift._id },
+      { $inc: { "slots.$[s].bookings.$[b].kmDelivered": orderKm } },
+      {
+        new: true,
+        arrayFilters: [{ "s._id": match.slot._id }, { "b._id": match.booking._id }],
+      }
+    );
+    const total =
+      Number(
+        updated?.slots?.id(match.slot._id)?.bookings?.id(match.booking._id)?.kmDelivered
+      ) || orderKm;
+    const before = Math.max(0, total - orderKm);
+    const afterKm = Math.max(0, Number(match.slot.incentiveAfterKm) || 0);
+    const units = Math.round(Math.max(0, total - Math.max(before, afterKm)) * 100) / 100;
+    if (!(units > 0)) return null;
+
+    const rate = match.slot.incentiveRate;
     return creditSlotIncentive({
       riderId,
-      amount: units * match.slot.incentiveRate,
+      amount: units * rate,
       mode: "per_km",
-      rate: match.slot.incentiveRate,
+      rate,
       units,
       shiftId: match.shift._id,
       slotId: match.slot._id,
       orderId: order._id,
       dateString: match.shift.dateString,
-      label: `${units} km × ₹${match.slot.incentiveRate}/km · Order #${order.orderNumber || ""}`,
+      label: afterKm > 0
+        ? `${units} km beyond ${afterKm} km × ₹${rate}/km · Order #${order.orderNumber || ""}`
+        : `${units} km × ₹${rate}/km · Order #${order.orderNumber || ""}`,
     });
   } catch (err) {
     console.warn("[slotIncentive] km credit failed:", err.message);

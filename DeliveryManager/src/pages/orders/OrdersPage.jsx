@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
-import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import OrderTrackingDrawer from "../../components/tracking/OrderTrackingDrawer";
@@ -11,7 +10,6 @@ import { subscribeToSocketEvent } from "../../services/socket";
 import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, OrderDepartmentTags, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, isPickupOrder, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
-  const { manager } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [onlineRiders, setOnlineRiders] = useState([]);
@@ -274,6 +272,13 @@ export default function OrdersPage() {
       subscribeToSocketEvent("rider_cash_updated", () => {
         load({ silent: true });
       }),
+      subscribeToSocketEvent("online_payment_claim", (p = {}) => {
+        showToast(`Online payment to approve · #${p.orderNumber || ""}`);
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("otp_lockout_alert", (p = {}) => {
+        showToast(`OTP locked after repeated wrong attempts · #${p.orderNumber || ""}`);
+      }),
     ];
     return () => unsubs.forEach((u) => u());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,57 +526,17 @@ export default function OrdersPage() {
   const summary = countBySummaryBucket(orders);
 
   const summaryCards = [
-    {
-      id: "all",
-      label: "All Orders",
-      hint: "Every order for this store, incl. pre-orders",
-      count: orders.length,
-      accent: "border-slate-200 bg-white",
-      countClass: "text-slate-900",
-      ring: "ring-slate-500",
-    },
-    {
-      id: "incoming",
-      label: "Incoming Orders",
-      hint: "New & packed — awaiting dispatch",
-      count: summary.incoming,
-      accent: "border-blue-200 bg-blue-50",
-      countClass: "text-blue-800",
-      ring: "ring-blue-500",
-    },
-    {
-      id: "ongoing",
-      label: "Ongoing Orders",
-      hint: "Assigned / out for delivery",
-      count: summary.ongoing,
-      accent: "border-amber-200 bg-amber-50",
-      countClass: "text-amber-800",
-      ring: "ring-amber-500",
-    },
-    {
-      id: "delivered",
-      label: "Delivered Orders",
-      hint: "All completed deliveries",
-      count: summary.delivered,
-      accent: "border-emerald-200 bg-emerald-50",
-      countClass: "text-emerald-800",
-      ring: "ring-emerald-500",
-    },
-    {
-      id: "cancelled",
-      label: "Cancelled",
-      hint: "Cancelled by this store",
-      count: summary.cancelled || 0,
-      accent: "border-rose-200 bg-rose-50",
-      countClass: "text-rose-800",
-      ring: "ring-rose-500",
-    },
-  ];
+    { id: "all", label: "All orders", count: orders.length, countClass: "text-slate-900", ring: "ring-slate-400" },
+    { id: "attention", label: "Needs action", count: summary.attention, countClass: "text-rose-700", ring: "ring-rose-400" },
+    { id: "incoming", label: "Incoming", count: summary.incoming, countClass: "text-blue-700", ring: "ring-blue-400" },
+    { id: "ongoing", label: "Ongoing", count: summary.ongoing, countClass: "text-amber-700", ring: "ring-amber-400" },
+    { id: "delivered", label: "Delivered", count: summary.delivered, countClass: "text-emerald-700", ring: "ring-emerald-400" },
+    { id: "cancelled", label: "Cancelled", count: summary.cancelled || 0, countClass: "text-slate-600", ring: "ring-slate-400" },
+  ].map((c) => ({ ...c, accent: "border-slate-200 bg-white" }));
 
   return (
     <PageShell
       title="Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area || "Area"}, ${manager?.city || "City"} · orders within ${manager?.deliveryRadiusKm || 5} km`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800 flex items-center gap-2 animate-fade-in">
@@ -586,23 +551,13 @@ export default function OrdersPage() {
 
       {/* COD Cash Collection Warning for Dark Store Manager */}
       {pendingCodOrders.length > 0 && (
-        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 shadow-sm animate-fade-in">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-200 text-amber-900 font-bold text-sm">
-                  ⚠️
-                </span>
-                <h3 className="text-sm font-extrabold text-amber-950">
-                  Cash Collection Due (COD): Collect {formatRupee(totalPendingCodAmount)} total from delivery partner(s)
-                </h3>
-              </div>
-              <p className="mt-1 text-xs text-amber-900/80">
-                Customers paid Cash on Delivery. Collect this cash from delivery boys before the end of the day and click &quot;✓ Received Cash&quot;.
-              </p>
-            </div>
-            <span className="rounded-full bg-amber-200/80 border border-amber-300 px-3 py-1 text-xs font-black text-amber-900">
-              {pendingCodOrders.length} {pendingCodOrders.length === 1 ? "order" : "orders"} pending settlement
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-amber-950">
+              Cash to collect · {formatRupee(totalPendingCodAmount)}
+            </h3>
+            <span className="badge border border-amber-300 bg-white text-amber-900">
+              {pendingCodOrders.length} {pendingCodOrders.length === 1 ? "order" : "orders"}
             </span>
           </div>
 
@@ -642,7 +597,7 @@ export default function OrdersPage() {
       )}
 
       {/* Summary boxes */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {summaryCards.map((card) => {
           const selected = activeTab === card.id;
           return (
@@ -650,13 +605,12 @@ export default function OrdersPage() {
               key={card.id}
               type="button"
               onClick={() => setActiveTab(card.id)}
-              className={`rounded-2xl border p-4 text-left transition shadow-xs ${card.accent} ${
-                selected ? `ring-2 ${card.ring}` : "hover:shadow-sm"
+              className={`rounded-xl border p-4 text-left transition ${card.accent} ${
+                selected ? `ring-2 ${card.ring}` : "hover:border-slate-300"
               }`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">{card.label}</p>
-              <p className={`mt-1 text-3xl font-black ${card.countClass}`}>{card.count}</p>
-              <p className="mt-1 text-[11px] text-slate-500">{card.hint}</p>
+              <p className="stat-label">{card.label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${card.countClass}`}>{card.count}</p>
             </button>
           );
         })}
@@ -676,19 +630,8 @@ export default function OrdersPage() {
         const windowOrders = [...byId.values()];
         if (!windowOrders.length) return null;
         return (
-          <div className="rounded-2xl border-2 border-violet-400 bg-violet-50 p-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-extrabold text-violet-900">
-                  Same-route search — pickup QR locked
-                </h3>
-                <p className="mt-0.5 text-[11px] text-violet-800/80">
-                  After rider accept, we wait up to 5 minutes for a nearby same-route order.
-                  Match → both orders to this rider, then Show Pickup QR unlocks.
-                  No match / different route → QR unlocks for this order alone; other orders go to other drivers.
-                </p>
-              </div>
-            </div>
+          <div className="rounded-xl border border-violet-300 bg-violet-50 p-4">
+            <h3 className="text-sm font-bold text-violet-900">Same-route wait · pickup QR locked</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {windowOrders.map((o) => {
                 const ends = o.routeBatchWindowEndsAt
@@ -788,11 +731,9 @@ export default function OrdersPage() {
 
       {/* Online Riders Bar — updates on online/shift events; live map link from GPS socket */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-3">
-        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Online Drivers:</span>
+        <span className="stat-label">Online riders</span>
         {onlineRiders.length === 0 ? (
-          <span className="text-xs text-slate-400 italic">
-            No drivers online — updates when a partner goes online or books a shift
-          </span>
+          <span className="text-xs text-slate-400">No riders online</span>
         ) : (
           onlineRiders.map((r) => {
             const rid = String(r.id || r._id);
@@ -849,22 +790,15 @@ export default function OrdersPage() {
               type="button"
               onClick={onCreateDemoOrder}
               disabled={busyKey === "create-demo"}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 shadow-xs"
+              className="btn-outline"
             >
-              ➕ Generate Incoming Order
+              + Test order
             </button>
-            <Link
-              to="/stock"
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-            >
-              View Inventory
+            <Link to="/stock" className="btn-outline">
+              Inventory
             </Link>
-            <button
-              type="button"
-              onClick={load}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-            >
-              🔄 Refresh
+            <button type="button" onClick={load} className="btn-outline">
+              Refresh
             </button>
           </div>
         </div>

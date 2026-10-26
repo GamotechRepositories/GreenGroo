@@ -94,7 +94,7 @@ export async function notifyUpcomingAndStartedShifts() {
               });
               try {
                 getIO().to(`rider_${riderId}`).emit("shift_started", {
-                  message: "You're now online and ready for orders.",
+                  message: "Your slot has started. Go online to receive orders.",
                   startTime: slot.startTime,
                   endTime: slot.endTime,
                   dateString: shift.dateString || "",

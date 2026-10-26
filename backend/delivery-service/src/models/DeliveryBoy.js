@@ -238,6 +238,9 @@ const deliveryBoySchema = new mongoose.Schema(
       ref: "Order",
       default: null,
     },
+    /** Reserved while an Accept/Decline offer is open, so two orders can't offer the same rider. */
+    pendingOfferOrderId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    pendingOfferExpiresAt: { type: Date, default: null },
 
     pendingSlotAlerts: [
       {

@@ -1,12 +1,10 @@
 import { useCallback, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useLive } from "../../realtime/useLive";
-import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { Icon } from "../../components/ui/Icon";
 
 export default function AlertsPage() {
-  const { manager } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,7 +37,6 @@ export default function AlertsPage() {
   return (
     <PageShell
       title="Store Operational Alerts"
-      subtitle={`Live alert notifications & exception handling for ${manager?.storeName || "Dark Store"}`}
     >
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-600">
@@ -90,10 +87,7 @@ export default function AlertsPage() {
           <p className="py-8 text-center text-xs text-slate-500">Loading alerts feed…</p>
         ) : alerts.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
-            <p className="text-sm font-bold text-slate-700">No alerts found</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Your store hub is running cleanly. New stock alerts or delayed delivery flags will appear here.
-            </p>
+            <p className="text-sm font-semibold text-slate-700">No alerts</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">

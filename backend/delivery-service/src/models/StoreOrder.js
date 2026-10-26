@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 import { ORDER_TYPES, deriveOrderType } from "../../../legacy/utils/departmentHelpers.js";
 import {
@@ -5,6 +6,21 @@ import {
   preOrderProgressKey,
   preOrderProgressLabel,
 } from "../services/preOrderProgress.js";
+
+export function randomDeliveryOtp() {
+  return String(crypto.randomInt(1000, 10000));
+}
+
+const auditSchema = new mongoose.Schema(
+  {
+    byId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    byRole: { type: String, default: "" },
+    byName: { type: String, default: "" },
+    reason: { type: String, default: "", trim: true },
+    at: { type: Date, default: null },
+  },
+  { _id: false }
+);
 
 /** Last known rider position for live tracking (GeoJSON Point, [lng, lat]). */
 const driverLocationSchema = new mongoose.Schema(
@@ -170,7 +186,7 @@ const storeOrderSchema = new mongoose.Schema(
     customerLat: { type: Number, default: null },
     customerLng: { type: Number, default: null },
     distanceKm: { type: Number, default: null },
-    otpCode: { type: String, default: "4321" },
+    otpCode: { type: String, default: () => randomDeliveryOtp() },
     packedAt: { type: Date },
     stockDeductedAt: { type: Date },
     /** Stock was taken from the store when the order arrived; packing confirms it. */
@@ -188,6 +204,28 @@ const storeOrderSchema = new mongoose.Schema(
       ref: "DeliveryBoy",
       default: null,
     },
+    /** Manager's decision on a failed delivery: pending → returned (cancelled) or reattempt (back to queue). */
+    failureResolution: {
+      status: { type: String, enum: ["", "pending", "returned", "reattempt"], default: "" },
+      byName: { type: String, default: "" },
+      note: { type: String, default: "", trim: true },
+      at: { type: Date, default: null },
+    },
+    deliveryAttempts: { type: Number, default: 0 },
+    /** Admin/manager closed the order without the rider OTP/proof flow. */
+    manualCompletion: { type: auditSchema, default: undefined },
+    /** Rider says the customer paid online at the door; needs a verified payment or manager approval. */
+    onlinePaymentClaim: {
+      status: { type: String, enum: ["", "pending", "approved", "rejected"], default: "" },
+      riderId: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryBoy", default: null },
+      claimedAt: { type: Date, default: null },
+      reviewedAt: { type: Date, default: null },
+      reviewedByName: { type: String, default: "" },
+      note: { type: String, default: "", trim: true },
+    },
+    /** DB-level assignment lock so concurrent servers don't assign the same order twice. */
+    assignmentLockUntil: { type: Date, default: null },
+    otpFailedTotal: { type: Number, default: 0 },
     /** Rider-reported delay; the manager decides when to forward it to the customer */
     deliveryDelay: {
       minutes: { type: Number, default: 0 },
@@ -515,7 +553,6 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     pickupProofStatus: this.pickupProofStatus || "none",
     pickupProofSubmittedAt: this.pickupProofSubmittedAt,
     pickupProofApprovedAt: this.pickupProofApprovedAt,
-    otpCode: this.otpCode || "4321",
     packedAt: this.packedAt,
     stockDeductedAt: this.stockDeductedAt,
     stockReservedAt: this.stockReservedAt || null,
@@ -528,6 +565,32 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     failedAt: this.failedAt,
     failedByRiderId: this.failedByRiderId
       ? this.failedByRiderId.toString()
+      : null,
+    failureResolution: this.failureResolution?.status
+      ? {
+          status: this.failureResolution.status,
+          byName: this.failureResolution.byName || "",
+          note: this.failureResolution.note || "",
+          at: this.failureResolution.at || null,
+        }
+      : null,
+    deliveryAttempts: this.deliveryAttempts || 0,
+    manualCompletion: this.manualCompletion?.at
+      ? {
+          byRole: this.manualCompletion.byRole || "",
+          byName: this.manualCompletion.byName || "",
+          reason: this.manualCompletion.reason || "",
+          at: this.manualCompletion.at,
+        }
+      : null,
+    onlinePaymentClaim: this.onlinePaymentClaim?.status
+      ? {
+          status: this.onlinePaymentClaim.status,
+          claimedAt: this.onlinePaymentClaim.claimedAt || null,
+          reviewedAt: this.onlinePaymentClaim.reviewedAt || null,
+          reviewedByName: this.onlinePaymentClaim.reviewedByName || "",
+          note: this.onlinePaymentClaim.note || "",
+        }
       : null,
     deliveryDelay: deliveryDelayJSON(this.deliveryDelay),
     dispatchEta: this.dispatchEta?.expectedAt

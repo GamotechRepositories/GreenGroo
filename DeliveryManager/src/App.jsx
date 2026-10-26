@@ -5,6 +5,7 @@ import ManagerLayout from "./components/layout/ManagerLayout";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
+import RevenuePage from "./pages/revenue/RevenuePage";
 import StockPage from "./pages/stock/StockPage";
 import ProductsPage from "./pages/products/ProductsPage";
 import DriversPage from "./pages/drivers/DriversPage";
@@ -42,6 +43,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<ManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/revenue" element={<RevenuePage />} />
               <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/shifts/create" element={<CreateShiftPage />} />
               <Route path="/shifts/fulltime" element={<FullTimeShiftManagementPage />} />

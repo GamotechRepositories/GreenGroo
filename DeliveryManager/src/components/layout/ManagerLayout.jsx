@@ -4,53 +4,83 @@ import { Icon, LogoIcon } from "../ui/Icon";
 import { useAuth } from "../../context/AuthContext";
 import Header from "./Header";
 import StoreQrModal from "../StoreQrModal";
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
-  { to: "/orders", label: "Incoming Orders", icon: "orders" },
-  { to: "/preorders", label: "Pre-Orders", icon: "clock" },
-  { to: "/return-pickups", label: "Return Pickups", icon: "box" },
+
+const navSections = [
   {
-    key: "shifts",
-    label: "Shifts & Slots",
-    icon: "calendar",
-    children: [
-      { to: "/shifts/create", label: "Create Shift & Slot" },
-      { to: "/shifts", label: "My Shift & Slots", end: true },
-      { to: "/shifts/fulltime/create", label: "Create Full-Time Shift" },
-      { to: "/shifts/fulltime", label: "Full-Time Shifts", end: true },
+    title: "Operations",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
+      { to: "/orders", label: "Orders", icon: "orders" },
+      { to: "/revenue", label: "Revenue", icon: "chart" },
+      { to: "/preorders", label: "Pre-Orders", icon: "clock" },
+      { to: "/return-pickups", label: "Return Pickups", icon: "box" },
+      { to: "/alerts", label: "Alerts", icon: "bell" },
     ],
   },
   {
-    key: "fulltime",
-    label: "Full-Time Management",
-    icon: "user",
-    children: [
-      { to: "/fulltime/assign-orders", label: "Assign Orders" },
-      { to: "/fulltime/attendance", label: "Attendance" },
-      { to: "/fulltime/salary", label: "Salary" },
-      { to: "/fulltime/rules", label: "Rules" },
+    title: "Riders",
+    items: [
+      { to: "/drivers", label: "Riders", icon: "truck", end: true },
+      { to: "/drivers/pending", label: "Verification", icon: "user" },
+      {
+        key: "shifts",
+        label: "Shifts & Slots",
+        icon: "calendar",
+        children: [
+          { to: "/shifts", label: "Shifts & Slots", end: true },
+          { to: "/shifts/create", label: "Create Shift" },
+          { to: "/shifts/fulltime", label: "Full-Time Shifts", end: true },
+          { to: "/shifts/fulltime/create", label: "Create Full-Time Shift" },
+        ],
+      },
+      {
+        key: "fulltime",
+        label: "Full-Time Staff",
+        icon: "user",
+        children: [
+          { to: "/fulltime/assign-orders", label: "Assign Orders" },
+          { to: "/fulltime/attendance", label: "Attendance" },
+          { to: "/fulltime/salary", label: "Salary" },
+          { to: "/fulltime/rules", label: "Rules" },
+        ],
+      },
+      {
+        key: "gigs",
+        label: "Gigs & Incentives",
+        icon: "trophy",
+        children: [
+          { to: "/incentives", label: "My Gigs", end: true },
+          { to: "/incentives/create", label: "Create Gig" },
+        ],
+      },
     ],
   },
   {
-    key: "gigs",
-    label: "Store Gigs & Incentives",
-    icon: "trophy",
-    children: [
-      { to: "/incentives/create", label: "Create Gigs" },
-      { to: "/incentives", label: "My Gigs", end: true },
+    title: "Store",
+    items: [
+      { to: "/products", label: "Products", icon: "bag" },
+      { to: "/stock", label: "Stock", icon: "box" },
     ],
   },
-  { to: "/products", label: "Store Products", icon: "bag" },
-  { to: "/stock", label: "Stock Inventory", icon: "box" },
-  { to: "/drivers", label: "Approved Drivers", icon: "truck", end: true },
-  { to: "/drivers/pending", label: "Driver Verification", icon: "user" },
-  { to: "/announcements", label: "Announcements", icon: "megaphone" },
-  { to: "/alerts", label: "Operational Alerts", icon: "bell" },
-  { to: "/policies", label: "Policies", icon: "clipboard" },
-  { to: "/support", label: "Support", icon: "support" },
-  { to: "/leave", label: "Apply Leave", icon: "calendar" },
-  { to: "/meetings", label: "Meetings", icon: "video" },
+  {
+    title: "Workspace",
+    items: [
+      { to: "/announcements", label: "Announcements", icon: "megaphone" },
+      { to: "/policies", label: "Policies", icon: "clipboard" },
+      { to: "/meetings", label: "Meetings", icon: "video" },
+      { to: "/leave", label: "Leave", icon: "calendar" },
+      { to: "/support", label: "Support", icon: "support" },
+    ],
+  },
 ];
+
+const isPathActive = (pathname, item) =>
+  item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);
+
+const itemClass = (active) =>
+  `group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition ${
+    active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+  }`;
 
 export default function ManagerLayout() {
   const { logout, manager } = useAuth();
@@ -58,11 +88,7 @@ export default function ManagerLayout() {
   const location = useLocation();
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [openDropdowns, setOpenDropdowns] = useState({
-    shifts: false,
-    gigs: false,
-    fulltime: false,
-  });
+  const [openDropdowns, setOpenDropdowns] = useState({});
 
   const toggleDropdown = (key) => {
     setOpenDropdowns((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -70,130 +96,118 @@ export default function ManagerLayout() {
 
   const darkStoreQr = `DARKSTORE_${manager?.id || manager?._id || ""}`;
 
+  const renderItem = (item) => {
+    if (item.children) {
+      const childActive = item.children.some((c) => isPathActive(location.pathname, c));
+      const isOpen = openDropdowns[item.key] ?? childActive;
+      return (
+        <div key={item.key}>
+          <button type="button" onClick={() => toggleDropdown(item.key)} className={itemClass(childActive && !isOpen)}>
+            <Icon name={item.icon} size="sm" className={childActive ? "text-emerald-400" : ""} />
+            <span className="flex-1 truncate text-left">{item.label}</span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className={`h-4 w-4 text-slate-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+          {isOpen && (
+            <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-white/10 pl-3">
+              {item.children.map((child) => (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  end={child.end}
+                  onClick={() => setIsMobileOpen(false)}
+                  className={({ isActive }) =>
+                    `block truncate rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition ${
+                      isActive ? "bg-white/10 text-emerald-300" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                    }`
+                  }
+                >
+                  {child.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end={item.end}
+        onClick={() => setIsMobileOpen(false)}
+        className={({ isActive }) => itemClass(isActive)}
+      >
+        {({ isActive }) => (
+          <>
+            {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-emerald-400" />}
+            <Icon name={item.icon} size="sm" className={isActive ? "text-emerald-400" : ""} />
+            <span className="flex-1 truncate">{item.label}</span>
+          </>
+        )}
+      </NavLink>
+    );
+  };
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-50 flex">
-      {/* Mobile Overlay */}
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50">
       {isMobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-slate-900/60 lg:hidden" onClick={() => setIsMobileOpen(false)} />
       )}
 
-      {/* Sidebar - Fixed/Full Height Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 h-full shrink-0 flex-col bg-black text-white shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 border-r border-zinc-800/80 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 shrink-0 flex-col bg-slate-950 text-white transition-transform duration-300 lg:static lg:translate-x-0 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* 1. Sidebar Header - Fixed Branding */}
-        <div className="shrink-0 flex items-center justify-between border-b border-zinc-800/80 px-5 py-4.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-md">
-              <LogoIcon className="h-6 w-6 text-white" />
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
+              <LogoIcon className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <p className="text-base font-extrabold tracking-tight text-white">GreenRow</p>
-              <p className="text-xs font-bold tracking-wider uppercase text-emerald-400">
-                Dark Store Manager
-              </p>
+            <div className="leading-tight">
+              <p className="text-sm font-bold text-white">GreenRow</p>
+              <p className="text-[11px] font-medium text-slate-400">Store Manager</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setIsMobileOpen(false)}
-            className="rounded-lg p-1 text-slate-400 hover:bg-zinc-800 lg:hidden"
+            className="rounded-md p-1 text-slate-400 hover:bg-white/10 lg:hidden"
           >
             ✕
           </button>
         </div>
 
-        {/* 2. Sidebar Navigation - Independent Middle Scroll Area */}
-        <nav className="flex-1 min-h-0 overflow-y-auto px-3.5 py-4 space-y-1.5">
-          {navItems.map((item) => {
-            if (item.children) {
-              const isChildActive = item.children.some((c) =>
-                c.end ? location.pathname === c.to : location.pathname.startsWith(c.to)
-              );
-              const isOpen = Boolean(openDropdowns[item.key]);
-
-              return (
-                <div key={item.key} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleDropdown(item.key)}
-                    className={`w-full group flex items-center justify-between gap-3.5 rounded-xl px-4 py-3 text-sm font-bold tracking-wide transition-all ${
-                      isChildActive
-                        ? "bg-zinc-900 text-white border border-zinc-800"
-                        : "text-slate-300 hover:bg-zinc-900/70 hover:text-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <Icon name={item.icon} size="md" className="transition-transform group-hover:scale-110 text-slate-400 group-hover:text-white" />
-                      <span className="truncate">{item.label}</span>
-                    </div>
-                    <span className="text-xs text-slate-400 font-bold">{isOpen ? "▲" : "▼"}</span>
-                  </button>
-
-                  {isOpen && (
-                    <div className="ml-5 border-l border-zinc-800 pl-3.5 space-y-1 my-1.5">
-                      {item.children.map((child) => (
-                        <NavLink
-                          key={child.to}
-                          to={child.to}
-                          end={child.end}
-                          onClick={() => setIsMobileOpen(false)}
-                          className={({ isActive }) =>
-                            `flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-bold tracking-wide transition-all ${
-                              isActive
-                                ? "bg-zinc-900 text-emerald-400 border border-emerald-500/30 shadow-xs"
-                                : "text-slate-400 hover:bg-zinc-900/60 hover:text-white"
-                            }`
-                          }
-                        >
-                          <span className="truncate">{child.label}</span>
-                        </NavLink>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setIsMobileOpen(false)}
-                className={({ isActive }) =>
-                  `group flex items-center gap-3.5 rounded-xl px-4 py-3 text-sm font-bold tracking-wide transition-all ${
-                    isActive
-                      ? "bg-emerald-600 text-white shadow-md"
-                      : "text-slate-300 hover:bg-zinc-900/70 hover:text-white"
-                  }`
-                }
-              >
-                <Icon name={item.icon} size="md" className="transition-transform group-hover:scale-110" />
-                <span className="flex-1 text-left truncate">{item.label}</span>
-              </NavLink>
-            );
-          })}
+        <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {navSections.map((section) => (
+            <div key={section.title}>
+              <p className="mb-1.5 px-3 text-[10.5px] font-semibold uppercase tracking-wider text-slate-500">
+                {section.title}
+              </p>
+              <div className="space-y-0.5">{section.items.map(renderItem)}</div>
+            </div>
+          ))}
         </nav>
 
-        {/* 3. User Profile Footer - Fixed Bottom */}
-        <div className="shrink-0 border-t border-slate-800/80 p-4 bg-slate-900/60">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 font-bold text-emerald-400 border border-slate-700">
-                {manager?.name ? manager.name.charAt(0).toUpperCase() : "M"}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-white truncate">
-                  {manager?.name || "Manager"}
-                </p>
-                <p className="text-xs text-slate-400 truncate">{manager?.phone || manager?.email}</p>
-              </div>
+        <div className="shrink-0 border-t border-white/10 p-3">
+          <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600/20 text-sm font-bold text-emerald-300">
+              {manager?.name ? manager.name.charAt(0).toUpperCase() : "M"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-white">{manager?.name || "Manager"}</p>
+              <p className="truncate text-[11px] text-slate-400">{manager?.phone || manager?.email}</p>
             </div>
             <button
               type="button"
@@ -202,30 +216,25 @@ export default function ManagerLayout() {
                 navigate("/login", { replace: true });
               }}
               title="Logout"
-              className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-rose-400 transition"
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-rose-400"
             >
-              <Icon name="power" size="md" />
+              <Icon name="power" size="sm" />
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area - Full Height & Independent Scroll Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Sticky Top Header */}
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         <div className="shrink-0">
           <Header onMobileMenuToggle={() => setIsMobileOpen((prev) => !prev)} />
         </div>
-
-        {/* Right Content Viewport - Independent Scroll Viewport */}
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <div className="max-w-7xl w-full mx-auto space-y-6">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto w-full max-w-7xl space-y-5">
             <Outlet />
           </div>
         </main>
       </div>
 
-      {/* Dark Store QR Modal */}
       <StoreQrModal
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
@@ -237,13 +246,16 @@ export default function ManagerLayout() {
   );
 }
 
-export function PageShell({ title, subtitle, children }) {
+export function PageShell({ title, meta, actions, children }) {
   return (
-    <div className="space-y-6">
-      {title && (
-        <div className="border-b border-slate-200/80 pb-4">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-          {subtitle && <p className="mt-1 text-xs md:text-sm text-slate-500">{subtitle}</p>}
+    <div className="space-y-5">
+      {(title || actions) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            {title && <h1 className="truncate text-xl font-bold tracking-tight text-slate-900">{title}</h1>}
+            {meta && <p className="mt-0.5 text-xs font-medium text-slate-500">{meta}</p>}
+          </div>
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
       )}
       {children}

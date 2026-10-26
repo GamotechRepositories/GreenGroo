@@ -95,7 +95,6 @@ export default function FullTimeAssignOrdersPage() {
   return (
     <PageShell
       title="Assign Orders to Full-Time Drivers"
-      subtitle="Full-Time drivers receive orders only when you assign them here. Part-Time drivers keep getting automatic offers as usual."
     >
       {notice.text && (
         <div

@@ -2398,6 +2398,18 @@ abstract class AppLocalizations {
   /// **'Completed'**
   String get completed;
 
+  /// No description provided for @shiftRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get shiftRunning;
+
+  /// No description provided for @shiftUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get shiftUpcoming;
+
   /// No description provided for @myOrders.
   ///
   /// In en, this message translates to:
@@ -3118,6 +3130,30 @@ abstract class AppLocalizations {
   /// **'OK'**
   String get ok;
 
+  /// No description provided for @orderDeliveredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Order delivered successfully'**
+  String get orderDeliveredTitle;
+
+  /// No description provided for @orderDeliveredBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Order #{number} has been delivered.'**
+  String orderDeliveredBody(String number);
+
+  /// No description provided for @goToHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Home'**
+  String get goToHome;
+
+  /// No description provided for @nextDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Next delivery'**
+  String get nextDelivery;
+
   /// No description provided for @detectingLocation.
   ///
   /// In en, this message translates to:
@@ -3171,6 +3207,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'₹{rate}/km incentive'**
   String incentivePerKm(String rate);
+
+  /// No description provided for @incentivePerKmAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'₹{rate}/km after {km} km'**
+  String incentivePerKmAfter(String rate, String km);
+
+  /// No description provided for @kmDoneInSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {km} km done'**
+  String kmDoneInSlot(String done, String km);
 
   /// No description provided for @incentivePerHour.
   ///
@@ -3775,13 +3823,13 @@ abstract class AppLocalizations {
   /// No description provided for @notifShiftStartedTitle.
   ///
   /// In en, this message translates to:
-  /// **'Shift Started'**
+  /// **'Time to go online'**
   String get notifShiftStartedTitle;
 
   /// No description provided for @notifShiftStartedBody.
   ///
   /// In en, this message translates to:
-  /// **'You\'re now online and ready for orders.'**
+  /// **'Your slot has started. Go online to receive orders.'**
   String get notifShiftStartedBody;
 
   /// No description provided for @notifShiftReminderTitle.

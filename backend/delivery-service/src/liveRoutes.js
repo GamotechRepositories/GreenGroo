@@ -30,7 +30,6 @@ import {
   declineOrderOffer,
   getActiveDelivery,
   getPendingOffer,
-  scanStoreQr,
   uploadDeliveryProof,
   verifyCustomerOtp,
   confirmCashCollection,
@@ -52,7 +51,6 @@ riderRouter.get("/offer", protect, getPendingOffer);
 riderRouter.post("/orders/:orderId/accept", protect, acceptOrderOffer);
 riderRouter.post("/orders/:orderId/decline", protect, declineOrderOffer);
 riderRouter.get("/active-delivery", protect, getActiveDelivery);
-riderRouter.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
 riderRouter.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
 riderRouter.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);
 // Delivery completion flow

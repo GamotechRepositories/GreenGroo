@@ -227,9 +227,7 @@ export default function ProductsPage() {
   return (
     <PageShell
       title="Store Products"
-      subtitle={`Admin catalog plus products you add for ${storeName}${
-        pincode ? ` (pincode ${pincode})` : ""
-      } · your own products are shown only to your customers`}
+      meta={pincode ? `Pincode ${pincode}` : undefined}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
