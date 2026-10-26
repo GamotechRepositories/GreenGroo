@@ -8,6 +8,7 @@ import { getProductDisplayDetails } from "../../utils/productLocalization";
 import { getProductListPriceInfo, isMultiVariant } from "../../utils/productPricing";
 import { useCart } from "../../context/CartContext";
 import WishlistButton from "./WishlistButton";
+import QuickCommerceProductCard from "./QuickCommerceProductCard";
 
 export function catalogUrls({ categoryName = "", baseId = "", store = "" } = {}) {
   const categoryUrl = buildStoreProductUrl({ categoryName, store });
@@ -333,13 +334,15 @@ function CatalogFlow({
           ) : items.length === 0 ? (
             <p className="py-16 text-center text-sm text-slate-400">No products in this list yet.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 lg:gap-4">
               {items.map((product) => (
-                <ProductRow
+                <QuickCommerceProductCard
                   key={product._id}
                   product={product}
-                  quantity={onGetCartQuantity ? onGetCartQuantity(product) : 0}
+                  layout="grid"
+                  cartQuantity={onGetCartQuantity ? onGetCartQuantity(product) : 0}
                   onAdd={onAdd}
+                  onIncrease={onIncrease || onAdd}
                   onDecrease={onDecrease}
                 />
               ))}

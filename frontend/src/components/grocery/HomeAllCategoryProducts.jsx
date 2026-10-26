@@ -12,6 +12,8 @@ import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { storeToSection } from "../../utils/storeSection";
 import FarmerGrowthBanner from "../home/FarmerGrowthBanner";
 import FarmerTestimonials from "../home/FarmerTestimonials";
+import OfferBannerCarousel from "../home/OfferBannerCarousel";
+import { getCategoryBanners } from "../home/categoryBanners";
 
 /** Two full rows of the 3-column mobile grid. */
 const MOBILE_GRID_LIMIT = 6;
@@ -52,8 +54,13 @@ function CategoryProductSection({ categoryName, limit = 20, section = null }) {
 
   if (products.length === 0) return null;
 
+  const banners = getCategoryBanners(categoryName);
+
   return (
     <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
+      {banners.length ? (
+        <OfferBannerCarousel banners={banners} className="mb-4 lg:mb-5" />
+      ) : null}
       <SectionHeader
         title={categoryName}
         viewAllTo={`/product?categoryName=${encodeURIComponent(categoryName)}`}
