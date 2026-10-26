@@ -20,6 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getMyOrders } from "../../api/api";
 import { getOrderDisplayCode, isPlacedOrder } from "../../utils/orderUtils";
 import ProductReviews from "./ProductReviews";
+import { formatProduceDate, isProduceDate } from "../../utils/produceDates";
 import ProductDescriptionContent from "./ProductDescriptionContent";
 import { getProductDisplayDetails } from "../../utils/productLocalization";
 
@@ -304,13 +305,13 @@ export default function ProductFarmerTraceabilitySection({
       })
     : "सकाळी ६:०० वा. सुरक्षित पॅक";
 
-  const harvestDate = String(
-    product?.harvestingDate || product?.farmerDetails?.harvestingDate || defaultHarvestDate
-  ).trim();
+  const rawHarvestDate = product?.harvestingDate || product?.farmerDetails?.harvestingDate || "";
+  const harvestDate = isProduceDate(rawHarvestDate)
+    ? formatProduceDate(rawHarvestDate)
+    : defaultHarvestDate;
+  const harvestNote = isProduceDate(rawHarvestDate) ? "" : formatProduceDate(rawHarvestDate);
 
-  const packingDate = String(
-    product?.packingDate || defaultPackingDate
-  ).trim();
+  const packingDate = formatProduceDate(product?.packingDate) || defaultPackingDate;
 
   const variety = String(
     product?.variety || product?.varietyName || product?.farmerDetails?.currentCrop || "स्थानिक (Desi)"
@@ -321,10 +322,10 @@ export default function ProductFarmerTraceabilitySection({
     : [];
   const primaryCrop = farmerCrops[0]?.name || variety;
 
-  const displayInfo = getProductDisplayDetails(product);
-  const productNameDisplay = displayInfo.secondaryTitle
-    ? `${displayInfo.primaryTitle} · ${displayInfo.secondaryTitle}`
-    : displayInfo.primaryTitle || "ताजी भाजीपाला / फळे";
+  const productNameDisplay =
+    String(product?.name || "").trim() ||
+    getProductDisplayDetails(product).primaryTitle ||
+    "Fresh produce";
 
   const inStock = product?.stock !== undefined ? product.stock > 0 : product?.inStock !== false;
 
@@ -337,8 +338,6 @@ export default function ProductFarmerTraceabilitySection({
     : "नवीन ताजी काढणी लवकरच उपलब्ध होईल";
 
   const productLotCode = `LOT-${String(product?._id || "7849").slice(-5).toUpperCase()}`;
-
-  const certification = String(product?.certification || "Organic (NPOP)").trim();
 
   const savedNutrition = Array.isArray(product?.nutritionFacts)
     ? product.nutritionFacts.filter((item) => item?.label || item?.value)
@@ -583,6 +582,7 @@ export default function ProductFarmerTraceabilitySection({
             Nutrition
           </button>
           <button
+            id="product-reviews-tab"
             type="button"
             onClick={() => setActiveTab("reviews")}
             className={`py-2 px-2 sm:px-4 rounded-lg font-bold text-xs sm:text-[13px] transition-all duration-150 text-center cursor-pointer ${
@@ -622,7 +622,14 @@ export default function ProductFarmerTraceabilitySection({
                 <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-baseline">
                   <span className="text-slate-500 font-medium">Harvest Date</span>
                   <span className="text-slate-400">:</span>
-                  <span className="font-semibold text-slate-900">{harvestDate}</span>
+                  <span className="font-semibold text-slate-900">
+                    {harvestDate}
+                    {harvestNote ? (
+                      <span className="block text-[11px] sm:text-[12px] font-medium text-slate-500">
+                        {harvestNote}
+                      </span>
+                    ) : null}
+                  </span>
                 </div>
 
                 {/* Packing Date */}
@@ -637,13 +644,6 @@ export default function ProductFarmerTraceabilitySection({
                   <span className="text-slate-500 font-medium">Source</span>
                   <span className="text-slate-400">:</span>
                   <span className="font-semibold text-slate-900">{farmerLocation}</span>
-                </div>
-
-                {/* Certification */}
-                <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-baseline">
-                  <span className="text-slate-500 font-medium">Certification</span>
-                  <span className="text-slate-400">:</span>
-                  <span className="font-semibold text-slate-900">{certification}</span>
                 </div>
 
                 {/* Status */}

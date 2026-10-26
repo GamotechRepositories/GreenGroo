@@ -31,6 +31,7 @@ import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
 import { seedErpMasters } from "./erp-service/src/seed.js";
 import { seedDefaultSectionsIfEmpty } from "./product-service/src/controllers/sectionController.js";
 import { seedDefaultCategoriesIfEmpty } from "./product-service/src/controllers/categoryController.js";
+import { backfillBaseProductsFromProducts } from "./product-service/src/controllers/baseProductController.js";
 import { seedDefaultCouponsIfEmpty } from "./legacy/controllers/couponController.js";
 import { seedDefaultAdminIfEmpty } from "./legacy/controllers/userController.js";
 import rewardRoutes from "./legacy/routes/rewardRoutes.js";
@@ -155,6 +156,7 @@ connectDB("server").then(async () => {
   await seedDefaultAdminIfEmpty();
   await seedDefaultSectionsIfEmpty();
   await seedDefaultCategoriesIfEmpty();
+  await backfillBaseProductsFromProducts();
   await seedDefaultCouponsIfEmpty();
   await seedDefaultRewardSettingsIfEmpty();
   await seedDefaultPricingRule();

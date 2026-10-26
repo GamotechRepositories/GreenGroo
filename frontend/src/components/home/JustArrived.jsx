@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { getProducts } from "../../api/api";
 import HomeProductRow from "./HomeProductRow";
 import { useDeliveryLocationKey } from "../../context/LocationContext";
+import { fillWithNewest } from "../../hooks/queries/useProductsQuery";
 
-const HOME_PRODUCT_LIMIT = 12;
+const HOME_PRODUCT_LIMIT = 16;
 
 function JustArrived() {
   const [products, setProducts] = useState([]);
@@ -17,7 +18,7 @@ function JustArrived() {
           justArrived: true,
           limit: HOME_PRODUCT_LIMIT,
         });
-        setProducts((data.data || []).slice(0, HOME_PRODUCT_LIMIT));
+        setProducts(await fillWithNewest(data.data || [], HOME_PRODUCT_LIMIT));
       } catch {
         setProducts([]);
       } finally {
@@ -34,6 +35,7 @@ function JustArrived() {
       viewAllTo="/just-arrived"
       products={products}
       loading={loading}
+      maxItems={HOME_PRODUCT_LIMIT}
     />
   );
 }

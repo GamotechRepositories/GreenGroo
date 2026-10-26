@@ -250,6 +250,13 @@ export const NAV_GROUPS = [
             description: 'Create a new catalog product.',
           },
           {
+            name: 'All base products',
+            href: '/products/base-products',
+            icon: Boxes,
+            implemented: true,
+            description: 'Base products by section and category, with the products under each.',
+          },
+          {
             name: 'Section',
             href: '/products/sections',
             icon: Layers,

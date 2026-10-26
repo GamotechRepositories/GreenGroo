@@ -1,4 +1,7 @@
-import { useMostViewedProductsQuery } from "../../hooks/queries/useProductsQuery";
+import {
+  MOST_VIEWED_LIMIT,
+  useMostViewedProductsQuery,
+} from "../../hooks/queries/useProductsQuery";
 import HomeProductRow from "./HomeProductRow";
 
 function MostViewedProducts() {
@@ -10,6 +13,7 @@ function MostViewedProducts() {
       viewAllTo="/product"
       products={products}
       loading={loading}
+      maxItems={MOST_VIEWED_LIMIT}
     />
   );
 }

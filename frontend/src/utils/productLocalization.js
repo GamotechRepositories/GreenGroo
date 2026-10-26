@@ -699,9 +699,14 @@ export function getProductDisplayDetails(product = {}, fallbackUnit = "") {
     ? `${hindiDevBase} (${hindiUnit})`
     : hindiDevBase;
 
+  // Storefront titles show the catalog's English name and English pack size.
+  const englishUnit = /\d/.test(embeddedUnit) ? embeddedUnit : rawUnit;
+
   return {
-    primaryTitle, // e.g. "Dudhi(approx.350g to 550g)"
-    secondaryTitle, // e.g. "दुधी भोपळा (अंदाजे ३५०-५५० ग्रॅम)"
+    primaryTitle: rawName || line1Base,
+    secondaryTitle: englishUnit,
+    localizedTitle: primaryTitle,
+    marathiTitle: secondaryTitle,
     hindiDevTitle, // e.g. "दूधी (लौकी) (लगभग ३५०-५५० ग्राम)"
     baseName,
     line1Base,

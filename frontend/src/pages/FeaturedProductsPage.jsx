@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { getProducts } from "../api/api";
 import { useProductCartActions } from "../hooks/useProductCartActions";
 import { useDeliveryLocationKey } from "../context/LocationContext";
+import { fillWithNewest } from "../hooks/queries/useProductsQuery";
+
+const JUST_ARRIVED_PAGE_LIMIT = 40;
 import {
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
@@ -82,7 +85,10 @@ function FeaturedProductsPage({
             : { hotSelling: true };
 
         const productsRes = await getProducts(fetchParams);
-        setProducts(productsRes?.data?.data || []);
+        const list = productsRes?.data?.data || [];
+        setProducts(
+          filterType === "justArrived" ? await fillWithNewest(list, JUST_ARRIVED_PAGE_LIMIT) : list
+        );
       } catch {
         setProducts([]);
       } finally {

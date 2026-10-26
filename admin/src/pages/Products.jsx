@@ -52,6 +52,7 @@ import apiClient, { API_ORIGIN as API_BASE } from '../api/client';
 import { useLive } from '../realtime/useLive';
 import categoryApi from '../api/categoryApi';
 import sectionApi from '../api/sectionApi';
+import baseProductApi from '../api/baseProductApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
 const SECTION_THEMES = [
@@ -509,10 +510,19 @@ export const computeCanonicalProductId = (category = '', title = '', variety = '
   return `${prefix}${maxSerial + 1}`;
 };
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function localIsoDate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 const DEMO_FARMER = {
   name: 'Kiran Vitthal Pawar',
   location: 'Niphad, Nashik',
-  harvestingDate: 'Today (Fresh Morning Harvest)',
+  harvestingDate: '',
   farmerImage: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80',
   farmImage: 'https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=600&h=600&q=80',
   totalArea: '3 Acres',
@@ -679,6 +689,14 @@ export default function Products() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unitImageUploadingKey, setUnitImageUploadingKey] = useState(null);
   const [baseProductOpen, setBaseProductOpen] = useState(false);
+  const [savedBaseProducts, setSavedBaseProducts] = useState([]);
+
+  useEffect(() => {
+    baseProductApi
+      .list()
+      .then((res) => setSavedBaseProducts(Array.isArray(res?.data) ? res.data : []))
+      .catch((err) => console.error('Failed to load base products:', err));
+  }, [catalogPage]);
 
   // Delete Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -737,7 +755,7 @@ export default function Products() {
     farmerLocation: '',
     farmerImage: '',
     farmImage: '',
-    harvestingDate: 'Today (Fresh Morning Harvest)',
+    harvestingDate: '',
     packingDate: '',
     certification: '',
     nutritionNote: DEMO_FARMER.nutritionNote,
@@ -890,8 +908,13 @@ export default function Products() {
         current.image = String(product.baseProductImage).trim();
       }
     });
+    savedBaseProducts.forEach((item) => {
+      if (formData.department && item.section && !sectionMatches(item.section, formData.department)) return;
+      if (cat && String(item.category || '').trim().toLowerCase() !== cat) return;
+      map.set(item.key, { id: item.key, name: item.name, image: item.image || map.get(item.key)?.image || '' });
+    });
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, formData.department, formData.category]);
+  }, [products, savedBaseProducts, formData.department, formData.category]);
 
   const availableSubcategoriesForForm = useMemo(() => {
     if (!formData.category) return [];
@@ -987,7 +1010,7 @@ export default function Products() {
       farmerLocation: options.farmerLocation || '',
       farmerImage: options.farmerImage || '',
       farmImage: options.farmImage || '',
-      harvestingDate: options.harvestingDate || 'Today (Fresh Morning Harvest)',
+      harvestingDate: options.harvestingDate || '',
       packingDate: options.packingDate || '',
       certification: options.certification || '',
       nutritionNote: options.nutritionNote || DEMO_FARMER.nutritionNote,
@@ -1270,7 +1293,7 @@ export default function Products() {
       farmerLocation: product.farmerLocation || product.farmerDetails?.location || '',
       farmerImage: product.farmerImage || product.farmerDetails?.farmerImage || '',
       farmImage: product.farmImage || product.farmerDetails?.farmImage || '',
-      harvestingDate: product.harvestingDate || product.farmerDetails?.harvestingDate || 'Today (Fresh Morning Harvest)',
+      harvestingDate: product.harvestingDate || product.farmerDetails?.harvestingDate || '',
       packingDate: product.packingDate || '',
       certification: product.certification || '',
       nutritionNote: product.nutritionNote || DEMO_FARMER.nutritionNote,
@@ -1308,8 +1331,8 @@ export default function Products() {
       farmerLocation: DEMO_FARMER.location,
       farmerImage: DEMO_FARMER.farmerImage,
       farmImage: DEMO_FARMER.farmImage,
-      harvestingDate: DEMO_FARMER.harvestingDate,
-      packingDate: DEMO_FARMER.packingDate,
+      harvestingDate: localIsoDate(),
+      packingDate: localIsoDate(),
       certification: DEMO_FARMER.certification,
       nutritionNote: DEMO_FARMER.nutritionNote,
       nutritionFacts: DEMO_FARMER.nutritionFacts.map((item) => ({ ...item })),
@@ -1861,7 +1884,7 @@ export default function Products() {
         farmerLocation: formData.farmerLocation?.trim() || '',
         farmerImage: formData.farmerImage?.trim() || '',
         farmImage: formData.farmImage?.trim() || '',
-        harvestingDate: formData.harvestingDate?.trim() || 'Today (Fresh Morning Harvest)',
+        harvestingDate: formData.harvestingDate?.trim() || '',
         packingDate: formData.packingDate?.trim() || '',
         certification: formData.certification?.trim() || '',
         nutritionNote: formData.nutritionNote?.trim() || '',
@@ -1876,7 +1899,7 @@ export default function Products() {
           location: formData.farmerLocation?.trim() || '',
           farmerImage: formData.farmerImage?.trim() || '',
           farmImage: formData.farmImage?.trim() || '',
-          harvestingDate: formData.harvestingDate?.trim() || 'Today (Fresh Morning Harvest)',
+          harvestingDate: formData.harvestingDate?.trim() || '',
           totalArea: formData.farmerDetails?.totalArea?.trim() || '',
           cultivationArea: formData.farmerDetails?.cultivationArea?.trim() || '',
           cropCycle: formData.farmerDetails?.cropCycle?.trim() || '',
@@ -4060,15 +4083,46 @@ export default function Products() {
                   <div className="sm:col-span-2 lg:col-span-1">
                     <label className="flex items-center gap-1 text-xs font-semibold text-slate-700 mb-1.5">
                       <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                      <span>Harvest Date / Status</span>
+                      <span>Harvest Date</span>
                     </label>
                     <input
-                      type="text"
-                      placeholder="e.g. Today (Fresh Harvest)"
-                      value={formData.harvestingDate}
+                      type="date"
+                      max={localIsoDate()}
+                      value={ISO_DATE_RE.test(formData.harvestingDate || '') ? formData.harvestingDate : ''}
                       onChange={(e) => setFormData({ ...formData, harvestingDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
                     />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {[
+                        { label: 'Today', offset: 0 },
+                        { label: 'Yesterday', offset: -1 },
+                      ].map(({ label, offset }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, harvestingDate: localIsoDate(offset) })}
+                          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                            formData.harvestingDate === localIsoDate(offset)
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                              : 'border-slate-200 text-slate-600 hover:border-emerald-400'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {formData.harvestingDate && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, harvestingDate: '' })}
+                          className="rounded-full px-2 py-0.5 text-[11px] font-medium text-slate-400 hover:text-rose-600"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      {formData.harvestingDate && !ISO_DATE_RE.test(formData.harvestingDate) && (
+                        <span className="text-[11px] text-amber-600">Current: “{formData.harvestingDate}”</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -4101,12 +4155,16 @@ export default function Products() {
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5">Packing date</label>
                       <input
-                        type="text"
-                        placeholder="e.g. Packed at 6:00 AM"
-                        value={formData.packingDate}
+                        type="date"
+                        min={ISO_DATE_RE.test(formData.harvestingDate || '') ? formData.harvestingDate : undefined}
+                        max={localIsoDate()}
+                        value={ISO_DATE_RE.test(formData.packingDate || '') ? formData.packingDate : ''}
                         onChange={(e) => setFormData({ ...formData, packingDate: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
+                      {formData.packingDate && !ISO_DATE_RE.test(formData.packingDate) && (
+                        <p className="mt-1 text-[11px] text-amber-600">Current: “{formData.packingDate}”</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5">Certification</label>

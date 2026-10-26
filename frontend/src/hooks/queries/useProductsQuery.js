@@ -7,6 +7,7 @@ import { useDeliveryLocationKey } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
 
 const HOME_PRODUCT_LIMIT = 12;
+export const MOST_VIEWED_LIMIT = 16;
 export const PRODUCTS_PAGE_SIZE = 50;
 
 async function fetchProductsByIds(ids, limit = HOME_PRODUCT_LIMIT) {
@@ -23,6 +24,26 @@ async function fetchProductsByIds(ids, limit = HOME_PRODUCT_LIMIT) {
     .map((id) => byId.get(String(id)))
     .filter(Boolean)
     .slice(0, limit);
+}
+
+/** Tops a short list up to `limit` with the newest catalog products (no duplicates). */
+export async function fillWithNewest(products, limit = HOME_PRODUCT_LIMIT, params = {}) {
+  const list = Array.isArray(products) ? products.slice(0, limit) : [];
+  if (list.length >= limit) return list;
+
+  try {
+    const { data } = await getProducts({ ...params, sort: "newest", limit: Math.min(limit * 2, 50) });
+    const seen = new Set(list.map((product) => String(product._id)));
+    for (const product of data.data || []) {
+      if (list.length >= limit) break;
+      if (seen.has(String(product._id))) continue;
+      seen.add(String(product._id));
+      list.push(product);
+    }
+  } catch {
+    // keep what we already have
+  }
+  return list;
 }
 
 export function useInfiniteProductsQuery(params, options = {}) {
@@ -99,13 +120,16 @@ export function useRecentlyViewedProductsQuery(options = {}) {
 }
 
 export function useMostViewedProductsQuery(options = {}) {
-  const ids = getMostViewedIds(HOME_PRODUCT_LIMIT);
+  const ids = getMostViewedIds(MOST_VIEWED_LIMIT);
   const locationKey = useDeliveryLocationKey();
 
   return useQuery({
     queryKey: [...queryKeys.products.mostViewed(ids), locationKey],
-    queryFn: () => fetchProductsByIds(ids, HOME_PRODUCT_LIMIT),
-    enabled: ids.length > 0,
+    queryFn: async () => {
+      const viewed = await fetchProductsByIds(ids, MOST_VIEWED_LIMIT);
+      const withPopular = await fillWithNewest(viewed, MOST_VIEWED_LIMIT, { hotSelling: true });
+      return fillWithNewest(withPopular, MOST_VIEWED_LIMIT);
+    },
     ...options,
   });
 }

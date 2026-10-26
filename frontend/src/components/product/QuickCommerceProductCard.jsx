@@ -145,14 +145,12 @@ function QuickCommerceProductCard({
         {/* Details Section below Image Box (No outer border box) */}
         <div className="mt-1.5 flex flex-1 flex-col justify-between min-w-0">
           <Link to={productUrl} className="flex flex-col min-w-0">
-            {/* Product Name (Hindi / English with unit) */}
-            <h3 className="line-clamp-1 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
+            <h3 className="line-clamp-1 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]" title={displayInfo.primaryTitle}>
               {displayInfo.primaryTitle}
             </h3>
 
-            {/* Marathi Name + Unit Quantity */}
-            <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-[#0a6c38] leading-tight">
-              {displayInfo.secondaryTitle}
+            <p className="mt-0.5 line-clamp-1 min-h-[13px] text-[11px] font-semibold text-[#0a6c38] leading-tight">
+              {displayInfo.secondaryTitle || unit}
             </p>
 
             {/* Rating (if available) */}

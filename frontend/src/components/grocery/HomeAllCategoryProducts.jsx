@@ -13,6 +13,9 @@ import { storeToSection } from "../../utils/storeSection";
 import FarmerGrowthBanner from "../home/FarmerGrowthBanner";
 import FarmerTestimonials from "../home/FarmerTestimonials";
 
+/** Two full rows of the 3-column mobile grid. */
+const MOBILE_GRID_LIMIT = 6;
+
 function CategoryProductSection({ categoryName, limit = 20, section = null }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
@@ -57,7 +60,11 @@ function CategoryProductSection({ categoryName, limit = 20, section = null }) {
         className="mb-3 lg:mb-4"
       />
       <div className="lg:hidden">
-        <TwoRowHorizontalProducts products={products} cardProps={cardProps} />
+        <TwoRowHorizontalProducts
+          products={products.slice(0, MOBILE_GRID_LIMIT)}
+          cardProps={cardProps}
+          scroll={false}
+        />
       </div>
       <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
         {products.slice(0, 10).map((product) => (
@@ -104,10 +111,16 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
       .filter(Boolean)
       .filter((name) => name.toLowerCase() !== "most purchase");
     const ranked = rankHomeCategories(names);
-    // Position Dairy as the final category section so it sits right above FarmerGrowthBanner and WhatMakesUsDifferent!
-    const nonDairy = ranked.filter((name) => !name.toLowerCase().includes("dairy"));
-    const dairyCategories = ranked.filter((name) => name.toLowerCase().includes("dairy"));
-    return [...nonDairy, ...dairyCategories];
+    const isDairyName = (name) => name.toLowerCase().includes("dairy");
+    const nonDairy = ranked.filter((name) => !isDairyName(name));
+    const dairyCategories = ranked.filter(isDairyName);
+    const fruitsIndex = nonDairy.findIndex((name) => name.toLowerCase().includes("fruit") && !name.toLowerCase().includes("dry"));
+    if (fruitsIndex === -1) return [...nonDairy, ...dairyCategories];
+    return [
+      ...nonDairy.slice(0, fruitsIndex + 1),
+      ...dairyCategories,
+      ...nonDairy.slice(fruitsIndex + 1),
+    ];
   }, [apiCategories]);
 
   return (
@@ -132,27 +145,18 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
         </div>
       ) : null}
 
-      {categories.map((category) => {
-        const isDairy = category.toLowerCase().includes("dairy");
-        return (
-          <div key={category} className="space-y-4">
-            <CategoryProductSection
-              categoryName={category}
-              limit={limitPerCategory}
-              section={targetSection}
-            />
-            {isDairy && (
-              <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
-            )}
-          </div>
-        );
-      })}
+      {categories.map((category) => (
+        <div key={category} className="space-y-4">
+          <CategoryProductSection
+            categoryName={category}
+            limit={limitPerCategory}
+            section={targetSection}
+          />
+        </div>
+      ))}
 
-      {!categories.some((c) => c.toLowerCase().includes("dairy")) && (
-        <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
-      )}
+      <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
 
-      {/* शेतकऱ्यांसोबत वाढणारा भारत - Placed below Dairy / Testimonials section */}
       <FarmerGrowthBanner />
     </div>
   );

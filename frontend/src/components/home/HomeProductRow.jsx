@@ -4,7 +4,7 @@ import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "./HorizontalScrollRow";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 
-function HomeProductRow({ title, viewAllTo, products, loading }) {
+function HomeProductRow({ title, viewAllTo, products, loading, maxItems = 8 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
@@ -49,13 +49,13 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
           <>
             <div className="lg:hidden">
               <HorizontalScrollRow gapClassName="gap-3">
-                {products.slice(0, 8).map((product) => (
+                {products.slice(0, maxItems).map((product) => (
                   <QuickCommerceProductCard key={product._id} {...cardProps(product)} />
                 ))}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
-              {products.slice(0, 8).map((product) => (
+            <div className="hidden gap-3 lg:grid lg:grid-cols-8">
+              {products.slice(0, maxItems).map((product) => (
                 <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
               ))}
             </div>

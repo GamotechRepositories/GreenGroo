@@ -12,6 +12,8 @@ import LocationMastersPage from './pages/erp/LocationMastersPage';
 import CropsPage from './pages/erp/CropsPage';
 import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
+import BaseProducts from './pages/BaseProducts';
+import AllBaseProducts from './pages/AllBaseProducts';
 import Analytics from './pages/Analytics';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
 import PreOrderSlots from './pages/PreOrderSlots';
@@ -104,6 +106,8 @@ export default function App() {
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
               <Route path="erp/crops" element={<CropsPage />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
+              <Route path="products/base-products/add" element={<BaseProducts />} />
+              <Route path="products/base-products/:sectionSlug?" element={<AllBaseProducts />} />
               <Route path="products/:catalogView?/:sectionSlug?" element={<Products />} />
               <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="pre-order-slots" element={<PreOrderSlots />} />

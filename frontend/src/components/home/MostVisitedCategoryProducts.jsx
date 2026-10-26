@@ -6,9 +6,10 @@ import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
-
 const LIMIT_PER_CATEGORY = 12;
 const MAX_CATEGORIES = 3;
+/** Two full rows of the 3-column mobile grid. */
+const MOBILE_GRID_LIMIT = 6;
 
 function VisitedCategorySection({ categoryName, products }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -32,7 +33,11 @@ function VisitedCategorySection({ categoryName, products }) {
         className="mb-3 lg:mb-4"
       />
       <div className="lg:hidden">
-        <TwoRowHorizontalProducts products={products} cardProps={cardProps} />
+        <TwoRowHorizontalProducts
+          products={products.slice(0, MOBILE_GRID_LIMIT)}
+          cardProps={cardProps}
+          scroll={false}
+        />
       </div>
       <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
         {products.slice(0, 10).map((product) => (

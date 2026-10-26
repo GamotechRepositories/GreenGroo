@@ -5,69 +5,17 @@ import { getActiveDarkStores } from "../../api/api";
 import { detectCurrentLocation, formatDeliveryLine } from "../../utils/detectCurrentLocation";
 import toast from "react-hot-toast";
 
-// Supported Delivery Cities with their primary coordinates & default delivery hubs
-const SUPPORTED_CITIES = [
-  {
-    name: "Pune",
-    state: "Maharashtra",
-    lat: 18.5958889,
-    lng: 73.7183078,
-    pincode: "411057",
-    area: "Hinjewadi Phase 2",
-    address: "Hinjewadi Phase 2, Pune, Maharashtra, 411057",
-    isStoreActive: true,
-    storeTag: "Active Dark Store",
-    areas: ["Hinjewadi", "Wakad", "Baner", "Kothrud", "Aundh", "Viman Nagar", "Magarpatta", "Shivaji Nagar"],
-  },
-  {
-    name: "Mumbai",
-    state: "Maharashtra",
-    lat: 19.076,
-    lng: 72.8777,
-    pincode: "400069",
-    area: "Andheri East",
-    address: "Andheri East, Mumbai, Maharashtra, 400069",
-    isStoreActive: true,
-    storeTag: "Quick Delivery",
-    areas: ["Andheri", "Bandra", "Borivali", "Dadar", "Powai", "Goregaon", "Ghatkopar", "Juhu"],
-  },
-  {
-    name: "Thane",
-    state: "Maharashtra",
-    lat: 19.2183,
-    lng: 72.9781,
-    pincode: "400601",
-    area: "Thane West",
-    address: "Thane West, Maharashtra, 400601",
-    isStoreActive: true,
-    storeTag: "Delivery Available",
-    areas: ["Thane West", "Majiwada", "Ghodbunder Road", "Naupada", "Vartak Nagar"],
-  },
-  {
-    name: "Navi Mumbai",
-    state: "Maharashtra",
-    lat: 19.033,
-    lng: 73.0297,
-    pincode: "400703",
-    area: "Vashi",
-    address: "Vashi, Navi Mumbai, Maharashtra, 400703",
-    isStoreActive: true,
-    storeTag: "Delivery Available",
-    areas: ["Vashi", "Nerul", "Kharghar", "Seawoods", "CBD Belapur", "Kopar Khairane"],
-  },
-  {
-    name: "Nashik",
-    state: "Maharashtra",
-    lat: 19.9975,
-    lng: 73.7898,
-    pincode: "422005",
-    area: "College Road",
-    address: "College Road, Nashik, Maharashtra, 422005",
-    isStoreActive: true,
-    storeTag: "Fresh Farm Hub",
-    areas: ["College Road", "Indira Nagar", "Gangapur Road", "Panchavati", "Mahatma Nagar"],
-  },
-];
+/** Cities → areas built only from dark stores that are live right now. */
+function groupStoresByCity(stores) {
+  const cities = new Map();
+  for (const store of stores) {
+    const name = String(store.city || "").trim();
+    if (!name) continue;
+    if (!cities.has(name)) cities.set(name, { name, state: store.state || "", stores: [] });
+    cities.get(name).stores.push(store);
+  }
+  return [...cities.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export default function MandatoryLocationModal() {
   const routerLocation = useRouterLocation();
@@ -83,11 +31,12 @@ export default function MandatoryLocationModal() {
   const [error, setError] = useState("");
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedCity, setExpandedCity] = useState("");
   const [darkStores, setDarkStores] = useState([]);
+  const [storesLoading, setStoresLoading] = useState(true);
 
   const dropdownRef = useRef(null);
 
-  // Fetch active dark stores from backend to enrich cities
   useEffect(() => {
     let isMounted = true;
     getActiveDarkStores()
@@ -98,6 +47,9 @@ export default function MandatoryLocationModal() {
       })
       .catch(() => {
         if (isMounted) setDarkStores([]);
+      })
+      .finally(() => {
+        if (isMounted) setStoresLoading(false);
       });
     return () => {
       isMounted = false;
@@ -172,51 +124,32 @@ export default function MandatoryLocationModal() {
     }
   };
 
-  // --- 2. Select City Click ---
-  const handleSelectCity = (cityItem) => {
-    // Check if there is an active dark store in this city
-    const matchedStore = darkStores.find(
-      (s) =>
-        s.city?.toLowerCase() === cityItem.name.toLowerCase() ||
-        cityItem.name.toLowerCase().includes(s.city?.toLowerCase() || "")
-    );
-
-    if (matchedStore) {
-      applyLocationData({
-        label: `${cityItem.name} (${matchedStore.area || "Store"})`,
-        city: matchedStore.city || cityItem.name,
-        area: matchedStore.area || cityItem.area,
-        address: matchedStore.address || cityItem.address,
-        pincode: matchedStore.pincode || cityItem.pincode,
-        state: matchedStore.state || cityItem.state,
-        lat: matchedStore.latitude || cityItem.lat,
-        lng: matchedStore.longitude || cityItem.lng,
-        shopName: matchedStore.storeName || "",
-        fullAddress: matchedStore.address || cityItem.address,
-      });
-    } else {
-      applyLocationData({
-        label: cityItem.name,
-        city: cityItem.name,
-        area: cityItem.area,
-        address: cityItem.address,
-        pincode: cityItem.pincode,
-        state: cityItem.state,
-        lat: cityItem.lat,
-        lng: cityItem.lng,
-        shopName: cityItem.storeTag || "",
-        fullAddress: cityItem.address,
-      });
-    }
-
-    toast.success(`Delivery city set to ${cityItem.name}`);
+  const handleSelectStore = (store) => {
+    applyLocationData({
+      label: `${store.area || store.city}, ${store.city}`,
+      city: store.city,
+      area: store.area,
+      address: store.address,
+      pincode: store.pincode,
+      state: store.state,
+      lat: store.latitude,
+      lng: store.longitude,
+      shopName: store.storeName || "",
+      fullAddress: store.address,
+    });
+    toast.success(`Delivery area set to ${store.area || store.city}, ${store.city}`);
   };
 
-  // Filter cities by search query
-  const filteredCities = SUPPORTED_CITIES.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.areas?.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const query = searchQuery.trim().toLowerCase();
+  const filteredCities = groupStoresByCity(darkStores)
+    .map((c) => {
+      const cityMatches = !query || c.name.toLowerCase().includes(query);
+      const stores = cityMatches
+        ? c.stores
+        : c.stores.filter((s) => String(s.area || "").toLowerCase().includes(query));
+      return { ...c, visibleStores: stores, areaSearchHit: !cityMatches && stores.length > 0 };
+    })
+    .filter((c) => c.visibleStores.length > 0);
 
   const handleBackdropClick = (e) => {
     // Only allow closing via backdrop if user ALREADY has a location set and opened modal manually
@@ -268,13 +201,13 @@ export default function MandatoryLocationModal() {
         )}
 
         {/* 3. Action Buttons Row (Detect my location -- OR -- Select City ▾) */}
-        <div className="mt-6 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 relative">
+        <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between relative">
           {/* Detect my location green pill button */}
           <button
             type="button"
             onClick={handleDetectLocation}
             disabled={detecting}
-            className="h-11 px-5 sm:px-6 rounded-full bg-[#1ea751] hover:bg-[#189345] active:scale-[0.98] text-white text-[13.5px] font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 whitespace-nowrap"
+            className="h-11 w-full sm:w-auto px-5 sm:px-6 rounded-full bg-[#1ea751] hover:bg-[#189345] active:scale-[0.98] text-white text-[13.5px] font-semibold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 whitespace-nowrap"
           >
             {detecting ? (
               <>
@@ -291,19 +224,19 @@ export default function MandatoryLocationModal() {
 
           {/* OR divider */}
           <div className="flex items-center gap-1.5 shrink-0 select-none">
-            <div className="w-3.5 sm:w-5 h-[1px] bg-gray-200" />
+            <div className="flex-1 sm:flex-none sm:w-5 h-[1px] bg-gray-200" />
             <span className="h-5.5 px-2 rounded-full border border-gray-200 text-gray-400 text-[10px] font-bold flex items-center justify-center uppercase tracking-wider">
               OR
             </span>
-            <div className="w-3.5 sm:w-5 h-[1px] bg-gray-200" />
+            <div className="flex-1 sm:flex-none sm:w-5 h-[1px] bg-gray-200" />
           </div>
 
           {/* Select City ▾ Dropdown Trigger */}
-          <div className="relative shrink-0" ref={dropdownRef}>
+          <div className="relative w-full sm:w-auto shrink-0" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setShowCityDropdown(!showCityDropdown)}
-              className="text-[13.5px] sm:text-[14px] font-bold text-gray-800 hover:text-[#1ea751] transition-colors flex items-center gap-1 cursor-pointer select-none py-1.5 whitespace-nowrap"
+              className="h-11 w-full sm:h-auto sm:w-auto rounded-full border border-gray-200 sm:border-0 text-[13.5px] sm:text-[14px] font-bold text-gray-800 hover:text-[#1ea751] transition-colors flex items-center justify-center gap-1 cursor-pointer select-none py-1.5 whitespace-nowrap"
             >
               <span>{location?.city && location?.city !== "Select your delivery location" ? location.city : "Select City"}</span>
               <svg
@@ -321,7 +254,7 @@ export default function MandatoryLocationModal() {
 
             {/* City Dropdown Menu */}
             {showCityDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 animate-fadeIn">
+              <div className="relative mt-2 w-full sm:absolute sm:right-0 sm:top-full sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50 animate-fadeIn">
                 {/* Search box within dropdown */}
                 <div className="px-2 pt-1 pb-2 border-b border-gray-100 mb-1">
                   <input
@@ -335,37 +268,76 @@ export default function MandatoryLocationModal() {
                 </div>
 
                 {/* Cities list */}
-                <div className="max-h-56 overflow-y-auto space-y-1">
-                  {filteredCities.map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      onClick={() => handleSelectCity(c)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-emerald-50/70 transition-colors cursor-pointer group"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-gray-400 group-hover:text-emerald-600 text-xs">📍</span>
-                          <span className="text-[13px] font-bold text-gray-800 group-hover:text-emerald-700">
-                            {c.name}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 group-hover:text-emerald-600/80 truncate pl-4">
-                          {c.areas.slice(0, 3).join(", ")}...
-                        </p>
-                      </div>
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {filteredCities.map((c) => {
+                    const isOpen = c.areaSearchHit || expandedCity === c.name;
+                    return (
+                      <div
+                        key={c.name}
+                        className={`rounded-xl transition-colors ${isOpen ? "bg-emerald-50/60" : ""}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCity(isOpen ? "" : c.name)}
+                          aria-expanded={isOpen}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left hover:bg-emerald-50/70 transition-colors cursor-pointer group"
+                        >
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="text-xs">📍</span>
+                            <span className="text-[13.5px] font-bold text-gray-800 group-hover:text-emerald-700">
+                              {c.name}
+                            </span>
+                            <span className="text-[10.5px] font-medium text-gray-400">
+                              {c.stores.length} {c.stores.length === 1 ? "area" : "areas"}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full">
+                              Active
+                            </span>
+                            <svg
+                              className={`h-3.5 w-3.5 text-gray-400 transition-transform ${isOpen ? "rotate-180 text-emerald-600" : ""}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
 
-                      {c.isStoreActive && (
-                        <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded-full shrink-0">
-                          Active
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                        {isOpen && (
+                          <div className="space-y-1.5 px-2 pb-2.5">
+                            {c.visibleStores.map((store) => (
+                              <button
+                                key={store.id}
+                                type="button"
+                                onClick={() => handleSelectStore(store)}
+                                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left hover:border-emerald-400 cursor-pointer group/area"
+                              >
+                                <span className="block truncate text-[12px] font-semibold text-gray-800 group-hover/area:text-emerald-700">
+                                  {store.area || store.city}
+                                </span>
+                                <span className="block truncate text-[10.5px] text-gray-400">
+                                  {store.storeName}
+                                  {store.pincode ? ` · ${store.pincode}` : ""}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {filteredCities.length === 0 && (
                     <div className="py-3 text-center text-xs text-gray-400">
-                      No matching city found
+                      {storesLoading
+                        ? "Loading delivery areas…"
+                        : darkStores.length
+                          ? "No matching city found"
+                          : "Delivery is not available in any city yet"}
                     </div>
                   )}
                 </div>

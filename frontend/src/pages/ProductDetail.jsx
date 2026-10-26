@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { addCategoryVisit } from "../utils/categoryVisits";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { buildApiUrl, getProductById, getProductVarieties } from "../api/api";
+import { buildApiUrl, getProductById, getProductReviews, getProductVarieties } from "../api/api";
 import { translateUnitToMarathi } from "../utils/productLocalization";
+import { formatProduceDate } from "../utils/produceDates";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
@@ -425,9 +426,9 @@ function FarmerDetailsCard({ product }) {
   const location = String(product?.farmerLocation || product?.farmerDetails?.location || "").trim();
   const farmerImage = String(product?.farmerImage || product?.farmerDetails?.farmerImage || "").trim();
   const farmImage = String(product?.farmImage || product?.farmerDetails?.farmImage || "").trim();
-  const harvestingDate = String(
-    product?.harvestingDate || product?.farmerDetails?.harvestingDate || ""
-  ).trim();
+  const harvestingDate = formatProduceDate(
+    product?.harvestingDate || product?.farmerDetails?.harvestingDate
+  );
   const details = product?.farmerDetails || {};
 
   const rows = [
@@ -743,9 +744,9 @@ function ProductDetailsSection({
   specifications,
   className = "",
 }) {
-  const harvestingDate = String(
-    product?.harvestingDate || product?.farmerDetails?.harvestingDate || ""
-  ).trim();
+  const harvestingDate = formatProduceDate(
+    product?.harvestingDate || product?.farmerDetails?.harvestingDate
+  );
   const unit = String(product?.unit || product?.sub || product?.weight || "").trim();
   const brand = String(product?.brandName || "").trim();
   const category = Array.isArray(product?.categories)
@@ -914,6 +915,7 @@ function ProductDetail() {
   const [downloadingImage, setDownloadingImage] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [varietyOptions, setVarietyOptions] = useState([]);
+  const [reviewStats, setReviewStats] = useState({ average: 0, count: 0 });
   const canViewPrice = useCanViewProductPrice(product);
   const isBulkUser = user?.accountType === "bulk";
 
@@ -921,6 +923,21 @@ function ProductDetail() {
     if (!id || String(id).startsWith("dummy-") || String(id).startsWith("deal-")) return;
     tryOpenProductInApp(id);
   }, [id]);
+
+  useEffect(() => {
+    const productId = product?._id;
+    setReviewStats({ average: 0, count: 0 });
+    if (!productId || String(productId).startsWith("dummy-") || String(productId).startsWith("deal-")) return;
+    let active = true;
+    getProductReviews(productId)
+      .then(({ data }) => {
+        if (active && data?.stats) setReviewStats(data.stats);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [product?._id]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -1233,7 +1250,12 @@ function ProductDetail() {
   const category = product.categories?.[0] || "Products";
   const variantStock = getVariantStock(product, activeVariantName);
   const inStock = variantStock > 0;
-  const rating = product.ratings || 4.5;
+  const rating = Number(
+    reviewStats.count > 0 ? reviewStats.average : product.ratings || product.rating || 0
+  );
+  const ratingCount = Number(reviewStats.count || product.reviewCount || product.numReviews || 0);
+  const ratingCountLabel =
+    ratingCount >= 1000 ? `${(ratingCount / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(ratingCount);
   const maxOrderQty = getMaxOrderQuantity(product, activeVariantName, 50);
   const maxQuantity = inStock
     ? Math.min(variantStock, maxOrderQty)
@@ -1387,9 +1409,31 @@ function ProductDetail() {
               </nav>
 
               <div className="space-y-1 mb-2">
-                <h1 className="text-[22px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[26px]">
-                  {displayInfo.primaryTitle}
-                </h1>
+                <div className="flex items-start justify-between gap-3">
+                  <h1 className="min-w-0 text-[22px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[26px]">
+                    {displayInfo.primaryTitle}
+                  </h1>
+                  {rating > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const reviewsTab = document.getElementById("product-reviews-tab");
+                        reviewsTab?.click();
+                        reviewsTab?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className="mt-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[13px] font-semibold text-slate-800 sm:text-[14px]"
+                      aria-label={`Rated ${rating.toFixed(1)} out of 5${ratingCount ? ` from ${ratingCount} reviews` : ""}`}
+                    >
+                      <svg className="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.47L12 17.77l-5.8 3.05 1.11-6.47-4.7-4.58 6.49-.94L12 2.5z" />
+                      </svg>
+                      <span>{rating.toFixed(1)}</span>
+                      {ratingCount > 0 ? (
+                        <span className="font-medium text-slate-500">({ratingCountLabel})</span>
+                      ) : null}
+                    </button>
+                  ) : null}
+                </div>
                 <div
                   onClick={() => {
                     const unitSection = document.getElementById("product-unit-selection");
@@ -1400,7 +1444,7 @@ function ProductDetail() {
                   className="inline-flex items-center gap-1.5 text-[15px] sm:text-[17px] font-bold text-slate-800 cursor-pointer hover:text-emerald-800 transition select-none"
                   title="Click to select unit or variety"
                 >
-                  <span>{displayInfo.secondaryTitle}</span>
+                  <span>{displayInfo.secondaryTitle || unitLabel}</span>
                   <svg
                     className="w-4 h-4 text-slate-700 shrink-0"
                     viewBox="0 0 24 24"
@@ -1439,7 +1483,7 @@ function ProductDetail() {
               <div className="flex items-end justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-slate-600">
-                    {displayInfo.activeUnit} <span className="text-slate-400">·</span> {displayInfo.marathiUnit}
+                    {displayInfo.secondaryTitle || unitLabel}
                   </p>
                   {canViewPrice ? (
                     <>
