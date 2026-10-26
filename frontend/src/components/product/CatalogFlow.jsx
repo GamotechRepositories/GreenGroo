@@ -454,28 +454,35 @@ function CatalogFlow({
               key={card.id}
               to={catalogUrls({ categoryName, baseId: card.id, store }).productsUrl}
               state={{ backTo: categoryUrl }}
-              className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]"
+              className="group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.06)] transition-shadow hover:shadow-[0_6px_18px_rgba(15,23,42,0.1)]"
             >
-              <div className="relative bg-white px-3 pt-3">
+              <div className="relative aspect-square w-full overflow-hidden bg-slate-50">
                 {card.image ? (
-                  <img src={card.image} alt="" className="aspect-square w-full object-contain" />
-                ) : (
-                  <div className="aspect-square w-full bg-slate-50" />
-                )}
-                {card.marked ? (
-                  <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#1f8a3b] text-white">
-                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6">
-                      <path d="M5 10.5 8.2 14 15 6.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                  <img
+                    src={card.image}
+                    alt={card.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : null}
+                {card.discount > 0 ? (
+                  <span className="absolute left-0 top-0 rounded-br-xl bg-[#2f6fe4] px-2 py-1 text-center text-[10px] font-extrabold leading-[1.05] text-white shadow-sm">
+                    {card.discount}%
+                    <br />
+                    OFF
                   </span>
                 ) : null}
               </div>
-              <div className="px-3 pb-3 pt-1">
-                <div className="flex items-center justify-between gap-1">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">{card.title}</p>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+              <div className="flex items-center justify-between gap-1 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold leading-tight text-slate-900">{card.title}</p>
+                  <p className="mt-0.5 text-[12px] text-slate-400">
+                    {card.count} {card.count === 1 ? "Type" : "Types"}
+                  </p>
                 </div>
-                <p className="text-[12px] text-slate-400">({card.count} Types)</p>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef6ef] text-[#1f6b3a]">
+                  <ChevronRight className="h-4 w-4" />
+                </span>
               </div>
             </Link>
           ))}

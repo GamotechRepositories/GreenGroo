@@ -25,6 +25,18 @@ export function productImage(product) {
   return product?.productImages?.[0] || product?.image || "";
 }
 
+function percentOff(item) {
+  const price = Number(item?.price) || 0;
+  const sale = Number(item?.discountedPrice) || 0;
+  const computed = price > 0 && sale > 0 && sale < price ? Math.round(((price - sale) / price) * 100) : 0;
+  return Math.max(Number(item?.discountedPercent) || 0, computed);
+}
+
+export function productDiscount(product) {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  return Math.max(percentOff(product), ...variants.map(percentOff), 0);
+}
+
 export function baseGroupKey(product) {
   const baseName = String(product?.baseProductName || "").trim();
   if (baseName) {
@@ -56,6 +68,7 @@ export function groupBaseProducts(products = []) {
         countLabel: `${items.length} ${items.length === 1 ? "Product" : "Products"}`,
         image: baseImage || items.map(productImage).find(Boolean) || "",
         marked: items.some((item) => item.hotSelling || item.badge),
+        discount: Math.max(0, ...items.map(productDiscount)),
         items,
       };
     })
