@@ -607,13 +607,6 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
-    if (!consumeVerifiedPhone(phone)) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP verification expired. Please verify your phone again.",
-      });
-    }
-
     if (!name?.trim()) {
       return res.status(400).json({
         success: false,
@@ -626,6 +619,28 @@ export const completeOtpSignup = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: profileError,
+      });
+    }
+
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "").trim();
+    if (password && password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+    if (email && (await User.exists({ email, phone: { $ne: phone } }))) {
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    if (!consumeVerifiedPhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP verification expired. Please verify your phone again.",
       });
     }
 
@@ -645,6 +660,8 @@ export const completeOtpSignup = async (req, res) => {
       name: name.trim(),
       phone,
       role: "user",
+      ...(email ? { email } : {}),
+      ...(password ? { password } : {}),
       ...optionalSignupFields,
     });
 

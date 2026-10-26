@@ -53,8 +53,8 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/orders" }) {
                 )}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
-              {Array.from({ length: 8 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
+            <div className="hidden gap-3 lg:grid lg:grid-cols-6 lg:grid-rows-1">
+              {Array.from({ length: 6 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
             </div>
           </>
         ) : (
@@ -66,8 +66,8 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/orders" }) {
                 ))}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
-              {displayProducts.slice(0, 8).map((product) => (
+            <div className="hidden gap-3 lg:grid lg:grid-cols-6 lg:grid-rows-1">
+              {displayProducts.slice(0, 6).map((product) => (
                 <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
               ))}
             </div>

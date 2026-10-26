@@ -4,7 +4,10 @@ import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "./HorizontalScrollRow";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 
+const DESKTOP_COLUMNS = 6;
+
 function HomeProductRow({ title, viewAllTo, products, loading, maxItems = 8 }) {
+  const desktopLimit = Math.max(DESKTOP_COLUMNS, Math.floor(maxItems / DESKTOP_COLUMNS) * DESKTOP_COLUMNS);
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
@@ -41,8 +44,8 @@ function HomeProductRow({ title, viewAllTo, products, loading, maxItems = 8 }) {
                 )}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
-              {Array.from({ length: 8 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
+            <div className="hidden gap-3 lg:grid lg:grid-cols-6 lg:grid-rows-1">
+              {Array.from({ length: DESKTOP_COLUMNS }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
             </div>
           </>
         ) : (
@@ -54,8 +57,8 @@ function HomeProductRow({ title, viewAllTo, products, loading, maxItems = 8 }) {
                 ))}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-3 lg:grid lg:grid-cols-8">
-              {products.slice(0, maxItems).map((product) => (
+            <div className="hidden gap-3 lg:grid lg:grid-cols-6">
+              {products.slice(0, desktopLimit).map((product) => (
                 <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
               ))}
             </div>

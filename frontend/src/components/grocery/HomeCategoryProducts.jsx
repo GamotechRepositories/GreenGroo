@@ -74,7 +74,7 @@ function HomeCategoryProducts({ categoryName }) {
           scroll={false}
         />
       </div>
-      <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
+      <div className="hidden gap-4 lg:grid lg:grid-cols-6">
         {products.map((product) => (
           <QuickCommerceProductCard
             key={product._id}

@@ -66,8 +66,8 @@ function CategoryProductSection({ categoryName, limit = 20, section = null }) {
           scroll={false}
         />
       </div>
-      <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
-        {products.slice(0, 10).map((product) => (
+      <div className="hidden gap-4 lg:grid lg:grid-cols-6">
+        {products.slice(0, 12).map((product) => (
           <QuickCommerceProductCard
             key={product._id}
             {...cardProps(product)}

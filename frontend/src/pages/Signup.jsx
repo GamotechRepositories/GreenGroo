@@ -6,6 +6,17 @@ import toast from "react-hot-toast";
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+const ACCOUNT_TYPES = [
+  { id: "retail", title: "Retail", desc: "Everyday shopping" },
+  { id: "bulk", title: "Bulk / Business", desc: "Grade A, B & C pricing" },
+];
+
+const fieldWrapClass =
+  "relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all";
+const fieldInputClass =
+  "w-full bg-transparent text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none";
 
 export default function Signup() {
   const { signupWithOtp, user } = useAuth();
@@ -14,6 +25,14 @@ export default function Signup() {
 
   // "form" | "otp"
   const [step, setStep] = useState("form");
+  const [accountType, setAccountType] = useState(() =>
+    new URLSearchParams(location.search).get("type") === "bulk" ? "bulk" : "retail"
+  );
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [ownerContact, setOwnerContact] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const isBulk = accountType === "bulk";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -93,6 +112,32 @@ export default function Signup() {
       return;
     }
 
+    if (password.trim() && password.trim().length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (isBulk) {
+      if (shopName.trim().length < 2) {
+        setError("Please enter your business name (at least 2 characters)");
+        return;
+      }
+      if (shopAddress.trim().length < 5) {
+        setError("Please enter your complete business address");
+        return;
+      }
+      const cleanOwner = (ownerContact.trim() || cleanPhone).replace(/\D/g, "").slice(-10);
+      if (!PHONE_PATTERN.test(cleanOwner)) {
+        setError("Owner contact must be 10 digits starting with 6, 7, 8, or 9");
+        return;
+      }
+      const gst = gstNumber.trim().toUpperCase();
+      if (gst && !GST_PATTERN.test(gst)) {
+        setError("Please enter a valid 15-character GST number");
+        return;
+      }
+    }
+
     if (!agreedToTerms) {
       setError("Please agree to the Terms & Conditions and Privacy Policy");
       return;
@@ -161,13 +206,21 @@ export default function Signup() {
       const payload = {
         name: name.trim(),
         phone: cleanPhone,
-        accountType: "retail",
+        accountType,
         ...(email.trim() ? { email: email.trim().toLowerCase() } : {}),
         ...(password.trim() ? { password: password.trim() } : {}),
+        ...(isBulk
+          ? {
+              shopName: shopName.trim(),
+              shopAddress: shopAddress.trim(),
+              ownerContact: (ownerContact.trim() || cleanPhone).replace(/\D/g, "").slice(-10),
+              ...(gstNumber.trim() ? { gstNumber: gstNumber.trim().toUpperCase() } : {}),
+            }
+          : {}),
       };
 
       await signupWithOtp(payload);
-      toast.success("Account created successfully!");
+      toast.success(isBulk ? "Business account created successfully!" : "Account created successfully!");
       navigate("/location", { replace: true, state: { returnTo: redirectTo } });
     } catch (err) {
       setError(
@@ -237,12 +290,14 @@ export default function Signup() {
 
           {/* Heading */}
           <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight mt-1">
-            {step === "otp" ? "Verify Registration OTP" : "Create Account"}
+            {step === "otp" ? "Verify Registration OTP" : isBulk ? "Business Registration" : "Create Account"}
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xs mx-auto leading-relaxed">
             {step === "otp"
               ? `Enter 6-digit verification code sent to +91 ${phone}`
-              : "Join GreenGrocc for fresh farm produce delivered fast"}
+              : isBulk
+                ? "Register your shop, hotel or business for bulk Grade A, B & C pricing"
+                : "Join GreenGrocc for fresh farm produce delivered fast"}
           </p>
         </div>
 
@@ -262,6 +317,34 @@ export default function Signup() {
           {step === "form" ? (
             // --- Step 1: Customer Registration Details ---
             <form onSubmit={handleSendRegistrationOtp} className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Account type">
+                {ACCOUNT_TYPES.map((type) => {
+                  const active = accountType === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setAccountType(type.id);
+                        setError("");
+                      }}
+                      className={`rounded-2xl border px-3 py-2 text-left transition-all cursor-pointer ${
+                        active
+                          ? "border-[#075e34] bg-emerald-50 ring-2 ring-emerald-500/15"
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <span className={`block text-[13px] font-bold ${active ? "text-[#075e34]" : "text-gray-800"}`}>
+                        {type.title}
+                      </span>
+                      <span className="block text-[11px] text-gray-500">{type.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Full Name */}
               <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
                 <svg className="w-4.5 h-4.5 text-gray-400 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -274,7 +357,7 @@ export default function Signup() {
                     setName(e.target.value);
                     setError("");
                   }}
-                  placeholder="Full Name"
+                  placeholder={isBulk ? "Owner Full Name" : "Full Name"}
                   className="w-full bg-transparent text-[13.5px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
                   autoComplete="name"
                   required
@@ -300,6 +383,68 @@ export default function Signup() {
                   required
                 />
               </div>
+
+              {isBulk && (
+                <>
+                  <div className={fieldWrapClass}>
+                    <input
+                      type="text"
+                      value={shopName}
+                      onChange={(e) => {
+                        setShopName(e.target.value);
+                        setError("");
+                      }}
+                      placeholder="Business / Shop Name"
+                      className={fieldInputClass}
+                      autoComplete="organization"
+                      required
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <input
+                      type="text"
+                      value={shopAddress}
+                      onChange={(e) => {
+                        setShopAddress(e.target.value);
+                        setError("");
+                      }}
+                      placeholder="Business Address (area, city, pincode)"
+                      className={fieldInputClass}
+                      autoComplete="street-address"
+                      required
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <span className="text-[13.5px] font-bold text-gray-600 mr-2 border-r border-gray-200 pr-2">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      value={ownerContact}
+                      onChange={(e) => {
+                        setOwnerContact(e.target.value.replace(/\D/g, "").slice(0, 10));
+                        setError("");
+                      }}
+                      placeholder="Owner contact (same as mobile if blank)"
+                      maxLength={10}
+                      className={`${fieldInputClass} font-medium`}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <input
+                      type="text"
+                      value={gstNumber}
+                      onChange={(e) => {
+                        setGstNumber(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 15));
+                        setError("");
+                      }}
+                      placeholder="GST Number (optional)"
+                      maxLength={15}
+                      className={`${fieldInputClass} tracking-wide`}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Email Address (optional) */}
               <div className="relative flex items-center rounded-2xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">

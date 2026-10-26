@@ -472,7 +472,10 @@ export async function resendLoginOtp(phone10, purpose = "login") {
 }
 
 export async function verifyLoginOtp(phone10, otp) {
-  return verifyOtp({ phone: phone10, otp, purpose: "login" });
+  const loginResult = await verifyOtp({ phone: phone10, otp, purpose: "login" });
+  if (loginResult.ok) return loginResult;
+  const signupResult = await verifyOtp({ phone: phone10, otp, purpose: "register" });
+  return signupResult.ok ? signupResult : loginResult;
 }
 
 /** Admin Login / Security OTP */

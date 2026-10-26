@@ -65,6 +65,8 @@ export function CatalogFlowTrail({
   );
 }
 
+const PAGE_WIDTH = "max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl";
+
 const PRODUCT_FILTERS = [
   { id: "all", label: "All" },
   { id: "regular", label: "Regular" },
@@ -264,8 +266,8 @@ function CatalogFlow({
     });
     const heroImage = activeBase?.image || productImage(source[0]) || categoryImage;
     return (
-      <div className="min-h-screen bg-[#f4f6f3] pb-8">
-        <div className="relative mx-auto h-[230px] w-full max-w-lg overflow-hidden bg-slate-200">
+      <div className="min-h-screen bg-[#f4f6f3] pb-8 lg:pt-4">
+        <div className={`relative mx-auto h-[230px] w-full overflow-hidden bg-slate-200 sm:h-[280px] lg:h-[340px] lg:rounded-3xl ${PAGE_WIDTH}`}>
           {heroImage ? <img src={heroImage} alt="" className="h-full w-full object-cover" /> : null}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/25" />
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-3 py-3 text-white">
@@ -296,13 +298,13 @@ function CatalogFlow({
               </Link>
             </div>
           </div>
-          <div className="absolute inset-x-0 bottom-8 px-4 text-white">
-            <h1 className="truncate text-[28px] font-semibold leading-none">{activeBase?.title || "Products"}</h1>
-            <p className="mt-1 text-[13px] text-white/90">{heroTagline(source)}</p>
+          <div className="absolute inset-x-0 bottom-8 px-4 text-white sm:px-6 lg:bottom-10 lg:px-10">
+            <h1 className="truncate text-[28px] font-semibold leading-none sm:text-[34px] lg:text-[42px]">{activeBase?.title || "Products"}</h1>
+            <p className="mt-1 text-[13px] text-white/90 sm:text-[15px]">{heroTagline(source)}</p>
           </div>
         </div>
 
-        <div className="relative z-10 mx-auto -mt-6 w-full max-w-lg rounded-t-[28px] bg-[#f4f6f3] px-3 pt-4">
+        <div className={`relative z-10 mx-auto -mt-6 w-full rounded-t-[28px] bg-[#f4f6f3] px-3 pt-4 sm:px-5 lg:px-8 ${PAGE_WIDTH}`}>
           {searchOpen ? (
             <input
               value={query}
@@ -331,7 +333,7 @@ function CatalogFlow({
           ) : items.length === 0 ? (
             <p className="py-16 text-center text-sm text-slate-400">No products in this list yet.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {items.map((product) => (
                 <ProductRow
                   key={product._id}
@@ -356,8 +358,8 @@ function CatalogFlow({
 
   return (
     <div className="min-h-screen bg-[#f7f6f2] pb-6">
-      <header className="sticky top-0 z-40 bg-white px-3 py-2.5">
-        <div className="mx-auto grid w-full max-w-lg grid-cols-[40px_1fr_auto] items-center">
+      <header className="sticky top-0 z-40 bg-white px-3 py-2.5 lg:static lg:bg-transparent lg:pt-5">
+        <div className={`mx-auto grid w-full grid-cols-[40px_1fr_auto] items-center sm:px-2 lg:px-5 ${PAGE_WIDTH}`}>
           <button
             type="button"
             onClick={() => {
@@ -372,7 +374,7 @@ function CatalogFlow({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="truncate text-center text-[18px] font-semibold text-slate-900">{categoryName}</h1>
+          <h1 className="truncate text-center text-[18px] font-semibold text-slate-900 lg:text-left lg:text-[24px] lg:font-bold">{categoryName}</h1>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -405,23 +407,23 @@ function CatalogFlow({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={`Search in ${categoryName}`}
-            className="mx-auto mt-2 block w-full max-w-lg rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-emerald-600"
+            className={`mx-auto mt-2 block w-full rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm outline-none focus:border-emerald-600 ${PAGE_WIDTH}`}
             autoFocus
           />
         ) : null}
       </header>
 
-      <div className="mx-auto w-full max-w-lg px-3 pt-2">
-        <div className="relative overflow-hidden rounded-[22px] bg-[#f3ecdc]">
+      <div className={`mx-auto w-full px-3 pt-2 sm:px-5 lg:px-8 ${PAGE_WIDTH}`}>
+        <div className="relative overflow-hidden rounded-[22px] bg-[#f3ecdc] lg:rounded-3xl">
           {categoryImage ? (
-            <img src={categoryImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover" />
+            <img src={categoryImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover lg:w-[45%]" />
           ) : null}
-          <div className="absolute inset-y-0 right-0 w-[58%] bg-gradient-to-r from-[#f3ecdc] via-[#f3ecdc]/35 to-transparent" />
-          <div className="relative z-10 max-w-[62%] px-4 py-5">
-            <h2 className="whitespace-pre-line font-serif text-[26px] font-semibold leading-[1.05] text-[#163528]">
+          <div className="absolute inset-y-0 right-0 w-[58%] bg-gradient-to-r from-[#f3ecdc] via-[#f3ecdc]/35 to-transparent lg:w-[45%]" />
+          <div className="relative z-10 max-w-[62%] px-4 py-5 sm:px-6 sm:py-8 lg:max-w-[55%] lg:px-10 lg:py-12">
+            <h2 className="whitespace-pre-line font-serif text-[26px] font-semibold leading-[1.05] text-[#163528] sm:text-[32px] lg:text-[42px]">
               {banner.title}
             </h2>
-            <p className="mt-2 text-[11px] font-medium tracking-wide text-[#3e6b4f]">{banner.kicker}</p>
+            <p className="mt-2 text-[11px] font-medium tracking-wide text-[#3e6b4f] sm:text-[13px]">{banner.kicker}</p>
           </div>
         </div>
 
@@ -446,7 +448,7 @@ function CatalogFlow({
       ) : cards.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-slate-400">No base products in {categoryName} yet.</p>
       ) : (
-        <div className="mx-auto grid w-full max-w-lg grid-cols-2 gap-3 px-3 pt-2">
+        <div className={`mx-auto grid w-full grid-cols-2 gap-3 px-3 pt-2 sm:grid-cols-3 sm:gap-4 sm:px-5 md:grid-cols-4 lg:grid-cols-5 lg:px-8 lg:pt-4 xl:grid-cols-6 ${PAGE_WIDTH}`}>
           {cards.map((card) => (
             <Link
               key={card.id}

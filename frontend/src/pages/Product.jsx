@@ -481,33 +481,17 @@ function Product() {
   if (categoryName && !shopCategory) {
     return (
       <div className="bg-white lg:pb-0">
-        <div className="lg:hidden">
-          <CatalogFlow
-            categories={categories}
-            categoryName={categoryName}
-            products={products}
-            loading={loading}
-            onAdd={handleIncrease}
-            onGetCartQuantity={getCartQuantity}
-            onIncrease={handleIncrease}
-            onDecrease={handleDecrease}
-            {...infiniteScrollProps}
-          />
-        </div>
-        <div className="hidden lg:block">
-          <AllProductsLayout
-            categories={categories}
-            activeCategory={categoryName}
-            products={products}
-            loading={loading || categoriesLoading}
-            onAdd={handleIncrease}
-            onGetCartQuantity={getCartQuantity}
-            onIncrease={handleIncrease}
-            onDecrease={handleDecrease}
-            emptyMessage="No products available yet."
-            {...infiniteScrollProps}
-          />
-        </div>
+        <CatalogFlow
+          categories={categories}
+          categoryName={categoryName}
+          products={products}
+          loading={loading}
+          onAdd={handleIncrease}
+          onGetCartQuantity={getCartQuantity}
+          onIncrease={handleIncrease}
+          onDecrease={handleDecrease}
+          {...infiniteScrollProps}
+        />
       </div>
     );
   }

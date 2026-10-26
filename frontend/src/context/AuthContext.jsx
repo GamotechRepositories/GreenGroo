@@ -148,8 +148,8 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const signupWithOtp = async ({ phone, name, email, password, accountType = "retail" }) => {
-    const res = await completeOtpSignup({ phone, name, email, password, accountType });
+  const signupWithOtp = async ({ accountType = "retail", ...details }) => {
+    const res = await completeOtpSignup({ ...details, accountType });
     const payload = res.data?.data;
     if (payload?.token && payload?.user) {
       persistAuthSession(payload.user, payload.token);
