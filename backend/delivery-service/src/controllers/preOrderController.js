@@ -4,7 +4,7 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import Staff from "../../../staff-service/src/models/Staff.js";
 import { getIO } from "../../../socket.js";
-import { applyStoreOrderStatus } from "../services/storeOrderLifecycle.js";
+import { applyStoreOrderStatus, releaseAssignedRider } from "../services/storeOrderLifecycle.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 import { isVendorConfirmed } from "../services/preOrderProgress.js";
 import { getManager } from "./managerDashboardController.js";
@@ -479,6 +479,195 @@ export const cancelPreOrderByStaff = async (req, res, next) => {
       success: true,
       message: `Pre-order #${order.orderNumber} cancelled`,
       order: result.order.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── Admin override ──────────────────────────────────────────────────────────
+
+const ADMIN_PROGRESS_TARGETS = [
+  "awaiting_vendor",
+  "confirmed",
+  "preparing",
+  "dispatched",
+  "at_store",
+  "rider_assigned",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+];
+const HELD_PROGRESS = { awaiting_vendor: "pending", confirmed: "pending", preparing: "preparing" };
+
+function clearRiderFields(order) {
+  order.assignedRiderId = null;
+  order.assignedAt = undefined;
+  order.currentOfferDriverId = null;
+  order.offeredRiderId = null;
+  order.offerStartedAt = null;
+  order.offerExpiresAt = null;
+  order.pickupVerified = false;
+  order.customerAddressUnlocked = false;
+  order.pickupQrUnlocked = false;
+  order.assignmentStatus = "NONE";
+}
+
+/**
+ * PATCH /api/staff/preorders/:orderId/admin-progress  body { progress, reason? }
+ * Admin-only: move a pre-order to any stage (forward or back), bypassing the
+ * vendor / Product Manager / Delivery Manager hand-offs.
+ */
+export const adminSetPreOrderProgress = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const target = String(req.body?.progress || "").trim().toLowerCase();
+    const reason = String(req.body?.reason || "").trim().slice(0, 300);
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({ success: false, message: "Invalid order id" });
+    }
+    if (!ADMIN_PROGRESS_TARGETS.includes(target)) {
+      return res.status(400).json({ success: false, message: "Unknown pre-order status" });
+    }
+
+    const order = await StoreOrder.findOne({ _id: orderId, isPreOrder: true });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Pre-order not found" });
+    }
+    if (["delivered", "cancelled"].includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `This pre-order is already ${order.status} and can no longer be changed`,
+      });
+    }
+
+    const byName = await staffDisplayName(req);
+    const note = `Status set to "${target}" by ${byName} (Admin)${reason ? `: ${reason}` : ""}`;
+    order.notes = [order.notes, note].filter(Boolean).join("\n");
+
+    if (target === "cancelled" || target === "delivered") {
+      if (target === "cancelled" && !reason) {
+        return res.status(400).json({ success: false, message: "A cancellation reason is required" });
+      }
+      await order.save();
+      const result = await applyStoreOrderStatus({
+        storeOrderId: order._id,
+        status: target,
+        skipCompletionGuards: true,
+        restoreStockOnCancel: false,
+      });
+      if (!result.success) {
+        return res.status(result.statusCode || 400).json({ success: false, message: result.message });
+      }
+      emitPreOrderChange(result.order, "preorder_updated", {
+        orderId: result.order._id.toString(),
+        orderNumber: result.order.orderNumber,
+        status: result.order.status,
+      });
+      return res.json({
+        success: true,
+        message: `#${result.order.orderNumber} marked ${target}`,
+        order: result.order.toSafeJSON(),
+      });
+    }
+
+    if (["rider_assigned", "out_for_delivery"].includes(target) && !order.assignedRiderId) {
+      return res.status(400).json({
+        success: false,
+        message: "No rider is assigned yet — assign one from the Delivery Manager first",
+      });
+    }
+
+    const now = new Date();
+    let syncStatus;
+
+    if (HELD_PROGRESS[target]) {
+      await releaseAssignedRider(order);
+      clearRiderFields(order);
+      order.status = "preorder_hold";
+      order.preOrderStage = HELD_PROGRESS[target];
+      order.forwardedAt = undefined;
+      order.packedAt = undefined;
+      order.storeReceivedAt = undefined;
+      order.storeReceivedByName = "";
+      if (target === "awaiting_vendor") {
+        order.vendorStatus = "pending";
+        order.vendorConfirmedAt = undefined;
+        order.vendorRejectReason = "";
+      } else {
+        order.vendorStatus = "confirmed";
+        if (!order.vendorConfirmedAt) order.vendorConfirmedAt = now;
+        order.vendorActionByName = order.vendorActionByName || `${byName} (Admin)`;
+      }
+      if (target === "preparing") {
+        if (!order.preparingAt) order.preparingAt = now;
+      } else {
+        order.preparingAt = undefined;
+      }
+      order.readyAt = undefined;
+      syncStatus =
+        target === "preparing"
+          ? "preorder_preparing"
+          : target === "confirmed"
+            ? "preorder_vendor_confirmed"
+            : "preorder_hold";
+    } else if (target === "dispatched" || target === "at_store") {
+      await releaseAssignedRider(order);
+      clearRiderFields(order);
+      order.status = "packed";
+      order.preOrderStage = "forwarded";
+      order.vendorStatus = "confirmed";
+      if (!order.vendorConfirmedAt) order.vendorConfirmedAt = now;
+      if (!order.preparingAt) order.preparingAt = now;
+      if (!order.readyAt) order.readyAt = now;
+      if (!order.forwardedAt) order.forwardedAt = now;
+      if (!order.forwardedByName) order.forwardedByName = `${byName} (Admin)`;
+      if (!order.packedAt) order.packedAt = now;
+      if (target === "at_store") {
+        if (!order.storeReceivedAt) order.storeReceivedAt = now;
+        if (!order.storeReceivedByName) order.storeReceivedByName = `${byName} (Admin)`;
+        syncStatus = "preorder_at_store";
+      } else {
+        order.storeReceivedAt = undefined;
+        order.storeReceivedByName = "";
+        syncStatus = "packed";
+      }
+    } else if (target === "rider_assigned") {
+      order.status = "assigned";
+      order.assignmentStatus = "DRIVER_ASSIGNED";
+      if (!order.assignedAt) order.assignedAt = now;
+      order.pickupQrUnlocked = true;
+      order.customerAddressUnlocked = false;
+      syncStatus = "assigned";
+    } else {
+      order.status = "out_for_delivery";
+      order.assignmentStatus = "OUT_FOR_DELIVERY";
+      order.customerAddressUnlocked = true;
+      syncStatus = "out_for_delivery";
+    }
+
+    await order.save();
+    await syncCustomerOrderFromStore(order, syncStatus).catch((err) =>
+      console.warn("[preorder] customer sync failed:", err.message)
+    );
+    emitPreOrderChange(order, "preorder_updated", {
+      orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
+      status: order.status,
+      vendorStatus: order.vendorStatus,
+      preOrderStage: order.preOrderStage,
+    });
+    emitToStore(order.managerId, "order_status_updated", {
+      orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
+      status: order.status,
+      isPreOrder: true,
+    });
+
+    return res.json({
+      success: true,
+      message: `#${order.orderNumber} moved to ${target.replace(/_/g, " ")}`,
+      order: order.toSafeJSON(),
     });
   } catch (error) {
     next(error);

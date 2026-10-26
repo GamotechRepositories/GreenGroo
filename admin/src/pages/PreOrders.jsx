@@ -37,6 +37,42 @@ const STATUS_TABS = [
   { key: 'closed', label: 'Cancelled / rejected', match: ['cancelled', 'rejected', 'failed'] },
 ];
 
+const PROGRESS_OPTIONS = [
+  { key: 'awaiting_vendor', label: 'Awaiting vendor' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'dispatched', label: 'To dark store' },
+  { key: 'at_store', label: 'At dark store' },
+  { key: 'rider_assigned', label: 'Rider assigned' },
+  { key: 'out_for_delivery', label: 'Out for delivery' },
+  { key: 'delivered', label: 'Delivered' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+const LOCKED_PROGRESS = new Set(['delivered', 'cancelled', 'rejected', 'failed']);
+
+function ProgressControl({ order, busy, onChange }) {
+  if (LOCKED_PROGRESS.has(order.preOrderProgress)) {
+    return <div className="text-xs font-medium text-slate-800">{order.preOrderProgressLabel || order.status}</div>;
+  }
+  return (
+    <select
+      className={`${INPUT} w-auto min-w-[150px] py-1 text-xs`}
+      value={order.preOrderProgress || ''}
+      disabled={busy}
+      onChange={(e) => onChange(order, e.target.value)}
+    >
+      {!PROGRESS_OPTIONS.some((p) => p.key === order.preOrderProgress) ? (
+        <option value={order.preOrderProgress || ''}>{order.preOrderProgressLabel || order.status}</option>
+      ) : null}
+      {PROGRESS_OPTIONS.map((p) => (
+        <option key={p.key} value={p.key}>
+          {p.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 const VENDOR_TONE = {
   confirmed: 'border-emerald-200 text-emerald-700',
   rejected: 'border-red-200 text-red-700',
@@ -145,6 +181,35 @@ export default function PreOrders() {
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busyId, setBusyId] = useState('');
+
+  const changeProgress = async (order, progress) => {
+    if (!progress || progress === order.preOrderProgress) return;
+    const label = PROGRESS_OPTIONS.find((p) => p.key === progress)?.label || progress;
+    let reason = '';
+    if (progress === 'cancelled') {
+      reason = window.prompt(`Reason for cancelling #${order.orderNumber}?`)?.trim() || '';
+      if (!reason) return;
+    } else if (!window.confirm(`Move #${order.orderNumber} to "${label}"?`)) {
+      return;
+    }
+
+    setBusyId(order.id);
+    setError('');
+    setNotice('');
+    try {
+      const { data } = await apiClient.patch(`/staff/preorders/${order.id}/admin-progress`, { progress, reason });
+      if (data?.order) {
+        setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...data.order } : o)));
+      }
+      setNotice(data?.message || 'Status updated');
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to update status');
+    } finally {
+      setBusyId('');
+    }
+  };
 
   const date = when === 'today' ? istDate(0) : when === 'date' && customDate ? customDate : istDate(1);
 
@@ -268,6 +333,9 @@ export default function PreOrders() {
       </div>
 
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+      {notice ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</div>
+      ) : null}
 
       <SlotBoard date={date} slots={slots} orders={zoneScoped} activeSlot={slot} onPick={setSlot} />
 
@@ -359,7 +427,7 @@ export default function PreOrders() {
                       ) : null}
                     </td>
                     <td className={TD}>
-                      <div className="text-xs font-medium text-slate-800">{o.preOrderProgressLabel || o.status}</div>
+                      <ProgressControl order={o} busy={busyId === o.id} onChange={changeProgress} />
                       {o.assignedRider ? (
                         <div className="text-[11px] text-slate-500">Rider: {o.assignedRider.name}</div>
                       ) : null}

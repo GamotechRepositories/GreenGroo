@@ -27,6 +27,7 @@ import {
   reviewInventoryRequest,
 } from "../../../delivery-service/src/controllers/inventoryRequestController.js";
 import {
+  adminSetPreOrderProgress,
   cancelPreOrderByStaff,
   forwardPreOrders,
   listPreOrdersForStaff,
@@ -76,5 +77,6 @@ router.get("/vendor-batches", requireRoles(...PRE_ORDER_ROLES), getVendorBatches
 router.post("/preorders/forward", requireRoles(...PRE_ORDER_ROLES), forwardPreOrders);
 router.patch("/preorders/:orderId/stage", requireRoles(...PRE_ORDER_ROLES), updatePreOrderStage);
 router.post("/preorders/:orderId/cancel", requireRoles(...PRE_ORDER_ROLES), cancelPreOrderByStaff);
+router.patch("/preorders/:orderId/admin-progress", requireRoles("admin"), adminSetPreOrderProgress);
 
 export default router;
