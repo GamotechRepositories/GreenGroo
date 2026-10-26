@@ -23,8 +23,8 @@ final _amountFormatter = NumberFormat.decimalPattern('en_IN');
 StoreSettings mergeStoreSettings(StoreSettings? settings) {
   final source = settings;
   return StoreSettings(
-    minimumOrderValue: source?.minimumOrderValue ?? 3000,
-    minimumShippingCharge: source?.minimumShippingCharge ?? 280,
+    minimumOrderValue: source?.minimumOrderValue ?? 0,
+    minimumShippingCharge: source?.minimumShippingCharge ?? 0,
     shippingSlabs: source?.shippingSlabs ?? const [],
     merchantUpiId: source?.merchantUpiId ?? '',
     merchantUpiName: source?.merchantUpiName ?? 'GreenGrocc',

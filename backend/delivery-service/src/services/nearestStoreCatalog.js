@@ -5,19 +5,10 @@ import { inventorySkuForProduct } from "./catalogStoreInventory.js";
 import { sectionToDepartment } from "../../../legacy/utils/departmentHelpers.js";
 import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 
-const escapeRegex = (value) =>
-  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 };
-
-const norm = (value) =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 
 const CATEGORY_ALIASES = {
   staples: ["staples", "grains"],
@@ -81,104 +72,43 @@ export function storePublicPayload(manager, extra = {}) {
   };
 }
 
-function wordBoundaryRegex(name) {
-  return `(^|[^A-Za-z0-9])${escapeRegex(name)}([^A-Za-z0-9]|$)`;
-}
-
-function stemBoundaryRegex(name) {
-  const stem = String(name || "").trim().replace(/s$/i, "");
-  if (stem.length < 4) return wordBoundaryRegex(name);
-  return `(^|[^A-Za-z0-9])${escapeRegex(stem)}[A-Za-z]{0,4}([^A-Za-z0-9]|$)`;
-}
-
+/** Products that own one of these stock rows: by linked product id, else exact SKU. */
 export function mongoMatchForInventory(items) {
   if (!items.length) return { _id: { $in: [] } };
 
+  const ids = [...new Set(items.map((item) => item.productId).filter(Boolean).map(String))];
   const skus = [
     ...new Set(
-      items.flatMap((item) => {
-        const sku = String(item.sku || "").trim();
-        if (!sku) return [];
-        return [sku, sku.toUpperCase(), sku.toLowerCase()];
-      })
+      items
+        .filter((item) => !item.productId)
+        .flatMap((item) => {
+          const sku = String(item.sku || "").trim();
+          if (!sku) return [];
+          return [sku, sku.toUpperCase(), sku.toLowerCase()];
+        })
     ),
   ];
 
-  const nameClauses = [];
-  items.forEach((item) => {
-    const name = String(item.name || "").trim();
-    if (!name) return;
-    nameClauses.push({
-      name: { $regex: stemBoundaryRegex(name), $options: "i" },
-    });
-    const last = name.split(/\s+/).pop();
-    if (last && last.length >= 4 && last.toLowerCase() !== name.toLowerCase() && isStrongWord(last)) {
-      nameClauses.push({
-        name: { $regex: stemBoundaryRegex(last), $options: "i" },
-      });
-    }
-  });
-
   const or = [];
+  if (ids.length) or.push({ _id: { $in: ids } });
   if (skus.length) or.push({ sku: { $in: skus } });
-  or.push(...nameClauses);
-
   return or.length ? { $or: or } : { _id: { $in: [] } };
 }
 
-function nameOccurs(productName, itemName) {
-  if (!productName || !itemName) return false;
-  if (productName === itemName) return true;
-  if (productName.startsWith(`${itemName} `) || productName.endsWith(` ${itemName}`)) {
-    return true;
-  }
-  if (new RegExp(`(^| )${escapeRegex(itemName)}( |$)`).test(productName)) return true;
-  const stem = itemName.replace(/s$/, "");
-  if (stem.length >= 4) {
-    return new RegExp(`(^| )${escapeRegex(stem)}[a-z]{0,4}( |$)`).test(productName);
-  }
-  return false;
-}
-
+/** The stock row for a product: the row linked to it, else an unlinked row with its exact SKU. */
 export function matchProductToItem(product, items) {
+  const id = String(product?._id || "");
+  if (id) {
+    const linked = items.find((item) => item.productId && String(item.productId) === id);
+    if (linked) return linked;
+  }
   const sku = inventorySkuForProduct(product).toUpperCase();
-  const productName = norm(product?.name);
-
-  if (sku) {
-    const exact = items.find((item) => String(item.sku || "").trim().toUpperCase() === sku);
-    if (exact) return exact;
-  }
-  // Store-owned products always have their own inventory row; a name match would
-  // borrow another item's stock and price.
-  if (product?.ownerManagerId) return null;
-
-  for (const item of items) {
-    const itemName = norm(item.name);
-    if (!itemName || !productName) continue;
-    if (nameOccurs(productName, itemName)) return item;
-    const lastWord = itemName.split(" ").pop();
-    if (lastWord && lastWord !== itemName && isStrongWord(lastWord) && nameOccurs(productName, lastWord)) {
-      return item;
-    }
-  }
-  return null;
-}
-
-const WEAK_NAME_WORDS = new Set([
-  "leaves",
-  "mix",
-  "pack",
-  "slices",
-  "cream",
-  "fresh",
-  "whole",
-  "super",
-  "bar",
-  "cup",
-]);
-
-function isStrongWord(word) {
-  return Boolean(word) && word.length >= 4 && !WEAK_NAME_WORDS.has(word.toLowerCase());
+  if (!sku) return null;
+  return (
+    items.find(
+      (item) => !item.productId && String(item.sku || "").trim().toUpperCase() === sku
+    ) || null
+  );
 }
 
 function filterItemsByCategory(items, categoryName) {
@@ -190,41 +120,10 @@ function filterItemsByCategory(items, categoryName) {
 
 export async function resolveMatchingProducts(items) {
   if (!items.length) return [];
-
-  const match = mongoMatchForInventory(items);
-  let found = await Product.find({ isActive: true, ...match })
+  const found = await Product.find({ isActive: true, ...mongoMatchForInventory(items) })
     .select("_id sku name")
     .lean();
-
-  let matched = found.filter((product) => matchProductToItem(product, items));
-
-  if (!matched.length) {
-    const cats = [...new Set(items.map((item) => item.category).filter(Boolean))];
-    found = await Product.find({
-      isActive: true,
-      ...(cats.length ? { categories: { $in: cats } } : {}),
-    })
-      .select("_id sku name")
-      .limit(400)
-      .lean();
-    matched = found.filter((product) => matchProductToItem(product, items));
-  }
-
-  if (!matched.length) {
-    const nameOr = items
-      .map((item) => String(item.name || "").trim())
-      .filter(Boolean)
-      .map((name) => ({ name: { $regex: escapeRegex(name), $options: "i" } }));
-    if (nameOr.length) {
-      found = await Product.find({ isActive: true, $or: nameOr })
-        .select("_id sku name")
-        .limit(400)
-        .lean();
-      matched = found.filter((product) => matchProductToItem(product, items));
-    }
-  }
-
-  return matched;
+  return found.filter((product) => matchProductToItem(product, items));
 }
 
 function applyStoreStock(doc, item, catalog) {

@@ -1,12 +1,7 @@
 export const DEFAULT_STORE_SETTINGS = {
-  minimumOrderValue: 200,
-  minimumShippingCharge: 280,
-  shippingSlabs: [
-    { orderAmount: 3000, shippingCharge: 280 },
-    { orderAmount: 5000, shippingCharge: 350 },
-    { orderAmount: 8000, shippingCharge: 550 },
-    { orderAmount: 12000, shippingCharge: 800 },
-  ],
+  minimumOrderValue: 0,
+  minimumShippingCharge: 0,
+  shippingSlabs: [],
   cartNoticeEn: [
     "Please Verify Your Address Before Placing Your Order.",
     "Parcel opening video is must for return.",
@@ -42,19 +37,17 @@ export function normalizeShippingSlabs(slabs = []) {
     .sort((a, b) => a.orderAmount - b.orderAmount);
 }
 
+const nonNegativeAmount = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+};
+
 export function mergeStoreSettings(settings) {
   const source = settings || {};
   return {
-    minimumOrderValue:
-      Number(source.minimumOrderValue) || DEFAULT_STORE_SETTINGS.minimumOrderValue,
-    minimumShippingCharge:
-      Number(source.minimumShippingCharge) ||
-      DEFAULT_STORE_SETTINGS.minimumShippingCharge,
-    shippingSlabs: normalizeShippingSlabs(
-      source.shippingSlabs?.length
-        ? source.shippingSlabs
-        : DEFAULT_STORE_SETTINGS.shippingSlabs
-    ),
+    minimumOrderValue: nonNegativeAmount(source.minimumOrderValue),
+    minimumShippingCharge: nonNegativeAmount(source.minimumShippingCharge),
+    shippingSlabs: normalizeShippingSlabs(source.shippingSlabs || []),
     cartNoticeEn:
       source.cartNoticeEn?.length > 0
         ? source.cartNoticeEn
@@ -84,6 +77,17 @@ export function calculateShippingCharge(subtotal, settings) {
   }
 
   return charge;
+}
+
+/** Next slab that lowers the delivery fee, e.g. "add ₹X for FREE delivery". */
+export function nextCheaperShippingSlab(subtotal, settings) {
+  const amount = Number(subtotal) || 0;
+  const current = calculateShippingCharge(amount, settings);
+  return (
+    mergeStoreSettings(settings).shippingSlabs.find(
+      (slab) => slab.orderAmount > amount && slab.shippingCharge < current
+    ) || null
+  );
 }
 
 export function meetsMinimumOrder(subtotal, settings) {

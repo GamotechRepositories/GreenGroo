@@ -12,6 +12,12 @@ const storeInventorySchema = new mongoose.Schema(
       ref: "DeliveryManager",
       required: true,
     },
+    /** Catalog product this row tracks; the fixed link used for all stock lookups. */
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GreenGroccProduct",
+      default: null,
+    },
     sku: {
       type: String,
       required: true,
@@ -56,6 +62,7 @@ const storeInventorySchema = new mongoose.Schema(
 );
 
 storeInventorySchema.index({ managerId: 1, sku: 1 }, { unique: true });
+storeInventorySchema.index({ managerId: 1, productId: 1 });
 
 storeInventorySchema.virtual("inStock").get(function inStock() {
   return this.stockCount > 0;
@@ -65,6 +72,7 @@ storeInventorySchema.methods.toSafeJSON = function toSafeJSON() {
   return {
     id: this._id.toString(),
     managerId: this.managerId.toString(),
+    productId: this.productId ? this.productId.toString() : null,
     sku: this.sku,
     name: this.name,
     category: this.category,

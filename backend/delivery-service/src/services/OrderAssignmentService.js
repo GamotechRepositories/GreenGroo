@@ -375,7 +375,7 @@ export async function offerToSpecificDriver(orderId, driverId) {
     if (order.status === "preorder_hold") {
       return {
         success: false,
-        message: "Pre-order is still with the Product Manager — wait until it is forwarded",
+        message: "Pre-order is still with the vendor — wait until it is shipped",
       };
     }
 

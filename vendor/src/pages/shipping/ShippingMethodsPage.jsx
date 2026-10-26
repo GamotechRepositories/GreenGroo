@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { vendorApi } from "../../api/vendorApi";
+import { ShippingScopePicker, useShippingScopes } from "./shippingScopes";
 
 const TABS = [
   { id: "quantity", label: "By Quantity", icon: Boxes, desc: "Tiered delivery fees based on order item count" },
@@ -36,15 +37,8 @@ export default function ShippingMethodsPage() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const [config, setConfig] = useState({
-    isActive: true,
-    quantityRules: { enabled: true, baseCost: 30, freeAboveQuantity: 15, perExtraItemFee: 5, slabs: [] },
-    userRules: { enabled: true, defaultCost: 40, userTypes: [] },
-    pincodeRules: { enabled: true, defaultCost: 50, pincodes: [] },
-    categoryRules: { enabled: true, defaultCost: 30, categories: [] },
-    weightRules: { enabled: true, baseWeightKg: 1, baseCost: 30, costPerExtraKg: 15, slabs: [] },
-    stateRules: { enabled: true, defaultCost: 90, states: [] },
-  });
+  const scope = useShippingScopes();
+  const { config, setConfig, load: loadScopes } = scope;
 
   // Simulator state
   const [simQuantity, setSimQuantity] = useState(3);
@@ -62,15 +56,13 @@ export default function ShippingMethodsPage() {
     setError("");
     try {
       const res = await vendorApi.getShippingMethods();
-      if (res.data?.data) {
-        setConfig(res.data.data);
-      }
+      if (res.data?.data) loadScopes(res.data.data, res.data.scopes);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load shipping methods");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadScopes]);
 
   useEffect(() => {
     loadData();
@@ -82,11 +74,10 @@ export default function ShippingMethodsPage() {
     setError("");
     setSuccessMsg("");
     try {
-      const res = await vendorApi.saveShippingMethods(config);
+      const res = await vendorApi.saveShippingMethods(scope.payload());
       setSuccessMsg("Shipping methods saved successfully!");
-      if (res.data?.data) setConfig(res.data.data);
+      if (res.data?.data) loadScopes(res.data.data, res.data.scopes);
       setTimeout(() => setSuccessMsg(""), 4000);
-      runSimulator();
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save shipping methods");
     } finally {
@@ -99,6 +90,7 @@ export default function ShippingMethodsPage() {
     setSimLoading(true);
     try {
       const res = await vendorApi.calculateShipping({
+        rules: config,
         quantity: Number(simQuantity) || 1,
         orderAmount: Number(simOrderAmount) || 0,
         userType: simUserType,
@@ -113,10 +105,12 @@ export default function ShippingMethodsPage() {
     } finally {
       setSimLoading(false);
     }
-  }, [simQuantity, simOrderAmount, simUserType, simPincode, simWeight, simState, simCategory]);
+  }, [config, simQuantity, simOrderAmount, simUserType, simPincode, simWeight, simState, simCategory]);
 
   useEffect(() => {
-    if (!loading) runSimulator();
+    if (loading) return undefined;
+    const timer = setTimeout(runSimulator, 300);
+    return () => clearTimeout(timer);
   }, [runSimulator, loading]);
 
   // Helpers for editing sub-rules
@@ -290,8 +284,9 @@ export default function ShippingMethodsPage() {
           </div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Shipping Methods</h1>
           <p className="mt-1 text-xs text-gray-500 max-w-2xl">
-            Configure how shipping fees are calculated for your collection centre and dark stores across 6 methods:
-            Quantity, Customer Type, Pin Code, Category, Weight, and State.
+            Delivery charges customers pay when their order is served by your dark stores. Set default rules for all
+            your zones, then customise any zone or dark store. Fees combine 6 methods: Quantity, Customer Type,
+            Pin Code, Category, Weight, and State.
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -336,6 +331,8 @@ export default function ShippingMethodsPage() {
           </button>
         </div>
       ) : null}
+
+      {!loading ? <ShippingScopePicker state={scope} /> : null}
 
       {/* 6 Tabs Grid Navigation */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">

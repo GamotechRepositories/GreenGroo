@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { useStoreSettingsQuery } from "../../hooks/queries/useStoreSettingsQuery";
+import { mergeStoreSettings } from "../../utils/orderSettings";
 
 const GRID_CARDS = [
   {
@@ -52,6 +54,9 @@ const GRID_CARDS = [
 ];
 
 export default function FestiveSaleGridSection() {
+  const { data: storeSettings } = useStoreSettingsQuery();
+  const minimumOrder = mergeStoreSettings(storeSettings).minimumOrderValue;
+
   return (
     <section className="px-4 sm:px-6 py-3">
       {/* Blue Banner Box Wrapper */}
@@ -134,7 +139,9 @@ export default function FestiveSaleGridSection() {
                   Shop &amp; win prizes
                 </p>
                 <p className="text-[10px] font-bold text-slate-500 mt-0.5 truncate">
-                  Min Order ₹299
+                  {minimumOrder > 0
+                    ? `Min Order ₹${minimumOrder.toLocaleString("en-IN")}`
+                    : "Shop now"}
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -18,21 +18,15 @@ import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../core/utils/department_utils.dart';
-import '../../features/checkout/payment_modal.dart';
 import '../../models/address.dart';
 import '../../models/dark_store.dart';
 import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
+import '../../features/settings/store_settings_provider.dart';
 import 'checkout_fulfillment_widgets.dart';
-
-enum PaymentModeOption {
-  gpay,
-  razorpay,
-  cod,
-  upiManual,
-}
+import 'payment_method.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({
@@ -42,6 +36,8 @@ class PaymentScreen extends ConsumerStatefulWidget {
     this.customerMessage,
     this.fulfillmentType = 'delivery',
     this.preOrderSlot,
+    this.initialMode,
+    this.autoPay = false,
   });
 
   final String? selectedAddressId;
@@ -51,6 +47,11 @@ class PaymentScreen extends ConsumerStatefulWidget {
   final String fulfillmentType;
   /// Chosen next-day slot for the cart's pre-order items
   final String? preOrderSlot;
+  /// Method picked on checkout; falls back to the last one used.
+  final PaymentModeOption? initialMode;
+  /// Start paying with [initialMode] as soon as the screen is ready
+  /// (checkout's "Slide to Pay").
+  final bool autoPay;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -60,7 +61,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   late final Razorpay _razorpay;
 
   PaymentModeOption _selectedMode = PaymentModeOption.gpay;
-  String _paymentPlan = PaymentPlan.full;
+  final String _paymentPlan = PaymentPlan.full;
   bool _placingOrder = false;
   bool _orderPlaced = false;
   String _errorMessage = '';
@@ -70,6 +71,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   AppliedCoupon? _appliedCoupon;
   DarkStore? _orderStore;
   CheckoutStoreQuery? _storeQuery;
+  double? _serverShipping;
+  String? _serverShippingKey;
+  String? _pricingRequestedKey;
+  bool _autoPayPending = false;
+  bool _setupDone = false;
 
   @override
   void initState() {
@@ -79,14 +85,32 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
-    Future.microtask(() {
+    final initial = widget.initialMode;
+    if (initial != null) _selectedMode = initial;
+    _autoPayPending = widget.autoPay && initial != null;
+
+    Future.microtask(() async {
       ref.read(addressControllerProvider.notifier).loadAddresses();
       final code = widget.appliedCouponCode?.trim();
-      if (code != null && code.isNotEmpty) {
-        _fetchCoupon(code);
+      final couponFuture =
+          code != null && code.isNotEmpty ? _fetchCoupon(code) : Future<void>.value();
+      if (initial == null) {
+        final last = await loadLastPaymentMode();
+        if (last != null && mounted) setState(() => _selectedMode = last);
       }
+      // Auto-pay must include the coupon the customer saw on checkout.
+      await couponFuture;
+      if (mounted) setState(() => _setupDone = true);
     });
   }
+
+  void _selectMode(PaymentModeOption mode) {
+    setState(() => _selectedMode = mode);
+    saveLastPaymentMode(mode);
+  }
+
+  String _pricingKey(List<CartItem> items, String? addressId) =>
+      '${_resolveAddressId(addressId) ?? ''}|${_appliedCoupon?.code ?? ''}|${widget.fulfillmentType}|${widget.preOrderSlot ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
 
   @override
   void dispose() {
@@ -190,6 +214,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ..._fulfillmentPayload(),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
+      final charges = order['deliveryCharges'];
+      if (charges is num && mounted) {
+        setState(() {
+          _serverShipping = charges.toDouble();
+          _serverShippingKey = _pricingKey(items, addressId);
+        });
+      }
       final orderId = order['_id']?.toString();
       if (orderId != null && orderId.isNotEmpty) {
         _attemptedOrderId = orderId;
@@ -212,19 +243,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       return;
     }
 
+    saveLastPaymentMode(_selectedMode);
     await _syncCheckoutAttempt(cartItems, address.id, force: true);
 
-    switch (_selectedMode) {
-      case PaymentModeOption.gpay:
-      case PaymentModeOption.razorpay:
-        await _startRazorpayPayment(address);
-        break;
-      case PaymentModeOption.cod:
-        await _placeCodOrder(address);
-        break;
-      case PaymentModeOption.upiManual:
-        _openManualUpiModal(address);
-        break;
+    if (_selectedMode == PaymentModeOption.cod) {
+      await _placeCodOrder(address);
+    } else {
+      await _startRazorpayPayment(address);
     }
   }
 
@@ -284,32 +309,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'amount': amountPaise,
         'order_id': razorpayOrderId,
         'name': 'GreenGrocc',
-        'description': _paymentPlan == PaymentPlan.advance
-            ? '10% advance payment via Razorpay'
-            : 'Order payment via Razorpay',
+        'description': 'Order payment',
         'prefill': {
           'contact': user.phone,
           'email': user.email,
           'name': user.name,
         },
-      };
-
-      if (_selectedMode == PaymentModeOption.gpay) {
-        options['config'] = {
+        'config': {
           'display': {
             'blocks': {
-              'banks': {
-                'name': 'Pay via UPI / Google Pay',
-                'instruments': [
-                  {'method': 'upi'},
-                ],
-              },
+              'chosen': _razorpayBlockForSelection(),
             },
-            'sequence': ['block.banks'],
+            'sequence': ['block.chosen'],
             'preferences': {'show_default_blocks': true},
           },
-        };
-      }
+        },
+      };
 
       _razorpay.open(options);
     } catch (e) {
@@ -319,6 +334,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _errorMessage = msg;
       });
     }
+  }
+
+  Map<String, dynamic> _razorpayBlockForSelection() {
+    if (_selectedMode == PaymentModeOption.card) {
+      return {
+        'name': 'Credit & Debit Cards',
+        'instruments': [
+          {'method': 'card'},
+        ],
+      };
+    }
+    final app = upiAppIds[_selectedMode];
+    return {
+      'name': 'Pay by UPI',
+      'instruments': [
+        {
+          'method': 'upi',
+          if (app != null) 'flows': ['intent'],
+          if (app != null) 'apps': [app],
+        },
+      ],
+    };
   }
 
   Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
@@ -349,11 +386,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ..._fulfillmentPayload(),
       });
 
-      await _completeOrderSuccess(
-        _paymentPlan == PaymentPlan.advance
-            ? 'Order confirmed. 10% paid via Razorpay. Balance on delivery.'
-            : 'Order placed and payment confirmed via Razorpay!',
-      );
+      await _completeOrderSuccess('Order placed and payment confirmed via Razorpay!');
     } catch (e) {
       setState(() {
         _errorMessage = apiErrorMessage(
@@ -416,60 +449,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
-  void _openManualUpiModal(Address address) {
-    final cartItems = ref.read(cartControllerProvider).items;
-    final summary = calculateCartSummary(cartItems);
-    final total = applyStorePickup(
-      applyCouponDiscount(summary, (_appliedCoupon?.discountAmount ?? 0).toDouble()),
-      pickup: _isPickup,
-    ).total;
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PaymentModal(
-        paymentMethod: _paymentPlan == PaymentPlan.advance ? 'cod' : 'online',
-        orderTotal: total,
-        onPayWithRazorpay: () {
-          Navigator.of(context).pop();
-          _startRazorpayPayment(address);
-        },
-        onSubmitUpiProof: ({
-          required screenshotUrl,
-          required screenshotName,
-          required upiTransactionRef,
-        }) async {
-          try {
-            final resolvedId = _resolveAddressId(address.id);
-            await ref.read(apiServiceProvider).submitUpiPaymentProof({
-              if (resolvedId != null) 'addressId': resolvedId,
-              'paymentMode': _paymentPlan,
-              'screenshotUrl': screenshotUrl,
-              'screenshotName': screenshotName,
-              'upiTransactionRef': upiTransactionRef,
-              'customerMessage': widget.customerMessage?.trim() ?? '',
-              'checkoutItems': _checkoutItemsPayload(cartItems),
-              'checkoutMode': 'cart',
-              'customerLocation': _customerLocationPayload(),
-              if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-              if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
-              ..._fulfillmentPayload(),
-            });
-            await _completeOrderSuccess(
-              'UPI payment proof submitted successfully. We will verify and process your order soon!',
-            );
-            return null;
-          } catch (e) {
-            return apiErrorMessage(e, fallback: 'Failed to submit payment proof.');
-          }
-        },
-        onUploadScreenshot: (filePath) =>
-            ref.read(apiServiceProvider).uploadImageFile(filePath, 'payment-proofs'),
-      ),
-    );
-  }
-
   Future<void> _completeOrderSuccess(String note) async {
     final query = _storeQuery;
     final store = query == null ? null : ref.read(checkoutStoreProvider(query)).value?.store;
@@ -508,14 +487,40 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           isDefault: true,
         );
 
-    final baseSummary = calculateCartSummary(cartItems);
+    final storeSettings = ref.watch(storeSettingsProvider).value;
+    final baseSummary = calculateCartSummary(cartItems, settings: storeSettings);
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
-    final summary = applyStorePickup(
+    final localSummary = applyStorePickup(
       applyCouponDiscount(baseSummary, couponDiscount),
       pickup: _isPickup,
     );
+    final serverPriced = !_isPickup &&
+        _serverShipping != null &&
+        _serverShippingKey == _pricingKey(cartItems, effectiveAddress.id);
+
+    final summary = serverPriced
+        ? applyServerShipping(localSummary, _serverShipping!)
+        : localSummary;
+
+    final pricingKey = _pricingKey(cartItems, effectiveAddress.id);
+    if (cartItems.isNotEmpty && !_orderPlaced && _pricingRequestedKey != pricingKey) {
+      _pricingRequestedKey = pricingKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncCheckoutAttempt(cartItems, effectiveAddress.id);
+      });
+    }
+    if (_autoPayPending &&
+        _setupDone &&
+        selectedAddress != null &&
+        cartItems.isNotEmpty &&
+        !_placingOrder) {
+      _autoPayPending = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _processPayment(effectiveAddress);
+      });
+    }
     final hasPreOrder = cartItems.any((item) => item.department == Department.preorder);
     final hasNowItems = cartItems.any((item) => item.department != Department.preorder);
     if (!_orderPlaced) {
@@ -530,374 +535,162 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final slot = widget.preOrderSlot?.trim() ?? '';
 
     final payableNow = PaymentUtils.payableAmount(summary.total, _paymentPlan);
-    final balanceOnDelivery = summary.total - payableNow;
+    final itemCount = summary.itemCount;
+    final etaLines = [
+      if (hasNowItems) departmentEtaText(Department.instant, pickup: _isPickup),
+      if (hasPreOrder)
+        'Pre-order · ${departmentEtaText(Department.preorder, pickup: _isPickup, preOrderSlot: slot)}',
+    ];
+    final amountText = formatInr(payableNow, withDecimals: true);
 
     return Scaffold(
+      backgroundColor: _pageBg,
       appBar: AppBar(
-        title: Text(
-          'Select Payment Method',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Payment Options',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+              ),
+            ),
+            Text(
+              '$itemCount ${itemCount == 1 ? 'item' : 'items'}. Total: $amountText',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: _muted,
+              ),
+            ),
+          ],
+        ),
       ),
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
+            padding: const EdgeInsets.only(bottom: 32),
             children: [
-              // 1. Delivery Location Preview & Change Strip
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF047857),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isPickup ? 'Your address (store pickup):' : 'Delivering to:',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF047857),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            selectedAddress != null
-                                ? formatAddressLine(selectedAddress)
-                                : (deliveryLoc?.displayAddress ?? 'Select delivery location'),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () => showSelectDeliveryLocationBottomSheet(context, ref),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'Change',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: const Color(0xFF047857),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _DeliveryRouteCard(
+                storeName: (darkStore?.storeName.trim().isNotEmpty ?? false)
+                    ? darkStore!.storeName
+                    : 'GreenGroo',
+                addressTitle: _isPickup
+                    ? 'Store pickup'
+                    : ((selectedAddress?.fullName.trim().isNotEmpty ?? false)
+                        ? selectedAddress!.fullName
+                        : 'Deliver to'),
+                addressLine: selectedAddress != null
+                    ? formatAddressLine(selectedAddress)
+                    : (deliveryLoc?.displayAddress ?? 'Select delivery location'),
+                etaLines: etaLines,
+                onChangeAddress: () => showSelectDeliveryLocationBottomSheet(context, ref),
               ),
-
-              if (_isPickup) ...[
-                const SizedBox(height: 12),
-                DarkStoreContactCard(
-                  store: darkStore,
-                  pickup: true,
-                  loading: storeAsync.isLoading && darkStore == null,
-                ),
-              ],
-              if (cartItems.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _FulfillmentTimeline(
-                  pickup: _isPickup,
-                  hasPreOrder: hasPreOrder,
-                  hasNowItems: hasNowItems,
-                  preOrderSlot: slot,
-                ),
-              ],
-
-              const SizedBox(height: 16),
-
-              // 2. Order Summary Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Amount to Pay',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                        Text(
-                          formatInr(payableNow, withDecimals: true),
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF047857),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_paymentPlan == PaymentPlan.advance) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Balance on delivery',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                          Text(
-                            formatInr(balanceOnDelivery, withDecimals: true),
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF334155),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (summary.savings > 0) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.local_offer_rounded,
-                              size: 14,
-                              color: Color(0xFF047857),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Saving ${formatInr(summary.savings)} on this order',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF047857),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Text(
-                'PAYMENT OPTIONS',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Option 1: Google Pay & UPI Apps
-              _PaymentOptionCard(
-                title: 'Google Pay / PhonePe / Paytm / UPI',
-                subtitle: 'Instant payment via any UPI App',
-                iconWidget: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SvgPicture.asset('assets/images/payment/gpay.svg', width: 22, height: 22),
-                    const SizedBox(width: 4),
-                    SvgPicture.asset('assets/images/payment/phonepe.svg', width: 18, height: 18),
-                    const SizedBox(width: 4),
-                    SvgPicture.asset('assets/images/payment/paytm.svg', width: 18, height: 18),
-                  ],
-                ),
-                selected: _selectedMode == PaymentModeOption.gpay,
-                onTap: () => setState(() => _selectedMode = PaymentModeOption.gpay),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Option 2: Razorpay (Cards, Netbanking, Wallets)
-              _PaymentOptionCard(
-                title: 'Razorpay Online Payment',
-                subtitle: 'Credit/Debit Card, Net Banking, Wallets & UPI',
-                icon: Icons.credit_card_rounded,
-                selected: _selectedMode == PaymentModeOption.razorpay,
-                onTap: () => setState(() => _selectedMode = PaymentModeOption.razorpay),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Option 3: Cash on Delivery (COD)
-              _PaymentOptionCard(
-                title: _isPickup ? 'Pay at Store (COD)' : 'Cash on Delivery (COD)',
-                subtitle: _isPickup
-                    ? 'Pay cash or UPI when you collect at the dark store'
-                    : 'Pay cash or UPI when your order arrives',
-                icon: Icons.payments_outlined,
-                badgeText: 'POPULAR',
-                selected: _selectedMode == PaymentModeOption.cod,
-                onTap: () => setState(() => _selectedMode = PaymentModeOption.cod),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Option 4: Manual UPI QR / Transfer
-              _PaymentOptionCard(
-                title: 'Scan QR & Upload Screenshot',
-                subtitle: 'Pay directly via Store QR and attach payment screenshot',
-                icon: Icons.qr_code_scanner_rounded,
-                selected: _selectedMode == PaymentModeOption.upiManual,
-                onTap: () => setState(() => _selectedMode = PaymentModeOption.upiManual),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Payment Plan Radio Switch (Full vs 10% Advance)
-              if (_selectedMode != PaymentModeOption.cod) ...[
-                Text(
-                  'PAYMENT SCHEME',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: const Color(0xFF64748B),
+              if (_isPickup)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: DarkStoreContactCard(
+                    store: darkStore,
+                    pickup: true,
+                    loading: storeAsync.isLoading && darkStore == null,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Column(
-                    children: [
-                      RadioListTile<String>(
-                        value: PaymentPlan.full,
-                        groupValue: _paymentPlan,
-                        onChanged: (val) {
-                          if (val != null) setState(() => _paymentPlan = val);
-                        },
-                        title: Text(
-                          'Pay 100% Full Payment now',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13.5,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Pay ${formatInr(summary.total, withDecimals: true)} upfront',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12),
-                        ),
-                        activeColor: const Color(0xFF047857),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                      const Divider(height: 1),
-                      RadioListTile<String>(
-                        value: PaymentPlan.advance,
-                        groupValue: _paymentPlan,
-                        onChanged: (val) {
-                          if (val != null) setState(() => _paymentPlan = val);
-                        },
-                        title: Text(
-                          'Pay 10% Advance now · Rest on Delivery',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13.5,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Pay ${formatInr(PaymentUtils.advanceAmount(summary.total), withDecimals: true)} now · ${formatInr(summary.total - PaymentUtils.advanceAmount(summary.total), withDecimals: true)} on delivery',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12),
-                        ),
-                        activeColor: const Color(0xFF047857),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ],
-                  ),
+              if (summary.savings > 0)
+                _NoticeBanner(
+                  icon: Icons.local_offer_rounded,
+                  title: 'You are saving ${formatInr(summary.savings)} on this order',
+                  color: const Color(0xFFFFF4D6),
+                  borderColor: const Color(0xFFF5D88A),
+                  iconColor: const Color(0xFFB7791F),
                 ),
-              ],
+              if (_errorMessage.isNotEmpty)
+                _NoticeBanner(
+                  icon: Icons.error_outline_rounded,
+                  title: _errorMessage,
+                  color: const Color(0xFFFEF2F2),
+                  borderColor: const Color(0xFFFCA5A5),
+                  iconColor: const Color(0xFFDC2626),
+                ),
 
-              if (_errorMessage.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFCA5A5)),
+              const _SectionTitle('Preferred Payment'),
+              _MethodGroup(
+                children: [
+                  _methodTile(
+                    mode: PaymentModeOption.gpay,
+                    title: 'Google Pay',
+                    leading: SvgPicture.asset('assets/images/payment/gpay.svg', width: 24, height: 24),
+                    payLabel: 'Pay via GooglePay',
+                    address: effectiveAddress,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _errorMessage,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.5,
-                            color: const Color(0xFF991B1B),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+                ],
+              ),
+
+              _SectionTitle(_isPickup ? 'Pay at Store' : 'Pay on Delivery'),
+              _MethodGroup(
+                children: [
+                  _methodTile(
+                    mode: PaymentModeOption.cod,
+                    title: _isPickup ? 'Cash/Pay at Store' : 'Cash/Pay on Delivery',
+                    subtitle: _isPickup
+                        ? 'Pay cash or UPI when you collect your order.'
+                        : 'Pay cash at the time of delivery.',
+                    leading: const Icon(Icons.payments_outlined, color: Color(0xFF15803D), size: 22),
+                    payLabel: 'Place Order',
+                    address: effectiveAddress,
                   ),
-                ),
-              ],
+                ],
+              ),
+
+              _SectionTitle(
+                'Pay by any UPI App',
+                leading: SvgPicture.asset('assets/images/payment/upi.svg', height: 14),
+              ),
+              _MethodGroup(
+                children: [
+                  _methodTile(
+                    mode: PaymentModeOption.phonepe,
+                    title: 'PhonePe UPI',
+                    leading: SvgPicture.asset('assets/images/payment/phonepe.svg', width: 24, height: 24),
+                    payLabel: 'Pay via PhonePe',
+                    address: effectiveAddress,
+                  ),
+                  _methodTile(
+                    mode: PaymentModeOption.paytm,
+                    title: 'Paytm UPI',
+                    leading: SvgPicture.asset('assets/images/payment/paytm.svg', width: 24, height: 24),
+                    payLabel: 'Pay via Paytm',
+                    address: effectiveAddress,
+                  ),
+                  _methodTile(
+                    mode: PaymentModeOption.anyUpi,
+                    title: 'Other UPI apps',
+                    subtitle: 'BHIM, bank apps or UPI ID',
+                    leading: SvgPicture.asset('assets/images/payment/bhim.svg', width: 24, height: 24),
+                    payLabel: 'Pay $amountText via UPI',
+                    address: effectiveAddress,
+                  ),
+                ],
+              ),
+
+              const _SectionTitle('Credit & Debit Cards'),
+              _MethodGroup(
+                children: [
+                  _methodTile(
+                    mode: PaymentModeOption.card,
+                    title: 'Add credit or debit card',
+                    subtitle: 'Visa, Mastercard, RuPay & more',
+                    leading: const Icon(Icons.credit_card_rounded, color: Color(0xFF334155), size: 22),
+                    payLabel: 'Pay $amountText',
+                    address: effectiveAddress,
+                  ),
+                ],
+              ),
             ],
           ),
 
@@ -928,7 +721,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
               ),
             ),
-
           if (_orderPlaced)
             Container(
               color: Colors.black54,
@@ -1018,185 +810,353 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: _buildBottomPayBar(effectiveAddress, payableNow),
     );
   }
 
-  Widget _buildBottomPayBar(Address address, double payableNow) {
-    if (_orderPlaced) return const SizedBox.shrink();
+  Widget _methodTile({
+    required PaymentModeOption mode,
+    required String title,
+    String? subtitle,
+    required Widget leading,
+    required String payLabel,
+    required Address address,
+  }) {
+    return _MethodTile(
+      title: title,
+      subtitle: subtitle,
+      leading: leading,
+      selected: _selectedMode == mode,
+      payLabel: payLabel,
+      onTap: () => _selectMode(mode),
+      onPay: _placingOrder ? null : () => _processPayment(address),
+    );
+  }
+}
 
-    final buttonLabel = _selectedMode == PaymentModeOption.cod
-        ? (_isPickup ? 'Place Order (Pay at Store)' : 'Place Order (Cash on Delivery)')
-        : 'Pay ${formatInr(payableNow, withDecimals: true)} Now';
+const _pageBg = Color(0xFFF1F2F6);
+const _ink = Color(0xFF1F2430);
+const _muted = Color(0xFF6B7280);
+const _accent = Color(0xFF047857);
+
+/// Store â†’ customer route with the promised delivery time.
+class _DeliveryRouteCard extends StatelessWidget {
+  const _DeliveryRouteCard({
+    required this.storeName,
+    required this.addressTitle,
+    required this.addressLine,
+    required this.etaLines,
+    required this.onChangeAddress,
+  });
+
+  final String storeName;
+  final String addressTitle;
+  final String addressLine;
+  final List<String> etaLines;
+  final VoidCallback onChangeAddress;
+
+  @override
+  Widget build(BuildContext context) {
+    final headline = etaLines.isNotEmpty ? etaLines.first : '';
+    final strong = GoogleFonts.plusJakartaSans(
+      fontSize: 14.5,
+      fontWeight: FontWeight.w700,
+      color: _ink,
+    );
+    final soft = GoogleFonts.plusJakartaSans(
+      fontSize: 13.5,
+      fontWeight: FontWeight.w500,
+      color: _muted,
+    );
+
+    Widget dot() => Container(
+          width: 11,
+          height: 11,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: _accent, width: 2.2),
+          ),
+        );
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, -4),
-          ),
-        ],
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
       ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton(
-            onPressed: _placingOrder ? null : () => _processPayment(address),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF047857),
-              disabledBackgroundColor: const Color(0xFFCBD5E1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Column(
+                  children: [
+                    dot(),
+                    Container(width: 2, height: 22, color: _accent),
+                    dot(),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock_rounded, size: 18),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    buttonLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: storeName, style: strong),
+                          if (headline.isNotEmpty) ...[
+                            TextSpan(text: '  |  ', style: soft),
+                            TextSpan(text: headline, style: soft),
+                          ],
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: onChangeAddress,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: addressTitle, style: strong),
+                            TextSpan(text: '  |  ', style: soft),
+                            TextSpan(text: addressLine, style: soft),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (etaLines.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final line in etaLines)
+              Padding(
+                padding: const EdgeInsets.only(left: 25, top: 2),
+                child: Text(
+                  line,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF374151),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _PaymentOptionCard extends StatelessWidget {
-  const _PaymentOptionCard({
+class _NoticeBanner extends StatelessWidget {
+  const _NoticeBanner({
+    required this.icon,
     required this.title,
-    required this.subtitle,
+    required this.color,
+    required this.borderColor,
+    required this.iconColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final Color color;
+  final Color borderColor;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: _ink,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title, {this.leading});
+
+  final String title;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 8)],
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF3D4152),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodGroup extends StatelessWidget {
+  const _MethodGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFEDEEF2)),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodTile extends StatelessWidget {
+  const _MethodTile({
+    required this.title,
+    required this.leading,
     required this.selected,
+    required this.payLabel,
     required this.onTap,
-    this.icon,
-    this.iconWidget,
-    this.badgeText,
+    required this.onPay,
+    this.subtitle,
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
+  final Widget leading;
   final bool selected;
+  final String payLabel;
   final VoidCallback onTap;
-  final IconData? icon;
-  final Widget? iconWidget;
-  final String? badgeText;
+  final VoidCallback? onPay;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF0FDF4) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-            width: selected ? 1.5 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
           children: [
-            Radio<bool>(
-              value: true,
-              groupValue: selected,
-              onChanged: (_) => onTap(),
-              activeColor: const Color(0xFF047857),
-            ),
-            const SizedBox(width: 4),
-            if (iconWidget != null) ...[
-              iconWidget!,
-              const SizedBox(width: 10),
-            ] else if (icon != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: selected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                  shape: BoxShape.circle,
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: leading,
                 ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: selected ? const Color(0xFF047857) : const Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
-                          ),
+                      Text(
+                        title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: _ink,
                         ),
                       ),
-                      if (badgeText != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFFDE68A)),
-                          ),
-                          child: Text(
-                            badgeText!,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFFD97706),
-                            ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: _muted,
                           ),
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 10),
+                _SelectionMark(selected: selected),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              child: selected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 56, top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: FilledButton(
+                          onPressed: onPay,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _accent,
+                            disabledBackgroundColor: const Color(0xFFCBD5E1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            payLabel,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
           ],
         ),
@@ -1205,66 +1165,28 @@ class _PaymentOptionCard extends StatelessWidget {
   }
 }
 
-/// When each part of the order arrives (or is ready at the store).
-class _FulfillmentTimeline extends StatelessWidget {
-  const _FulfillmentTimeline({
-    required this.pickup,
-    required this.hasPreOrder,
-    required this.hasNowItems,
-    required this.preOrderSlot,
-  });
+class _SelectionMark extends StatelessWidget {
+  const _SelectionMark({required this.selected});
 
-  final bool pickup;
-  final bool hasPreOrder;
-  final bool hasNowItems;
-  final String preOrderSlot;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final rows = <(String, String)>[
-      if (hasNowItems)
-        (
-          Department.instant,
-          'Ready2Cook / Instant · ${departmentEtaText(Department.instant, pickup: pickup)}',
-        ),
-      if (hasPreOrder)
-        (
-          Department.preorder,
-          'Pre-order · ${departmentEtaText(Department.preorder, pickup: pickup, preOrderSlot: preOrderSlot)}',
-        ),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 22,
+      height: 22,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        shape: BoxShape.circle,
+        color: selected ? _accent : Colors.transparent,
+        border: Border.all(
+          color: selected ? _accent : const Color(0xFFC4C8D0),
+          width: 1.6,
+        ),
       ),
-      child: Column(
-        children: [
-          for (final (dept, text) in rows)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  Icon(departmentIcon(dept), size: 16, color: departmentColor(dept)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      text,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF334155),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      child: selected
+          ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+          : null,
     );
   }
 }

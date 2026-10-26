@@ -1274,6 +1274,9 @@ const vendorShippingMethodSchema = new mongoose.Schema(
         },
       ],
     },
+    // Per-zone / per-dark-store rule sets: { scope: "zone"|"store", targetId, targetName, isActive, ...rules }.
+    // Checkout uses store override → zone override → the vendor-wide rules above.
+    overrides: { type: [mongoose.Schema.Types.Mixed], default: [] },
   },
   { timestamps: true }
 );

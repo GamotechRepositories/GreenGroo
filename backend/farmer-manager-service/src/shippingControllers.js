@@ -1,7 +1,13 @@
-import { VendorShippingMethod, Vendor } from "./models.js";
+import mongoose from "mongoose";
+import { VendorShippingMethod, Vendor, VendorZone } from "./models.js";
+import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
+import { resolveDarkStoreForOrder } from "../../delivery-service/src/services/darkStoreResolver.js";
+import Product from "../../legacy/models/Product.js";
+
+const RULE_KEYS = ["quantityRules", "userRules", "pincodeRules", "categoryRules", "weightRules", "stateRules"];
 
 function vendorIdOf(req) {
-  return req.user?.vendorId || req.user?.id || req.query?.vendorId || "global";
+  return String(req.user?.vendorId || req.user?.id || "");
 }
 
 const DEFAULT_SHIPPING_CONFIG = {
@@ -71,261 +77,374 @@ const DEFAULT_SHIPPING_CONFIG = {
   },
 };
 
-/**
- * Get shipping methods configuration for the logged-in vendor or requested vendorId
- */
+function pickRules(source = {}, fallback = DEFAULT_SHIPPING_CONFIG) {
+  const rules = {};
+  for (const key of RULE_KEYS) {
+    const value = source?.[key];
+    rules[key] = value && typeof value === "object" ? value : fallback[key];
+  }
+  return rules;
+}
+
+/** Approved zones + dark stores that belong to the vendor (the only valid override targets). */
+async function loadVendorScopes(vendorId) {
+  const [zones, stores] = await Promise.all([
+    VendorZone.find({ vendorId, status: "Approved" }).select("id name state cities").sort({ name: 1 }).lean(),
+    DeliveryManager.find({ vendorId })
+      .select("storeName name city area zoneId zoneName isActive")
+      .sort({ storeName: 1 })
+      .lean(),
+  ]);
+  return {
+    zones: zones.map((z) => ({ id: z.id, name: z.name, state: z.state || "", cities: z.cities || [] })),
+    stores: stores.map((s) => ({
+      id: String(s._id),
+      name: s.storeName || s.name || "Dark store",
+      city: s.city || "",
+      area: s.area || "",
+      zoneId: s.zoneId || "",
+      zoneName: s.zoneName || "",
+      isActive: s.isActive !== false,
+    })),
+  };
+}
+
+function sanitizeOverrides(raw, scopes) {
+  if (!Array.isArray(raw)) return [];
+  const zoneById = new Map(scopes.zones.map((z) => [z.id, z]));
+  const storeById = new Map(scopes.stores.map((s) => [s.id, s]));
+  const seen = new Set();
+  const out = [];
+  for (const entry of raw) {
+    const scope = entry?.scope === "store" ? "store" : entry?.scope === "zone" ? "zone" : null;
+    const targetId = String(entry?.targetId || "");
+    const target = scope === "zone" ? zoneById.get(targetId) : scope === "store" ? storeById.get(targetId) : null;
+    if (!target) continue;
+    const key = `${scope}:${targetId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      scope,
+      targetId,
+      targetName: target.name,
+      isActive: entry.isActive !== false,
+      ...pickRules(entry),
+    });
+  }
+  return out;
+}
+
+async function loadVendorConfig(vendorId) {
+  const config = await VendorShippingMethod.findOne({ vendorId }).lean();
+  return config
+    ? { ...config, overrides: Array.isArray(config.overrides) ? config.overrides : [] }
+    : { ...DEFAULT_SHIPPING_CONFIG, vendorId, overrides: [], isDefault: true };
+}
+
+async function saveVendorConfig(vendorId, body = {}) {
+  const scopes = await loadVendorScopes(vendorId);
+  const updated = await VendorShippingMethod.findOneAndUpdate(
+    { vendorId },
+    {
+      $set: {
+        vendorId,
+        isActive: body.isActive !== false,
+        ...pickRules(body),
+        overrides: sanitizeOverrides(body.overrides, scopes),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+  return { config: updated, scopes };
+}
+
+/** Rule set for a dark store: store override → zone override → vendor-wide rules. */
+function rulesForTarget(config, { storeId = "", zoneId = "" } = {}) {
+  const overrides = Array.isArray(config?.overrides) ? config.overrides : [];
+  const active = (scope, id) =>
+    id && overrides.find((o) => o.scope === scope && String(o.targetId) === String(id) && o.isActive !== false);
+  const storeRules = active("store", storeId);
+  if (storeRules) return { rules: storeRules, scope: "store", scopeName: storeRules.targetName || "" };
+  const zoneRules = active("zone", zoneId);
+  if (zoneRules) return { rules: zoneRules, scope: "zone", scopeName: zoneRules.targetName || "" };
+  return { rules: config, scope: "vendor", scopeName: "" };
+}
+
+/** Pure fee calculation shared by the simulator and checkout. */
+export function evaluateShippingRules(config, params = {}) {
+  const {
+    quantity = 1,
+    orderAmount = 0,
+    userType = "retail",
+    pincode = "",
+    categories = [],
+    weightKg = 1,
+    state = "",
+  } = params;
+
+  const breakdown = {};
+  let serviceable = true;
+
+  if (config.quantityRules?.enabled) {
+    const q = Math.max(1, Number(quantity) || 1);
+    const freeAt = Number(config.quantityRules.freeAboveQuantity) || 0;
+    if (freeAt > 0 && q >= freeAt) {
+      breakdown.quantity = { cost: 0, reason: `Free shipping (Quantity >= ${freeAt})` };
+    } else {
+      const slabs = config.quantityRules.slabs || [];
+      const match = slabs.find((s) => q >= s.minQty && q <= s.maxQty);
+      let qCost = match ? Number(match.cost) : Number(config.quantityRules.baseCost || 0);
+      const maxSlab = slabs.length > 0 ? slabs[slabs.length - 1] : null;
+      if (maxSlab && q > maxSlab.maxQty) {
+        const extra = (q - maxSlab.maxQty) * (Number(config.quantityRules.perExtraItemFee) || 0);
+        qCost = Number(maxSlab.cost) + extra;
+      }
+      breakdown.quantity = { cost: qCost, reason: `Quantity slab for ${q} items` };
+    }
+  }
+
+  if (config.userRules?.enabled) {
+    const uTypes = config.userRules.userTypes || [];
+    const match = uTypes.find((u) => u.userType === userType);
+    const userCost = match ? Number(match.cost) : Number(config.userRules.defaultCost || 40);
+    const freeAt = match ? Number(match.freeAboveOrderAmount || 0) : 0;
+    if (freeAt > 0 && Number(orderAmount) >= freeAt) {
+      breakdown.user = { cost: 0, reason: `Free for ${match?.label || userType} above ₹${freeAt}` };
+    } else {
+      breakdown.user = { cost: userCost, reason: `Rate for ${match?.label || userType}` };
+    }
+  }
+
+  if (config.pincodeRules?.enabled) {
+    const pins = config.pincodeRules.pincodes || [];
+    const match = pins.find((p) => String(p.code).trim() === String(pincode).trim());
+    if (match) {
+      if (match.isServiceable === false) serviceable = false;
+      breakdown.pincode = {
+        cost: Number(match.cost),
+        isServiceable: match.isServiceable !== false,
+        reason: `${match.areaName || pincode} delivery zone`,
+      };
+    } else {
+      breakdown.pincode = {
+        cost: Number(config.pincodeRules.defaultCost || 50),
+        isServiceable: true,
+        reason: `Standard delivery for pincode ${pincode || "general"}`,
+      };
+    }
+  }
+
+  if (config.categoryRules?.enabled && Array.isArray(categories) && categories.length > 0) {
+    const catRules = config.categoryRules.categories || [];
+    let extra = 0;
+    const matchedCats = [];
+    for (const c of categories) {
+      const found = catRules.find((r) => r.categoryName?.toLowerCase() === String(c).toLowerCase());
+      if (found && !found.isFreeShipping) {
+        extra += Number(found.extraCost || 0);
+        matchedCats.push(`${found.categoryName} (+₹${found.extraCost})`);
+      }
+    }
+    breakdown.category = { cost: extra, reason: matchedCats.length ? matchedCats.join(", ") : "Standard category rate" };
+  }
+
+  if (config.weightRules?.enabled) {
+    const w = Math.max(0, Number(weightKg) || 1);
+    const slabs = config.weightRules.slabs || [];
+    const match = slabs.find((s) => w >= s.minWeightKg && w <= s.maxWeightKg);
+    let wCost = match ? Number(match.cost) : Number(config.weightRules.baseCost || 30);
+    const maxSlab = slabs.length > 0 ? slabs[slabs.length - 1] : null;
+    if (maxSlab && w > maxSlab.maxWeightKg) {
+      const extraKg = Math.ceil(w - maxSlab.maxWeightKg);
+      wCost = Number(maxSlab.cost) + extraKg * (Number(config.weightRules.costPerExtraKg) || 15);
+    }
+    breakdown.weight = { cost: wCost, reason: `Weight tier for ${w.toFixed(1)} kg` };
+  }
+
+  if (config.stateRules?.enabled) {
+    const states = config.stateRules.states || [];
+    const match = states.find((s) => s.stateName?.toLowerCase() === String(state).toLowerCase());
+    if (match) {
+      if (match.isServiceable === false) serviceable = false;
+      breakdown.state = { cost: Number(match.cost), reason: `State delivery rate for ${match.stateName}` };
+    } else {
+      breakdown.state = { cost: Number(config.stateRules.defaultCost || 90), reason: `Standard interstate rate for ${state}` };
+    }
+  }
+
+  // Highest base rate (weight / state / pincode / quantity), then the user tier, plus category surcharges.
+  const highestBase = Math.max(
+    breakdown.weight?.cost ?? 0,
+    breakdown.state?.cost ?? 0,
+    breakdown.pincode?.cost ?? 0,
+    breakdown.quantity?.cost ?? 0
+  );
+  const categorySurcharge = breakdown.category?.cost ?? 0;
+  const userTierCost = breakdown.user?.cost != null ? breakdown.user.cost : highestBase;
+
+  let total = Math.max(highestBase, userTierCost) + categorySurcharge;
+  if (breakdown.user?.cost === 0 || breakdown.quantity?.cost === 0) total = 0;
+
+  return { shippingCost: Math.round(total), breakdown, serviceable };
+}
+
+// ── Vendor ──────────────────────────────────────────────────────────────────
+
+/** GET /api/vendor/shipping-methods — vendor-wide rules, zone/store overrides and the vendor's zones & dark stores. */
 export async function getVendorShippingMethods(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    let config = await VendorShippingMethod.findOne({ vendorId }).lean();
-    if (!config) {
-      // Return defaults if not yet customized
-      config = { ...DEFAULT_SHIPPING_CONFIG, vendorId };
-    }
-    res.json({ success: true, data: config });
+    const [config, scopes] = await Promise.all([loadVendorConfig(vendorId), loadVendorScopes(vendorId)]);
+    res.json({ success: true, data: config, scopes });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load shipping methods" });
   }
 }
 
-/**
- * Save shipping methods configuration for the vendor
- */
+/** PUT /api/vendor/shipping-methods */
 export async function saveVendorShippingMethods(req, res) {
   try {
-    const vendorId = vendorIdOf(req);
-    const body = req.body || {};
-
-    const updated = await VendorShippingMethod.findOneAndUpdate(
-      { vendorId },
-      {
-        $set: {
-          vendorId,
-          isActive: body.isActive !== false,
-          quantityRules: body.quantityRules || DEFAULT_SHIPPING_CONFIG.quantityRules,
-          userRules: body.userRules || DEFAULT_SHIPPING_CONFIG.userRules,
-          pincodeRules: body.pincodeRules || DEFAULT_SHIPPING_CONFIG.pincodeRules,
-          categoryRules: body.categoryRules || DEFAULT_SHIPPING_CONFIG.categoryRules,
-          weightRules: body.weightRules || DEFAULT_SHIPPING_CONFIG.weightRules,
-          stateRules: body.stateRules || DEFAULT_SHIPPING_CONFIG.stateRules,
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Shipping methods updated successfully",
-      data: updated,
-    });
+    const { config, scopes } = await saveVendorConfig(vendorIdOf(req), req.body || {});
+    res.json({ success: true, message: "Shipping methods updated successfully", data: config, scopes });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to save shipping methods" });
   }
 }
 
-/**
- * Admin view of shipping methods (supports querying specific vendor or global default)
- */
+// ── Admin ───────────────────────────────────────────────────────────────────
+
+async function listVendorsForAdmin() {
+  const vendors = await Vendor.find().select("id vendorName ownerName city state").sort({ vendorName: 1 }).lean();
+  return vendors.map((v) => ({
+    id: v.id,
+    name: v.vendorName || v.ownerName || v.id,
+    location: [v.city, v.state].filter(Boolean).join(", "),
+  }));
+}
+
+/** GET /api/admin-ops/shipping-methods?vendorId= — any vendor's rules (defaults to the first vendor). */
 export async function getAdminShippingMethods(req, res) {
   try {
-    const vendorId = req.query.vendorId || "global";
-    let [config, vendors] = await Promise.all([
-      VendorShippingMethod.findOne({ vendorId }).lean(),
-      Vendor.find().select("id vendorName ownerName city state").sort({ vendorName: 1 }).lean(),
-    ]);
+    const vendors = await listVendorsForAdmin();
+    const requested = String(req.query.vendorId || "");
+    const vendorId = vendors.some((v) => v.id === requested) ? requested : vendors[0]?.id || "";
+    if (!vendorId) return res.json({ success: true, data: null, scopes: { zones: [], stores: [] }, vendors, vendorId: "" });
 
-    if (!config) {
-      config = { ...DEFAULT_SHIPPING_CONFIG, vendorId };
-    }
-
-    res.json({
-      success: true,
-      data: config,
-      vendors: vendors.map((v) => ({
-        id: v.id,
-        name: v.vendorName || v.ownerName || v.id,
-        location: [v.city, v.state].filter(Boolean).join(", "),
-      })),
-    });
+    const [config, scopes] = await Promise.all([loadVendorConfig(vendorId), loadVendorScopes(vendorId)]);
+    res.json({ success: true, data: config, scopes, vendors, vendorId });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load shipping methods" });
   }
 }
 
-/**
- * Admin update of shipping methods (supports saving to a specific vendor or global default)
- */
+/** PUT /api/admin-ops/shipping-methods?vendorId= */
 export async function saveAdminShippingMethods(req, res) {
   try {
-    const vendorId = req.query.vendorId || req.body?.vendorId || "global";
-    const body = req.body || {};
-
-    const updated = await VendorShippingMethod.findOneAndUpdate(
-      { vendorId },
-      {
-        $set: {
-          vendorId,
-          isActive: body.isActive !== false,
-          quantityRules: body.quantityRules || DEFAULT_SHIPPING_CONFIG.quantityRules,
-          userRules: body.userRules || DEFAULT_SHIPPING_CONFIG.userRules,
-          pincodeRules: body.pincodeRules || DEFAULT_SHIPPING_CONFIG.pincodeRules,
-          categoryRules: body.categoryRules || DEFAULT_SHIPPING_CONFIG.categoryRules,
-          weightRules: body.weightRules || DEFAULT_SHIPPING_CONFIG.weightRules,
-          stateRules: body.stateRules || DEFAULT_SHIPPING_CONFIG.stateRules,
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Shipping methods updated successfully by admin",
-      data: updated,
-    });
+    const vendorId = String(req.query.vendorId || req.body?.vendorId || "");
+    if (!vendorId || !(await Vendor.exists({ id: vendorId }))) {
+      return res.status(400).json({ message: "Select a vendor to update shipping rules" });
+    }
+    const { config, scopes } = await saveVendorConfig(vendorId, req.body || {});
+    res.json({ success: true, message: "Vendor shipping rules updated by admin", data: config, scopes });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to save shipping methods" });
   }
 }
 
+// ── Simulator ───────────────────────────────────────────────────────────────
+
 /**
- * Calculate shipping fee given cart / order parameters
+ * POST /api/vendor/shipping-methods/calculate
+ * body.rules → evaluate unsaved rules as-is; otherwise the saved rules for vendorId (+ zoneId/storeId).
  */
 export async function calculateShippingRate(req, res) {
   try {
-    const {
-      vendorId = "global",
-      quantity = 1,
-      orderAmount = 0,
-      userType = "retail",
-      pincode = "",
-      categories = [],
-      weightKg = 1,
-      state = "Maharashtra",
-    } = req.body || {};
-
-    let config = await VendorShippingMethod.findOne({ vendorId }).lean();
-    if (!config && vendorId !== "global") {
-      config = await VendorShippingMethod.findOne({ vendorId: "global" }).lean();
+    const body = req.body || {};
+    let rules = body.rules && typeof body.rules === "object" ? body.rules : null;
+    if (!rules) {
+      const vendorId = String(req.user?.role === "VENDOR" ? vendorIdOf(req) : body.vendorId || "");
+      const config = vendorId ? await VendorShippingMethod.findOne({ vendorId }).lean() : null;
+      rules = config
+        ? rulesForTarget(config, { storeId: body.storeId, zoneId: body.zoneId }).rules
+        : DEFAULT_SHIPPING_CONFIG;
     }
-    if (!config) config = DEFAULT_SHIPPING_CONFIG;
-
-    const breakdown = {};
-    let totalShippingCost = 0;
-
-    // 1. Quantity cost
-    if (config.quantityRules?.enabled) {
-      const q = Math.max(1, Number(quantity) || 1);
-      const freeAt = Number(config.quantityRules.freeAboveQuantity) || 0;
-      if (freeAt > 0 && q >= freeAt) {
-        breakdown.quantity = { cost: 0, reason: `Free shipping (Quantity >= ${freeAt})` };
-      } else {
-        const slabs = config.quantityRules.slabs || [];
-        const match = slabs.find((s) => q >= s.minQty && q <= s.maxQty);
-        let qCost = match ? Number(match.cost) : Number(config.quantityRules.baseCost || 0);
-        const maxSlab = slabs.length > 0 ? slabs[slabs.length - 1] : null;
-        if (maxSlab && q > maxSlab.maxQty) {
-          const extra = (q - maxSlab.maxQty) * (Number(config.quantityRules.perExtraItemFee) || 0);
-          qCost = Number(maxSlab.cost) + extra;
-        }
-        breakdown.quantity = { cost: qCost, reason: `Quantity slab for ${q} items` };
-      }
-    }
-
-    // 2. User type cost
-    if (config.userRules?.enabled) {
-      const uTypes = config.userRules.userTypes || [];
-      const match = uTypes.find((u) => u.userType === userType);
-      const userCost = match ? Number(match.cost) : Number(config.userRules.defaultCost || 40);
-      const freeAt = match ? Number(match.freeAboveOrderAmount || 0) : 0;
-      if (freeAt > 0 && Number(orderAmount) >= freeAt) {
-        breakdown.user = { cost: 0, reason: `Free for ${match?.label || userType} above ₹${freeAt}` };
-      } else {
-        breakdown.user = { cost: userCost, reason: `Rate for ${match?.label || userType}` };
-      }
-    }
-
-    // 3. Pincode cost
-    if (config.pincodeRules?.enabled) {
-      const pins = config.pincodeRules.pincodes || [];
-      const match = pins.find((p) => String(p.code).trim() === String(pincode).trim());
-      if (match) {
-        breakdown.pincode = {
-          cost: Number(match.cost),
-          isServiceable: match.isServiceable !== false,
-          reason: `${match.areaName || pincode} delivery zone`,
-        };
-      } else {
-        breakdown.pincode = {
-          cost: Number(config.pincodeRules.defaultCost || 50),
-          isServiceable: true,
-          reason: `Standard delivery for pincode ${pincode || "general"}`,
-        };
-      }
-    }
-
-    // 4. Category extra cost
-    if (config.categoryRules?.enabled && Array.isArray(categories) && categories.length > 0) {
-      const catRules = config.categoryRules.categories || [];
-      let extra = 0;
-      const matchedCats = [];
-      for (const c of categories) {
-        const found = catRules.find((r) => r.categoryName?.toLowerCase() === String(c).toLowerCase());
-        if (found && !found.isFreeShipping) {
-          extra += Number(found.extraCost || 0);
-          matchedCats.push(`${found.categoryName} (+₹${found.extraCost})`);
-        }
-      }
-      breakdown.category = { cost: extra, reason: matchedCats.length ? matchedCats.join(", ") : "Standard category rate" };
-    }
-
-    // 5. Weight cost
-    if (config.weightRules?.enabled) {
-      const w = Math.max(0, Number(weightKg) || 1);
-      const slabs = config.weightRules.slabs || [];
-      const match = slabs.find((s) => w >= s.minWeightKg && w <= s.maxWeightKg);
-      let wCost = match ? Number(match.cost) : Number(config.weightRules.baseCost || 30);
-      const maxSlab = slabs.length > 0 ? slabs[slabs.length - 1] : null;
-      if (maxSlab && w > maxSlab.maxWeightKg) {
-        const extraKg = Math.ceil(w - maxSlab.maxWeightKg);
-        wCost = Number(maxSlab.cost) + extraKg * (Number(config.weightRules.costPerExtraKg) || 15);
-      }
-      breakdown.weight = { cost: wCost, reason: `Weight tier for ${w.toFixed(1)} kg` };
-    }
-
-    // 6. State cost
-    if (config.stateRules?.enabled) {
-      const states = config.stateRules.states || [];
-      const match = states.find((s) => s.stateName?.toLowerCase() === String(state).toLowerCase());
-      if (match) {
-        breakdown.state = { cost: Number(match.cost), reason: `State delivery rate for ${match.stateName}` };
-      } else {
-        breakdown.state = { cost: Number(config.stateRules.defaultCost || 90), reason: `Standard interstate rate for ${state}` };
-      }
-    }
-
-    // Determine final shipping: Max base rate (weight / state / pincode / quantity) + user discount or category surcharges
-    const baseRates = [
-      breakdown.weight?.cost ?? 0,
-      breakdown.state?.cost ?? 0,
-      breakdown.pincode?.cost ?? 0,
-      breakdown.quantity?.cost ?? 0,
-    ];
-    const highestBase = Math.max(...baseRates);
-    const categorySurcharge = breakdown.category?.cost ?? 0;
-    const userTierDiscountOrFee = breakdown.user?.cost != null ? breakdown.user.cost : highestBase;
-
-    // Final shipping calculation:
-    totalShippingCost = Math.max(highestBase, userTierDiscountOrFee) + categorySurcharge;
-    if (breakdown.user?.cost === 0 || breakdown.quantity?.cost === 0) {
-      totalShippingCost = 0; // Free delivery rule triggered
-    }
-
-    res.json({
-      success: true,
-      shippingCost: Math.round(totalShippingCost),
-      breakdown,
+    const result = evaluateShippingRules(rules, {
+      quantity: body.quantity,
+      orderAmount: body.orderAmount,
+      userType: body.userType,
+      pincode: body.pincode,
+      categories: body.categories,
+      weightKg: body.weightKg,
+      state: body.state || "Maharashtra",
     });
+    res.json({ success: true, ...result });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to calculate shipping rate" });
   }
+}
+
+// ── Checkout ────────────────────────────────────────────────────────────────
+
+function parseUnitKg(unit) {
+  const match = String(unit || "").toLowerCase().match(/([\d.]+)\s*(kg|kgs|g|gm|gms|grams?|l|ltr|litres?|ml)\b/);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return ["g", "gm", "gms", "gram", "grams", "ml"].includes(match[2]) ? n / 1000 : n;
+}
+
+/**
+ * Delivery fee from the vendor that owns the dark store serving this address.
+ * Returns null when no vendor rules apply (no store, store without a vendor, vendor never saved rules,
+ * or rules switched off) so checkout falls back to the global store settings.
+ */
+export async function quoteVendorShipping({ address, items = [], subtotal = 0, userType = "retail" }) {
+  const { manager } = await resolveDarkStoreForOrder(address || {}, { allowPincodeFallback: true });
+  if (!manager?.vendorId) return null;
+
+  const config = await VendorShippingMethod.findOne({ vendorId: manager.vendorId }).lean();
+  if (!config || config.isActive === false) return null;
+
+  const { rules, scope, scopeName } = rulesForTarget(config, {
+    storeId: String(manager._id),
+    zoneId: manager.zoneId || "",
+  });
+
+  const productIds = items.map((i) => i.product).filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
+  const products = productIds.length
+    ? await Product.find({ _id: { $in: productIds } }).select("weight unit categories").lean()
+    : [];
+  const byId = new Map(products.map((p) => [String(p._id), p]));
+
+  let quantity = 0;
+  let weightKg = 0;
+  const categories = new Set();
+  for (const item of items) {
+    const qty = Math.max(0, Number(item.quantity) || 0);
+    quantity += qty;
+    const product = byId.get(String(item.product));
+    if (!product) continue;
+    const unitKg = Number(product.weight) > 0 ? Number(product.weight) : parseUnitKg(product.unit);
+    weightKg += unitKg * qty;
+    for (const c of product.categories || []) categories.add(c);
+  }
+
+  const result = evaluateShippingRules(rules, {
+    quantity: quantity || 1,
+    orderAmount: subtotal,
+    userType,
+    pincode: address?.pincode || "",
+    categories: [...categories],
+    weightKg: weightKg || 1,
+    state: address?.state || "",
+  });
+
+  return {
+    ...result,
+    vendorId: manager.vendorId,
+    storeId: String(manager._id),
+    storeName: manager.storeName || manager.name || "",
+    scope,
+    scopeName,
+  };
 }

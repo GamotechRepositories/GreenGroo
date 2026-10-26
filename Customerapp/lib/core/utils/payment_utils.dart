@@ -1,5 +1,4 @@
 class PaymentPlan {
-  static const advance = 'cod_advance';
   static const full = 'online';
 }
 
@@ -10,11 +9,6 @@ class PaymentStatus {
 }
 
 class PaymentUtils {
-  static const advancePercent = 0.1;
-
-  static double advanceAmount(double total) =>
-      ((total * advancePercent * 100).roundToDouble()) / 100;
-
   /// Recorded advance from Razorpay/UPI transaction — not recalculated from order total.
   static double recordedAdvanceAmount({
     required double total,
@@ -26,15 +20,10 @@ class PaymentUtils {
     return 0;
   }
 
-  static double payableAmount(double total, String paymentPlan) {
-    if (paymentPlan == PaymentPlan.advance) {
-      return advanceAmount(total);
-    }
-    return ((total * 100).roundToDouble()) / 100;
-  }
+  static double payableAmount(double total, String paymentPlan) =>
+      ((total * 100).roundToDouble()) / 100;
 
-  static String checkoutPaymentMethod(String paymentPlan) =>
-      paymentPlan == PaymentPlan.advance ? 'cod' : 'online';
+  static String checkoutPaymentMethod(String paymentPlan) => 'online';
 
   static String paymentStatusLabel(String? status) {
     switch (status) {

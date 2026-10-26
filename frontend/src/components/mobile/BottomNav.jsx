@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useScrollDirection } from "../../hooks/useScrollDirection";
+import { useCart } from "../../context/CartContext";
+import { BOTTOM_NAV_HEIGHT_PX, FLOATING_CART_BAR_HEIGHT_PX } from "../grocery/FloatingCartBar";
+import { showsFloatingCartBar } from "../../utils/floatingCartBar";
 
 // Preload home assets in memory once so touch is 100% instant with 0ms network latency
 let cachedHomeBlob = null;
@@ -33,6 +36,10 @@ export function BottomNav() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const hidden = useScrollDirection();
+  const { cartCount } = useCart();
+  // Sit above the floating cart bar instead of covering its Cart button.
+  const supportLift =
+    cartCount > 0 && showsFloatingCartBar(location.pathname) ? FLOATING_CART_BAR_HEIGHT_PX + 8 : 0;
 
   const [animSrc, setAnimSrc] = useState(null);
   const [isHomeAnimating, setIsHomeAnimating] = useState(false);
@@ -241,8 +248,11 @@ export function BottomNav() {
       aria-label="Support"
       className="gg-bar-slide fixed right-3 z-[60] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full bg-gradient-to-b from-[#E8F7EA] to-white shadow-[0_6px_16px_rgba(12,131,31,0.35)] ring-2 ring-[#0C831F] transition-transform active:scale-95 lg:hidden"
       style={{
-        bottom: "calc(81px + env(safe-area-inset-bottom, 0px))",
-        transform: hidden ? "translate3d(0, 150px, 0)" : "translate3d(0, 0, 0)",
+        bottom: `calc(${81 + supportLift}px + env(safe-area-inset-bottom, 0px))`,
+        // With the cart bar showing, travel with it so the bubble stays above it.
+        transform: hidden
+          ? `translate3d(0, ${supportLift ? BOTTOM_NAV_HEIGHT_PX : 150}px, 0)`
+          : "translate3d(0, 0, 0)",
       }}
     >
       <img

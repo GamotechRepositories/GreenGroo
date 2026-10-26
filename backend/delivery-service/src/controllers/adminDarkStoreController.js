@@ -1,5 +1,6 @@
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreInventory from "../models/StoreInventory.js";
+import { productIdForSku } from "../services/catalogStoreInventory.js";
 import { Vendor } from "../../../farmer-manager-service/src/models.js";
 
 const toCoord = (value) => {
@@ -256,6 +257,7 @@ export const createDarkStoreInventoryItem = async (req, res, next) => {
 
     const item = await StoreInventory.create({
       managerId: store._id,
+      productId: await productIdForSku(sku),
       sku,
       name,
       category: String(req.body.category || "General").trim(),

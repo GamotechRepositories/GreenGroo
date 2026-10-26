@@ -21,6 +21,7 @@ const driverLocationSchema = new mongoose.Schema(
 
 const orderItemSchema = new mongoose.Schema(
   {
+    productId: { type: mongoose.Schema.Types.ObjectId, default: null },
     sku: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     quantity: { type: Number, required: true, min: 1 },
@@ -172,6 +173,8 @@ const storeOrderSchema = new mongoose.Schema(
     otpCode: { type: String, default: "4321" },
     packedAt: { type: Date },
     stockDeductedAt: { type: Date },
+    /** Stock was taken from the store when the order arrived; packing confirms it. */
+    stockReservedAt: { type: Date, default: null },
     assignedAt: { type: Date },
     deliveredAt: { type: Date },
     notes: { type: String, default: "" },
@@ -306,6 +309,29 @@ const storeOrderSchema = new mongoose.Schema(
     },
     amountToCollect: { type: Number, default: 0 },
     amountCollected: { type: Number, default: 0 },
+    /** What the customer is billed for this part (its share of the order total, delivery included). */
+    partTotal: { type: Number, default: 0 },
+    /** Lines dropped because the store could not supply them; amount is the billed share taken off. */
+    removedItems: {
+      type: [
+        new mongoose.Schema(
+          {
+            productId: { type: mongoose.Schema.Types.ObjectId, default: null },
+            sku: { type: String, default: "" },
+            name: { type: String, default: "" },
+            quantity: { type: Number, default: 0 },
+            price: { type: Number, default: 0 },
+            amount: { type: Number, default: 0 },
+            removedAt: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+    /** Already-paid money owed back to the customer for removed lines. */
+    refundDue: { type: Number, default: 0 },
+    refundStatus: { type: String, enum: ["", "pending", "refunded"], default: "" },
 
     // ── Delivery proof / OTP (extended) ─────────────────────────────────────
     deliveryProofImageUrl: { type: String, default: "" },
@@ -393,6 +419,7 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
   const items = this.items.map((item) => {
     const base = {
       id: item._id.toString(),
+      productId: item.productId ? item.productId.toString() : null,
       sku: item.sku,
       name: item.name,
       quantity: item.quantity,
@@ -404,23 +431,25 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       departmentId: item.departmentId || "",
     };
     if (stockMap) {
-      const stock = stockMap.get(item.sku);
+      const stock =
+        (item.productId && stockMap.get(`pid:${item.productId}`)) || stockMap.get(item.sku);
       const available = stock ? stock.stockCount : 0;
+      const held = Boolean(this.stockReservedAt || this.stockDeductedAt);
       base.availableStock = available;
-      base.stockStatus =
-        available >= item.quantity ? "available" : "out_of_stock";
+      base.stockStatus = held || available >= item.quantity ? "available" : "out_of_stock";
+      if (held) base.reserved = true;
     }
     return base;
   });
 
   const itemsTotal = Math.round(
-    (this.items || []).reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
-      0
-    )
+    (this.items || [])
+      .filter((item) => !item.customerInformed)
+      .reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0)
   );
   const amountToCollect = Number(this.amountToCollect || 0);
-  const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
+  const billed = Number(this.partTotal || 0) || amountToCollect;
+  const deliveryFee = Math.max(0, Math.round(billed - itemsTotal));
 
   const startAt = this.assignedAt || this.packedAt || this.createdAt;
   const endAt = this.deliveredAt || null;
@@ -449,7 +478,19 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     items,
     itemsTotal,
     deliveryFee,
-    orderTotal: amountToCollect > 0 ? amountToCollect : itemsTotal + deliveryFee,
+    orderTotal: billed > 0 ? billed : itemsTotal + deliveryFee,
+    partTotal: Number(this.partTotal || 0),
+    removedItems: (this.removedItems || []).map((row) => ({
+      productId: row.productId ? row.productId.toString() : null,
+      sku: row.sku,
+      name: row.name,
+      quantity: row.quantity,
+      price: row.price,
+      amount: row.amount,
+      removedAt: row.removedAt,
+    })),
+    refundDue: Number(this.refundDue || 0),
+    refundStatus: this.refundStatus || "",
     status: this.status,
     assignmentStatus: this.assignmentStatus || "NONE",
     currentOfferDriverId: this.currentOfferDriverId
@@ -477,6 +518,7 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     otpCode: this.otpCode || "4321",
     packedAt: this.packedAt,
     stockDeductedAt: this.stockDeductedAt,
+    stockReservedAt: this.stockReservedAt || null,
     assignedAt: this.assignedAt,
     deliveredAt: this.deliveredAt,
     tripDurationMinutes,

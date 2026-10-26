@@ -8,11 +8,6 @@ class AppConstants {
   static const String logoUrl =
       'https://www.greengrocc.in/greengrocc-logo.png';
 
-  static const int moq = 1;
-  static const double freeDeliveryThreshold = 99;
-  static const double shippingFee = 25;
-  static const double codAdvancePercent = 0.1;
-
   static const int homeProductLimit = 12;
 
   static const String promoBannerImage =

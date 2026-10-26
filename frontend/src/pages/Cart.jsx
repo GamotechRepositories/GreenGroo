@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import { getStoreSettings } from "../api/api";
 import { useAuth } from "../context/AuthContext";
@@ -440,6 +440,7 @@ function Cart() {
   const { user, openAuthModal } = useAuth();
   const { items, removeFromCart, incrementCartItem, decrementCartItem, loading, loadCart } =
     useCart();
+  const navigate = useNavigate();
   const [clearing, setClearing] = useState(false);
   const [storeSettings, setStoreSettings] = useState(null);
 
@@ -479,6 +480,11 @@ function Cart() {
     }
   };
 
+  const handleBack = () => {
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate("/", { replace: true });
+  };
+
   const pageTitle = "My Cart";
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -494,8 +500,27 @@ function Cart() {
     <div className="min-h-screen bg-[#F4F6FB] text-slate-900">
       <section className="px-3 pb-28 pt-4 sm:px-4 sm:pb-10 sm:pt-6 lg:px-8">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-4 flex items-center justify-between gap-3 sm:mb-6">
-            <h1 className="text-xl font-semibold sm:text-2xl">{pageTitle}</h1>
+          <div className="sticky top-0 z-30 -mx-3 mb-4 flex items-center justify-between gap-3 bg-[#F4F6FB]/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:mb-6 sm:px-4 lg:static lg:mx-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBack}
+                aria-label="Go back"
+                className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-800 transition-colors hover:bg-slate-200/70 active:bg-slate-200"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="min-w-0 leading-tight">
+                <h1 className="truncate text-xl font-semibold sm:text-2xl">{pageTitle}</h1>
+                {itemCount > 0 ? (
+                  <p className="text-xs font-medium text-slate-500">
+                    {itemCount} {itemCount === 1 ? "item" : "items"}
+                  </p>
+                ) : null}
+              </div>
+            </div>
             {items.length > 0 ? (
               <button
                 type="button"

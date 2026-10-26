@@ -21,6 +21,7 @@ import {
 import opsApi from '../../api/opsApi';
 import apiClient from '../../api/client';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
+import { ShippingScopePicker, useShippingScopes } from './shippingScopes';
 
 const TABS = [
   { id: 'quantity', label: 'By Quantity', icon: Boxes, desc: 'Tiered delivery fees based on order item count' },
@@ -33,22 +34,17 @@ const TABS = [
 
 export default function ShippingMethodsPage() {
   const [activeTab, setActiveTab] = useState('quantity');
-  const [selectedVendorId, setSelectedVendorId] = useState('global');
+  const [selectedVendorId, setSelectedVendorId] = useState(
+    () => new URLSearchParams(window.location.search).get('vendorId') || ''
+  );
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const [config, setConfig] = useState({
-    isActive: true,
-    quantityRules: { enabled: true, baseCost: 30, freeAboveQuantity: 15, perExtraItemFee: 5, slabs: [] },
-    userRules: { enabled: true, defaultCost: 40, userTypes: [] },
-    pincodeRules: { enabled: true, defaultCost: 50, pincodes: [] },
-    categoryRules: { enabled: true, defaultCost: 30, categories: [] },
-    weightRules: { enabled: true, baseWeightKg: 1, baseCost: 30, costPerExtraKg: 15, slabs: [] },
-    stateRules: { enabled: true, defaultCost: 90, states: [] },
-  });
+  const scope = useShippingScopes();
+  const { config, setConfig, load: loadScopes } = scope;
 
   // Simulator state
   const [simQuantity, setSimQuantity] = useState(3);
@@ -65,16 +61,17 @@ export default function ShippingMethodsPage() {
     setError('');
     try {
       const res = await apiClient.get('/admin-ops/shipping-methods', {
-        params: { vendorId: selectedVendorId },
+        params: selectedVendorId ? { vendorId: selectedVendorId } : {},
       });
-      if (res.data?.data) setConfig(res.data.data);
       if (Array.isArray(res.data?.vendors)) setVendors(res.data.vendors);
+      if (res.data?.data) loadScopes(res.data.data, res.data.scopes);
+      if (res.data?.vendorId && res.data.vendorId !== selectedVendorId) setSelectedVendorId(res.data.vendorId);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load shipping methods');
     } finally {
       setLoading(false);
     }
-  }, [selectedVendorId]);
+  }, [selectedVendorId, loadScopes]);
 
   useEffect(() => {
     loadData();
@@ -86,14 +83,14 @@ export default function ShippingMethodsPage() {
     setError('');
     setSuccessMsg('');
     try {
-      await apiClient.put(
+      const res = await apiClient.put(
         '/admin-ops/shipping-methods',
-        { ...config, vendorId: selectedVendorId },
+        { ...scope.payload(), vendorId: selectedVendorId },
         { params: { vendorId: selectedVendorId } }
       );
+      if (res.data?.data) loadScopes(res.data.data, res.data.scopes);
       setSuccessMsg('Shipping methods updated successfully!');
       setTimeout(() => setSuccessMsg(''), 4000);
-      runSimulator();
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to save shipping methods');
     } finally {
@@ -105,7 +102,7 @@ export default function ShippingMethodsPage() {
   const runSimulator = useCallback(async () => {
     try {
       const res = await apiClient.post('/vendor/shipping-methods/calculate', {
-        vendorId: selectedVendorId,
+        rules: config,
         quantity: Number(simQuantity) || 1,
         orderAmount: Number(simOrderAmount) || 0,
         userType: simUserType,
@@ -118,10 +115,12 @@ export default function ShippingMethodsPage() {
     } catch {
       // ignore
     }
-  }, [selectedVendorId, simQuantity, simOrderAmount, simUserType, simPincode, simWeight, simState, simCategory]);
+  }, [config, simQuantity, simOrderAmount, simUserType, simPincode, simWeight, simState, simCategory]);
 
   useEffect(() => {
-    if (!loading) runSimulator();
+    if (loading) return undefined;
+    const timer = setTimeout(runSimulator, 300);
+    return () => clearTimeout(timer);
   }, [runSimulator, loading]);
 
   const updateRuleToggle = (ruleKey, enabled) => {
@@ -139,7 +138,8 @@ export default function ShippingMethodsPage() {
           <p className={PAGE_KICKER}>Multi-Vendor Operations</p>
           <h1 className={PAGE_TITLE}>Shipping Methods</h1>
           <p className={PAGE_SUB}>
-            Configure multi-vendor shipping cost rules by quantity, customer type, pin code, category, weight, and state.
+            Each vendor's delivery charges for their zones and dark stores. Vendors manage these from their panel;
+            changes here update the same rules.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +151,7 @@ export default function ShippingMethodsPage() {
               onChange={(e) => setSelectedVendorId(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-800 outline-none cursor-pointer"
             >
-              <option value="global">Global Defaults (All Vendors)</option>
+              {!vendors.length ? <option value="">No vendors</option> : null}
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name} ({v.location || v.id.slice(-6)})
@@ -172,7 +172,7 @@ export default function ShippingMethodsPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving || loading || !selectedVendorId}
             className={`${BTN_PRIMARY} text-xs gap-1.5`}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -201,6 +201,8 @@ export default function ShippingMethodsPage() {
           </button>
         </div>
       ) : null}
+
+      {!loading && selectedVendorId ? <ShippingScopePicker state={scope} /> : null}
 
       {/* 6 Tabs Grid Navigation */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

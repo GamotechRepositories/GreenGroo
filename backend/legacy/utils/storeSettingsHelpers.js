@@ -3,14 +3,9 @@ import { mergeEnviaOriginDefaults } from "../../../shared/shipping/enviaOriginAd
 import { normalizeGiftHamperTiers } from "../../../shared/store/giftHamper.js";
 
 export const DEFAULT_STORE_SETTINGS = {
-  minimumOrderValue: 200,
-  minimumShippingCharge: 280,
-  shippingSlabs: [
-    { orderAmount: 3000, shippingCharge: 280 },
-    { orderAmount: 5000, shippingCharge: 350 },
-    { orderAmount: 8000, shippingCharge: 550 },
-    { orderAmount: 12000, shippingCharge: 800 },
-  ],
+  minimumOrderValue: 0,
+  minimumShippingCharge: 0,
+  shippingSlabs: [],
   giftHamperTiers: [],
   giftHampersEnabled: false,
   preOrderSlots: [
@@ -58,6 +53,11 @@ export const DEFAULT_STORE_SETTINGS = {
 let cachedSettings = null;
 let cacheExpiresAt = 0;
 const CACHE_TTL_MS = 30_000;
+
+function nonNegativeAmount(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+}
 
 export function normalizeShippingSlabs(slabs = []) {
   return [...slabs]
@@ -120,16 +120,9 @@ export function normalizeMerchantUpiAccounts(source = {}) {
 
 export function serializeStoreSettings(doc, { admin = false } = {}) {
   const source = doc?.toObject ? doc.toObject() : doc || {};
-  const minimumOrderValue =
-    Number(source.minimumOrderValue) || DEFAULT_STORE_SETTINGS.minimumOrderValue;
-  const minimumShippingCharge =
-    Number(source.minimumShippingCharge) ||
-    DEFAULT_STORE_SETTINGS.minimumShippingCharge;
-  const shippingSlabs = normalizeShippingSlabs(
-    source.shippingSlabs?.length
-      ? source.shippingSlabs
-      : DEFAULT_STORE_SETTINGS.shippingSlabs
-  );
+  const minimumOrderValue = nonNegativeAmount(source.minimumOrderValue);
+  const minimumShippingCharge = nonNegativeAmount(source.minimumShippingCharge);
+  const shippingSlabs = normalizeShippingSlabs(source.shippingSlabs || []);
   const giftHamperTiers = normalizeGiftHamperTiers(
     source.giftHamperTiers?.length
       ? source.giftHamperTiers
@@ -211,12 +204,8 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
 
 export function calculateShippingCharge(subtotal, settings) {
   const amount = Number(subtotal) || 0;
-  const minShipping =
-    Number(settings?.minimumShippingCharge) ||
-    DEFAULT_STORE_SETTINGS.minimumShippingCharge;
-  const slabs = normalizeShippingSlabs(
-    settings?.shippingSlabs || DEFAULT_STORE_SETTINGS.shippingSlabs
-  );
+  const minShipping = nonNegativeAmount(settings?.minimumShippingCharge);
+  const slabs = normalizeShippingSlabs(settings?.shippingSlabs || []);
 
   if (!slabs.length) {
     return minShipping;
@@ -234,10 +223,7 @@ export function calculateShippingCharge(subtotal, settings) {
 
 export function meetsMinimumOrder(subtotal, settings) {
   const amount = Number(subtotal) || 0;
-  const minimum =
-    Number(settings?.minimumOrderValue) ||
-    DEFAULT_STORE_SETTINGS.minimumOrderValue;
-  return amount >= minimum;
+  return amount >= nonNegativeAmount(settings?.minimumOrderValue);
 }
 
 export async function getStoreSettings({ forceRefresh = false } = {}) {
@@ -249,9 +235,6 @@ export async function getStoreSettings({ forceRefresh = false } = {}) {
   let doc = await StoreSettings.findOne({ key: "store" });
   if (!doc) {
     doc = await StoreSettings.create({ key: "store" });
-  } else if (doc.minimumOrderValue === 3000) {
-    doc.minimumOrderValue = 200;
-    await doc.save();
   }
 
   cachedSettings = serializeStoreSettings(doc);

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import InventoryRequest from "../models/InventoryRequest.js";
 import StoreInventory from "../models/StoreInventory.js";
+import { productIdForSku } from "../services/catalogStoreInventory.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import Staff from "../../../staff-service/src/models/Staff.js";
 import { Vendor } from "../../../farmer-manager-service/src/models.js";
@@ -126,6 +127,7 @@ export const createInventoryRequest = async (req, res, next) => {
     if (!item) {
       item = await StoreInventory.create({
         managerId: manager._id,
+        productId: await productIdForSku(sku),
         sku,
         name: productName || sku,
         category,
@@ -369,6 +371,7 @@ export const reviewInventoryRequest = async (req, res, next) => {
       if (!updated) {
         await StoreInventory.create({
           managerId: request.managerId,
+          productId: await productIdForSku(request.sku),
           sku: request.sku,
           name: request.productName,
           category: request.category || "General",

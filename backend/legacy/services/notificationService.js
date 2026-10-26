@@ -266,10 +266,6 @@ function orderRef(order) {
 function paymentSuccessMessage(order, extra = {}) {
   const ref = orderRef(order);
 
-  if (extra.paymentMode === "cod_advance") {
-    return `${ref}: 10% advance payment received. Pay the remaining amount on delivery.`;
-  }
-
   if (extra.source === "upi_manual") {
     return `${ref}: UPI payment verified. Your order is confirmed.`;
   }
@@ -445,6 +441,29 @@ export async function sendDeliveryFailed(order) {
     type: "delivery_failed",
     order,
     data: buildOrderData(order, { type: "delivery_failed" }),
+  });
+}
+
+export async function sendItemsUnavailable(order, { items = [], refundAmount = 0, amountDue = null } = {}) {
+  const ref = orderRef(order);
+  const names = items.map((item) => item.name).filter(Boolean);
+  const what = names.length === 1 ? `"${names[0]}" is` : `${names.length} items are`;
+  const money = refundAmount > 0
+    ? ` ₹${refundAmount} will be refunded to your original payment method.`
+    : amountDue != null
+      ? ` Your updated amount to pay is ₹${amountDue}.`
+      : "";
+  return deliverToUser(order.user, {
+    title: "Item Unavailable",
+    body: `Sorry — ${what} out of stock and removed from ${ref}.${money}`,
+    type: "items_unavailable",
+    order,
+    data: buildOrderData(order, {
+      type: "items_unavailable",
+      removedItems: names.join(", "),
+      refundAmount,
+      amountDue: amountDue ?? "",
+    }),
   });
 }
 

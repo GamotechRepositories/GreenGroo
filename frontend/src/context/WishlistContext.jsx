@@ -13,7 +13,6 @@ import {
   toggleWishlistItem,
 } from "../api/api";
 import { useAuth } from "./AuthContext";
-import AddedToCartToast from "../components/cart/AddedToCartToast";
 import FlyToCartOverlay from "../components/cart/FlyToCartOverlay";
 import { buildFlyToWishlistAnimation, pulseWishlistTarget } from "../utils/flyToCart";
 import {
@@ -23,8 +22,6 @@ import {
 } from "../utils/guestWishlistStorage";
 
 const WishlistContext = createContext(null);
-const TOAST_DURATION_MS = 2600;
-
 const toProductId = (value) => String(value ?? "");
 
 const isMongoProductId = (value) => /^[a-f\d]{24}$/i.test(toProductId(value));
@@ -77,47 +74,9 @@ export function WishlistProvider({ children }) {
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [wishlistToast, setWishlistToast] = useState(null);
   const [flyAnimation, setFlyAnimation] = useState(null);
-  const [toastLeaving, setToastLeaving] = useState(false);
   const pendingToggleRef = useRef(null);
   const guestMergedRef = useRef(false);
-  const toastTimerRef = useRef(null);
-  const toastExitTimerRef = useRef(null);
-
-  const dismissWishlistToast = useCallback(() => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-    if (toastExitTimerRef.current) {
-      clearTimeout(toastExitTimerRef.current);
-      toastExitTimerRef.current = null;
-    }
-
-    setToastLeaving(true);
-    toastExitTimerRef.current = setTimeout(() => {
-      setWishlistToast(null);
-      setToastLeaving(false);
-    }, 250);
-  }, []);
-
-  const showAddedToWishlistToast = useCallback(
-    (product) => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
-
-      setToastLeaving(false);
-      setWishlistToast({
-        productImage: product?.productImages?.[0] || "",
-      });
-
-      toastTimerRef.current = setTimeout(() => {
-        dismissWishlistToast();
-      }, TOAST_DURATION_MS);
-    },
-    [dismissWishlistToast]
-  );
 
   const playFlyToWishlist = useCallback(
     (product, flySource) => {
@@ -125,26 +84,15 @@ export function WishlistProvider({ children }) {
         flySource,
         product?.productImages?.[0] || ""
       );
-      if (!animation) {
-        showAddedToWishlistToast(product);
-        return;
-      }
+      if (!animation) return;
       setFlyAnimation({ ...animation, id: Date.now(), pulse: pulseWishlistTarget });
     },
-    [showAddedToWishlistToast]
+    []
   );
 
   const clearFlyAnimation = useCallback(() => {
     setFlyAnimation(null);
   }, []);
-
-  useEffect(
-    () => () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
-    },
-    []
-  );
 
   const mergeGuestWishlistToServer = useCallback(async () => {
     const guestItems = loadGuestWishlist();
@@ -237,8 +185,6 @@ export function WishlistProvider({ children }) {
 
         if (options.flySource && nextWishlisted) {
           playFlyToWishlist(product, options.flySource);
-        } else if (nextWishlisted) {
-          showAddedToWishlistToast(product);
         }
 
         return { success: true, wishlisted: nextWishlisted };
@@ -257,12 +203,8 @@ export function WishlistProvider({ children }) {
       try {
         const { data } = await toggleWishlistItem(productId);
         setItems(mapWishlistItems(data.data));
-        if (data.added) {
-          if (options.flySource) {
-            playFlyToWishlist(normalized, options.flySource);
-          } else {
-            showAddedToWishlistToast(normalized);
-          }
+        if (data.added && options.flySource) {
+          playFlyToWishlist(normalized, options.flySource);
         }
         return { success: true, added: data.added };
       } catch (err) {
@@ -280,7 +222,7 @@ export function WishlistProvider({ children }) {
         };
       }
     },
-    [user, wishlistIds, showAddedToWishlistToast, playFlyToWishlist]
+    [user, wishlistIds, playFlyToWishlist]
   );
 
   useEffect(() => {
@@ -332,12 +274,6 @@ export function WishlistProvider({ children }) {
     >
       {children}
       <FlyToCartOverlay animation={flyAnimation} onComplete={clearFlyAnimation} />
-      <AddedToCartToast
-        visible={Boolean(wishlistToast)}
-        productImage={wishlistToast?.productImage}
-        leaving={toastLeaving}
-        message="Added to Wishlist"
-      />
     </WishlistContext.Provider>
   );
 }

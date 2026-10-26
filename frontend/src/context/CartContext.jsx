@@ -9,7 +9,6 @@ import {
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { isLocalProductId } from "../utils/localProductId";
 import { useAuth } from "./AuthContext";
-import AddedToCartToast from "../components/cart/AddedToCartToast";
 import FlyToCartOverlay from "../components/cart/FlyToCartOverlay";
 import { buildFlyToCartAnimation } from "../utils/flyToCart";
 import {
@@ -26,67 +25,19 @@ import {
 } from "../utils/guestCartStorage";
 
 const CartContext = createContext(null);
-const TOAST_DURATION_MS = 2600;
-
 export function CartProvider({ children }) {
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [cartToast, setCartToast] = useState(null);
   const [flyAnimation, setFlyAnimation] = useState(null);
-  const [toastLeaving, setToastLeaving] = useState(false);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const itemsRef = useRef([]);
   const queueRef = useRef(Promise.resolve());
   const guestMergedRef = useRef(false);
-  const toastTimerRef = useRef(null);
-  const toastExitTimerRef = useRef(null);
 
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
-
-  const dismissCartToast = useCallback(() => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-    if (toastExitTimerRef.current) {
-      clearTimeout(toastExitTimerRef.current);
-      toastExitTimerRef.current = null;
-    }
-
-    setToastLeaving(true);
-    toastExitTimerRef.current = setTimeout(() => {
-      setCartToast(null);
-      setToastLeaving(false);
-    }, 250);
-  }, []);
-
-  const showAddedToCartToast = useCallback(
-    (product) => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
-
-      setToastLeaving(false);
-      setCartToast({
-        productImage: product?.productImages?.[0] || "",
-      });
-
-      toastTimerRef.current = setTimeout(() => {
-        dismissCartToast();
-      }, TOAST_DURATION_MS);
-    },
-    [dismissCartToast]
-  );
-
-  useEffect(
-    () => () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
-    },
-    []
-  );
 
   const applyGuestCart = useCallback((nextItems) => {
     setItems(nextItems);
@@ -193,13 +144,10 @@ export function CartProvider({ children }) {
         flySource,
         product?.productImages?.[0] || ""
       );
-      if (!animation) {
-        showAddedToCartToast(product);
-        return;
-      }
+      if (!animation) return;
       setFlyAnimation({ ...animation, id: Date.now() });
     },
-    [showAddedToCartToast]
+    []
   );
 
   const clearFlyAnimation = useCallback(() => {
@@ -270,8 +218,6 @@ export function CartProvider({ children }) {
 
         if (options.flySource) {
           playFlyToCart(product, options.flySource);
-        } else {
-          showAddedToCartToast(product);
         }
 
         persistLocalCart(
@@ -286,8 +232,6 @@ export function CartProvider({ children }) {
 
       if (options.flySource) {
         playFlyToCart(product, options.flySource);
-      } else {
-        showAddedToCartToast(product);
       }
 
       return runCartMutation((current) => ({
@@ -302,7 +246,7 @@ export function CartProvider({ children }) {
           }),
       }));
     },
-    [user, playFlyToCart, runCartMutation, showAddedToCartToast, persistLocalCart]
+    [user, playFlyToCart, runCartMutation, persistLocalCart]
   );
 
   const removeFromCart = useCallback(
@@ -507,11 +451,6 @@ export function CartProvider({ children }) {
     >
       {children}
       <FlyToCartOverlay animation={flyAnimation} onComplete={clearFlyAnimation} />
-      <AddedToCartToast
-        visible={Boolean(cartToast)}
-        productImage={cartToast?.productImage}
-        leaving={toastLeaving}
-      />
     </CartContext.Provider>
   );
 }

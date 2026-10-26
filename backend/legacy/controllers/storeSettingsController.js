@@ -212,14 +212,9 @@ export const updateStoreSettings = async (req, res) => {
     }
 
     if (shippingSlabs !== undefined) {
-      const normalized = normalizeShippingSlabs(shippingSlabs);
-      if (!normalized.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Add at least one shipping slab",
-        });
-      }
-      payload.shippingSlabs = normalized;
+      payload.shippingSlabs = normalizeShippingSlabs(
+        Array.isArray(shippingSlabs) ? shippingSlabs : []
+      );
     }
 
     if (giftHamperTiers !== undefined) {

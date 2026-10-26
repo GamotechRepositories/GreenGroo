@@ -39,6 +39,28 @@ import { previewGiftCard, consumeGiftCard } from "../../admin-ops-service/src/gi
 import { computePreOrderDate, normalizePreOrderSlot } from "./preOrderHelpers.js";
 import { normalizeFulfillmentType } from "./departmentHelpers.js";
 
+/** Vendor zone / dark-store shipping rules for the store serving `options.shippingAddress`, or null. */
+async function quoteVendorShippingSafe(subtotal, options) {
+  if (!options.shippingAddress) return null;
+  try {
+    const { quoteVendorShipping } = await import(
+      "../../farmer-manager-service/src/shippingControllers.js"
+    );
+    const hasPastOrder = options.userId
+      ? await Order.exists({ user: options.userId, status: { $nin: ["attempted", "cancelled"] } })
+      : true;
+    return await quoteVendorShipping({
+      address: options.shippingAddress,
+      items: options.items || [],
+      subtotal,
+      userType: hasPastOrder ? "retail" : "first_order",
+    });
+  } catch (err) {
+    console.warn("Vendor shipping quote failed, using store settings:", err.message);
+    return null;
+  }
+}
+
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
   let resolvedCouponCode = "";
@@ -132,9 +154,19 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const heavyHandlingFee = dynamicPricing.heavyHandlingFee || 0;
   const freeAddon = dynamicPricing.freeAddon || null;
 
-  const baseDeliveryCharges =
-    normalizeFulfillmentType(options.fulfillmentType) === "pickup"
-      ? 0
+  const isPickup = normalizeFulfillmentType(options.fulfillmentType) === "pickup";
+  const vendorShipping = isPickup ? null : await quoteVendorShippingSafe(subtotal, options);
+  if (vendorShipping && !vendorShipping.serviceable) {
+    return {
+      error: "Delivery is not available to this address. Please choose a different address.",
+      status: 400,
+      code: "ADDRESS_NOT_SERVICEABLE",
+    };
+  }
+  const baseDeliveryCharges = isPickup
+    ? 0
+    : vendorShipping
+      ? vendorShipping.shippingCost
       : calculateShippingCharge(subtotal, storeSettings);
   const deliveryCharges = baseDeliveryCharges + heavyHandlingFee;
 
@@ -740,6 +772,9 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     giftCardCode: options.giftCardCode,
     fulfillmentType,
     items: orderItems,
+    shippingAddress: address
+      ? addressToSnapshot(address, options.customerLocation)
+      : mergeCustomerLocation(buildPendingDeliveryAddress(user, null), options.customerLocation),
   });
   if (pricing.error) {
     return pricing;
@@ -822,6 +857,45 @@ export async function prepareOrderData(userId, addressId, options = {}) {
       ? deliveryAddress.pincode
       : (options.customerLocation?.pincode || "")
   ).trim();
+
+  if (options.requireDarkStore) {
+    const { findStoreForOrder, findStoreShortages } = await import("../services/deliveryDispatcher.js");
+    const routing = await findStoreForOrder({
+      address: deliveryAddress,
+      items: orderItems,
+      fulfillmentType,
+    });
+    if (!routing.manager) {
+      return {
+        error:
+          fulfillmentType === "pickup"
+            ? "No dark store is available for pickup near this address. Please choose another address."
+            : "We don't deliver to this address yet — no dark store serves it. Please choose another address or pick up from a store.",
+        status: 400,
+        code: "NO_DARK_STORE",
+        reason: routing.reason,
+      };
+    }
+
+    const shortages = await findStoreShortages({
+      managerId: routing.manager._id,
+      items: orderItems,
+      itemDepartments: routing.itemDepartments,
+    });
+    if (shortages.length) {
+      const storeName = routing.manager.storeName || `${routing.manager.area || "your"} store`;
+      const list = shortages
+        .map((s) => (s.available > 0 ? `${s.name} (only ${s.available} left)` : `${s.name} (out of stock)`))
+        .join(", ");
+      return {
+        error: `Not enough stock at ${storeName}: ${list}. Please update your cart.`,
+        status: 409,
+        code: "STORE_OUT_OF_STOCK",
+        shortages,
+        storeId: String(routing.manager._id),
+      };
+    }
+  }
 
   return {
     orderItems,
@@ -924,7 +998,7 @@ async function resolveItemsForCheckout(userId, options = {}) {
 
   if (checkoutMode === "buyNow" || clientItems.length > 0) {
     const resolved = await resolveCheckoutItems(clientItems, {
-      skipStockCheck: Boolean(options.skipStockCheck),
+      skipStockCheck: Boolean(options.skipStockCheck || options.requireDarkStore),
     });
     if (resolved.error) {
       return resolved;
@@ -1031,6 +1105,10 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     giftCardCode: options.giftCardCode,
     fulfillmentType,
     items: orderItems,
+    shippingAddress: mergeCustomerLocation(
+      buildPendingDeliveryAddress(user, address),
+      options.customerLocation
+    ),
   });
   if (pricing.error) {
     return pricing;

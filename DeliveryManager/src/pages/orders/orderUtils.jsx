@@ -63,7 +63,7 @@ export function OrderDepartmentTags({ order }) {
 }
 
 export const STATUS_LABELS = {
-  preorder_hold: { text: "WITH PRODUCT MANAGER", className: "text-indigo-700" },
+  preorder_hold: { text: "WITH VENDOR", className: "text-indigo-700" },
   order_received: { text: "NEW ORDER", className: "text-blue-700" },
   incoming: { text: "NEW ORDER", className: "text-blue-700" },
   packed: { text: "PACKED", className: "text-purple-700" },
@@ -85,7 +85,7 @@ const PICKUP_STATUS_LABELS = {
 const PRE_ORDER_PROGRESS_LABELS = {
   awaiting_vendor: { text: "AWAITING VENDOR", className: "text-orange-700" },
   confirmed: { text: "VENDOR CONFIRMED", className: "text-indigo-700" },
-  preparing: { text: "WITH PRODUCT MANAGER", className: "text-indigo-700" },
+  preparing: { text: "PACKED BY VENDOR", className: "text-indigo-700" },
   dispatched: { text: "INCOMING TO STORE", className: "text-violet-700" },
   at_store: { text: "RECEIVED AT STORE", className: "text-purple-700" },
 };

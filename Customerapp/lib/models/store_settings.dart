@@ -100,9 +100,9 @@ class StoreSettings {
             : <MerchantUpiAccount>[];
 
     return StoreSettings(
-      minimumOrderValue: (json['minimumOrderValue'] as num?)?.toDouble() ?? 3000,
+      minimumOrderValue: (json['minimumOrderValue'] as num?)?.toDouble() ?? 0,
       minimumShippingCharge:
-          (json['minimumShippingCharge'] as num?)?.toDouble() ?? 280,
+          (json['minimumShippingCharge'] as num?)?.toDouble() ?? 0,
       shippingSlabs: slabs,
       merchantUpiId: legacyUpiId,
       merchantUpiName: legacyUpiName,

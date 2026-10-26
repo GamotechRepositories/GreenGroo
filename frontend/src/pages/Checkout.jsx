@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { useWishlist } from "../context/WishlistContext";
+import { useAvailableCouponsQuery } from "../hooks/queries/useAvailableCouponsQuery";
+import {
+  BillRow,
+  Card,
+  CheckoutLine,
+  CouponRow,
+  DashedDivider,
+  SectionLabel,
+  SlideToPay,
+} from "../components/checkout/CheckoutParts";
+import { formatCouponHeadline, formatCouponUnlockMessage } from "../utils/couponDisplay";
+import { getCartStepForItem, getDecreasedCartQuantityForItem } from "../utils/cartDefaults";
 import {
   getAddresses,
   addAddress,
@@ -50,16 +62,31 @@ import {
   getMinimumOrderShortfall,
   meetsMinimumOrder,
   mergeStoreSettings,
+  nextCheaperShippingSlab,
 } from "../utils/orderSettings";
 import { calculateOrderTotal } from "../utils/gst";
 import {
-  calculateAdvanceAmount,
-  calculatePayableAmount,
   getCheckoutPaymentMethod,
   PAYMENT_PLAN,
 } from "../utils/payment";
 
 const MAX_ORDER_NOTE_LENGTH = 200;
+const PAYMENT_PLAN_STORAGE_KEY = "gg_checkout_payment_plan";
+
+const DELIVERY_INSTRUCTIONS = [
+  { key: "avoidCalling", label: "Avoid calling" },
+  { key: "dontRingBell", label: "Don't ring the bell" },
+  { key: "leaveAtGuard", label: "Leave at guard" },
+];
+
+function readSavedPaymentPlan() {
+  try {
+    const saved = window.localStorage.getItem(PAYMENT_PLAN_STORAGE_KEY);
+    return Object.values(PAYMENT_PLAN).includes(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
 
 function checkoutCustomerLocation() {
   const loc = readDeliveryLocation();
@@ -91,76 +118,6 @@ const formatPrice = (amount, fractionDigits = 0) =>
   }).format(amount);
 
 const safeTrim = (value) => String(value ?? "").trim();
-
-/* ──────────────────────────────────────────────
-   Progress Step Indicator
-   ────────────────────────────────────────────── */
-const CHECKOUT_STEPS = [
-  { key: "address", label: "Address", icon: "M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z" },
-  { key: "payment", label: "Payment", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
-  { key: "review", label: "Review", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-];
-
-function CheckoutProgress({ selectedAddress, paymentPlan }) {
-  const completedSteps = [];
-  if (selectedAddress) completedSteps.push("address");
-  if (paymentPlan) completedSteps.push("payment");
-  if (selectedAddress && paymentPlan) completedSteps.push("review");
-
-  return (
-    <div className="mb-5 flex items-center justify-center gap-0 sm:mb-7">
-      {CHECKOUT_STEPS.map((step, i) => {
-        const isComplete = completedSteps.includes(step.key);
-        const isCurrent =
-          !isComplete &&
-          (i === 0 || completedSteps.includes(CHECKOUT_STEPS[i - 1]?.key));
-
-        return (
-          <div key={step.key} className="flex items-center">
-            {i > 0 && (
-              <div
-                className="step-connector mx-1.5 w-8 sm:mx-2.5 sm:w-14"
-                data-active={completedSteps.includes(CHECKOUT_STEPS[i - 1]?.key) ? "true" : "false"}
-              />
-            )}
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all duration-300 sm:h-10 sm:w-10 ${
-                  isComplete
-                    ? "border-[#0C831F] bg-[#0C831F] text-white shadow-md"
-                    : isCurrent
-                    ? "border-[#0C831F] bg-emerald-50 text-[#0C831F] shadow-sm"
-                    : "border-slate-200 bg-slate-50 text-slate-400"
-                }`}
-              >
-                {isComplete ? (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={step.icon} />
-                  </svg>
-                )}
-              </div>
-              <span
-                className={`text-[10px] font-semibold sm:text-xs ${
-                  isComplete
-                    ? "text-[#0C831F]"
-                    : isCurrent
-                    ? "text-text-primary"
-                    : "text-slate-400"
-                }`}
-              >
-                {step.label}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /* ──────────────────────────────────────────────
    Confetti Burst (CSS-only)
@@ -202,34 +159,6 @@ function ConfettiBurst() {
           }}
         />
       ))}
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────
-   Section Wrapper
-   ────────────────────────────────────────────── */
-function StepSection({ title, stepNumber, icon, children }) {
-  return (
-    <div className="group/section overflow-hidden rounded-xl border border-border-light bg-white shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-center gap-3 border-b border-border-light bg-gradient-to-r from-slate-50 to-white px-3 py-3 sm:px-5 sm:py-4">
-        {stepNumber && (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#0C831F] to-emerald-400 text-xs font-bold text-white shadow-sm">
-            {stepNumber}
-          </span>
-        )}
-        {icon && (
-          <svg className="h-5 w-5 shrink-0 text-[#0C831F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-          </svg>
-        )}
-        <h2 className="text-sm font-bold text-text-primary sm:text-base lg:text-lg">
-          {title}
-        </h2>
-      </div>
-      <div className="p-3 sm:p-5 lg:p-6">
-        {children}
-      </div>
     </div>
   );
 }
@@ -285,65 +214,22 @@ function CheckoutModal({ open, title, onClose, children, footer }) {
 }
 
 /* ──────────────────────────────────────────────
-   Address Summary
-   ────────────────────────────────────────────── */
-function AddressSummary({ address }) {
-  return (
-    <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-4 text-sm transition-all">
-      <div className="flex flex-wrap items-center gap-2 w-full min-w-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0C831F]/10 text-[#0C831F]">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z" />
-          </svg>
-        </div>
-        <p className="font-semibold text-text-primary break-words overflow-hidden">{getAddressFullName(address)}</p>
-        {address.isDefault ? (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-            Default
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-2 pl-10 text-text-secondary break-words overflow-hidden">{formatAddressLine(address)}</p>
-      <p className="pl-10 text-text-secondary">+91 {address.number}</p>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────
-   Payment Icons
-   ────────────────────────────────────────────── */
-const PaymentIcons = {
-  cod: (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-      </svg>
-    </div>
-  ),
-  online: (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-      </svg>
-    </div>
-  ),
-  advance: (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-  ),
-};
-
-/* ──────────────────────────────────────────────
    Checkout Page
    ────────────────────────────────────────────── */
 function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading, openAuthModal } = useAuth();
-  const { items, loading: cartLoading, loadCart, resetCart } = useCart();
+  const {
+    items,
+    loading: cartLoading,
+    loadCart,
+    resetCart,
+    incrementCartItem,
+    decrementCartItem,
+    removeFromCart,
+  } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   const buyNowItem = getBuyNowCheckout();
   const isBuyNow = Boolean(buyNowItem);
@@ -378,8 +264,9 @@ function Checkout() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
-  const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.COD);
-  const paymentMethod = getCheckoutPaymentMethod(paymentPlan);
+  const [paymentPlan, setPaymentPlan] = useState(readSavedPaymentPlan);
+  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
+  const paymentMethod = getCheckoutPaymentMethod(paymentPlan || PAYMENT_PLAN.COD);
   const [formError, setFormError] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -388,12 +275,25 @@ function Checkout() {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [orderStore, setOrderStore] = useState(null);
-  const [message] = useState("");
+  const [note, setNote] = useState("");
+  const [showNote, setShowNote] = useState(false);
+  const [busyLine, setBusyLine] = useState("");
   const [deliveryInstructions, setDeliveryInstructions] = useState({
     avoidCalling: false,
     dontRingBell: false,
     leaveAtGuard: false
   });
+  // Instructions travel to the store inside the order note.
+  const message = useMemo(
+    () =>
+      [
+        safeTrim(note),
+        ...DELIVERY_INSTRUCTIONS.filter((opt) => deliveryInstructions[opt.key]).map((opt) => opt.label),
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    [note, deliveryInstructions]
+  );
   const [storeSettings, setStoreSettings] = useState(null);
   const [attemptedOrderId, setAttemptedOrderId] = useState(null);
   const [couponInput, setCouponInput] = useState("");
@@ -480,6 +380,10 @@ function Checkout() {
       }),
     [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, appliedGiftCard, useRewards, rewardPointsInput, fulfillment, selectedPreOrderSlot]
   );
+  const checkoutAttemptKeyRef = useRef(checkoutAttemptKey);
+  checkoutAttemptKeyRef.current = checkoutAttemptKey;
+  // Delivery fee priced by the server from the serving dark store's vendor shipping rules.
+  const [serverDelivery, setServerDelivery] = useState({ key: "", charges: null });
 
   const storeParams = useMemo(
     () =>
@@ -594,10 +498,23 @@ function Checkout() {
     Math.max(0, subtotalAfterCoupon - rewardDiscount)
   );
   const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount - giftCardDiscount);
-  const deliveryCharges = isPickup ? 0 : calculateShippingCharge(subtotal, storeSettings);
+  const serverPriced =
+    !isPickup && serverDelivery.key === checkoutAttemptKey && serverDelivery.charges != null;
+  const deliveryCharges = isPickup
+    ? 0
+    : serverPriced
+      ? serverDelivery.charges
+      : calculateShippingCharge(subtotal, storeSettings);
+  // Settings-based estimate isn't shown until the admin settings have loaded.
+  const deliveryFeeKnown = isPickup || serverPriced || storeSettings != null;
+  // Delivery nudge only when the fee follows the store's slabs.
+  const cheaperSlab =
+    !isPickup &&
+    storeSettings &&
+    (!serverPriced || deliveryCharges === calculateShippingCharge(subtotal, storeSettings))
+      ? nextCheaperShippingSlab(subtotal, storeSettings)
+      : null;
   const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
-  const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
-  const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
   const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
   const minimumOrderShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
   const minimumOrderValue = mergeStoreSettings(storeSettings).minimumOrderValue;
@@ -606,6 +523,80 @@ function Checkout() {
     const diff = Math.max(0, original - item.discountedPrice);
     return sum + diff * item.quantity;
   }, 0);
+  const mrpTotal = subtotal + savings;
+  const totalSaved = savings + couponDiscount + rewardDiscount;
+
+  const { data: availableCoupons = [] } = useAvailableCouponsQuery(subtotal, {
+    enabled: Boolean(user) && subtotal > 0,
+  });
+  // Biggest unlocked coupon, else the one closest to unlocking.
+  const suggestedCoupon = useMemo(() => {
+    const usable = availableCoupons.filter(
+      (c) => c.code !== appliedCoupon?.code && !safeTrim(c.redemptionBlocked)
+    );
+    const unlocked = usable
+      .filter((c) => c.unlocked && Number(c.discountAmount) > 0)
+      .sort((a, b) => b.discountAmount - a.discountAmount);
+    if (unlocked.length) {
+      return appliedCoupon && appliedCoupon.discountAmount >= unlocked[0].discountAmount
+        ? null
+        : unlocked[0];
+    }
+    if (appliedCoupon) return null;
+    return (
+      usable
+        .filter((c) => !c.unlocked && Number(c.amountNeeded) > 0)
+        .sort((a, b) => a.amountNeeded - b.amountNeeded)[0] || null
+    );
+  }, [availableCoupons, appliedCoupon]);
+
+  const lineArgs = (item) => ({
+    productId: item.productId || item._id,
+    variantName: item.variantName || "",
+    colorName: item.colorName || "",
+    preOrderSlot: item.preOrderSlot || "",
+  });
+
+  const changeLineQuantity = async (item, lineKey, direction) => {
+    setBusyLine(lineKey);
+    try {
+      if (direction === "up") {
+        await incrementCartItem({ ...lineArgs(item), step: getCartStepForItem(item) });
+      } else {
+        await decrementCartItem({
+          ...lineArgs(item),
+          resolveNextQuantity: (currentQty) =>
+            getDecreasedCartQuantityForItem({ ...item, quantity: currentQty }),
+        });
+      }
+    } finally {
+      setBusyLine("");
+    }
+  };
+
+  const moveLineToWishlist = async (item, lineKey) => {
+    setBusyLine(lineKey);
+    try {
+      if (!isWishlisted(item._id)) {
+        const result = await toggleWishlist(item);
+        if (!result?.success) return;
+      }
+      const { productId, variantName, colorName, preOrderSlot } = lineArgs(item);
+      await removeFromCart(productId, variantName, colorName, preOrderSlot);
+    } finally {
+      setBusyLine("");
+    }
+  };
+
+  const choosePaymentPlan = (plan) => {
+    setPaymentPlan(plan);
+    setShowPaymentSheet(false);
+    try {
+      window.localStorage.setItem(PAYMENT_PLAN_STORAGE_KEY, plan);
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+  };
 
   const loadAddresses = async () => {
     setAddressesLoading(true);
@@ -705,6 +696,7 @@ function Checkout() {
       return attemptedOrderIdRef.current;
     }
 
+    const requestKey = checkoutAttemptKeyRef.current;
     try {
       const { data } = await createCheckoutAttempt({
         addressId: selectedAddressId || undefined,
@@ -720,6 +712,10 @@ function Checkout() {
         fulfillmentType: fulfillment,
       });
       const orderId = data?.data?._id;
+      const charges = Number(data?.data?.deliveryCharges);
+      if (Number.isFinite(charges)) {
+        setServerDelivery({ key: requestKey, charges });
+      }
       if (orderId) {
         setAttemptedOrderId(orderId);
         attemptedOrderIdRef.current = orderId;
@@ -770,8 +766,10 @@ function Checkout() {
     };
   }, [subtotal, appliedCoupon?.code]);
 
-  const handleApplyCoupon = async () => {
-    const code = couponInput.trim();
+  const handleApplyCoupon = () => applyCouponCode(couponInput);
+
+  const applyCouponCode = async (rawCode) => {
+    const code = String(rawCode || "").trim();
     if (!code) {
       setCouponError("Enter a coupon code");
       return;
@@ -900,10 +898,7 @@ function Checkout() {
       amount: paymentData.amount,
       razorpayOrderId: paymentData.razorpayOrderId,
       user,
-      description:
-        paymentMode === PAYMENT_PLAN.ADVANCE
-          ? "10% advance payment via Razorpay"
-          : "Full order payment via Razorpay",
+      description: "Full order payment via Razorpay",
       onSuccess: async (response) => {
         setPlacingOrder(true);
         setOrderError("");
@@ -926,11 +921,7 @@ function Checkout() {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
           });
-          await completeOrderSuccess(
-            paymentMode === PAYMENT_PLAN.ADVANCE
-              ? `Order confirmed. 10% paid via Razorpay. Pay the balance ${isPickup ? "at pickup" : "on delivery"}.`
-              : ""
-          );
+          await completeOrderSuccess("");
         } catch (err) {
           setOrderError(
             err.response?.data?.message || "Payment verified but order failed. Contact support."
@@ -951,6 +942,10 @@ function Checkout() {
     if (!selectedAddressId || placingOrder || !minimumOrderMet) return;
     if (hasPreOrderItems && !selectedPreOrderSlot) return;
     if (isPickup && !darkStore) return;
+    if (!paymentPlan) {
+      setShowPaymentSheet(true);
+      return;
+    }
     setOrderError("");
     setPlacingOrder(true);
     await loadCart();
@@ -1063,23 +1058,49 @@ function Checkout() {
     );
   }
 
+  const headerTitle = isPickup
+    ? `Pickup from ${darkStore?.storeName || "dark store"}`
+    : selectedAddress
+      ? safeTrim(selectedAddress.shopName) || getAddressFullName(selectedAddress)
+      : addressesLoading
+        ? "Loading address…"
+        : "Add delivery address";
+  const headerLine = selectedAddress
+    ? formatAddressLine(selectedAddress)
+    : readDeliveryLocation()?.address || "Choose where to deliver your order";
+  const openAddressChooser = () =>
+    addresses.length ? setShowAddressPicker(true) : setShowAddressForm(true);
+
+  let payBlocker = "";
+  if (!minimumOrderMet) {
+    payBlocker = `Add ${formatPrice(minimumOrderShortfall)} more to reach the minimum order of ${formatPrice(minimumOrderValue)}`;
+  } else if (!selectedAddressId) {
+    payBlocker = "Add a delivery address to continue";
+  } else if (hasPreOrderItems && !selectedPreOrderSlot) {
+    payBlocker = "Choose a pre-order slot to continue";
+  } else if (isPickup && !darkStore && !darkStoreLoading) {
+    payBlocker = "No dark store found for pickup at this address";
+  }
+  const readyToPay = !payBlocker && deliveryFeeKnown && !placingOrder && !(isPickup && !darkStore);
+  const paymentLabel =
+    paymentPlan === PAYMENT_PLAN.COD
+      ? isPickup
+        ? "Pay at store"
+        : "Cash on Delivery"
+      : paymentPlan === PAYMENT_PLAN.FULL
+        ? "Pay now · UPI / Card"
+        : "";
+
   return (
-    <div className="min-h-screen bg-mobile-bg text-text-primary overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-[#F1F2F6] text-slate-900">
       {/* Processing overlay */}
       {placingOrder && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
           <div className="scale-in flex flex-col items-center gap-4 rounded-2xl bg-white px-10 py-8 shadow-2xl ring-1 ring-slate-100">
-            <div className="relative">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-[#0C831F]" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg className="h-5 w-5 text-[#0C831F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z" />
-                </svg>
-              </div>
-            </div>
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-[#047857]" />
             <div className="text-center">
-              <p className="text-sm font-bold text-text-primary">Processing your order</p>
-              <p className="mt-1 text-xs text-text-secondary">Please don't close this page…</p>
+              <p className="text-sm font-bold text-slate-900">Processing your order</p>
+              <p className="mt-1 text-xs text-slate-500">Please don't close this page…</p>
             </div>
           </div>
         </div>
@@ -1095,8 +1116,8 @@ function Checkout() {
                 <path className="checkmark-draw" strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-text-primary">Order Confirmed! 🎉</h3>
-            <p className="mb-6 text-sm leading-relaxed text-text-secondary">{orderSuccessNote}</p>
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">Order Confirmed! 🎉</h3>
+            <p className="mb-6 text-sm leading-relaxed text-slate-500">{orderSuccessNote}</p>
             {orderStore ? (
               <div className="mb-5 text-left">
                 <DarkStoreCard store={orderStore} />
@@ -1105,7 +1126,7 @@ function Checkout() {
             <button
               type="button"
               onClick={() => navigate("/orders", { replace: true, state: { orderPlaced: true } })}
-              className="w-full rounded-xl bg-gradient-to-r from-[#0C831F] to-[#16a34a] py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full rounded-xl bg-[#047857] py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-[#065F46]"
             >
               View My Orders
             </button>
@@ -1130,18 +1151,15 @@ function Checkout() {
             <button
               type="button"
               onClick={openAddressForm}
-              className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+              className="flex items-center gap-1.5 text-sm font-semibold text-[#047857] hover:underline"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add new address
+              + Add new address
             </button>
             <button
               type="button"
               onClick={closeAddressPicker}
               disabled={!selectedAddressId}
-              className="rounded-xl bg-gradient-to-r from-[#0C831F] to-[#16a34a] px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-[#047857] px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-[#065F46] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Use this address
             </button>
@@ -1154,8 +1172,8 @@ function Checkout() {
               <label
                 className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition-all ${
                   selectedAddressId === addr._id
-                    ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                    : "border-border-light hover:border-primary/40 hover:bg-slate-50"
+                    ? "border-[#047857] bg-emerald-50/60 ring-1 ring-emerald-200"
+                    : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
                 }`}
               >
                 <input
@@ -1167,19 +1185,19 @@ function Checkout() {
                     setSelectedAddressId(addr._id);
                     setShowAddressPicker(false);
                   }}
-                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#047857]"
                 />
                 <div className="min-w-0 flex-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-text-primary break-words overflow-hidden">{getAddressFullName(addr)}</p>
+                    <p className="overflow-hidden break-words font-semibold text-slate-900">{getAddressFullName(addr)}</p>
                     {addr.isDefault ? (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#047857]">
                         Default
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-text-secondary break-words overflow-hidden">{formatAddressLine(addr)}</p>
-                  <p className="text-text-secondary">+91 {addr.number}</p>
+                  <p className="mt-1 overflow-hidden break-words text-slate-500">{formatAddressLine(addr)}</p>
+                  <p className="text-slate-500">+91 {addr.number}</p>
                 </div>
               </label>
             </li>
@@ -1201,749 +1219,595 @@ function Checkout() {
         />
       </CheckoutModal>
 
-      <section className="px-3 pb-28 pt-1 sm:px-4 sm:pb-14 lg:px-8 lg:pb-10 lg:pt-2">
-        <div className="mx-auto max-w-7xl">
-          {/* Breadcrumb */}
-          <nav className="mb-3 text-xs text-text-secondary sm:text-sm">
-            <Link to="/" className="hover:text-primary">
-              Home
-            </Link>
-            <span className="mx-2">›</span>
-            <Link to={isBuyNow ? "/product" : "/cart"} className="hover:text-primary">
-              {isBuyNow ? "Products" : "Cart"}
-            </Link>
-            <span className="mx-2">›</span>
-            <span className="font-medium text-text-primary">Checkout</span>
-          </nav>
+      {/* Payment method chooser */}
+      <CheckoutModal
+        open={showPaymentSheet}
+        title="Payment Options"
+        onClose={() => setShowPaymentSheet(false)}
+      >
+        <div className="space-y-2.5">
+          {[
+            {
+              plan: PAYMENT_PLAN.COD,
+              title: isPickup ? "Pay at store" : "Cash on Delivery",
+              subtitle: isPickup
+                ? "Cash or UPI when you collect your order"
+                : "Cash or UPI when your order arrives",
+              icon: "💵",
+            },
+            {
+              plan: PAYMENT_PLAN.FULL,
+              title: "Pay now",
+              subtitle: `${formatPrice(orderTotal, 2)} by UPI or card`,
+              icon: "💳",
+            },
+          ].map((option) => {
+            const selected = paymentPlan === option.plan;
+            return (
+              <button
+                key={option.plan}
+                type="button"
+                onClick={() => choosePaymentPlan(option.plan)}
+                className={`flex w-full items-center gap-3.5 rounded-xl border p-4 text-left transition-all ${
+                  selected
+                    ? "border-[#047857] bg-emerald-50/60 ring-1 ring-emerald-200"
+                    : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
+                }`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
+                  {option.icon}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-900">{option.title}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{option.subtitle}</span>
+                </span>
+                <span
+                  className={`h-5 w-5 shrink-0 rounded-full border-2 ${
+                    selected ? "border-[#047857] bg-[#047857] ring-[3px] ring-inset ring-white" : "border-slate-300"
+                  }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+      </CheckoutModal>
 
-          <h1 className="mb-2 flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900 sm:mb-4 sm:text-2xl">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0C831F] to-emerald-400 text-white shadow-sm">
-              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z" />
-              </svg>
+      {/* Header: address with dropdown */}
+      <header className="sticky top-0 z-40 bg-white shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+        <div className="mx-auto flex max-w-5xl items-center gap-1 px-2 py-2">
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(isBuyNow ? "/product" : "/cart"))}
+            aria-label="Back"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-900 hover:bg-slate-100"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={openAddressChooser}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-1 py-1 text-left hover:bg-slate-50"
+          >
+            <svg className="h-5 w-5 shrink-0 text-[#047857]" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M21.7 2.3a1 1 0 00-1.05-.23l-18 7a1 1 0 00.08 1.89l7.6 2.11 2.11 7.6a1 1 0 001.89.08l7-18a1 1 0 00-.23-1.05z" />
+            </svg>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-0.5">
+                <span className="truncate text-[15.5px] font-extrabold">{headerTitle}</span>
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+              <span className="block truncate text-xs font-medium text-slate-500">{headerLine}</span>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {totalSaved > 0 ? (
+        <div className="flex items-center justify-center gap-1.5 bg-[#E6F6EC] py-2 text-sm font-extrabold text-[#0B7A3B]">
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 1l2.4 2.2 3.2-.5.9 3.1 2.9 1.5-1.2 3 1.2 3-2.9 1.5-.9 3.1-3.2-.5L12 21l-2.4-2.2-3.2.5-.9-3.1-2.9-1.5 1.2-3-1.2-3 2.9-1.5.9-3.1 3.2.5L12 1zm-1.2 13.6l5.3-5.3-1.4-1.4-3.9 3.9-1.9-1.9-1.4 1.4 3.3 3.3z" />
+          </svg>
+          {formatPrice(totalSaved)} saved!
+        </div>
+      ) : null}
+
+      <section className="mx-auto max-w-5xl px-3 pb-44 pt-3 lg:pb-10">
+        {cartLoading && !isBuyNow ? (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="shimmer-loading h-36 rounded-2xl" />
+              ))}
             </div>
-            Checkout
-          </h1>
+            <div className="shimmer-loading h-[420px] rounded-2xl" />
+          </div>
+        ) : (
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0 space-y-4">
+              {!minimumOrderMet ? (
+                <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 ring-1 ring-amber-200/70">
+                  Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}
+                  {formatPrice(minimumOrderValue)}.{" "}
+                  <Link to="/product" className="font-extrabold underline">
+                    Add items
+                  </Link>
+                </p>
+              ) : null}
 
-          {/* Progress indicator */}
-          <CheckoutProgress selectedAddress={selectedAddress} paymentPlan={paymentPlan} />
-
-          {cartLoading && !isBuyNow ? (
-            <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="shimmer-loading h-36 rounded-xl border border-border-light" />
+              {/* Items */}
+              <Card>
+                {departmentGroups.map((group, index) => (
+                  <div key={group.department} className={index > 0 ? "mt-3" : ""}>
+                    <DepartmentGroupHeader
+                      department={group.department}
+                      itemCount={group.items.length}
+                      etaText={departmentEtaText(group.department, {
+                        pickup: isPickup,
+                        preOrderSlot: selectedPreOrderSlot,
+                      })}
+                    />
+                    <ul className="divide-y divide-slate-100">
+                      {group.items.map((item) => {
+                        const lineKey = `${item.productId || item._id}-${item.variantName || ""}-${item.colorName || ""}-${item.preOrderSlot || ""}`;
+                        return (
+                          <CheckoutLine
+                            key={lineKey}
+                            item={item}
+                            editable={!isBuyNow}
+                            busy={placingOrder || busyLine === lineKey}
+                            onIncrease={() => changeLineQuantity(item, lineKey, "up")}
+                            onDecrease={() => changeLineQuantity(item, lineKey, "down")}
+                            onMoveToWishlist={
+                              isBuyNow || isLocalProductId(item._id)
+                                ? undefined
+                                : () => moveLineToWishlist(item, lineKey)
+                            }
+                          />
+                        );
+                      })}
+                    </ul>
+                  </div>
                 ))}
-              </div>
-              <div className="shimmer-loading h-[480px] rounded-xl border border-border-light" />
-            </div>
-          ) : (
-            <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8 w-full min-w-0">
-              {/* Left column */}
-              <div className="space-y-3 sm:space-y-4 w-full min-w-0 overflow-hidden">
-                {/* Address */}
-                <StepSection
-                  title={isPickup ? "Your details" : "Delivery address"}
-                  stepNumber="2"
-                  icon="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z"
-                >
-                  {addressesLoading ? (
-                    <div className="shimmer-loading h-24 rounded-lg" />
-                  ) : selectedAddress ? (
-                    <>
-                      <AddressSummary address={selectedAddress} />
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-text-secondary">
-                        No saved address yet. Add one to continue.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddressForm(true)}
-                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-[#0C831F] shadow-sm transition-all hover:bg-emerald-100"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Add Address
-                      </button>
-                    </>
-                  )}
-                </StepSection>
-
-                {/* Pre-order slot */}
-                {hasPreOrderItems ? (
-                  <StepSection
-                    title={isPickup ? "Pre-order pickup slot (tomorrow)" : "Pre-order delivery slot (tomorrow)"}
-                    stepNumber="3"
-                    icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                {hasPreOrderItems && hasNowItems ? (
+                  <p className="pb-2 text-xs text-slate-500">
+                    Pre-order and quick items arrive separately, but you pay once for the whole order.
+                  </p>
+                ) : null}
+                <div className="border-t border-slate-100">
+                  <Link
+                    to="/product"
+                    className="flex items-center gap-2.5 py-3 text-sm font-bold text-slate-900 hover:text-[#047857]"
                   >
-                    <p className="mb-3 text-xs text-slate-500">
-                      Pre-order items are {isPickup ? "ready for pickup" : "delivered"}
-                      {slotAvailability?.date ? ` on ${formatPreOrderDay(slotAvailability.date)}` : " tomorrow"}.
-                      Pick a time slot:
-                    </p>
-                    {preOrderSlots.length === 0 ? (
-                      <p className="text-xs font-semibold text-red-600">No slots available right now.</p>
-                    ) : (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {preOrderSlots.map((slot) => {
-                          const isSelected = selectedPreOrderSlot === slot.label;
-                          return (
-                            <button
-                              key={slot.label}
-                              type="button"
-                              disabled={slot.isFull}
-                              onClick={() => setSelectedPreOrderSlot(slot.label)}
-                              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                                isSelected
-                                  ? "border-[#0C831F] bg-emerald-50/60"
-                                  : "border-slate-200 bg-white hover:border-slate-300"
+                    <span className="text-lg leading-none">+</span>
+                    Add more items
+                  </Link>
+                </div>
+                <div className="border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowNote((open) => !open)}
+                    className="flex w-full items-center gap-2.5 py-3 text-left text-sm font-bold text-slate-900 hover:text-[#047857]"
+                  >
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                    </svg>
+                    <span className="truncate">{safeTrim(note) ? `Note: ${safeTrim(note)}` : "Add a note for the store"}</span>
+                  </button>
+                  {showNote ? (
+                    <textarea
+                      value={note}
+                      maxLength={MAX_ORDER_NOTE_LENGTH}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={3}
+                      placeholder="Any special instructions for your order..."
+                      className="mb-2 w-full resize-none rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-200"
+                    />
+                  ) : null}
+                </div>
+              </Card>
+
+              {/* Pre-order slot */}
+              {hasPreOrderItems ? (
+                <Card title={isPickup ? "Pre-order pickup slot" : "Pre-order delivery slot"}>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Pre-order items are {isPickup ? "ready for pickup" : "delivered"}
+                    {slotAvailability?.date ? ` on ${formatPreOrderDay(slotAvailability.date)}` : " tomorrow"}.
+                    Pick a time slot:
+                  </p>
+                  {preOrderSlots.length === 0 ? (
+                    <p className="text-xs font-semibold text-red-600">No slots available right now.</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {preOrderSlots.map((slot) => {
+                        const isSelected = selectedPreOrderSlot === slot.label;
+                        return (
+                          <button
+                            key={slot.label}
+                            type="button"
+                            disabled={slot.isFull}
+                            onClick={() => setSelectedPreOrderSlot(slot.label)}
+                            className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              isSelected ? "border-[#047857] bg-emerald-50/60" : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <span className={`text-sm ${isSelected ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                              {formatSlotLabel(slot.label)}
+                            </span>
+                            <span
+                              className={`shrink-0 text-[11px] ${
+                                slot.isFull ? "font-medium text-red-600" : isSelected ? "font-medium text-[#047857]" : "text-slate-500"
                               }`}
                             >
-                              <span className={`text-sm ${isSelected ? "font-semibold text-slate-900" : "text-slate-700"}`}>
-                                {formatSlotLabel(slot.label)}
-                              </span>
-                              <span
-                                className={`shrink-0 text-[11px] ${
-                                  slot.isFull ? "font-medium text-red-600" : isSelected ? "font-medium text-[#0C831F]" : "text-slate-500"
-                                }`}
-                              >
-                                {isSelected ? "Selected" : slotAvailabilityText(slot)}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </StepSection>
-                ) : null}
+                              {isSelected ? "Selected" : slotAvailabilityText(slot)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
+              ) : null}
 
-                {/* Payment */}
-                <StepSection
-                  title="Payment"
-                  stepNumber={hasPreOrderItems ? "3" : "2"}
-                  icon="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-                >
-                  <div className="space-y-2.5">
-                    {/* COD */}
-                    <label
-                      className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 transition-all ${
-                        paymentPlan === PAYMENT_PLAN.COD
-                          ? "border-[#0C831F] bg-emerald-50/60 shadow-sm ring-1 ring-emerald-200/50"
-                          : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.COD}
-                        checked={paymentPlan === PAYMENT_PLAN.COD}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.COD)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
-                      />
-                      {PaymentIcons.cod}
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{isPickup ? "Pay at store" : "Pay on delivery"}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {isPickup ? "Cash or UPI when you collect your order" : "Cash or UPI when your order arrives"}
-                        </p>
-                      </div>
-                    </label>
-
-                    {/* Full online */}
-                    <label
-                      className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 transition-all ${
-                        paymentPlan === PAYMENT_PLAN.FULL
-                          ? "border-[#0C831F] bg-emerald-50/60 shadow-sm ring-1 ring-emerald-200/50"
-                          : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.FULL}
-                        checked={paymentPlan === PAYMENT_PLAN.FULL}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
-                      />
-                      {PaymentIcons.online}
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Pay online now</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {formatPrice(orderTotal, 2)} via Razorpay
-                        </p>
-                      </div>
-                    </label>
-
-                    {/* 10% advance */}
-                    <label
-                      className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 transition-all ${
-                        paymentPlan === PAYMENT_PLAN.ADVANCE
-                          ? "border-[#0C831F] bg-emerald-50/60 shadow-sm ring-1 ring-emerald-200/50"
-                          : "border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.ADVANCE}
-                        checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
-                      />
-                      {PaymentIcons.advance}
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Pay 10% now</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now · rest on delivery
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Secure badge */}
-                  <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 ring-1 ring-slate-100">
-                    <svg className="h-4 w-4 shrink-0 text-[#0C831F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                    </svg>
-                    100% Secure Payments · SSL Encrypted
-                  </div>
-                </StepSection>
-
-                {/* Delivery instructions */}
-                <StepSection
-                  title="Delivery instructions"
-                  stepNumber={hasPreOrderItems ? "4" : "3"}
-                  icon="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                >
-                  <div className="flex w-full gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-                    {/* Record Tile */}
-                    <button
-                      type="button"
-                      className="flex h-24 w-28 shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100"
-                    >
-                      <div className="flex items-center gap-1 text-[#0C831F]">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-                        </svg>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Record</span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-700 leading-tight">Press here<br/>and hold</span>
-                    </button>
-
-                    {/* Avoid calling */}
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryInstructions(p => ({ ...p, avoidCalling: !p.avoidCalling }))}
-                      className={`flex h-24 w-28 shrink-0 snap-start flex-col justify-between rounded-xl border p-3 text-left transition-colors ${
-                        deliveryInstructions.avoidCalling 
-                          ? "border-[#0C831F] bg-green-50/50" 
-                          : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <svg className={`h-5 w-5 ${deliveryInstructions.avoidCalling ? "text-[#0C831F]" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className={`h-4 w-4 rounded-[3px] border ${deliveryInstructions.avoidCalling ? "border-[#0C831F] bg-[#0C831F]" : "border-slate-300"}`}>
-                          {deliveryInstructions.avoidCalling && (
-                            <svg className="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`text-xs font-semibold leading-tight ${deliveryInstructions.avoidCalling ? "text-[#0C831F]" : "text-slate-700"}`}>Avoid calling</span>
-                    </button>
-
-                    {/* Don't ring the bell */}
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryInstructions(p => ({ ...p, dontRingBell: !p.dontRingBell }))}
-                      className={`flex h-24 w-28 shrink-0 snap-start flex-col justify-between rounded-xl border p-3 text-left transition-colors ${
-                        deliveryInstructions.dontRingBell 
-                          ? "border-[#0C831F] bg-green-50/50" 
-                          : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <svg className={`h-5 w-5 ${deliveryInstructions.dontRingBell ? "text-[#0C831F]" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0M3.124 7.5A8.969 8.969 0 015.292 3m13.416 0a8.969 8.969 0 012.168 4.5" />
-                        </svg>
-                        <div className={`h-4 w-4 rounded-[3px] border ${deliveryInstructions.dontRingBell ? "border-[#0C831F] bg-[#0C831F]" : "border-slate-300"}`}>
-                          {deliveryInstructions.dontRingBell && (
-                            <svg className="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`text-xs font-semibold leading-tight ${deliveryInstructions.dontRingBell ? "text-[#0C831F]" : "text-slate-700"}`}>Don't ring<br/>the bell</span>
-                    </button>
-
-                    {/* Leave at guard */}
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryInstructions(p => ({ ...p, leaveAtGuard: !p.leaveAtGuard }))}
-                      className={`flex h-24 w-28 shrink-0 snap-start flex-col justify-between rounded-xl border p-3 text-left transition-colors ${
-                        deliveryInstructions.leaveAtGuard 
-                          ? "border-[#0C831F] bg-green-50/50" 
-                          : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <svg className={`h-5 w-5 ${deliveryInstructions.leaveAtGuard ? "text-[#0C831F]" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
-                        <div className={`h-4 w-4 rounded-[3px] border ${deliveryInstructions.leaveAtGuard ? "border-[#0C831F] bg-[#0C831F]" : "border-slate-300"}`}>
-                          {deliveryInstructions.leaveAtGuard && (
-                            <svg className="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`text-xs font-semibold leading-tight ${deliveryInstructions.leaveAtGuard ? "text-[#0C831F]" : "text-slate-700"}`}>Leave at<br/>guard</span>
-                    </button>
-                  </div>
-                </StepSection>
-              </div>
-
-              {/* Right column — Order Summary */}
-              <div className="overflow-hidden rounded-none sm:rounded-xl border-y sm:border border-border-light bg-white shadow-sm lg:sticky lg:top-24 mb-6 lg:mb-0">
-                {/* Gradient accent */}
-                <div className="h-1 bg-gradient-to-r from-[#0C831F] via-emerald-400 to-[#0C831F]" />
-
-                <div className="p-3 sm:p-5 lg:p-6">
-                  <h2 className="mb-3 flex items-center gap-2 text-sm font-bold sm:mb-5 sm:text-base lg:text-lg">
-                    <svg className="h-5 w-5 text-[#0C831F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Order Summary
-                  </h2>
-
-                  {/* Item list */}
-                  <div className="mb-3 max-h-72 space-y-3 overflow-y-auto sm:mb-5 sm:max-h-96">
-                  {departmentGroups.map((group) => (
-                  <div key={group.department}>
-                  <DepartmentGroupHeader
-                    department={group.department}
-                    itemCount={group.items.length}
-                    etaText={departmentEtaText(group.department, {
-                      pickup: isPickup,
-                      preOrderSlot: selectedPreOrderSlot,
+              {/* Delivery instructions (sent with the order note) */}
+              {!isPickup ? (
+                <Card title="Delivery instructions">
+                  <div className="flex flex-wrap gap-2">
+                    {DELIVERY_INSTRUCTIONS.map((option) => {
+                      const active = Boolean(deliveryInstructions[option.key]);
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() =>
+                            setDeliveryInstructions((prev) => ({ ...prev, [option.key]: !prev[option.key] }))
+                          }
+                          className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                            active
+                              ? "border-[#047857] bg-emerald-50 text-[#047857]"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {active ? "✓ " : ""}
+                          {option.label}
+                        </button>
+                      );
                     })}
-                  />
-                  <ul className="space-y-2">
-                    {group.items.map((item) => (
-                      <li key={`${item.productId || item._id}-${item.variantName || "default"}-${item.colorName || "default"}`} className="flex items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-slate-50">
-                        <div className="w-14 shrink-0 overflow-hidden rounded-lg border border-border-light transition-all hover:shadow-sm">
-                          <ProductImageFrame
-                            src={item.productImages?.[0]}
-                            alt={item.name}
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-sm font-medium leading-snug text-text-primary">
-                            {item.name}
-                          </p>
-                          <p className="mt-0.5 text-xs text-text-secondary">Qty: {item.quantity}</p>
-                        </div>
-                        <span className="shrink-0 text-sm font-bold text-text-primary">
-                          {formatPrice(item.discountedPrice * item.quantity)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                   </div>
-                  ))}
-                  </div>
+                </Card>
+              ) : null}
 
-                  {/* Coupon / Gift card / Rewards */}
-                  <div className="mb-3 border-b border-border-light pb-3 sm:mb-4">
-                    {/* Coupon */}
-                    {appliedCoupon ? (
-                      <div className="flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
-                        <div className="min-w-0">
-                          <p className="flex items-center gap-1.5 text-sm font-semibold text-green-800">
-                            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Coupon: {appliedCoupon.code}
-                          </p>
-                          {appliedCoupon.title ? (
-                            <p className="mt-0.5 text-xs text-green-700">{appliedCoupon.title}</p>
-                          ) : null}
-                          <p className="mt-1 text-xs font-medium text-green-700">
-                            You save {formatPrice(appliedCoupon.discountAmount)}
-                          </p>
-                        </div>
+              {/* Savings corner */}
+              <div>
+                <SectionLabel>SAVINGS CORNER</SectionLabel>
+                <Card>
+                  {appliedCoupon ? (
+                    <CouponRow
+                      title={`You saved ${formatPrice(appliedCoupon.discountAmount)} with '${appliedCoupon.code}'`}
+                      subtitle={appliedCoupon.title || "Coupon applied"}
+                      actionLabel="Remove"
+                      actionClass="text-red-600"
+                      onAction={handleRemoveCoupon}
+                    />
+                  ) : null}
+                  {appliedCoupon && suggestedCoupon ? <div className="my-3 border-t border-slate-100" /> : null}
+                  {suggestedCoupon ? (
+                    <CouponRow
+                      title={
+                        suggestedCoupon.unlocked
+                          ? `Save ${formatPrice(suggestedCoupon.discountAmount)} with '${suggestedCoupon.code}'`
+                          : formatCouponHeadline(suggestedCoupon)
+                      }
+                      subtitle={
+                        suggestedCoupon.unlocked
+                          ? formatCouponHeadline(suggestedCoupon)
+                          : formatCouponUnlockMessage(suggestedCoupon)
+                      }
+                      actionLabel={suggestedCoupon.unlocked ? "Apply" : null}
+                      disabled={applyingCoupon}
+                      onAction={() => applyCouponCode(suggestedCoupon.code)}
+                    />
+                  ) : null}
+                  {!appliedCoupon ? (
+                    <div className={suggestedCoupon ? "mt-3" : ""}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            if (couponError) setCouponError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Enter coupon code"
+                          className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm uppercase outline-none focus:ring-2 focus:ring-emerald-200"
+                        />
                         <button
                           type="button"
-                          onClick={handleRemoveCoupon}
-                          className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon || !couponInput.trim()}
+                          className="shrink-0 px-2 text-sm font-extrabold text-[#047857] disabled:opacity-40"
                         >
-                          Remove
+                          {applyingCoupon ? "…" : "APPLY"}
                         </button>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <label htmlFor="couponCode" className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-                            <svg className="h-4 w-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z M6 6h.008v.008H6V6z" />
-                            </svg>
-                            Have a coupon?
-                          </label>
-                          <Link to="/coupons" className="text-xs font-semibold text-primary hover:underline">
-                            View all
-                          </Link>
-                        </div>
-                        <div className="flex gap-2">
-                          <input
-                            id="couponCode"
-                            type="text"
-                            value={couponInput}
-                            onChange={(e) => {
-                              setCouponInput(e.target.value.toUpperCase());
-                              if (couponError) setCouponError("");
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleApplyCoupon();
-                              }
-                            }}
-                            placeholder="Enter coupon code"
-                            className="min-w-0 flex-1 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm uppercase outline-none transition-all focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleApplyCoupon}
-                            disabled={applyingCoupon || !couponInput.trim()}
-                            className="shrink-0 rounded-lg bg-[#0C831F] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#0a6e1a] disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {applyingCoupon ? "..." : "Apply"}
-                          </button>
-                        </div>
-                        {couponError ? (
-                          <p className="text-xs text-red-600">{couponError}</p>
-                        ) : null}
-                      </div>
-                    )}
+                    </div>
+                  ) : null}
+                  {couponError ? <p className="mt-2 text-xs text-red-600">{couponError}</p> : null}
 
-                    {/* Gift card */}
+                  {/* Gift card */}
+                  <div className="mt-3 border-t border-slate-100 pt-3">
                     {appliedGiftCard ? (
-                      <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                        <div>
-                          <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
-                            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                            </svg>
-                            Gift card: {appliedGiftCard.code}
-                          </p>
-                          <p className="mt-1 text-xs font-medium text-emerald-700">
-                            Balance used {formatPrice(giftCardDiscount)}
-                          </p>
-                        </div>
-                        <button type="button" onClick={handleRemoveGiftCard} className="text-xs font-semibold text-red-600 hover:underline">
-                          Remove
+                      <CouponRow
+                        title={`Gift card '${appliedGiftCard.code}'`}
+                        subtitle={`Balance used ${formatPrice(giftCardDiscount)}`}
+                        actionLabel="Remove"
+                        actionClass="text-red-600"
+                        onAction={handleRemoveGiftCard}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={giftCardInput}
+                          onChange={(e) => {
+                            setGiftCardInput(e.target.value.toUpperCase());
+                            if (giftCardError) setGiftCardError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleApplyGiftCard();
+                            }
+                          }}
+                          placeholder="Have a gift card?"
+                          className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm uppercase outline-none focus:ring-2 focus:ring-emerald-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyGiftCard}
+                          disabled={applyingGiftCard || !giftCardInput.trim()}
+                          className="shrink-0 px-2 text-sm font-extrabold text-[#047857] disabled:opacity-40"
+                        >
+                          {applyingGiftCard ? "…" : "APPLY"}
                         </button>
                       </div>
-                    ) : (
-                      <div className="mt-3 space-y-2">
-                        <label htmlFor="giftCardCode" className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-                          <svg className="h-4 w-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                          </svg>
-                          Have a gift card?
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            id="giftCardCode"
-                            type="text"
-                            value={giftCardInput}
-                            onChange={(e) => {
-                              setGiftCardInput(e.target.value.toUpperCase());
-                              if (giftCardError) setGiftCardError("");
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleApplyGiftCard();
-                              }
-                            }}
-                            placeholder="Enter gift card code"
-                            className="min-w-0 flex-1 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm uppercase outline-none transition-all focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/20"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleApplyGiftCard}
-                            disabled={applyingGiftCard || !giftCardInput.trim()}
-                            className="shrink-0 rounded-lg bg-[#0C831F] px-4 py-2 text-sm font-bold text-white transition-all hover:bg-[#0a6e1a] disabled:opacity-50"
-                          >
-                            {applyingGiftCard ? "..." : "Apply"}
-                          </button>
-                        </div>
-                        {giftCardError ? <p className="text-xs text-red-600">{giftCardError}</p> : null}
-                      </div>
                     )}
+                    {giftCardError ? <p className="mt-2 text-xs text-red-600">{giftCardError}</p> : null}
+                  </div>
 
-                    {/* Reward Points Redemption Block */}
-                    {rewardsActive && (
-                      <div className="mt-3 border-t border-border-light pt-3">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-base">🪙</span>
-                            <span className="text-xs font-bold text-text-primary">Reward Points</span>
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                              Bal: {userRewardPoints} pts (₹{((userRewardPoints || 0) * (rewardSettings?.pointValueInRupees || 1.0)).toFixed(2)})
+                  {/* Reward points */}
+                  {rewardsActive ? (
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-[13px] font-extrabold text-slate-900">
+                          🪙 Reward points{" "}
+                          <span className="font-semibold text-slate-500">
+                            · {userRewardPoints} pts ({formatPrice((userRewardPoints || 0) * (rewardSettings?.pointValueInRupees || 1), 2)})
+                          </span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowRewardTermsModal(true)}
+                          className="text-[11px] font-medium text-slate-500 underline hover:text-[#047857]"
+                        >
+                          T&C
+                        </button>
+                      </div>
+                      {userRewardPoints <= 0 ? (
+                        <p className="text-xs text-slate-500">Earn points on this order and redeem them next time.</p>
+                      ) : subtotal < (rewardSettings?.minOrderAmountToRedeem || 0) ? (
+                        <p className="text-xs text-amber-700">
+                          Minimum order of {formatPrice(rewardSettings.minOrderAmountToRedeem)} required to redeem points.
+                        </p>
+                      ) : userRewardPoints < (rewardSettings?.minPointsToRedeem || 0) ? (
+                        <p className="text-xs text-slate-500">
+                          Minimum {rewardSettings.minPointsToRedeem} points required to redeem.
+                        </p>
+                      ) : (
+                        <>
+                          <label className="flex cursor-pointer items-start gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={useRewards}
+                              onChange={(e) => {
+                                setUseRewards(e.target.checked);
+                                setRewardPointsInput(e.target.checked ? maxRedeemablePoints : 0);
+                              }}
+                              className="mt-0.5 h-4 w-4 accent-[#047857]"
+                            />
+                            <span className="text-xs text-slate-600">
+                              Use up to <strong>{maxRedeemablePoints}</strong> points (max{" "}
+                              {rewardSettings?.maxRedemptionPercent || 50}% of order)
                             </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowRewardTermsModal(true)}
-                            className="text-[11px] font-medium text-text-secondary hover:text-primary underline"
-                          >
-                            T&C
-                          </button>
-                        </div>
-
-                        {userRewardPoints <= 0 ? (
-                          <p className="text-[11px] text-text-secondary">
-                            Earn points on this order and redeem them on your next grocery delivery!
-                          </p>
-                        ) : subtotal < (rewardSettings?.minOrderAmountToRedeem || 0) ? (
-                          <p className="text-[11px] text-amber-700 bg-amber-50/70 p-2 rounded-lg">
-                            Minimum order of ₹{rewardSettings.minOrderAmountToRedeem} required to redeem reward points.
-                          </p>
-                        ) : userRewardPoints < (rewardSettings?.minPointsToRedeem || 0) ? (
-                          <p className="text-[11px] text-text-secondary">
-                            Minimum {rewardSettings.minPointsToRedeem} points required to start redeeming (You have {userRewardPoints} pts).
-                          </p>
-                        ) : (
-                          <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 space-y-2.5">
-                            <label className="flex items-start gap-2.5 cursor-pointer">
+                          </label>
+                          {useRewards ? (
+                            <div className="mt-2 flex items-center gap-2">
                               <input
-                                type="checkbox"
-                                checked={useRewards}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setUseRewards(checked);
-                                  setRewardPointsInput(checked ? maxRedeemablePoints : 0);
-                                }}
-                                className="mt-0.5 h-4 w-4 rounded accent-primary text-primary focus:ring-primary"
+                                type="number"
+                                min="1"
+                                max={maxRedeemablePoints}
+                                value={rewardPointsInput || ""}
+                                onChange={(e) =>
+                                  setRewardPointsInput(Math.max(0, Math.min(maxRedeemablePoints, Number(e.target.value))))
+                                }
+                                className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-200"
                               />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-text-primary">
-                                  Redeem Reward Points for Instant Discount
-                                </p>
-                                <p className="text-[11px] text-text-secondary mt-0.5">
-                                  Use up to {maxRedeemablePoints} points (Max {rewardSettings?.maxRedemptionPercent || 50}% of order).
-                                </p>
-                              </div>
-                            </label>
-
-                            {useRewards && (
-                              <div className="space-y-2">
-                                {/* Progress bar */}
-                                <div className="relative h-2 w-full overflow-hidden rounded-full bg-amber-100">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-300"
-                                    style={{ width: `${maxRedeemablePoints > 0 ? (rewardPointsInput / maxRedeemablePoints) * 100 : 0}%` }}
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="relative flex-1">
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      max={maxRedeemablePoints}
-                                      value={rewardPointsInput || ""}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, Math.min(maxRedeemablePoints, Number(e.target.value)));
-                                        setRewardPointsInput(val);
-                                      }}
-                                      placeholder={`Points (max ${maxRedeemablePoints})`}
-                                      className="w-full rounded-lg border border-border-light bg-white px-3 py-1.5 text-xs font-bold text-text-primary outline-none focus:border-primary"
-                                    />
-                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-text-muted">
-                                      pts
-                                    </span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setRewardPointsInput(maxRedeemablePoints)}
-                                    className="shrink-0 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-200 transition"
-                                  >
-                                    Max ({maxRedeemablePoints})
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {useRewards && rewardDiscount > 0 && (
-                              <div className="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
-                                <span>Points Discount:</span>
-                                <span>-₹{rewardDiscount.toFixed(2)}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Price breakdown */}
-                  <div className="space-y-2.5 border-t border-border-light pt-4 text-sm">
-                    <div className="flex justify-between text-text-secondary">
-                      <span>Subtotal</span>
-                      <span className="font-medium text-text-primary">{formatPrice(subtotal)}</span>
+                              <button
+                                type="button"
+                                onClick={() => setRewardPointsInput(maxRedeemablePoints)}
+                                className="shrink-0 rounded-xl bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-200"
+                              >
+                                Max
+                              </button>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </div>
-                    {couponDiscount > 0 ? (
-                      <div className="flex justify-between text-green-700">
-                        <span className="flex items-center gap-1">
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-                          </svg>
-                          Coupon discount
-                        </span>
-                        <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
-                      </div>
-                    ) : null}
-                    {giftCardDiscount > 0 ? (
-                      <div className="flex justify-between text-emerald-700">
-                        <span className="flex items-center gap-1">
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-                          </svg>
-                          Gift card
-                        </span>
-                        <span className="font-semibold">-{formatPrice(giftCardDiscount)}</span>
-                      </div>
-                    ) : null}
-                    {rewardsActive && rewardDiscount > 0 ? (
-                      <div className="flex justify-between text-emerald-700">
-                        <span className="flex items-center gap-1">
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-                          </svg>
-                          Reward Points ({effectiveRewardPoints} pts)
-                        </span>
-                        <span className="font-bold">-{formatPrice(rewardDiscount)}</span>
-                      </div>
-                    ) : null}
-                    <div className="flex justify-between text-text-secondary">
-                      <span>{isPickup ? "Store pickup" : "Delivery Charges"}</span>
-                      <span className={`font-semibold ${isPickup ? "text-[#0C831F]" : "text-text-primary"}`}>
-                        {isPickup ? "FREE" : formatPrice(deliveryCharges)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-text-secondary">
-                      <span>Pay now (Razorpay)</span>
-                      <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
-                    </div>
-                    {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
-                      <div className="flex justify-between text-text-secondary">
-                        <span>{isPickup ? "Balance at pickup" : "Balance on delivery"}</span>
-                        <span className="font-medium text-text-primary">
-                          {formatPrice(balanceOnDelivery, 2)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {!minimumOrderMet ? (
-                      <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 ring-1 ring-amber-200/60">
-                        <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        </svg>
-                        Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}
-                        {formatPrice(minimumOrderValue)}.
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {/* Total */}
-                  <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-50/60 px-3 py-3 ring-1 ring-emerald-100 sm:mt-4">
-                    <span className="text-sm font-bold text-text-primary sm:text-base">Total Amount</span>
-                    <span className="text-lg font-bold text-[#0C831F] sm:text-xl lg:text-2xl">
-                      {formatPrice(orderTotal)}
-                    </span>
-                  </div>
-
-                  {/* Savings badge */}
-                  {savings > 0 && (
-                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-green-50 px-2.5 py-2 text-[11px] font-medium text-green-700 ring-1 ring-green-100 sm:mt-4 sm:px-3 sm:py-2.5 sm:text-sm">
-                      <span className="float-badge text-sm">✨</span>
-                      You will save {formatPrice(savings)} on this order
-                    </div>
-                  )}
-
-                  {/* Reward points earned */}
-                  {rewardsActive && pointsToEarn > 0 && (
-                    <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-900 border border-amber-200/80 sm:px-3 sm:py-2.5 sm:text-xs">
-                      <span className="text-base">🪙</span>
-                      <span>
-                        You will earn <strong className="font-bold text-amber-800">+{pointsToEarn} Reward Points</strong> on this order!
-                      </span>
-                    </div>
-                  )}
-
-                  {hasPreOrderItems && !selectedPreOrderSlot ? (
-                    <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60">
-                      Choose a pre-order slot to continue.
-                    </p>
-                  ) : null}
-                  {isPickup && !darkStore && !darkStoreLoading ? (
-                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60">
-                      No dark store found for pickup at this address.
-                    </p>
                   ) : null}
 
-                  {/* Error */}
-                  {orderError && (
-                    <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-600 ring-1 ring-red-100">
-                      {orderError}
-                    </p>
-                  )}
-
-                  {/* Place order button */}
-                  <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.1)] lg:static lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none lg:mt-5"><button
-                    type="button"
-                    disabled={
-                      !selectedAddressId ||
-                      placingOrder ||
-                      !minimumOrderMet ||
-                      (hasPreOrderItems && !selectedPreOrderSlot) ||
-                      (isPickup && !darkStore)
-                    }
-                    onClick={handlePlaceOrder}
-                    className="pulse-glow flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0C831F] to-[#16a34a] px-4 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                  <Link
+                    to="/coupons"
+                    className="mt-3 flex items-center gap-2.5 border-t border-slate-100 pt-3 text-sm font-bold text-slate-900 hover:text-[#047857]"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z"
-                      />
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-current text-[10px] font-black">
+                      %
+                    </span>
+                    <span className="flex-1">View all coupons & offers</span>
+                    <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                    {placingOrder
-                      ? "Placing order…"
-                      : paymentPlan === PAYMENT_PLAN.COD
-                        ? isPickup
-                          ? "Place order · Pay at store"
-                          : "Place order · Pay on delivery"
-                        : paymentPlan === PAYMENT_PLAN.ADVANCE
-                        ? `Pay ${formatPrice(payableNow, 2)} now`
-                        : `Pay ${formatPrice(orderTotal, 2)} now`}
-                  </button></div>
+                  </Link>
+                </Card>
+              </div>
+            </div>
 
+            {/* Right column */}
+            <div className="min-w-0 space-y-4 lg:sticky lg:top-20">
+              <div>
+                <SectionLabel>BILL DETAILS</SectionLabel>
+                <Card>
+                  <BillRow
+                    icon="🧾"
+                    label="Item Total"
+                    struck={savings > 0 ? formatPrice(mrpTotal) : null}
+                    value={formatPrice(subtotal)}
+                  />
+                  {couponDiscount > 0 ? (
+                    <BillRow
+                      icon="🏷️"
+                      label={`Coupon (${appliedCoupon?.code})`}
+                      value={`-${formatPrice(couponDiscount)}`}
+                      valueClass="text-[#0B7A3B]"
+                    />
+                  ) : null}
+                  {giftCardDiscount > 0 ? (
+                    <BillRow
+                      icon="🎁"
+                      label="Gift card"
+                      value={`-${formatPrice(giftCardDiscount)}`}
+                      valueClass="text-[#0B7A3B]"
+                    />
+                  ) : null}
+                  {rewardDiscount > 0 ? (
+                    <BillRow
+                      icon="🪙"
+                      label={`Reward points (${effectiveRewardPoints} pts)`}
+                      value={`-${formatPrice(rewardDiscount, 2)}`}
+                      valueClass="text-[#0B7A3B]"
+                    />
+                  ) : null}
+                  <BillRow
+                    icon={isPickup ? "🏪" : "🛵"}
+                    label={isPickup ? "Store pickup" : "Delivery Fee"}
+                    value={!deliveryFeeKnown ? "Calculating…" : deliveryCharges <= 0 ? "FREE" : formatPrice(deliveryCharges)}
+                    valueClass={deliveryFeeKnown && deliveryCharges <= 0 ? "text-[#0B7A3B]" : "text-slate-900"}
+                    note={
+                      cheaperSlab
+                        ? `Add ${formatPrice(cheaperSlab.orderAmount - subtotal)} more for ${
+                            cheaperSlab.shippingCharge <= 0
+                              ? "FREE delivery"
+                              : `${formatPrice(cheaperSlab.shippingCharge)} delivery`
+                          }`
+                        : null
+                    }
+                  />
+                  <p className="pl-8 text-[11px] text-slate-500">GST included in item prices</p>
+                  <DashedDivider />
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-[15px] font-extrabold">To Pay</span>
+                    {totalSaved > 0 && deliveryFeeKnown ? (
+                      <span className="text-xs font-medium text-slate-400 line-through">
+                        {formatPrice(mrpTotal + deliveryCharges)}
+                      </span>
+                    ) : null}
+                    <span className="text-[15px] font-extrabold">{formatPrice(orderTotal)}</span>
+                  </div>
+                  {rewardsActive && pointsToEarn > 0 ? (
+                    <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                      🪙 You will earn +{pointsToEarn} reward points on this order
+                    </p>
+                  ) : null}
+                </Card>
+              </div>
+
+              <Card>
+                <p className="text-xs font-extrabold text-slate-500">NOTE:</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  You can cancel this order until the store starts packing it. Once it is packed, it can no
+                  longer be cancelled.
+                </p>
+                <Link
+                  to="/terms-and-conditions"
+                  className="mt-1.5 inline-block text-xs font-extrabold text-[#047857] underline underline-offset-2"
+                >
+                  READ CANCELLATION POLICY
+                </Link>
+              </Card>
+
+              {orderError ? (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-center text-xs text-red-600 ring-1 ring-red-100">
+                  {orderError}
+                </p>
+              ) : null}
+
+              {/* Pay bar: fixed on mobile, in the column on desktop */}
+              <div className="fixed inset-x-0 bottom-0 z-50 bg-white px-3.5 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 shadow-[0_-8px_20px_-6px_rgba(0,0,0,0.15)] lg:static lg:rounded-2xl lg:p-4 lg:shadow-none">
+                <div className="mx-auto max-w-5xl">
+                  {payBlocker ? (
+                    <p
+                      className={`mb-2 text-center text-[11.5px] font-semibold ${
+                        minimumOrderMet ? "text-slate-500" : "text-orange-800"
+                      }`}
+                    >
+                      {payBlocker}
+                    </p>
+                  ) : null}
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10.5px] font-bold tracking-wider text-slate-500">PAY USING</p>
+                      <p className="flex items-center gap-1.5 truncate text-sm font-extrabold">
+                        {paymentPlan ? (
+                          <span aria-hidden="true">{paymentPlan === PAYMENT_PLAN.COD ? "💵" : "💳"}</span>
+                        ) : null}
+                        <span className="truncate">{paymentLabel || "Choose payment method"}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentSheet(true)}
+                      className="shrink-0 px-1 text-sm font-extrabold text-[#047857]"
+                    >
+                      {paymentPlan ? "Change" : "Choose"}
+                    </button>
+                  </div>
+                  <SlideToPay
+                    label={
+                      !paymentPlan
+                        ? "Slide to choose payment"
+                        : paymentPlan === PAYMENT_PLAN.COD
+                          ? "Slide to Place Order"
+                          : "Slide to Pay"
+                    }
+                    amount={deliveryFeeKnown ? formatPrice(orderTotal) : "…"}
+                    enabled={readyToPay}
+                    onComplete={() => (paymentPlan ? handlePlaceOrder() : setShowPaymentSheet(true))}
+                  />
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {showRewardTermsModal && (

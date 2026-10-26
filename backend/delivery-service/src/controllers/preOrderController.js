@@ -142,7 +142,7 @@ function countSummary(orders) {
 }
 
 async function staffDisplayName(req) {
-  let name = req.user?.email || "Product Manager";
+  let name = req.user?.email || "Admin";
   if (req.user?.role !== "admin" && req.user?.id) {
     const staff = await Staff.findById(req.user.id).select("name email");
     if (staff) name = staff.name || staff.email || name;
@@ -469,7 +469,8 @@ export const cancelPreOrderByStaff = async (req, res, next) => {
     }
 
     const byName = await staffDisplayName(req);
-    order.notes = [order.notes, `Cancelled by ${byName} (Product Manager): ${reason}`]
+    const byRole = req.user?.role === "admin" ? "Admin" : "Staff";
+    order.notes = [order.notes, `Cancelled by ${byName} (${byRole}): ${reason}`]
       .filter(Boolean)
       .join("\n");
     await order.save();
@@ -733,7 +734,7 @@ export const markPreOrdersReceived = async (req, res, next) => {
             : existing.storeReceivedAt
               ? "Already received"
               : existing.status === "preorder_hold"
-                ? "Not yet forwarded by the Product Manager"
+                ? "Not yet shipped by the vendor"
                 : `Cannot receive (status: ${existing.status})`,
         });
         continue;
@@ -1138,7 +1139,7 @@ export const shipVendorPreOrders = async (req, res, next) => {
   }
 };
 
-/** POST /api/vendor/preorders/:orderId/reject  body { reason } — only before the Product Manager starts preparing */
+/** POST /api/vendor/preorders/:orderId/reject  body { reason } — only before the order is packed */
 export const rejectVendorPreOrder = async (req, res, next) => {
   try {
     const { orderId } = req.params;
@@ -1157,7 +1158,7 @@ export const rejectVendorPreOrder = async (req, res, next) => {
     if (order.status !== "preorder_hold" || !["", "pending"].includes(order.preOrderStage || "")) {
       return res.status(400).json({
         success: false,
-        message: "Only pre-orders the Product Manager hasn't started preparing can be rejected",
+        message: "Only pre-orders that are not yet packed can be rejected",
       });
     }
 

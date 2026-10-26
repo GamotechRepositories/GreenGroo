@@ -20,10 +20,13 @@ import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination
 import { getClearedShipment, mergeOrderShipment, mapShipmentTrackingToOrderStatus } from "../utils/shipmentHelpers.js";
 import { sendDeliveryVerificationOtp } from "../utils/msg91.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
+import { PAYMENT_STATUS } from "../utils/paymentHelpers.js";
 import {
-  calculateAdvanceAmount,
-  PAYMENT_STATUS,
-} from "../utils/paymentHelpers.js";
+  editTouchesStoreOrder,
+  STORE_PARTS_NOT_STARTED,
+  storeEditBlockReason,
+  syncStorePartsAfterAdminEdit,
+} from "../services/storeOrderSync.js";
 import {
   notifyOrderCreated,
   notifyOrderStatusChange,
@@ -517,7 +520,6 @@ export const adminPlaceOrder = async (req, res) => {
 
     const allowedPaymentStatuses = [
       PAYMENT_STATUS.UNPAID,
-      PAYMENT_STATUS.PAID_10,
       PAYMENT_STATUS.PAID,
     ];
     const normalizedPaymentStatus = allowedPaymentStatuses.includes(paymentStatus)
@@ -539,11 +541,6 @@ export const adminPlaceOrder = async (req, res) => {
       });
     }
 
-    const codAdvanceAmount =
-      normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
-        ? calculateAdvanceAmount(result.total)
-        : 0;
-
     let order = await finalizeOrder({
       userId,
       orderItems: result.orderItems,
@@ -564,12 +561,8 @@ export const adminPlaceOrder = async (req, res) => {
       paymentStatus: normalizedPaymentStatus,
       status: "confirm",
       message: orderMessage,
-      codAdvanceAmount,
       ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID
         ? { paidAt: new Date() }
-        : {}),
-      ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
-        ? { codAdvancePaidAt: new Date() }
         : {}),
       preOrderSlot,
     });
@@ -634,6 +627,7 @@ export const placeOrder = async (req, res) => {
       customerLocation: req.body.customerLocation,
       fulfillmentType: req.body.fulfillmentType,
       heavyHandlingFee: req.body.heavyHandlingFee,
+      requireDarkStore: true,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -763,8 +757,6 @@ function applyCancelledPaymentRule(order, updates) {
 }
 
 const PREORDER_CHANGE_WINDOW_MS = 4 * 60 * 60 * 1000;
-/** Store-side statuses where nothing has been packed or handed to a rider yet. */
-const STORE_PARTS_NOT_STARTED = new Set(["preorder_hold", "incoming", "order_received", "stock_issue"]);
 
 async function loadStoreOrderModel() {
   return (await import("../../delivery-service/src/models/StoreOrder.js")).default;
@@ -788,14 +780,21 @@ async function cancelPreOrder(order, res) {
   if (windowError) {
     return res.status(400).json({ success: false, code: "PREORDER_CHANGE_CLOSED", message: windowError });
   }
+  return cancelWithStoreParts(order, res, { message: "Pre-order cancelled" });
+}
 
+/**
+ * Cancel the dark-store parts first (stock back, rider released, store notified),
+ * then the customer order. Refused once any part is packed or with a rider.
+ */
+async function cancelWithStoreParts(order, res, { message }) {
   const StoreOrder = await loadStoreOrderModel();
   const parts = await StoreOrder.find({ sourceOrderId: order._id });
   const open = parts.filter((part) => part.status !== "cancelled");
   if (open.some((part) => !STORE_PARTS_NOT_STARTED.has(part.status))) {
     return res.status(400).json({
       success: false,
-      code: "PREORDER_ALREADY_STARTED",
+      code: "ORDER_ALREADY_STARTED",
       message: "Part of this order is already packed or on the way and can no longer be cancelled",
     });
   }
@@ -819,7 +818,7 @@ async function cancelPreOrder(order, res) {
     void notifyOrderStatusChange(fresh, previousStatus);
   }
 
-  return res.status(200).json({ success: true, message: "Pre-order cancelled", data: fresh });
+  return res.status(200).json({ success: true, message, data: fresh });
 }
 
 /** PATCH /orders/:id/preorder-slot  { slot } — move a pre-order to another delivery slot. */
@@ -910,21 +909,7 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    const previousStatus = order.status;
-    order.status = "cancelled";
-    if (order.paymentMethod === "online" && order.paymentStatus === "paid") {
-      order.paymentStatus = "refundable";
-    }
-
-    await order.save();
-    await reverseOrderRewardPoints(order);
-    void notifyOrderStatusChange(order, previousStatus);
-
-    res.status(200).json({
-      success: true,
-      message: "Order cancelled successfully",
-      data: order,
-    });
+    return cancelWithStoreParts(order, res, { message: "Order cancelled successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1367,7 +1352,7 @@ export const getEligibleOrderCoupons = async (req, res) => {
       reason = "A coupon is already applied to this order";
     } else if (!["confirm", "processing"].includes(order.status)) {
       reason = "Coupon can only be applied before the order is shipped";
-    } else if (![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.PAID_10].includes(order.paymentStatus)) {
+    } else if (order.paymentStatus !== PAYMENT_STATUS.UNPAID) {
       reason = "Coupon cannot be applied after full payment or while payment is under review";
     }
 
@@ -1448,7 +1433,6 @@ export const updateOrder = async (req, res) => {
     ];
     const allowedPaymentStatuses = [
       PAYMENT_STATUS.UNPAID,
-      PAYMENT_STATUS.PAID_10,
       PAYMENT_STATUS.PAID,
       PAYMENT_STATUS.REFUNDABLE,
       PAYMENT_STATUS.PENDING_VERIFICATION,
@@ -1463,6 +1447,13 @@ export const updateOrder = async (req, res) => {
     }
 
     const previousStatus = existingOrder.status;
+
+    if (existingOrder.status !== "attempted" && editTouchesStoreOrder(req.body, existingOrder)) {
+      const blocked = await storeEditBlockReason(existingOrder);
+      if (blocked) {
+        return res.status(400).json({ success: false, code: "STORE_ORDER_STARTED", message: blocked });
+      }
+    }
 
     if (couponCode !== undefined) {
       const normalizedCouponCode = String(couponCode || "").trim().toUpperCase();
@@ -1488,7 +1479,7 @@ export const updateOrder = async (req, res) => {
         });
       }
 
-      if (![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.PAID_10].includes(existingOrder.paymentStatus)) {
+      if (existingOrder.paymentStatus !== PAYMENT_STATUS.UNPAID) {
         return res.status(400).json({
           success: false,
           message: "Coupon cannot be applied after full payment or while payment is under review",
@@ -1636,11 +1627,17 @@ export const updateOrder = async (req, res) => {
       });
     }
 
-    await Order.findByIdAndUpdate(
+    const savedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
       { new: true, runValidators: true }
     );
+
+    try {
+      await syncStorePartsAfterAdminEdit({ previous: existingOrder, order: savedOrder, body: req.body });
+    } catch (err) {
+      console.error("[updateOrder] dark-store sync failed:", err);
+    }
 
     let order = await populateOrderItems(
       Order.findById(req.params.id).populate("user", "name email phone")
@@ -1655,6 +1652,93 @@ export const updateOrder = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const UNROUTED_STATUSES = ["confirm", "processing"];
+
+/** GET /orders/admin/unrouted — live orders that never reached a dark store. */
+export const getUnroutedOrders = async (req, res) => {
+  try {
+    const StoreOrder = await loadStoreOrderModel();
+    const rows = await Order.aggregate([
+      {
+        $match: {
+          status: { $in: UNROUTED_STATUSES },
+          paymentStatus: { $ne: "pending_verification" },
+          "shipment.trackingNumber": { $in: [null, ""] },
+        },
+      },
+      {
+        $lookup: {
+          from: StoreOrder.collection.name,
+          localField: "_id",
+          foreignField: "sourceOrderId",
+          as: "parts",
+        },
+      },
+      { $match: { parts: { $size: 0 } } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 200 },
+      {
+        $project: {
+          orderNumber: 1,
+          status: 1,
+          total: 1,
+          paymentMethod: 1,
+          paymentStatus: 1,
+          fulfillmentType: 1,
+          preOrderSlot: 1,
+          routingError: 1,
+          routingAttemptedAt: 1,
+          createdAt: 1,
+          deliveryAddress: 1,
+          itemsCount: { $size: { $ifNull: ["$items", []] } },
+          user: 1,
+        },
+      },
+    ]);
+    await Order.populate(rows, { path: "user", select: "name phone email" });
+    return res.json({ success: true, data: rows });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** POST /orders/admin/:id/reroute  { storeId? } — route again, optionally to a chosen dark store. */
+export const rerouteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (!UNROUTED_STATUSES.includes(order.status)) {
+      return res.status(400).json({ success: false, message: `Order is ${order.status} — only live orders can be re-routed` });
+    }
+
+    const StoreOrder = await loadStoreOrderModel();
+    if (await StoreOrder.exists({ sourceOrderId: order._id })) {
+      return res.status(400).json({ success: false, message: "This order already has a dark-store order" });
+    }
+
+    const { dispatchDeliveryOrder } = await import("../services/deliveryDispatcher.js");
+    const storeId = String(req.body?.storeId || "").trim();
+    const created = await dispatchDeliveryOrder(order, storeId ? { forceManagerId: storeId } : {});
+    if (!created) {
+      const fresh = await Order.findById(order._id).select("routingError").lean();
+      return res.status(400).json({
+        success: false,
+        message: fresh?.routingError || "Could not route this order. Pick a dark store and try again.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Routed to dark store order ${created.orderNumber}`,
+      data: { storeOrderId: created._id, orderNumber: created.orderNumber, managerId: created.managerId },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 

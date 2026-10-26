@@ -23,6 +23,8 @@ import {
   updateGiftHamperStatus,
   deleteOrder,
   resendCustomerDeliveryOtp,
+  getUnroutedOrders,
+  rerouteOrder,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -34,6 +36,8 @@ router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
 router.get("/admin/gift-hampers", requireAdmin, getGiftHamperOrders);
 router.patch("/admin/:id/gift-hamper", requireAdmin, updateGiftHamperStatus);
 router.get("/admin/all", requireAdmin, getAllOrders);
+router.get("/admin/unrouted", requireAdmin, getUnroutedOrders);
+router.post("/admin/:id/reroute", requireAdmin, rerouteOrder);
 router.get("/admin/:id/eligible-coupons", requireAdmin, getEligibleOrderCoupons);
 router.post("/admin/create", requireAdmin, adminPlaceOrder);
 router.patch("/admin/:id", requireAdmin, updateOrder);

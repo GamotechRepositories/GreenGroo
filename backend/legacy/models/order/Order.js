@@ -136,6 +136,35 @@ const orderSchema = new mongoose.Schema(
     codAdvanceRazorpayPaymentId: { type: String, default: "" },
     codAdvancePaidAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
+    /** Partial refunds owed for lines the dark store could not supply. */
+    refunds: {
+      type: [
+        new mongoose.Schema(
+          {
+            amount: { type: Number, required: true, min: 0 },
+            reason: { type: String, default: "", trim: true, maxlength: 300 },
+            items: {
+              type: [
+                new mongoose.Schema(
+                  { name: String, quantity: Number, amount: Number },
+                  { _id: false }
+                ),
+              ],
+              default: [],
+            },
+            storeOrderId: { type: mongoose.Schema.Types.ObjectId, default: null },
+            status: { type: String, enum: ["pending", "refunded"], default: "pending" },
+            createdAt: { type: Date, default: Date.now },
+            refundedAt: { type: Date, default: null },
+          },
+          { _id: true }
+        ),
+      ],
+      default: [],
+    },
+    /** Why the last dark-store routing attempt failed; empty once routed. */
+    routingError: { type: String, default: "" },
+    routingAttemptedAt: { type: Date, default: null },
     message: {
       type: String,
       trim: true,

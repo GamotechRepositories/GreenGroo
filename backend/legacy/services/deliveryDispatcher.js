@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
 import {
@@ -7,6 +8,11 @@ import {
 } from "../../delivery-service/src/services/darkStoreResolver.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { inventorySkuForProduct } from "../../delivery-service/src/services/catalogStoreInventory.js";
+import {
+  buildStockMap,
+  reserveOrderStock,
+  stockRowFor,
+} from "../../delivery-service/src/services/storeStockService.js";
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
 import { geocodeAddressString } from "./reverseGeocodeService.js";
@@ -30,15 +36,93 @@ function formatCustomerAddress(address = {}) {
   return parts.join(", ");
 }
 
-function scoreNameMatch(productName, inventoryName) {
-  const a = String(productName || "").trim().toLowerCase();
-  const b = String(inventoryName || "").trim().toLowerCase();
-  if (!a || !b) return 0;
-  if (a === b) return 100;
-  if (a.includes(b) || b.includes(a)) return 70;
-  const aTokens = a.split(/[^a-z0-9]+/).filter((t) => t.length > 2);
-  const hits = aTokens.filter((t) => b.includes(t)).length;
-  return hits ? 40 + hits * 5 : 0;
+const ROUTING_FAILURE_TEXT = {
+  no_active_stores: "No dark store is active",
+  no_store_in_city: "No dark store in this city",
+  no_store_within_radius: "No dark store delivers to this location",
+  no_store_in_area: "No dark store matches this area",
+  store_inactive: "The chosen dark store is inactive or missing",
+};
+
+/**
+ * The dark store that would fulfil these items at this address — the same rule
+ * the dispatcher uses, so checkout and routing never disagree.
+ */
+export async function findStoreForOrder({ address = {}, items = [], fulfillmentType, forceManagerId } = {}) {
+  const itemDepartments = await resolveItemDepartments(items);
+  const departments = collectDepartments(itemDepartments);
+  const allowPincodeFallback =
+    departments.length > 0 && departments.every((dept) => dept === "preorder");
+
+  let customerCoords = readCoords(address);
+  const text = formatCustomerAddress(address);
+  if (!customerCoords && text) {
+    customerCoords = await geocodeAddressString(text).catch(() => null);
+  }
+
+  let result;
+  if (forceManagerId) {
+    const DeliveryManager = (await import("../../delivery-service/src/models/DeliveryManager.js")).default;
+    const forced = mongoose.Types.ObjectId.isValid(forceManagerId)
+      ? await DeliveryManager.findOne({ _id: forceManagerId, isActive: true })
+      : null;
+    result = forced
+      ? { manager: forced, reason: "admin_rerouted", distanceKm: null }
+      : { manager: null, reason: "store_inactive", distanceKm: null };
+  } else {
+    result = await resolveDarkStoreForOrder(
+      { ...address, ...(customerCoords ? { lat: customerCoords.lat, lng: customerCoords.lng } : {}) },
+      { allowPincodeFallback, anyDistance: normalizeFulfillmentType(fulfillmentType) === "pickup" }
+    );
+  }
+
+  const message = result.manager
+    ? ""
+    : `${ROUTING_FAILURE_TEXT[result.reason] || "No dark store found"}${
+        result.reason === "no_store_within_radius" ? ` (within ${ORDER_ROUTING_RADIUS_KM} km)` : ""
+      }`;
+  return { ...result, itemDepartments, departments, customerCoords, allowPincodeFallback, message };
+}
+
+/**
+ * Ready2Cook / Instant lines this store cannot cover right now. Pre-order lines are
+ * supplied by the vendor for the slot, so they are not checked against store stock.
+ */
+export async function findStoreShortages({ managerId, items = [], itemDepartments = [] }) {
+  const lines = await mapItemsToStoreCatalog(managerId, items, itemDepartments);
+  const rows = await StoreInventory.find({ managerId, isActive: true }).lean();
+  const stockMap = buildStockMap(rows);
+
+  const needed = new Map();
+  for (const line of lines) {
+    if (line.department === "preorder") continue;
+    const row = stockRowFor(line, stockMap);
+    const key = row ? String(row._id) : `missing:${line.productId || line.sku}`;
+    const entry = needed.get(key) || { name: line.name, quantity: 0, available: row ? Number(row.stockCount) || 0 : 0 };
+    entry.quantity += Number(line.quantity) || 0;
+    needed.set(key, entry);
+  }
+
+  return [...needed.values()]
+    .filter((entry) => entry.available < entry.quantity)
+    .map(({ name, quantity, available }) => ({ name, needed: quantity, available }));
+}
+
+/** Remember why an order could not be routed (cleared once it is). */
+async function recordRoutingResult(orderId, error) {
+  if (!orderId) return;
+  const Order = (await import("../models/order/Order.js")).default;
+  await Order.updateOne(
+    { _id: orderId },
+    { $set: { routingError: error || "", routingAttemptedAt: new Date() } }
+  ).catch(() => {});
+}
+
+async function customerOrderCancelled(orderId) {
+  if (!orderId) return false;
+  const Order = (await import("../models/order/Order.js")).default;
+  const row = await Order.findById(orderId).select("status").lean().catch(() => null);
+  return row?.status === "cancelled";
 }
 
 /** Department + department-wise id per order line. */
@@ -72,7 +156,12 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepart
     : [];
   const productById = new Map(products.map((p) => [p._id.toString(), p]));
 
-  return ecommerceItems.map((item, index) => {
+  const byProductId = new Map(
+    inventory.filter((row) => row.productId).map((row) => [String(row.productId), row])
+  );
+  const bySku = new Map(inventory.map((row) => [String(row.sku).toLowerCase(), row]));
+
+  const mapped = ecommerceItems.map((item, index) => {
     const productId = String(item.product?._id || item.product || "");
     const product = productById.get(productId);
     const productSku = String(
@@ -80,22 +169,17 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepart
     ).trim();
     const productName = item.name || product?.name || "Item";
 
-    let match = null;
-    if (productSku) {
-      match = inventory.find(
-        (row) => String(row.sku).toLowerCase() === productSku.toLowerCase()
-      );
-    }
-    if (!match) {
-      match = inventory.reduce((best, row) => {
-        const score = scoreNameMatch(productName, row.name);
-        if (score < 40) return best;
-        if (!best || score > best.score) return { row, score };
-        return best;
-      }, null)?.row;
+    let match = productId ? byProductId.get(productId) : null;
+    if (!match && productSku) {
+      const skuRow = bySku.get(productSku.toLowerCase());
+      if (skuRow && (!skuRow.productId || String(skuRow.productId) === productId)) {
+        match = skuRow;
+      }
     }
 
     return {
+      productId: productId && mongoose.Types.ObjectId.isValid(productId) ? productId : null,
+      linkRowId: match && !match.productId && productId ? match._id : null,
       sku: match?.sku || productSku || (productId ? `P-${productId.slice(-8)}` : `ITEM-${Date.now()}`),
       name: match?.name || productName,
       quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
@@ -105,6 +189,21 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepart
       departmentId: itemDepartments[index]?.departmentId || "",
     };
   });
+
+  const links = mapped.filter((line) => line.linkRowId);
+  if (links.length) {
+    await StoreInventory.bulkWrite(
+      links.map((line) => ({
+        updateOne: {
+          filter: { _id: line.linkRowId, productId: null },
+          update: { $set: { productId: line.productId } },
+        },
+      })),
+      { ordered: false }
+    ).catch((err) => console.warn("[deliveryDispatcher] stock link failed:", err.message));
+  }
+
+  return mapped.map(({ linkRowId, ...line }) => line);
 }
 
 /**
@@ -113,7 +212,7 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepart
  * Pre-orders are held (status "preorder_hold") for the Product Manager to prepare and forward.
  * A mixed cart with a slot becomes two StoreOrders: Ready2Cook / Instant now, pre-order items at the slot.
  */
-export async function dispatchDeliveryOrder(ecommerceOrder) {
+export async function dispatchDeliveryOrder(ecommerceOrder, options = {}) {
   try {
     if (ecommerceOrder?.status === "attempted") {
       return null;
@@ -136,30 +235,24 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
 
     const preOrderSlot = normalizePreOrderSlot(ecommerceOrder.preOrderSlot);
     const fulfillmentType = normalizeFulfillmentType(ecommerceOrder.fulfillmentType);
-    const itemDepartments = await resolveItemDepartments(ecommerceOrder.items || []);
-    const departments = collectDepartments(itemDepartments);
-
     const customerAddress = formatCustomerAddress(address) || "Customer address";
-    let customerCoords = readCoords(address);
-    if (!customerCoords && customerAddress) {
-      customerCoords = await geocodeAddressString(customerAddress);
-    }
-
-    // Ready2Cook / Instant need a store within 3 km; a pure pre-order may also use a same-pincode store.
-    const allowPincodeFallback =
-      departments.length > 0 && departments.every((dept) => dept === "preorder");
-    const { manager, reason, distanceKm } = await resolveDarkStoreForOrder(
-      { ...address, ...(customerCoords ? { lat: customerCoords.lat, lng: customerCoords.lng } : {}) },
-      { allowPincodeFallback, anyDistance: fulfillmentType === "pickup" }
-    );
+    const routing = await findStoreForOrder({
+      address,
+      items: ecommerceOrder.items || [],
+      fulfillmentType,
+      forceManagerId: options.forceManagerId,
+    });
+    const { itemDepartments, departments, customerCoords, manager, reason, distanceKm } = routing;
     if (!manager) {
-      console.warn(
-        `[deliveryDispatcher] No dark store within ${ORDER_ROUTING_RADIUS_KM} km${
-          allowPincodeFallback ? " or same pincode" : ""
-        } of this address`,
-        ecommerceOrder._id,
-        { city: address.city, area: address.area, pincode: address.pincode, departments, reason }
-      );
+      const message = routing.message;
+      console.warn(`[deliveryDispatcher] ${message}`, ecommerceOrder._id, {
+        city: address.city,
+        area: address.area,
+        pincode: address.pincode,
+        departments,
+        reason,
+      });
+      await recordRoutingResult(ecommerceOrder._id, message);
       return null;
     }
 
@@ -192,7 +285,7 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const ecommercePayMethod = String(ecommerceOrder.paymentMethod || "").toLowerCase();
     const isOnlinePaid =
       ecommercePayMethod === "online" &&
-      ["paid", "paid_10"].includes(String(ecommerceOrder.paymentStatus || "").toLowerCase());
+      String(ecommerceOrder.paymentStatus || "").toLowerCase() === "paid";
     const storePaymentMethod =
       ecommercePayMethod === "cod" || ecommercePayMethod === "COD" ? "COD" : ecommercePayMethod === "online" ? "online" : "COD";
 
@@ -221,6 +314,11 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const preOrderDate = hasPreOrderPart
       ? ecommerceOrder.preOrderDate || computePreOrderDate(ecommerceOrder.createdAt || new Date())
       : "";
+
+    if (await customerOrderCancelled(ecommerceOrder._id)) {
+      console.log("[deliveryDispatcher] Customer cancelled before routing", ecommerceOrder._id);
+      return null;
+    }
 
     const created = [];
     for (const part of parts) {
@@ -255,6 +353,7 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         paymentMethod: storePaymentMethod,
         paymentStatus: isOnlinePaid ? "paid_online" : "pending",
         amountToCollect: isOnlinePaid ? 0 : part.amount,
+        partTotal: part.amount,
         notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
           roundedDistance != null ? ` (${roundedDistance} km)` : ""
         }${fulfillmentType === "pickup" ? " · customer pickup at store" : ""}${
@@ -262,6 +361,19 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         }`,
       });
       created.push(storeOrder);
+
+      if (!part.isPreOrder) {
+        const reservation = await reserveOrderStock(manager._id, storeOrder).catch((err) => {
+          console.warn("[deliveryDispatcher] stock reservation failed:", err.message);
+          return { reserved: false };
+        });
+        if (!reservation.reserved && reservation.shortages?.length) {
+          console.warn(
+            `[deliveryDispatcher] ${storeOrder.orderNumber} not reserved — short:`,
+            reservation.shortages.map((s) => `${s.name} ${s.available}/${s.needed}`).join(", ")
+          );
+        }
+      }
 
       console.log(
         `[deliveryDispatcher] ${part.isPreOrder ? `Pre-order (${preOrderDate} ${preOrderSlot})` : "Order"} ${storeOrder.orderNumber} → ${manager.storeName || manager.area} (${reason}, ${fulfillmentType})`
@@ -298,12 +410,25 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         const Order = (await import("../models/order/Order.js")).default;
         await Order.findByIdAndUpdate(ecommerceOrder._id, {
           deliveryOtp: otpCode,
+          routingError: "",
+          routingAttemptedAt: new Date(),
           ...(hasPreOrderPart && !ecommerceOrder.preOrderDate ? { preOrderDate } : {}),
           ...(hasPreOrderPart ? { preOrderProgress: "awaiting_vendor" } : {}),
         });
       } catch (err) {
         console.warn("[deliveryDispatcher] failed to save deliveryOtp on Order:", err.message);
       }
+    }
+
+    // The customer may have cancelled while the parts were being created.
+    if (await customerOrderCancelled(ecommerceOrder._id)) {
+      const { applyStoreOrderStatus } = await import(
+        "../../delivery-service/src/services/storeOrderLifecycle.js"
+      );
+      for (const storeOrder of created) {
+        await applyStoreOrderStatus({ storeOrderId: storeOrder._id, status: "cancelled" });
+      }
+      return null;
     }
 
     return created[0];

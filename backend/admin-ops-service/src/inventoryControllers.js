@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
+import { productIdForSku } from "../../delivery-service/src/services/catalogStoreInventory.js";
 import {
   InventoryBatch,
   GoodsReceiptNote,
@@ -700,10 +701,12 @@ export async function createGrn(req, res) {
           if (it.name) existingInv.name = it.name;
           if (it.unit) existingInv.unit = it.unit;
           if (it.category) existingInv.category = it.category;
+          if (!existingInv.productId) existingInv.productId = await productIdForSku(it.sku);
           await existingInv.save();
         } else {
           await StoreInventory.create({
             managerId: storeId,
+            productId: await productIdForSku(it.sku),
             sku: it.sku,
             name: it.name,
             category: it.category,

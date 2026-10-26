@@ -58,9 +58,6 @@ async function resolveOrderRazorpayAmount(order) {
     if (Number(order.razorpayPaidAmount) !== apiAmount) {
       updates.razorpayPaidAmount = apiAmount;
     }
-    if (order.paymentStatus === "paid_10" && Number(order.codAdvanceAmount) !== apiAmount) {
-      updates.codAdvanceAmount = apiAmount;
-    }
     if (Object.keys(updates).length) {
       await Order.updateOne({ _id: order._id }, { $set: updates });
     }
@@ -92,10 +89,10 @@ export const createRazorpayOrder = async (req, res) => {
       preOrderSlot,
     } = req.body;
 
-    if (!["online", "cod_advance"].includes(paymentMode)) {
+    if (paymentMode !== "online") {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment mode",
+        message: "Partial advance payment is no longer available. Pay the full amount online or choose pay on delivery.",
       });
     }
 
@@ -117,6 +114,7 @@ export const createRazorpayOrder = async (req, res) => {
       giftCardCode,
       customerLocation,
       fulfillmentType: req.body.fulfillmentType,
+      requireDarkStore: true,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -148,10 +146,10 @@ export const createRazorpayOrder = async (req, res) => {
         preOrderSlot: slotCheck.preOrderSlot,
         fulfillmentType: result.fulfillmentType,
       },
-      paymentMode === "cod_advance" ? "cod" : "online"
+      "online"
     );
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode);
+    const payableAmount = calculatePayableAmount(result.total);
     const amountPaise = Math.round(payableAmount * 100);
 
     const razorpayOrder = await razorpay.orders.create({
@@ -213,10 +211,10 @@ export const verifyRazorpayPayment = async (req, res) => {
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
-    if (!["online", "cod_advance"].includes(paymentMode)) {
+    if (paymentMode !== "online") {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment mode",
+        message: "Partial advance payment is no longer available. Pay the full amount online or choose pay on delivery.",
       });
     }
 
@@ -260,7 +258,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode);
+    const payableAmount = calculatePayableAmount(result.total);
     const expectedAmount = Math.round(payableAmount * 100);
     if (Number(razorpayOrder.amount) !== expectedAmount) {
       return res.status(400).json({
@@ -268,8 +266,6 @@ export const verifyRazorpayPayment = async (req, res) => {
         message: "Payment amount does not match order total",
       });
     }
-
-    const isCodAdvance = paymentMode === "cod_advance";
 
     const order = await finalizeOrder({
       userId: req.user._id,
@@ -294,15 +290,12 @@ export const verifyRazorpayPayment = async (req, res) => {
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,
-      paymentMethod: isCodAdvance ? "cod" : "online",
-      paymentStatus: isCodAdvance ? "paid_10" : "paid",
+      paymentMethod: "online",
+      paymentStatus: "paid",
       razorpayOrderId: razorpay_order_id,
-      razorpayPaymentId: isCodAdvance ? "" : razorpay_payment_id,
-      codAdvanceAmount: isCodAdvance ? payableAmount : 0,
-      codAdvanceRazorpayPaymentId: isCodAdvance ? razorpay_payment_id : "",
+      razorpayPaymentId: razorpay_payment_id,
       razorpayPaidAmount: payableAmount,
-      paidAt: isCodAdvance ? null : new Date(),
-      ...(isCodAdvance ? { codAdvancePaidAt: new Date() } : {}),
+      paidAt: new Date(),
       message: orderMessage,
       attemptedOrderId,
       preOrderSlot,
@@ -349,10 +342,10 @@ export const submitUpiPaymentProof = async (req, res) => {
     const screenshotName = normalizeText(req.body.screenshotName, 200);
     const upiTransactionRef = normalizeText(req.body.upiTransactionRef, 100);
 
-    if (!["online", "cod_advance"].includes(paymentMode)) {
+    if (paymentMode !== "online") {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment mode",
+        message: "Partial advance payment is no longer available. Pay the full amount online or choose pay on delivery.",
       });
     }
 
@@ -383,6 +376,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       giftCardCode,
       customerLocation,
       fulfillmentType: req.body.fulfillmentType,
+      requireDarkStore: true,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -393,10 +387,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       });
     }
 
-    const isCodAdvance = paymentMode === "cod_advance";
-    const payableAmount = isCodAdvance
-      ? Math.round(result.total * 0.1 * 100) / 100
-      : result.total;
+    const payableAmount = result.total;
 
     const order = await finalizeOrder({
       userId: req.user._id,
@@ -421,10 +412,9 @@ export const submitUpiPaymentProof = async (req, res) => {
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,
-      paymentMethod: isCodAdvance ? "cod" : "online",
+      paymentMethod: "online",
       paymentStatus: "pending_verification",
       status: "confirm",
-      codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
       attemptedOrderId,
       preOrderSlot,
@@ -439,8 +429,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       order: order._id,
       user: req.user._id,
       orderNumber: order.orderNumber,
-      paymentMethod: isCodAdvance ? "cod" : "online",
-      paymentType: paymentMode,
+      paymentMethod: "online",
+      paymentType: "online",
       source: "upi_manual",
       amount: payableAmount,
       orderTotal: result.total,
@@ -693,9 +683,7 @@ export const updatePaymentStatus = async (req, res) => {
       } else {
         await Order.findByIdAndUpdate(payment.order, {
           status: "confirm",
-          paymentStatus: "paid_10",
-          codAdvanceAmount: payment.amount,
-          codAdvancePaidAt: new Date(),
+          paymentStatus: "unpaid",
         });
       }
 

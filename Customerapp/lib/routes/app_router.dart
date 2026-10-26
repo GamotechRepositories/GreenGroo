@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/cart/cart_screen.dart';
 import '../features/categories/categories_screen.dart';
 import '../features/checkout/checkout_screen.dart';
+import '../features/checkout/payment_method.dart';
 import '../features/checkout/payment_screen.dart';
 import '../features/coupons/coupons_screen.dart';
 import '../features/home/home_providers.dart';
@@ -135,6 +136,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             customerMessage: params['note'],
             fulfillmentType: params['fulfillment'] == 'pickup' ? 'pickup' : 'delivery',
             preOrderSlot: params['slot'],
+            initialMode: paymentModeFromName(params['method']),
+            autoPay: params['autopay'] == '1',
           );
         },
       ),

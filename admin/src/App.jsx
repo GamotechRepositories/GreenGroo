@@ -17,7 +17,9 @@ import AllBaseProducts from './pages/AllBaseProducts';
 import Analytics from './pages/Analytics';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
 import PreOrderSlots from './pages/PreOrderSlots';
+import OrderCharges from './pages/OrderCharges';
 import PreOrders from './pages/PreOrders';
+import UnroutedOrders from './pages/UnroutedOrders';
 import DarkStores from './pages/DarkStores';
 import Coupons from './pages/Coupons';
 import RewardPoints from './pages/RewardPoints';
@@ -115,7 +117,9 @@ export default function App() {
               <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="pre-order-slots" element={<PreOrderSlots />} />
               <Route path="preorder-slots" element={<PreOrderSlots />} />
+              <Route path="order-charges" element={<OrderCharges />} />
               <Route path="pre-orders" element={<PreOrders />} />
+              <Route path="unrouted-orders" element={<UnroutedOrders />} />
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />

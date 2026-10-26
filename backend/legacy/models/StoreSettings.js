@@ -169,22 +169,17 @@ const storeSettingsSchema = new mongoose.Schema(
     },
     minimumOrderValue: {
       type: Number,
-      default: 200,
+      default: 0,
       min: [0, "Minimum order value must be 0 or more"],
     },
     minimumShippingCharge: {
       type: Number,
-      default: 280,
+      default: 0,
       min: [0, "Minimum shipping charge must be 0 or more"],
     },
     shippingSlabs: {
       type: [shippingSlabSchema],
-      default: () => [
-        { orderAmount: 3000, shippingCharge: 280 },
-        { orderAmount: 5000, shippingCharge: 350 },
-        { orderAmount: 8000, shippingCharge: 550 },
-        { orderAmount: 12000, shippingCharge: 800 },
-      ],
+      default: () => [],
     },
     giftHamperTiers: {
       type: [giftHamperTierSchema],

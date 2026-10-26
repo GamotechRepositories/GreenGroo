@@ -606,11 +606,23 @@ export async function createBillingInvoice(req, res) {
       }
 
       // Atomically decrement real stock in dark store StoreInventory if storeId provided
-      if (storeId && item.sku) {
-        await StoreInventory.findOneAndUpdate(
-          { managerId: storeId, sku: item.sku },
-          { $inc: { stockCount: -qty } }
-        ).catch((err) => console.warn(`[Billing] Store inventory stock deduction error for ${item.sku}:`, err.message));
+      if (storeId && (item.sku || mongoose.Types.ObjectId.isValid(prodId))) {
+        const deductStore = async () => {
+          if (mongoose.Types.ObjectId.isValid(prodId)) {
+            const linked = await StoreInventory.findOneAndUpdate(
+              { managerId: storeId, productId: prodId },
+              { $inc: { stockCount: -qty } }
+            );
+            if (linked || !item.sku) return;
+          }
+          await StoreInventory.findOneAndUpdate(
+            { managerId: storeId, sku: item.sku, productId: null },
+            { $inc: { stockCount: -qty } }
+          );
+        };
+        await deductStore().catch((err) =>
+          console.warn(`[Billing] Store inventory stock deduction error for ${item.sku || prodId}:`, err.message)
+        );
       }
     }
 

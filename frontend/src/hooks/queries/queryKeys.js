@@ -8,6 +8,8 @@ export const queryKeys = {
   brands: {
     all: ["brands"],
   },
+  storeSettings: ["store-settings"],
+  availableCoupons: (subtotal, userId) => ["coupons", "available", subtotal, userId || "guest"],
   products: {
     list: (params) => ["products", params],
     infiniteList: (params) => ["products", "infinite", params],

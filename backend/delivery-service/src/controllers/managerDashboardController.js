@@ -9,8 +9,9 @@ import { dispatchNextRider } from "../services/dispatchService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { offerToSpecificDriver } from "../services/OrderAssignmentService.js";
 import InventoryRequest from "../models/InventoryRequest.js";
-import { deductOrderStock } from "../services/storeStockService.js";
+import { buildStockMap, deductOrderStock, stockRowFor } from "../services/storeStockService.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
+import { dropInformedItems, removeUnavailableItem } from "../services/itemRemovalService.js";
 import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
 import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 import { calculateRiderEarning } from "../services/ShiftEarningService.js";
@@ -58,7 +59,7 @@ export const getManager = async (req) => {
 
 const stockMapForManager = async (managerId) => {
   const rows = await StoreInventory.find({ managerId, isActive: true });
-  return new Map(rows.map((r) => [r.sku, r]));
+  return buildStockMap(rows);
 };
 
 /** Recalculate and persist rider fee when a delivered order still has ₹0. */
@@ -441,6 +442,7 @@ export const packOrder = async (req, res, next) => {
     }
 
     const now = new Date();
+    dropInformedItems(order);
     order.status = "packed";
     order.packedAt = now;
     order.darkStoreId = manager._id;
@@ -1008,9 +1010,15 @@ export const informCustomer = async (req, res, next) => {
     if (!item) {
       return res.status(404).json({ success: false, message: "Item not found" });
     }
+    if (order.stockReservedAt || order.stockDeductedAt) {
+      return res.status(400).json({
+        success: false,
+        message: "Stock for this order is already reserved — every item is available",
+      });
+    }
 
     const stockMap = await stockMapForManager(manager._id);
-    const stock = stockMap.get(item.sku);
+    const stock = stockRowFor(item, stockMap);
     const available = stock ? stock.stockCount : 0;
     if (available >= item.quantity) {
       return res.status(400).json({
@@ -1019,24 +1027,34 @@ export const informCustomer = async (req, res, next) => {
       });
     }
 
-    item.customerInformed = true;
-    item.customerInformedAt = new Date();
+    if (item.customerInformed) {
+      return res.status(400).json({ success: false, message: "Customer was already informed about this item" });
+    }
+
+    const removal = await removeUnavailableItem(order, item);
     order.status = "stock_issue";
     order.notes = `Customer informed: "${item.name}" is not available.`;
     await order.save();
 
-    // Notification stub — wire to notification-service later
-    const notification = {
-      to: order.customerPhone || order.customerName,
-      message: `Sorry — "${item.name}" is currently not available for order ${order.orderNumber}.`,
-      channel: "sms_stub",
-      sentAt: new Date().toISOString(),
-    };
+    if (removal.emptied) {
+      const cancelled = await applyStoreOrderStatus({
+        storeOrderId: order._id,
+        status: "cancelled",
+        restoreStockOnCancel: true,
+      });
+      return res.json({
+        success: true,
+        message: "Nothing left to deliver — order cancelled and the customer notified",
+        order: (cancelled.order || order).toSafeJSON(stockMap),
+      });
+    }
 
     return res.json({
       success: true,
-      message: "Customer informed about out-of-stock item",
-      notification,
+      message: removal.refund > 0
+        ? `Customer notified — ₹${removal.refund} marked for refund`
+        : `Customer notified — amount reduced by ₹${removal.amount}`,
+      removal: { amount: removal.amount, refund: removal.refund },
       order: order.toSafeJSON(stockMap),
     });
   } catch (error) {
@@ -1069,7 +1087,7 @@ export const assignOrder = async (req, res, next) => {
     if (order.status === "preorder_hold") {
       return res.status(400).json({
         success: false,
-        message: "This pre-order is still with the vendor / Product Manager",
+        message: "This pre-order is still with the vendor",
       });
     }
     if (order.isPreOrder && !order.storeReceivedAt) {
@@ -1136,12 +1154,7 @@ export const assignOrder = async (req, res, next) => {
         });
       }
 
-      const informedIds = order.items
-        .filter((i) => i.customerInformed)
-        .map((i) => i._id);
-      for (const id of informedIds) {
-        order.items.pull(id);
-      }
+      dropInformedItems(order);
       if (order.items.length === 0) {
         order.status = "cancelled";
         await order.save();

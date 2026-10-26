@@ -6,7 +6,11 @@ import {
   updateProductRecord,
 } from "../../../legacy/controllers/productController.js";
 import { getManager } from "./managerDashboardController.js";
-import { catalogFields, inventorySkuForProduct } from "../services/catalogStoreInventory.js";
+import {
+  catalogFields,
+  inventorySkuForProduct,
+  linkRowsToProduct,
+} from "../services/catalogStoreInventory.js";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -40,25 +44,29 @@ async function syncInventory(manager, product, { previousSku = "", stock } = {})
     update.stockCount = Math.max(0, Number(stock) || 0);
   }
 
-  if (previousSku && previousSku !== sku) {
+  const linked = await StoreInventory.findOne({ managerId: manager._id, productId: product._id });
+  if (!linked) {
+    const skus = [...new Set([sku, previousSku].filter(Boolean))];
     await StoreInventory.updateOne(
-      { managerId: manager._id, sku: previousSku },
-      { $set: { sku, ...update } }
+      { managerId: manager._id, productId: null, sku: { $in: skus } },
+      { $set: { productId: product._id } }
     );
   }
 
   await StoreInventory.updateOne(
-    { managerId: manager._id, sku },
+    { managerId: manager._id, productId: product._id },
     update.stockCount === undefined
-      ? { $set: update, $setOnInsert: { stockCount: 0 } }
-      : { $set: update },
+      ? { $set: { sku, ...update }, $setOnInsert: { stockCount: 0 } }
+      : { $set: { sku, ...update } },
     { upsert: true }
   );
 }
 
 function withStock(product, inventoryBySku) {
   const doc = product.toObject ? product.toObject() : product;
-  const row = inventoryBySku.get(inventorySkuForProduct(doc).toUpperCase());
+  const row =
+    inventoryBySku.get(`pid:${doc._id}`) ||
+    inventoryBySku.get(inventorySkuForProduct(doc).toUpperCase());
   return {
     ...doc,
     storeStock: row ? row.stockCount : 0,
@@ -86,8 +94,14 @@ export const listManagerProducts = async (req, res, next) => {
     }
 
     const products = await Product.find({ $and: and }).sort({ createdAt: -1 }).limit(2000);
-    const inventory = await StoreInventory.find({ managerId: manager._id }).select("sku stockCount").lean();
-    const inventoryBySku = new Map(inventory.map((row) => [String(row.sku).toUpperCase(), row]));
+    const inventory = await StoreInventory.find({ managerId: manager._id })
+      .select("sku productId stockCount")
+      .lean();
+    const inventoryBySku = new Map();
+    for (const row of inventory) {
+      if (!row.productId) inventoryBySku.set(String(row.sku).toUpperCase(), row);
+      else inventoryBySku.set(`pid:${row.productId}`, row);
+    }
 
     return res.json({
       success: true,
@@ -173,14 +187,16 @@ export const setManagerProductStock = async (req, res, next) => {
     }
 
     const sku = inventorySkuForProduct(product);
+    await linkRowsToProduct(product, { managerId: manager._id });
     const row = await StoreInventory.findOneAndUpdate(
-      { managerId: manager._id, sku: { $regex: `^${escapeRegex(sku)}$`, $options: "i" } },
+      { managerId: manager._id, productId: product._id },
       { $set: { stockCount: stock, isActive: true } },
       { new: true }
     );
     if (!row) {
       await StoreInventory.create({
         managerId: manager._id,
+        productId: product._id,
         sku,
         ...catalogFields(product),
         stockCount: stock,

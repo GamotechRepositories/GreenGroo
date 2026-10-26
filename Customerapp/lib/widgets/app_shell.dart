@@ -16,11 +16,10 @@ import 'package:customer_app/features/home/home_providers.dart';
 import 'package:customer_app/routes/route_paths.dart';
 import 'address/select_delivery_location_sheet.dart';
 import 'app_back_binding.dart';
+import 'cart/floating_cart_bar.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
 import 'layout/mobile_header.dart';
-import 'wishlist/wishlist_toast.dart';
-
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -176,6 +175,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hideBottomNav = isKeyboardOpen;
     final visualIndex = _visualIndex(widget.navigationShell.currentIndex);
     final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
+    // Home and Categories branches only; the Cart tab has its own checkout bar.
+    final showCartBar = !hideBottomNav &&
+        cartCount > 0 &&
+        (widget.navigationShell.currentIndex == 0 ||
+            widget.navigationShell.currentIndex == 1);
+    final mediaQuery = MediaQuery.of(context);
 
     return PopScope(
       canPop: false,
@@ -203,9 +208,28 @@ class _AppShellState extends ConsumerState<AppShell> {
                       isHomeTab: widget.navigationShell.currentIndex == 0 ||
                           widget.navigationShell.currentIndex == 1,
                     ),
-                    Expanded(child: widget.navigationShell),
+                    Expanded(
+                      // Lists pad by ShellBottomInsets, which reads this inset.
+                      child: MediaQuery(
+                        data: showCartBar
+                            ? mediaQuery.copyWith(
+                                padding: mediaQuery.padding.copyWith(
+                                  bottom: mediaQuery.padding.bottom + floatingCartBarHeight,
+                                ),
+                              )
+                            : mediaQuery,
+                        child: widget.navigationShell,
+                      ),
+                    ),
                   ],
                 ),
+                if (showCartBar)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: mediaQuery.padding.bottom + FlipkartBottomNav.barHeight + 8,
+                    child: FloatingCartBar(onOpenCart: () => _onTap(3)),
+                  ),
                 if (!hideBottomNav)
                   Positioned(
                     left: 0,
@@ -229,7 +253,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                     child: SizedBox.shrink(),
                   ),
                 const _ShellSideEffects(),
-                const WishlistToast(),
               ],
             ),
           ),

@@ -4,6 +4,7 @@ import TopNav from "../components/mobile/TopNav";
 import MobileHeader from "../components/mobile/MobileHeader";
 import Footer from "../components/layout/Footer";
 import FloatingCartBar from "../components/grocery/FloatingCartBar";
+import { showsFloatingCartBar } from "../utils/floatingCartBar";
 import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
 
 function MobileLayout({ children }) {
@@ -39,7 +40,7 @@ function MobileLayout({ children }) {
         {children}
       </main>
 
-      {isHome || pathname === "/categories" ? <FloatingCartBar /> : null}
+      {showsFloatingCartBar(pathname) ? <FloatingCartBar /> : null}
 
       <Footer />
 

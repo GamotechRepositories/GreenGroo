@@ -110,7 +110,7 @@ export default function StockPage() {
         otherQuantity: Number(otherQty),
         note: requestNote,
       });
-      showToast(res.data.message || "Request sent to Product Manager");
+      showToast(res.data.message || "Request sent to your vendor");
       setRequestItem(null);
       setView("requests");
       await load();
@@ -124,7 +124,7 @@ export default function StockPage() {
   return (
     <PageShell
       title="Store Stock & Inventory Management"
-      subtitle={`Live catalog for ${manager?.storeName || "Dark Store"} · request restock from Product Manager`}
+      subtitle={`Live catalog for ${manager?.storeName || "Dark Store"} · request restock from your vendor`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -148,7 +148,7 @@ export default function StockPage() {
             <p className="text-xs text-slate-500">
               {view === "inventory"
                 ? "Stock is deducted when you confirm & pack an order"
-                : "Product Manager approves these to add stock to this dark store"}
+                : "Your vendor approves these to add stock to this dark store"}
             </p>
           </div>
 
@@ -418,7 +418,7 @@ export default function StockPage() {
             </div>
 
             <label className="block text-xs font-bold text-slate-700">
-              Note for Product Manager
+              Note for vendor
               <textarea
                 rows={2}
                 value={requestNote}

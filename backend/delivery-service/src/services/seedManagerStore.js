@@ -30,11 +30,15 @@ export async function addStoreProducts(manager, entries) {
       { upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
     productsCreated += productResult.upsertedCount || 0;
+    const product = await Product.findOne({ sku: productDoc.sku }).select("_id").lean();
 
     const inventoryDoc = buildStarterInventoryDoc(entry, manager._id);
     const inventoryResult = await StoreInventory.updateOne(
       { managerId: manager._id, sku: inventoryDoc.sku },
-      { $setOnInsert: inventoryDoc },
+      {
+        $setOnInsert: inventoryDoc,
+        ...(product ? { $set: { productId: product._id } } : {}),
+      },
       { upsert: true }
     );
     inventoryCreated += inventoryResult.upsertedCount || 0;

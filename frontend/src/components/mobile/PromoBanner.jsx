@@ -13,7 +13,7 @@ const FALLBACK_BANNER = {
   title: "Bulk Mobile Accessories at",
   titleHighlight: "Wholesale Prices",
   subtitle:
-    "MOQ 10 pieces · Pan-India delivery · Best deals for retailers & distributors",
+    "Pan-India delivery · Best deals for retailers & distributors",
   linkUrl: "",
   alt: "Mobile accessories wholesale",
 };

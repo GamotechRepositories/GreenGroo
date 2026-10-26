@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 
-import '../../config/constants.dart';
-import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/network/api_response_parser.dart';
 import '../../core/providers/app_providers.dart';
@@ -14,24 +12,49 @@ import '../../core/utils/address_utils.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/department_utils.dart';
-import '../../core/utils/razorpay_error_message.dart';
 import '../../core/utils/payment_utils.dart';
-import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
+import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
+import '../../models/product.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
+import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import 'checkout_fulfillment_widgets.dart';
+import 'payment_method.dart';
 
 const _maxOrderNoteLength = 200;
+
+const _pageBg = Color(0xFFF1F2F6);
+const _ink = Color(0xFF1F2430);
+const _muted = Color(0xFF6B7280);
+const _accent = Color(0xFF047857);
+const _savedBg = Color(0xFFE6F6EC);
+const _savedInk = Color(0xFF0B7A3B);
+
+TextStyle _font({
+  double size = 13,
+  FontWeight weight = FontWeight.w600,
+  Color color = _ink,
+  TextDecoration? decoration,
+  double? letterSpacing,
+}) =>
+    GoogleFonts.plusJakartaSans(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      decoration: decoration,
+      decorationColor: color,
+      letterSpacing: letterSpacing,
+    );
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key, this.initialCouponCode});
@@ -43,37 +66,28 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  late final Razorpay _razorpay;
-
   String? _selectedAddressId;
-  String _paymentPlan = PaymentPlan.advance;
   String _message = '';
-  int _messageLength = 0;
-  String _orderError = '';
-  bool _placingOrder = false;
-  bool _orderPlaced = false;
-  bool _showSuccessModal = false;
-  String _orderSuccessNote = '';
-  String _pendingPaymentMode = 'online';
-  String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
+  double? _serverShipping;
+  String? _serverShippingKey;
   String _fulfillment = FulfillmentType.delivery;
   String? _preOrderSlot;
+  PaymentModeOption? _paymentMode;
+  bool _showNote = false;
 
   final _couponController = TextEditingController();
   AppliedCoupon? _appliedCoupon;
+  double? _couponValidatedFor;
   bool _applyingCoupon = false;
   String _couponError = '';
+  List<Coupon> _coupons = const [];
+  String? _couponsKey;
 
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-
-    Future.microtask(() {
+    Future.microtask(() async {
       ref.read(storeSettingsProvider.notifier).refresh();
       // Always reload: server cart lines carry each product's department.
       if (!ref.read(cartControllerProvider).loading) {
@@ -87,14 +101,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (initialCode.isNotEmpty) {
         _applyCoupon(initialCode);
       }
+      await _loadPaymentMode();
     });
   }
 
   @override
   void dispose() {
-    _razorpay.clear();
     _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPaymentMode() async {
+    final mode = await loadLastPaymentMode();
+    if (mounted) setState(() => _paymentMode = mode);
   }
 
   Future<void> _applyCoupon(String code) async {
@@ -119,6 +138,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (!mounted) return;
       setState(() {
         _appliedCoupon = coupon;
+        _couponValidatedFor = subtotal;
         _applyingCoupon = false;
         _couponError = '';
         _couponController.clear();
@@ -126,6 +146,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
+        if (_appliedCoupon?.code == trimmed) _appliedCoupon = null;
         _applyingCoupon = false;
         _couponError = apiErrorMessage(e, fallback: 'Failed to apply coupon.');
       });
@@ -137,6 +158,41 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _appliedCoupon = null;
       _couponError = '';
     });
+  }
+
+  Future<void> _loadCoupons(double subtotal, String key) async {
+    try {
+      final list = await ref.read(apiServiceProvider).fetchAvailableCoupons(subtotal: subtotal);
+      if (mounted && _couponsKey == key) setState(() => _coupons = list);
+    } catch (_) {}
+  }
+
+  /// Best coupon to suggest: the biggest one already unlocked, otherwise the
+  /// one closest to unlocking.
+  Coupon? _suggestedCoupon() {
+    final applied = _appliedCoupon;
+    final candidates = _coupons
+        .where((c) => c.code != applied?.code && c.redemptionBlocked.trim().isEmpty)
+        .toList();
+    final unlocked = candidates.where((c) => c.unlocked && c.discountAmount > 0).toList()
+      ..sort((a, b) => b.discountAmount.compareTo(a.discountAmount));
+    if (unlocked.isNotEmpty) {
+      if (applied != null && applied.discountAmount >= unlocked.first.discountAmount) {
+        return null;
+      }
+      return unlocked.first;
+    }
+    if (applied != null) return null;
+    final locked = candidates.where((c) => !c.unlocked && c.amountNeeded > 0).toList()
+      ..sort((a, b) => a.amountNeeded.compareTo(b.amountNeeded));
+    return locked.firstOrNull;
+  }
+
+  Future<void> _openCoupons() async {
+    final code = await context.push<String>(RoutePaths.coupons);
+    if (code != null && code.isNotEmpty && mounted) {
+      _applyCoupon(code);
+    }
   }
 
   void _syncSelectedAddress(List<Address> addresses) {
@@ -192,7 +248,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
   }
 
-  void _openPayment() {
+  Future<void> _openPayment({bool autoPay = false}) async {
+    final mode = _paymentMode;
     final query = <String, String>{
       if (_selectedAddressId != null) 'addressId': _selectedAddressId!,
       if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
@@ -201,23 +258,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (_preOrderSlot != null &&
           ref.read(cartControllerProvider).items.any((i) => i.department == Department.preorder))
         'slot': _preOrderSlot!,
+      if (mode != null) 'method': mode.name,
+      if (autoPay && mode != null) 'autopay': '1',
     };
-    context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+    await context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+    if (mounted) await _loadPaymentMode();
   }
 
-  Future<String?> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
-    if (_orderPlaced || items.isEmpty) return _attemptedOrderId;
+  String _checkoutAttemptKey(List<CartItem> items) =>
+      '${_selectedAddressId ?? ''}|${_appliedCoupon?.code ?? ''}|$_fulfillment|${_preOrderSlot ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
 
-    final key =
-        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|$_fulfillment|${_preOrderSlot ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
-    if (!force && key == _lastCheckoutAttemptKey && _attemptedOrderId != null) {
-      return _attemptedOrderId;
-    }
+  /// Records the checkout attempt and reads back the server-priced delivery fee.
+  Future<void> _syncCheckoutAttempt(List<CartItem> items) async {
+    if (items.isEmpty) return;
+
+    final key = _checkoutAttemptKey(items);
+    if (key == _lastCheckoutAttemptKey) return;
+    _lastCheckoutAttemptKey = key;
 
     try {
       final response = await ref.read(apiServiceProvider).createCheckoutAttempt({
         if (_selectedAddressId != null) 'addressId': _selectedAddressId,
-        'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
+        'paymentMethod': PaymentUtils.checkoutPaymentMethod(PaymentPlan.full),
         'checkoutItems': _checkoutItemsPayload(items),
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
@@ -225,17 +287,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ..._fulfillmentPayload(items),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
-      final orderId = order['_id']?.toString();
-      if (orderId != null && orderId.isNotEmpty) {
-        _attemptedOrderId = orderId;
-        _lastCheckoutAttemptKey = key;
-        return orderId;
+      final charges = order['deliveryCharges'];
+      if (charges is num && mounted) {
+        setState(() {
+          _serverShipping = charges.toDouble();
+          _serverShippingKey = key;
+        });
       }
     } catch (_) {
-      // Caller can retry with force before payment.
+      // Fee falls back to the store-settings estimate; retry on next change.
+      _lastCheckoutAttemptKey = null;
     }
-
-    return _attemptedOrderId;
   }
 
   Future<void> _openLocationSheet() async {
@@ -250,158 +312,54 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() => _selectedAddressId = id);
   }
 
-  String get _apiPaymentMode => _paymentPlan;
-
-  Future<void> _startRazorpayPayment() async {
-    if (_selectedAddressId == null) return;
-
-    setState(() {
-      _placingOrder = true;
-      _orderError = '';
-    });
-
-    try {
-      final cartItems = ref.read(cartControllerProvider).items;
-      final response = await ref.read(apiServiceProvider).createRazorpayOrder({
-        if (_selectedAddressId != null) 'addressId': _selectedAddressId,
-        'paymentMode': _apiPaymentMode,
-        'checkoutItems': _checkoutItemsPayload(cartItems),
-        'checkoutMode': 'cart',
-        'customerLocation': _customerLocationPayload(),
-        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-        ..._fulfillmentPayload(cartItems),
-      });
-      final body = ApiResponseParser.getData(response.data);
-      if (body is! Map<String, dynamic>) {
-        throw ApiException(
-          ApiResponseParser.getMessage(response.data) ??
-              'Invalid payment response from server.',
+  Future<void> _changeQuantity(CartItem item, int quantity) async {
+    final ok = await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+          productId: item.id,
+          quantity: quantity,
+          variantName: item.variantName,
+          colorName: item.colorName,
         );
-      }
-
-      final attemptedId = body['attemptedOrderId']?.toString();
-      if (attemptedId != null && attemptedId.isNotEmpty) {
-        _attemptedOrderId = attemptedId;
-      }
-
-      final keyId = body['keyId']?.toString() ?? '';
-      final razorpayOrderId = body['razorpayOrderId']?.toString() ?? '';
-      final amountRaw = body['amount'];
-      final amountPaise = amountRaw is int
-          ? amountRaw
-          : int.tryParse(amountRaw?.toString() ?? '');
-
-      if (keyId.isEmpty || razorpayOrderId.isEmpty) {
-        throw ApiException(
-          ApiResponseParser.getMessage(response.data) ??
-              'Online payment is not configured. Please contact support.',
-        );
-      }
-      if (amountPaise == null || amountPaise <= 0) {
-        throw ApiException('Invalid payment amount.');
-      }
-
-      _pendingPaymentMode = _apiPaymentMode;
-      setState(() => _placingOrder = false);
-
-      final user = ref.read(authControllerProvider).user!;
-      final options = <String, dynamic>{
-        'key': keyId,
-        'amount': amountPaise,
-        'order_id': razorpayOrderId,
-        'name': 'GreenGrocc',
-        'description': _paymentPlan == PaymentPlan.advance
-            ? '10% advance payment via Razorpay'
-            : 'Full order payment via Razorpay',
-        'prefill': {
-          'contact': user.phone,
-          'email': user.email,
-          'name': user.name,
-        },
-      };
-      _razorpay.open(options);
-    } catch (e) {
-      final message = apiErrorMessage(
-        e,
-        fallback: 'Failed to start payment. Please try again.',
+    if (!ok && mounted) {
+      final error = ref.read(cartControllerProvider).errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Could not update quantity.'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-      setState(() {
-        _placingOrder = false;
-        _orderError = message;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
     }
   }
 
-  Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
-    setState(() {
-      _placingOrder = true;
-      _orderError = '';
-    });
-
-    try {
-      final cartItems = ref.read(cartControllerProvider).items;
-      await ref.read(apiServiceProvider).verifyRazorpayPayment({
-        'addressId': _selectedAddressId,
-        'paymentMode': _pendingPaymentMode,
-        'customerMessage': _message.trim(),
-        'checkoutItems': _checkoutItemsPayload(cartItems),
-        'checkoutMode': 'cart',
-        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-        if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
-        ..._fulfillmentPayload(cartItems),
-        'razorpay_order_id': response.orderId,
-        'razorpay_payment_id': response.paymentId,
-        'razorpay_signature': response.signature,
-      });
-      await _completeOrderSuccess(
-        _pendingPaymentMode == PaymentPlan.advance
-            ? 'Order confirmed. 10% paid via Razorpay. Pay the balance on delivery.'
-            : null,
+  Future<void> _moveToWishlist(CartItem item) async {
+    final wishlist = ref.read(wishlistControllerProvider.notifier);
+    if (!wishlist.isWishlisted(item.id)) {
+      final added = await wishlist.toggleWishlist(
+        Product(
+          id: item.id,
+          name: item.name,
+          categories: const [],
+          subcategory: '',
+          brandName: item.brandName,
+          price: item.price,
+          discountedPrice: item.discountedPrice,
+          discountedPercent: 0,
+          stock: item.stock,
+          productImages: item.productImages,
+          pricingType: item.pricingType,
+          bulkPricing: item.bulkPricing,
+          variantType: item.variantType,
+          variants: item.variants,
+          minOrderQuantity: item.minOrderQuantity,
+          stepByQuantity: item.stepByQuantity,
+        ),
       );
-    } catch (e) {
-      setState(() {
-        _orderError = apiErrorMessage(
-          e,
-          fallback: 'Payment verified but order failed. Contact support.',
+      if (!added) return;
+    }
+    await ref.read(cartControllerProvider.notifier).removeFromCartLine(
+          productId: item.id,
+          variantName: item.variantName,
+          colorName: item.colorName,
         );
-        _placingOrder = false;
-      });
-    }
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    final message = razorpayErrorMessage(response);
-    setState(() {
-      _placingOrder = false;
-      _orderError = message;
-    });
-    final cartItems = ref.read(cartControllerProvider).items;
-    if (cartItems.isNotEmpty) {
-      _syncCheckoutAttempt(cartItems, force: true);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    // no-op
-  }
-
-  Future<void> _completeOrderSuccess([String? note]) async {
-    setState(() {
-      _orderPlaced = true;
-      _placingOrder = false;
-      _orderSuccessNote = note ??
-          (_fulfillment == FulfillmentType.pickup
-              ? 'Your order has been placed. Collect it from the dark store with your order OTP.'
-              : 'Your order has been placed and will be delivered soon.');
-      _showSuccessModal = true;
-    });
-    await ref.read(cartControllerProvider.notifier).loadCart();
   }
 
   @override
@@ -422,10 +380,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
+                Text(
                   'Please login to proceed with checkout.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: _font(weight: FontWeight.w500, color: _muted),
                 ),
                 const SizedBox(height: 20),
                 FilledButton(
@@ -441,15 +399,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     _syncSelectedAddress(addressList);
     final isPickup = _fulfillment == FulfillmentType.pickup;
-    final baseSummary = calculateCartSummary(cartItems);
+    final storeSettings = ref.watch(storeSettingsProvider).value;
+    final baseSummary = calculateCartSummary(cartItems, settings: storeSettings);
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
-    final summary = applyStorePickup(
+    final localSummary = applyStorePickup(
       applyCouponDiscount(baseSummary, couponDiscount),
       pickup: isPickup,
     );
-    final storeSettings = ref.watch(storeSettingsProvider).value;
+    final serverPriced = !isPickup &&
+        _serverShipping != null &&
+        _serverShippingKey == _checkoutAttemptKey(cartItems);
+    final summary =
+        serverPriced ? applyServerShipping(localSummary, _serverShipping!) : localSummary;
+    final feeKnown = isPickup || serverPriced || storeSettings != null;
 
     final groups = groupCartByDepartment(cartItems);
     final hasPreOrder = groups.containsKey(Department.preorder);
@@ -457,16 +421,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final slots = storeSettings?.activePreOrderSlots ?? const [];
     final slotChosen = _preOrderSlot != null && slots.any((s) => s.label == _preOrderSlot);
     final slotReady = !hasPreOrder || slotChosen;
-    final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
+    final minimumOrderValue = storeSettings?.minimumOrderValue ?? 0;
     final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
-    final orderShortfall =
-        minimumOrderShortfall(summary.subtotal, minimumOrderValue);
+    final orderShortfall = minimumOrderShortfall(summary.subtotal, minimumOrderValue);
     final selectedAddress = _selectedAddressId == null
         ? null
-        : addressList
-            .where((a) => a.id == _selectedAddressId)
-            .cast<Address?>()
-            .firstOrNull;
+        : addressList.where((a) => a.id == _selectedAddressId).firstOrNull;
     final storeAsync = ref.watch(checkoutStoreProvider(checkoutStoreQuery(
       hasNowItems: hasNowItems,
       fulfillment: _fulfillment,
@@ -474,653 +434,937 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     )));
     final darkStore = storeAsync.value?.store;
 
-    if (!cartLoading && cartItems.isEmpty && !_orderPlaced) {
+    // Delivery nudge only when the fee follows the store's slabs.
+    final cheaperSlab = !isPickup &&
+            storeSettings != null &&
+            (!serverPriced || summary.shipping == shippingChargeFor(summary.subtotal, storeSettings))
+        ? nextCheaperShippingSlab(summary.subtotal, storeSettings)
+        : null;
+    final totalSaved = summary.savings + couponDiscount;
+    final mrpTotal = summary.subtotal + summary.savings;
+
+    if (!cartLoading && cartItems.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go(RoutePaths.cart);
       });
     }
 
-    if (!cartLoading && cartItems.isNotEmpty && !_orderPlaced) {
+    if (!cartLoading && cartItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _syncCheckoutAttempt(cartItems);
       });
+      final couponsKey = summary.subtotal.toStringAsFixed(2);
+      if (_couponsKey != couponsKey) {
+        _couponsKey = couponsKey;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadCoupons(summary.subtotal, couponsKey);
+        });
+      }
+      final applied = _appliedCoupon;
+      if (applied != null && !_applyingCoupon && _couponValidatedFor != summary.subtotal) {
+        _couponValidatedFor = summary.subtotal;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _applyCoupon(applied.code);
+        });
+      }
+    }
+
+    final pickupStoreMissing = isPickup && darkStore == null;
+    String? blocker;
+    if (!minimumOrderMet) {
+      blocker =
+          'Add ${formatInr(orderShortfall)} more to reach the minimum order of ${formatInr(minimumOrderValue)}';
+    } else if (selectedAddress == null) {
+      blocker = 'Add a delivery address to continue';
+    } else if (!slotReady) {
+      blocker = 'Choose a pre-order slot to continue';
+    } else if (pickupStoreMissing) {
+      blocker = 'No dark store found for pickup at this location';
     }
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : context.go(RoutePaths.cart),
-        ),
-        title: const Text('Checkout'),
+      backgroundColor: _pageBg,
+      appBar: _CheckoutHeader(
+        pickup: isPickup,
+        address: selectedAddress,
+        fallbackAddress: ref.watch(deliveryLocationProvider)?.displayAddress,
+        storeName: darkStore?.storeName,
+        loading: addressesLoading && addressList.isEmpty,
+        onBack: () => context.canPop() ? context.pop() : context.go(RoutePaths.cart),
+        onChangeAddress: addressList.isEmpty ? _openAddressForm : _openLocationSheet,
       ),
-      body: Stack(
-        children: [
-          cartLoading && cartItems.isEmpty
-              ? const SkeletonCheckoutPage()
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                  children: [
-                    if (!minimumOrderMet) ...[
-                      MinimumOrderWarning(
-                        subtotal: summary.subtotal,
-                        minimumOrderValue: minimumOrderValue,
-                        onAddMore: () => context.go(RoutePaths.product),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    _StepSection(
-                      title: 'How do you want your order?',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FulfillmentChoice(
-                            value: _fulfillment,
-                            onChanged: (value) => setState(() => _fulfillment = value),
-                          ),
-                          if (isPickup) ...[
-                            const SizedBox(height: 12),
-                            DarkStoreContactCard(
-                              store: darkStore,
-                              pickup: true,
-                              loading: storeAsync.isLoading && darkStore == null,
+      body: cartLoading && cartItems.isEmpty
+          ? const SkeletonCheckoutPage()
+          : ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                if (totalSaved > 0) _SavedStrip(amount: totalSaved),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!minimumOrderMet) ...[
+                        MinimumOrderWarning(
+                          subtotal: summary.subtotal,
+                          minimumOrderValue: minimumOrderValue,
+                          onAddMore: () => context.go(RoutePaths.product),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final entry in groups.entries) ...[
+                              DepartmentGroupHeader(
+                                department: entry.key,
+                                itemCount: entry.value.length,
+                                etaText: departmentEtaText(
+                                  entry.key,
+                                  pickup: isPickup,
+                                  preOrderSlot: slotChosen ? _preOrderSlot : null,
+                                ),
+                              ),
+                              for (final item in entry.value)
+                                _CheckoutLine(
+                                  item: item,
+                                  onDecrease: () => _changeQuantity(
+                                    item,
+                                    getDecreasedCartQuantityForCartItem(item),
+                                  ),
+                                  onIncrease: () =>
+                                      _changeQuantity(item, item.quantity + item.quantityStep),
+                                  onMoveToWishlist: () => _moveToWishlist(item),
+                                  onTap: () => context.push('/product/${item.id}'),
+                                ),
+                              if (entry.key != groups.keys.last) const SizedBox(height: 8),
+                            ],
+                            if (hasPreOrder && hasNowItems)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  'Pre-order and quick items arrive separately, '
+                                  'but you pay once for the whole order.',
+                                  style: _font(size: 11.5, weight: FontWeight.w500, color: _muted),
+                                ),
+                              ),
+                            const Divider(height: 1),
+                            _ActionRow(
+                              icon: Icons.add_rounded,
+                              label: 'Add more items',
+                              onTap: () => context.go(RoutePaths.product),
                             ),
+                            const Divider(height: 1),
+                            _ActionRow(
+                              icon: Icons.edit_note_rounded,
+                              label: _message.trim().isEmpty
+                                  ? 'Add a note for the store'
+                                  : 'Note: ${_message.trim()}',
+                              onTap: () => setState(() => _showNote = !_showNote),
+                            ),
+                            if (_showNote)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: TextFormField(
+                                  initialValue: _message,
+                                  maxLines: 3,
+                                  maxLength: _maxOrderNoteLength,
+                                  style: _font(weight: FontWeight.w500),
+                                  decoration: InputDecoration(
+                                    hintText: 'Any special instructions for your order...',
+                                    hintStyle: _font(weight: FontWeight.w500, color: _muted),
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: _pageBg,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                  onChanged: (value) => setState(() => _message = value),
+                                ),
+                              ),
                           ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (hasPreOrder) ...[
-                      _StepSection(
-                        title: 'Pre-order slot (tomorrow)',
-                        child: PreOrderSlotPicker(
-                          slots: slots,
-                          selected: _preOrderSlot,
-                          onSelected: (label) => setState(() => _preOrderSlot = label),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    _StepSection(
-                      title: isPickup ? 'Your Details' : 'Delivery Details',
-                      child: addressesLoading
-                          ? const SkeletonAddressList()
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (addressList.isEmpty) ...[
-                                  const Text(
-                                    'No saved address yet. Add one to continue.',
-                                    style: TextStyle(color: AppColors.textSecondary),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: FilledButton.icon(
-                                      onPressed: _openAddressForm,
-                                      icon: const Icon(Icons.add, size: 20),
-                                      label: const Text('Add delivery address'),
-                                      style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                if (selectedAddress != null)
-                                  _SelectedAddressCard(
-                                    address: selectedAddress,
-                                    showChange: true,
-                                    onChange: _openLocationSheet,
-                                  ),
-                                if (addressList.isNotEmpty && selectedAddress == null)
-                                  TextButton(
-                                    onPressed: _openAddressForm,
-                                    child: const Text('+ Add Address'),
-                                  ),
-                              ],
+                      const SizedBox(height: 14),
+                      _Card(
+                        title: 'How do you want your order?',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            FulfillmentChoice(
+                              value: _fulfillment,
+                              onChanged: (value) => setState(() => _fulfillment = value),
                             ),
-                    ),
-                    const SizedBox(height: 12),
-                    _StepSection(
-                      title: 'Payment Mode',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFBBF7D0)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.payment_rounded, color: Color(0xFF047857), size: 22),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Choose How You Want to Pay',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                        color: const Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Razorpay, Google Pay (GPay), Cash on Delivery (COD), UPI & Cards',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    color: const Color(0xFF64748B),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 48,
-                                  child: FilledButton.icon(
-                                    onPressed: selectedAddress == null ||
-                                            !minimumOrderMet ||
-                                            !slotReady ||
-                                            (isPickup && darkStore == null)
-                                        ? null
-                                        : _openPayment,
-                                    icon: const Icon(Icons.touch_app_rounded, size: 20),
-                                    label: Text(
-                                      'Select Payment Mode',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14.5,
-                                      ),
-                                    ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF047857),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                            if (isPickup) ...[
+                              const SizedBox(height: 12),
+                              DarkStoreContactCard(
+                                store: darkStore,
+                                pickup: true,
+                                loading: storeAsync.isLoading && darkStore == null,
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _StepSection(
-                      title: 'Order Note (optional)',
-                      child: Stack(
-                        children: [
-                          TextField(
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              hintText: 'Any special instructions for your order...',
-                              filled: true,
-                              fillColor: Colors.white,
-                              counterText: '$_messageLength/$_maxOrderNoteLength',
-                            ),
-                            onChanged: (value) {
-                              if (value.length > _maxOrderNoteLength) return;
-                              setState(() {
-                                _message = value;
-                                _messageLength = value.length;
-                              });
-                            },
+                      if (hasPreOrder) ...[
+                        const SizedBox(height: 14),
+                        _Card(
+                          title: 'Pre-order slot (tomorrow)',
+                          child: PreOrderSlotPicker(
+                            slots: slots,
+                            selected: _preOrderSlot,
+                            onSelected: (label) => setState(() => _preOrderSlot = label),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _StepSection(
-                      title: 'Coupon',
-                      child: _buildCouponSection(),
-                    ),
-                    const SizedBox(height: 12),
-                    _StepSection(
-                      title: 'Order Summary',
-                      child: Column(
-                        children: [
-                          for (final entry in groups.entries) ...[
-                            DepartmentGroupHeader(
-                              department: entry.key,
-                              itemCount: entry.value.length,
-                              etaText: departmentEtaText(
-                                entry.key,
-                                pickup: isPickup,
-                                preOrderSlot: slotChosen ? _preOrderSlot : null,
+                        ),
+                      ],
+                      const _SectionLabel('SAVINGS CORNER'),
+                      _Card(child: _buildSavingsCorner()),
+                      const _SectionLabel('BILL DETAILS'),
+                      _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _BillRow(
+                              icon: Icons.receipt_long_outlined,
+                              label: 'Item Total',
+                              struck: summary.savings > 0 ? formatInr(mrpTotal) : null,
+                              value: formatInr(summary.subtotal),
+                            ),
+                            if (couponDiscount > 0)
+                              _BillRow(
+                                icon: Icons.local_offer_outlined,
+                                label: 'Coupon (${_appliedCoupon!.code})',
+                                value: '-${formatInr(couponDiscount)}',
+                                valueColor: _savedInk,
+                              ),
+                            _BillRow(
+                              icon: isPickup
+                                  ? Icons.storefront_outlined
+                                  : Icons.delivery_dining_outlined,
+                              label: isPickup ? 'Store pickup' : 'Delivery Fee',
+                              value: !feeKnown
+                                  ? 'Calculating…'
+                                  : summary.shippingFree
+                                      ? 'FREE'
+                                      : formatInr(summary.shipping),
+                              valueColor: feeKnown && summary.shippingFree ? _savedInk : null,
+                              note: cheaperSlab == null
+                                  ? null
+                                  : 'Add ${formatInr(cheaperSlab.orderAmount - summary.subtotal)} more for '
+                                      '${cheaperSlab.shippingCharge <= 0 ? 'FREE delivery' : '${formatInr(cheaperSlab.shippingCharge)} delivery'}',
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 30, bottom: 4),
+                              child: Text(
+                                'GST included in item prices',
+                                style: _font(size: 11, weight: FontWeight.w500, color: _muted),
                               ),
                             ),
-                            ...entry.value.map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _CheckoutLineItem(item: item),
-                              ),
-                            ),
-                            if (entry.key != groups.keys.last) const SizedBox(height: 6),
-                          ],
-                          if (hasPreOrder && hasNowItems) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Your cart has pre-order and quick items — they arrive separately, '
-                              'but you pay once for the whole order.',
-                              style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade600),
-                            ),
-                          ],
-                          const Divider(height: 24),
-                          _summaryRow('Items', '${summary.itemCount}'),
-                          const SizedBox(height: 8),
-                          _summaryRow('Subtotal', formatInr(summary.subtotal)),
-                          if (!minimumOrderMet) ...[
-                            const SizedBox(height: 10),
-                            MinimumOrderWarning(
-                              subtotal: summary.subtotal,
-                              minimumOrderValue: minimumOrderValue,
-                              compact: true,
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          _summaryRow(
-                            isPickup ? 'Delivery (store pickup)' : 'Shipping',
-                            summary.shippingFree ? 'FREE' : formatInr(summary.shipping),
-                          ),
-                          if (couponDiscount > 0) ...[
-                            const SizedBox(height: 8),
+                            const _DashedDivider(),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Coupon discount (${_appliedCoupon!.code})',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.green.shade700,
+                                Expanded(
+                                  child: Text(
+                                    'To Pay',
+                                    style: _font(size: 15, weight: FontWeight.w800),
                                   ),
                                 ),
-                                Text(
-                                  '-${formatInr(couponDiscount)}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green.shade700,
+                                if (totalSaved > 0 && feeKnown) ...[
+                                  Text(
+                                    formatInr(mrpTotal + summary.shipping),
+                                    style: _font(
+                                      size: 12.5,
+                                      weight: FontWeight.w500,
+                                      color: _muted,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
                                   ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Text(
+                                  formatInr(summary.total),
+                                  style: _font(size: 15, weight: FontWeight.w800),
                                 ),
                               ],
                             ),
                           ],
-                          const SizedBox(height: 8),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'GST included in prices',
-                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                            ),
-                          ),
-                          const Divider(height: 24),
-                          _summaryRow(
-                            'Pay now (Razorpay)',
-                            formatInr(
-                              PaymentUtils.payableAmount(summary.total, _paymentPlan),
-                              withDecimals: true,
-                            ),
-                          ),
-                          if (_paymentPlan == PaymentPlan.advance) ...[
-                            const SizedBox(height: 8),
-                            _summaryRow(
-                              'Balance on delivery',
-                              formatInr(
-                                summary.total - PaymentUtils.advanceAmount(summary.total),
-                                withDecimals: true,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          _summaryRow('Total', formatInr(summary.total), bold: true),
-                          if (summary.savings > 0) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.check_circle_outline,
-                                      size: 18, color: Colors.green.shade700),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'You will save ${formatInr(summary.savings)} on this order',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.green.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (!summary.shippingFree && !isPickup) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Free delivery on orders above ${formatInr(AppConstants.freeDeliveryThreshold)}',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
-                    ),
-                    if (_orderError.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _orderError,
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                      ),
+                      const SizedBox(height: 14),
+                      _CancellationNote(onReadPolicy: () => context.push(RoutePaths.terms)),
                     ],
-                  ],
-                ),
-          if (_placingOrder)
-            Container(
-              color: Colors.black38,
-              child: const Center(
-                child: Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: AppColors.primary),
-                        SizedBox(height: 16),
-                        Text('Processing payment...', style: TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          if (_showSuccessModal)
-            Container(
-              color: Colors.black38,
-              child: Center(
-                child: Card(
-                  margin: const EdgeInsets.all(24),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.check, color: Colors.green.shade700, size: 36),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Order Confirmed',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _orderSuccessNote,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: () {
-                              setState(() => _showSuccessModal = false);
-                              context.go(RoutePaths.orders);
-                            },
-                            child: const Text('View My Orders'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
       bottomNavigationBar: cartItems.isEmpty
           ? null
-          : _CheckoutPayBar(
-              summary: summary,
-              paymentPlan: _paymentPlan,
+          : _PayBar(
+              mode: _paymentMode,
+              total: summary.total,
+              feeKnown: feeKnown,
+              blocker: blocker,
               minimumOrderMet: minimumOrderMet,
-              minimumOrderValue: minimumOrderValue,
-              orderShortfall: orderShortfall,
-              hasAddress: _selectedAddressId != null,
-              selectedAddress: selectedAddress,
-              placingOrder: _placingOrder,
-              slotReady: slotReady,
-              pickup: isPickup,
-              pickupStoreName: darkStore?.storeName,
-              onChangeAddress: _openLocationSheet,
-              onSelectPaymentMode: _openPayment,
+              onChange: blocker == null ? () => _openPayment() : null,
+              onSlid: () => _openPayment(autoPay: true),
             ),
     );
   }
 
-  Widget _buildCouponSection() {
+  Widget _buildSavingsCorner() {
     final applied = _appliedCoupon;
-
-    if (applied != null) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.green.shade200),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.local_offer, size: 20, color: Colors.green.shade700),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    applied.code,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      letterSpacing: 0.5,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'You save ${formatInr(applied.discountAmount)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(
-              onPressed: _removeCoupon,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red.shade700,
-                visualDensity: VisualDensity.compact,
-              ),
-              child: const Text('Remove'),
-            ),
-          ],
-        ),
-      );
-    }
+    final suggestion = _suggestedCoupon();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _couponController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  hintText: 'Enter coupon code',
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.white,
+        if (applied != null)
+          _CouponRow(
+            title: 'You saved ${formatInr(applied.discountAmount)} with \'${applied.code}\'',
+            subtitle: applied.title.trim().isNotEmpty ? applied.title.trim() : 'Coupon applied',
+            actionLabel: 'Remove',
+            actionColor: Colors.red.shade700,
+            onAction: _removeCoupon,
+          ),
+        if (applied != null && suggestion != null) const Divider(height: 20),
+        if (suggestion != null)
+          _CouponRow(
+            title: suggestion.unlocked
+                ? 'Save ${formatInr(suggestion.discountAmount)} with \'${suggestion.code}\''
+                : suggestion.headline,
+            subtitle: suggestion.unlocked ? suggestion.headline : suggestion.unlockMessage,
+            actionLabel: suggestion.unlocked ? 'Apply' : null,
+            onAction: suggestion.unlocked && !_applyingCoupon
+                ? () => _applyCoupon(suggestion.code)
+                : null,
+          ),
+        if (applied == null) ...[
+          if (suggestion != null) const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _couponController,
+                  textCapitalization: TextCapitalization.characters,
+                  style: _font(weight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    hintText: 'Enter coupon code',
+                    hintStyle: _font(weight: FontWeight.w500, color: _muted),
+                    isDense: true,
+                    filled: true,
+                    fillColor: _pageBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: _applyCoupon,
                 ),
-                onSubmitted: _applyCoupon,
               ),
-            ),
-            const SizedBox(width: 10),
-            FilledButton(
-              onPressed: _applyingCoupon
-                  ? null
-                  : () => _applyCoupon(_couponController.text),
-              child: _applyingCoupon
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Apply'),
-            ),
-          ],
-        ),
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: _applyingCoupon ? null : () => _applyCoupon(_couponController.text),
+                child: _applyingCoupon
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+                      )
+                    : Text('APPLY', style: _font(weight: FontWeight.w800, color: _accent)),
+              ),
+            ],
+          ),
+        ],
         if (_couponError.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
             _couponError,
-            style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+            style: _font(size: 12, weight: FontWeight.w500, color: Colors.red.shade700),
           ),
         ],
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () async {
-              final code = await context.push<String>(RoutePaths.coupons);
-              if (code != null && code.isNotEmpty && mounted) {
-                _applyCoupon(code);
-              }
-            },
-            icon: const Icon(Icons.local_offer_outlined, size: 16),
-            label: const Text('View all coupons'),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-            ),
+        const Divider(height: 24),
+        InkWell(
+          onTap: _openCoupons,
+          child: Row(
+            children: [
+              const Icon(Icons.percent_rounded, size: 18, color: _ink),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'View all coupons & offers',
+                  style: _font(weight: FontWeight.w700),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-            color: bold ? AppColors.textPrimary : AppColors.textSecondary,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w500),
         ),
       ],
     );
   }
 }
 
-class _CheckoutPayBar extends ConsumerWidget {
-  const _CheckoutPayBar({
-    required this.summary,
-    required this.paymentPlan,
-    required this.minimumOrderMet,
-    required this.minimumOrderValue,
-    required this.orderShortfall,
-    required this.hasAddress,
-    required this.selectedAddress,
-    required this.placingOrder,
-    required this.slotReady,
+class _CheckoutHeader extends StatelessWidget implements PreferredSizeWidget {
+  const _CheckoutHeader({
     required this.pickup,
-    required this.pickupStoreName,
+    required this.address,
+    required this.fallbackAddress,
+    required this.storeName,
+    required this.loading,
+    required this.onBack,
     required this.onChangeAddress,
-    required this.onSelectPaymentMode,
   });
 
-  final CartSummary summary;
-  final String paymentPlan;
-  final bool minimumOrderMet;
-  final double minimumOrderValue;
-  final double orderShortfall;
-  final bool hasAddress;
-  final Address? selectedAddress;
-  final bool placingOrder;
-  final bool slotReady;
   final bool pickup;
-  final String? pickupStoreName;
+  final Address? address;
+  final String? fallbackAddress;
+  final String? storeName;
+  final bool loading;
+  final VoidCallback onBack;
   final VoidCallback onChangeAddress;
-  final VoidCallback onSelectPaymentMode;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final location = ref.watch(deliveryLocationProvider);
-    final pickupStoreMissing = pickup && pickupStoreName == null;
-    final readyToPay = hasAddress && minimumOrderMet && slotReady && !pickupStoreMissing;
-    final canPay = readyToPay && !placingOrder;
+  Size get preferredSize => const Size.fromHeight(64);
 
-    final addressLabel = selectedAddress?.fullName.isNotEmpty == true
-        ? selectedAddress!.fullName
-        : (location?.area?.isNotEmpty == true
-            ? location!.area!
-            : (location?.city?.isNotEmpty == true ? location!.city! : 'Work'));
-
-    final addressText = selectedAddress != null
-        ? formatAddressLine(selectedAddress!)
-        : (location?.displayAddress ?? 'Select delivery location');
-
-    String? helperText;
-    if (!minimumOrderMet) {
-      helperText =
-          'Add ${formatInr(orderShortfall)} more to reach minimum order of ${formatInr(minimumOrderValue)}';
-    } else if (!hasAddress) {
-      helperText = 'Add a delivery address to continue';
-    } else if (!slotReady) {
-      helperText = 'Choose a pre-order slot to continue';
-    } else if (pickupStoreMissing) {
-      helperText = 'No dark store found for pickup at this location';
+  @override
+  Widget build(BuildContext context) {
+    final addr = address;
+    final String title;
+    final String line;
+    if (pickup) {
+      title = 'Pickup from ${storeName?.trim().isNotEmpty == true ? storeName!.trim() : 'dark store'}';
+      line = addr != null ? 'Contact: ${getAddressFullName(addr)}' : 'Collect with your order OTP';
+    } else if (addr != null) {
+      title = addr.shopName.trim().isNotEmpty ? addr.shopName.trim() : getAddressFullName(addr);
+      line = formatAddressLine(addr);
+    } else {
+      title = loading ? 'Loading address…' : 'Add delivery address';
+      line = fallbackAddress ?? 'Choose where to deliver your order';
     }
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: 14,
-        right: 14,
-        top: 10,
-        bottom: MediaQuery.paddingOf(context).bottom + 10,
+    return AppBar(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 0,
+      toolbarHeight: 64,
+      titleSpacing: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+        onPressed: onBack,
       ),
+      title: InkWell(
+        onTap: onChangeAddress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              const Icon(Icons.near_me_rounded, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _font(size: 15.5, weight: FontWeight.w800),
+                          ),
+                        ),
+                        const Icon(Icons.keyboard_arrow_down_rounded, color: _ink),
+                      ],
+                    ),
+                    Text(
+                      line,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _font(size: 12, weight: FontWeight.w500, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SavedStrip extends StatelessWidget {
+  const _SavedStrip({required this.amount});
+
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _savedBg,
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.verified_rounded, size: 18, color: _savedInk),
+          const SizedBox(width: 6),
+          Text(
+            '${formatInr(amount)} saved!',
+            style: _font(size: 14, weight: FontWeight.w800, color: _savedInk),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.title});
+
+  final Widget child;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            Text(title!, style: _font(size: 14, weight: FontWeight.w800)),
+            const SizedBox(height: 12),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+      child: Text(
+        text,
+        style: _font(size: 12, weight: FontWeight.w800, color: _muted, letterSpacing: 1.2),
+      ),
+    );
+  }
+}
+
+class _CheckoutLine extends StatelessWidget {
+  const _CheckoutLine({
+    required this.item,
+    required this.onDecrease,
+    required this.onIncrease,
+    required this.onMoveToWishlist,
+    required this.onTap,
+  });
+
+  final CartItem item;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+  final VoidCallback onMoveToWishlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = item.productImages.isNotEmpty ? item.productImages.first : null;
+    final mrp = item.price * item.quantity;
+    final showMrp = mrp > item.lineTotal + 0.009;
+    final details = [
+      if (item.variantName.isNotEmpty) item.variantName,
+      if (item.colorName.isNotEmpty) item.colorName,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: _pageBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: image != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: AppNetworkImage(
+                        imageUrl: image,
+                        fit: BoxFit.contain,
+                        width: 56,
+                        height: 56,
+                        cacheWidth: 112,
+                        cacheHeight: 112,
+                        errorIcon: Icons.image_outlined,
+                      ),
+                    )
+                  : const Icon(Icons.image_outlined, color: _muted),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: onTap,
+                  child: Text(
+                    item.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _font(size: 13.5, weight: FontWeight.w600),
+                  ),
+                ),
+                if (details.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(details, style: _font(size: 12, weight: FontWeight.w500, color: _muted)),
+                ],
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: onMoveToWishlist,
+                  child: Text(
+                    'Move to wishlist',
+                    style: _font(
+                      size: 12,
+                      weight: FontWeight.w600,
+                      color: _muted,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _Stepper(quantity: item.quantity, onDecrease: onDecrease, onIncrease: onIncrease),
+              const SizedBox(height: 8),
+              if (showMrp)
+                Text(
+                  formatInr(mrp),
+                  style: _font(
+                    size: 11.5,
+                    weight: FontWeight.w500,
+                    color: _muted,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              Text(formatInr(item.lineTotal), style: _font(size: 13.5, weight: FontWeight.w700)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stepper extends StatelessWidget {
+  const _Stepper({
+    required this.quantity,
+    required this.onDecrease,
+    required this.onIncrease,
+  });
+
+  final int quantity;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button(IconData icon, VoidCallback onTap) => InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Icon(icon, size: 16, color: _accent),
+          ),
+        );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          button(Icons.remove_rounded, onDecrease),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 22),
+            child: Text(
+              '$quantity',
+              textAlign: TextAlign.center,
+              style: _font(size: 13.5, weight: FontWeight.w800, color: _accent),
+            ),
+          ),
+          button(Icons.add_rounded, onIncrease),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _ink),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _font(weight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CouponRow extends StatelessWidget {
+  const _CouponRow({
+    required this.title,
+    required this.subtitle,
+    this.actionLabel,
+    this.actionColor = _accent,
+    this.onAction,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? actionLabel;
+  final Color actionColor;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(color: Color(0xFFFFEDD5), shape: BoxShape.circle),
+          child: const Icon(Icons.local_offer_rounded, size: 16, color: Color(0xFFEA580C)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _font(size: 13.5, weight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: _font(size: 12, weight: FontWeight.w500, color: _muted)),
+            ],
+          ),
+        ),
+        if (actionLabel != null)
+          TextButton(
+            onPressed: onAction,
+            child: Text(
+              actionLabel!,
+              style: _font(weight: FontWeight.w800, color: actionColor),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _BillRow extends StatelessWidget {
+  const _BillRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.struck,
+    this.valueColor,
+    this.note,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? struck;
+  final Color? valueColor;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: _ink),
+              const SizedBox(width: 12),
+              Expanded(child: Text(label, style: _font(weight: FontWeight.w500))),
+              if (struck != null) ...[
+                Text(
+                  struck!,
+                  style: _font(
+                    size: 12.5,
+                    weight: FontWeight.w500,
+                    color: _muted,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(value, style: _font(weight: FontWeight.w700, color: valueColor ?? _ink)),
+            ],
+          ),
+          if (note != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 30, top: 3),
+              child: Text(
+                note!,
+                style: _font(size: 11.5, weight: FontWeight.w600, color: _accent),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final count = (constraints.maxWidth / 7).floor();
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(
+              count,
+              (_) => const SizedBox(
+                width: 3.5,
+                height: 1,
+                child: ColoredBox(color: Color(0xFFD1D5DB)),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CancellationNote extends StatelessWidget {
+  const _CancellationNote({required this.onReadPolicy});
+
+  final VoidCallback onReadPolicy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('NOTE:', style: _font(size: 12, weight: FontWeight.w800, color: _muted)),
+          const SizedBox(height: 4),
+          Text(
+            'You can cancel this order until the store starts packing it. '
+            'Once it is packed, it can no longer be cancelled.',
+            style: _font(size: 12, weight: FontWeight.w500, color: _muted),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: onReadPolicy,
+            child: Text(
+              'READ CANCELLATION POLICY',
+              style: _font(
+                size: 12,
+                weight: FontWeight.w800,
+                color: _accent,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayBar extends StatelessWidget {
+  const _PayBar({
+    required this.mode,
+    required this.total,
+    required this.feeKnown,
+    required this.blocker,
+    required this.minimumOrderMet,
+    required this.onChange,
+    required this.onSlid,
+  });
+
+  final PaymentModeOption? mode;
+  final double total;
+  final bool feeKnown;
+  final String? blocker;
+  final bool minimumOrderMet;
+  final VoidCallback? onChange;
+  final VoidCallback onSlid;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = mode;
+    final ready = blocker == null && feeKnown;
+    final asset = current?.asset;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(14, 10, 14, MediaQuery.paddingOf(context).bottom + 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1133,292 +1377,205 @@ class _CheckoutPayBar extends ConsumerWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Row 1: Gold Location Icon + Delivering to [Label] + Address Text + Change Button
+          if (blocker != null) ...[
+            Text(
+              blocker!,
+              textAlign: TextAlign.center,
+              style: _font(
+                size: 11.5,
+                weight: FontWeight.w600,
+                color: minimumOrderMet ? _muted : const Color(0xFF9A3412),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF3C7),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.apartment_rounded,
-                  color: Color(0xFFD97706),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    RichText(
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      text: TextSpan(
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          color: const Color(0xFF1F2937),
-                        ),
-                        children: [
-                          TextSpan(
-                            text: pickup ? 'Pickup from ' : 'Delivering to ',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                    Text(
+                      'PAY USING',
+                      style: _font(size: 10.5, weight: FontWeight.w700, color: _muted, letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        if (current != null) ...[
+                          asset != null
+                              ? SvgPicture.asset(asset, width: 20, height: 20)
+                              : Icon(current.icon, size: 20, color: _ink),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Text(
+                            current?.label ?? 'Choose payment method',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _font(size: 14, weight: FontWeight.w800),
                           ),
-                          TextSpan(
-                            text: pickup ? (pickupStoreName ?? 'dark store') : addressLabel,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: onChange,
+                child: Text(
+                  current == null ? 'Choose' : 'Change',
+                  style: _font(
+                    size: 13.5,
+                    weight: FontWeight.w800,
+                    color: onChange == null ? _muted : _accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _SlideToPay(
+            label: current == null ? 'Slide to choose payment' : 'Slide to Pay',
+            amount: feeKnown ? formatInr(total) : '…',
+            enabled: ready,
+            onSlid: onSlid,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SlideToPay extends StatefulWidget {
+  const _SlideToPay({
+    required this.label,
+    required this.amount,
+    required this.enabled,
+    required this.onSlid,
+  });
+
+  final String label;
+  final String amount;
+  final bool enabled;
+  final VoidCallback onSlid;
+
+  @override
+  State<_SlideToPay> createState() => _SlideToPayState();
+}
+
+class _SlideToPayState extends State<_SlideToPay> {
+  static const _height = 56.0;
+  static const _knob = 48.0;
+  static const _inset = 4.0;
+
+  double _drag = 0;
+  bool _done = false;
+
+  void _finish(double max) {
+    if (_drag >= max * 0.85) {
+      setState(() {
+        _drag = max;
+        _done = true;
+      });
+      widget.onSlid();
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) {
+          setState(() {
+            _drag = 0;
+            _done = false;
+          });
+        }
+      });
+    } else {
+      setState(() => _drag = 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.enabled && !_done;
+
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      label: '${widget.label} ${widget.amount}',
+      onTap: widget.enabled ? widget.onSlid : null,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final max = (constraints.maxWidth - _knob - _inset * 2).clamp(0.0, double.infinity);
+          final progress = max == 0 ? 0.0 : (_drag / max).clamp(0.0, 1.0);
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: _height,
+            decoration: BoxDecoration(
+              color: widget.enabled ? _accent : const Color(0xFFCBD5E1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 1 - progress,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: _knob + _inset * 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _font(size: 15.5, weight: FontWeight.w800, color: Colors.white),
                             ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 18,
+                            margin: const EdgeInsets.symmetric(horizontal: 10),
+                            color: Colors.white54,
+                          ),
+                          Text(
+                            widget.amount,
+                            style: _font(size: 15.5, weight: FontWeight.w800, color: Colors.white),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 1),
-                    Text(
-                      addressText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              TextButton(
-                onPressed: onChangeAddress,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Change',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF16A34A),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Row 2: Full Width Solid Green "Select Payment Method" Button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: FilledButton(
-              onPressed: canPay ? onSelectPaymentMode : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                disabledBackgroundColor: const Color(0xFFCBD5E1),
-                disabledForegroundColor: Colors.white70,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                'Select Payment Method',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          if (helperText != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              helperText,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: !minimumOrderMet
-                    ? const Color(0xFF9A3412)
-                    : AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _CheckoutLineItem extends StatelessWidget {
-  const _CheckoutLineItem({required this.item});
-
-  final CartItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final image = item.productImages.isNotEmpty ? item.productImages.first : null;
-
-    return Row(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderLight),
-          ),
-          child: image != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: AppNetworkImage(
-                    imageUrl: image,
-                    fit: BoxFit.contain,
-                    width: 56,
-                    height: 56,
-                    cacheWidth: 112,
-                    cacheHeight: 112,
-                    errorIcon: Icons.image_outlined,
-                  ),
-                )
-              : const Icon(Icons.image_outlined, color: AppColors.textMuted),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Qty: ${item.quantity}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-              if (item.variantName.isNotEmpty)
-                Text(
-                  'Variant: ${item.variantName}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              if (item.colorName.isNotEmpty)
-                Text(
-                  'Color: ${item.colorName}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-            ],
-          ),
-        ),
-        Text(
-          formatInr(item.lineTotal),
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-      ],
-    );
-  }
-}
-
-class _StepSection extends StatelessWidget {
-  const _StepSection({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _SelectedAddressCard extends StatelessWidget {
-  const _SelectedAddressCard({
-    required this.address,
-    required this.showChange,
-    required this.onChange,
-  });
-
-  final Address address;
-  final bool showChange;
-  final VoidCallback onChange;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.mobileSurface.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        getAddressFullName(address),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: _drag == 0 || _done ? 200 : 0),
+                  left: _inset + _drag,
+                  top: _inset,
+                  bottom: _inset,
+                  child: GestureDetector(
+                    onHorizontalDragUpdate: enabled
+                        ? (details) =>
+                            setState(() => _drag = (_drag + details.delta.dx).clamp(0.0, max))
+                        : null,
+                    onHorizontalDragEnd: enabled ? (_) => _finish(max) : null,
+                    child: Container(
+                      width: _knob,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Icon(
+                        Icons.double_arrow_rounded,
+                        color: widget.enabled ? _accent : const Color(0xFF94A3B8),
                       ),
                     ),
-                    if (address.isDefault) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'DEFAULT',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary),
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-              if (showChange)
-                TextButton(onPressed: onChange, child: const Text('Change')),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            formatAddressLine(address),
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
-          ),
-          const SizedBox(height: 4),
-          Text('+91 ${address.number}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-        ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }

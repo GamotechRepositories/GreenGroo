@@ -38,7 +38,7 @@ export default function DashboardPage() {
     {
       label: "Pre-Orders to Assign",
       value: summary?.preOrdersReadyToAssign ?? 0,
-      subtext: `${summary?.preOrdersWithProductManager ?? 0} still with Product Manager`,
+      subtext: `${summary?.preOrdersWithProductManager ?? 0} still with vendor`,
       to: "/preorders",
       urgent: (summary?.preOrdersReadyToAssign ?? 0) > 0,
     },
@@ -73,7 +73,7 @@ export default function DashboardPage() {
     {
       label: "Restock Requests",
       value: summary?.pendingInventoryRequests ?? 0,
-      subtext: "Waiting on Product Manager",
+      subtext: "Waiting on vendor approval",
       to: "/stock",
       urgent: (summary?.pendingInventoryRequests ?? 0) > 0,
     },
@@ -198,7 +198,7 @@ export default function DashboardPage() {
         >
           <div>
             <p className="font-bold text-slate-900">Stock Inventory</p>
-            <p className="text-xs text-slate-500 mt-0.5">Live stock · request restock from Product Manager</p>
+            <p className="text-xs text-slate-500 mt-0.5">Live stock · request restock from your vendor</p>
           </div>
         </Link>
 

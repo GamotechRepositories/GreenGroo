@@ -277,7 +277,7 @@ export default function OrderDetailPage() {
         quantity: Number(requestQty),
         note: requestNote,
       });
-      showToast(res.data.message || "Request sent to Product Manager");
+      showToast(res.data.message || "Request sent to your vendor");
       setRequestItem(null);
       await load();
     } catch (err) {
@@ -812,7 +812,7 @@ export default function OrderDetailPage() {
             <div>
               <h3 className="text-base font-bold text-slate-900">Request inventory</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Sends a restock request to Product Manager for{" "}
+                Sends a restock request to your vendor for{" "}
                 <span className="font-semibold">{requestItem.name}</span>
               </p>
             </div>
@@ -835,7 +835,7 @@ export default function OrderDetailPage() {
               />
             </label>
             <label className="block text-xs font-bold text-slate-700">
-              Note for Product Manager
+              Note for vendor
               <textarea
                 rows={3}
                 value={requestNote}
@@ -856,7 +856,7 @@ export default function OrderDetailPage() {
                 disabled={submitting}
                 className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
               >
-                {submitting ? "Sending…" : "Send to Product Manager"}
+                {submitting ? "Sending…" : "Send to vendor"}
               </button>
             </div>
           </form>

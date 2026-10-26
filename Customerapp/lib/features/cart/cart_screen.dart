@@ -185,13 +185,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     );
 
     await ref.read(wishlistControllerProvider.notifier).toggleWishlist(product);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Saved "${item.name}" to Wishlist'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   Future<void> _clearCart() async {
@@ -244,8 +237,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
 
     final isPickup = _fulfillment == FulfillmentType.pickup;
-    final summary = applyStorePickup(calculateCartSummary(items), pickup: isPickup);
     final storeSettings = ref.watch(storeSettingsProvider).value;
+    final summary = applyStorePickup(
+      calculateCartSummary(items, settings: storeSettings),
+      pickup: isPickup,
+    );
     final addresses = ref.watch(addressControllerProvider.select((s) => s.addresses));
     final activeAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
 

@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_decorations.dart';
-import '../../../config/constants.dart';
 import '../../../config/theme.dart';
+import '../../../core/utils/cart_utils.dart';
+import '../../settings/store_settings_provider.dart';
 
-class HomeQuickChips extends StatelessWidget {
+class HomeQuickChips extends ConsumerWidget {
   const HomeQuickChips({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(storeSettingsProvider).value;
+    final freeShipFrom = settings == null ? null : freeDeliveryThreshold(settings);
+    final minimumOrder = settings?.minimumOrderValue ?? 0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: SingleChildScrollView(
@@ -16,17 +22,20 @@ class HomeQuickChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _Chip(
-              icon: Icons.inventory_2_outlined,
-              label: 'MOQ ${AppConstants.moq} pcs',
-            ),
-            const SizedBox(width: 8),
-            _Chip(
-              icon: Icons.local_shipping_outlined,
-              label:
-                  'Free ship ₹${AppConstants.freeDeliveryThreshold.toInt()}+',
-            ),
-            const SizedBox(width: 8),
+            if (minimumOrder > 0) ...[
+              _Chip(
+                icon: Icons.shopping_bag_outlined,
+                label: 'Min order ₹${minimumOrder.toInt()}',
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (freeShipFrom != null) ...[
+              _Chip(
+                icon: Icons.local_shipping_outlined,
+                label: 'Free ship ₹${freeShipFrom.toInt()}+',
+              ),
+              const SizedBox(width: 8),
+            ],
             _Chip(
               icon: Icons.verified_outlined,
               label: '100% Genuine',
