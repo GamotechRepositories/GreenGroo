@@ -349,6 +349,10 @@ async function unlockForDelivery(order, { verifiedBy = null, message }) {
     console.warn("[pickup] customer order sync failed:", err.message);
   }
 
+  import("./deliveryOtpSmsService.js")
+    .then(({ sendDeliveryOtpSmsOnDispatch }) => sendDeliveryOtpSmsOnDispatch(order))
+    .catch(() => {});
+
   try {
     getIO()
       .to(`rider_${order.assignedRiderId}`)

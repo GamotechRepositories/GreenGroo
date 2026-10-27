@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/product.dart';
+import '../../../models/site_banner.dart';
 import '../../../routes/route_paths.dart';
-import '../../../widgets/common/app_network_image.dart';
+import '../../../widgets/common/section_header.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import '../../../widgets/product/deal_product_card.dart';
 import '../../../features/cart/cart_controller.dart';
 import '../home_providers.dart';
+import 'site_banner_widgets.dart';
 
 /// Category rows on home, as a sliver: each row is built — and its products
 /// fetched — only when it scrolls near the screen, instead of all at once.
@@ -105,33 +106,40 @@ class _CategorySectionSkeleton extends StatelessWidget {
   }
 }
 
-class _CategoryProductGrid extends StatelessWidget {
+class _CategoryProductGrid extends ConsumerWidget {
   const _CategoryProductGrid({required this.categoryName, required this.products});
 
   final String categoryName;
   final List<Product> products;
 
   @override
-  Widget build(BuildContext context) {
-    final productImages = products.map((p) => p.primaryImage ?? '').toList();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final section = bannerSectionForStore(ref.watch(selectedStoreTabProvider));
+    final key = categoryBannerKey(categoryName);
+    final banners = key.isEmpty
+        ? const <SiteBanner>[]
+        : (ref.watch(siteBannersProvider((section: section, placement: 'category'))).value ??
+                const <SiteBanner>[])
+            .where((b) => b.category == key)
+            .toList();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Category Title
-          Text(
-            categoryName,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 20.5,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF0F172A),
+          if (banners.isNotEmpty)
+            OfferBannerCarousel(
+              banners: banners,
+              padding: const EdgeInsets.only(bottom: 12),
+            ),
+          SectionHeader(
+            title: categoryName,
+            dense: true,
+            onViewAll: () => context.push(
+              '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
             ),
           ),
-          const SizedBox(height: 12),
-
-          // 2 Rows of 3 Columns Product Grid (6 Products) using Book Your Order card format
           GridView.builder(
             shrinkWrap: true,
             padding: EdgeInsets.zero,
@@ -146,18 +154,6 @@ class _CategoryProductGrid extends StatelessWidget {
             itemBuilder: (context, index) {
               final product = products[index];
               return _Image2ProductTile(product: product);
-            },
-          ),
-          const SizedBox(height: 14),
-
-          // Full-width See All Button
-          _SeeAllButton(
-            title: 'See all $categoryName products',
-            categoryImages: productImages,
-            onTap: () {
-              context.push(
-                '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
-              );
             },
           ),
         ],
@@ -183,110 +179,6 @@ class _Image2ProductTile extends ConsumerWidget {
       onAdd: (ctx) {
         ref.read(cartControllerProvider.notifier).addToCart(product, 1);
       },
-    );
-  }
-}
-
-class _SeeAllButton extends StatelessWidget {
-  const _SeeAllButton({
-    required this.title,
-    required this.onTap,
-    this.categoryImages = const [],
-  });
-
-  final String title;
-  final VoidCallback onTap;
-  final List<String> categoryImages;
-
-  @override
-  Widget build(BuildContext context) {
-    final avatars =
-        categoryImages.where((img) => img.isNotEmpty).take(3).toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 40,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (avatars.isNotEmpty) ...[
-                SizedBox(
-                  width: 44,
-                  height: 26,
-                  child: Stack(
-                    children: [
-                      for (int i = 0; i < avatars.length; i++)
-                        Positioned(
-                          left: i * 11.0,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFFF1F5F9),
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: AppNetworkImage(
-                                imageUrl: avatars[i],
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF475569),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFF64748B),
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

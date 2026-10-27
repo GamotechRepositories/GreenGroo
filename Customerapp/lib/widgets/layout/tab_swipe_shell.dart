@@ -150,9 +150,8 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     if (shellIndex == widget.navigationShell.currentIndex) return;
 
     final isOrderAgainTab = visualIndex == 1;
-    final isCartTab = visualIndex == 3;
     final isAccountTab = visualIndex == 4;
-    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
+    final isProtectedTab = isOrderAgainTab || isAccountTab;
 
     if (isProtectedTab && !ref.read(authControllerProvider).isLoggedIn) {
       final currentVisual = _shellToVisualIdx(widget.navigationShell.currentIndex);
@@ -161,9 +160,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
       );
-      final targetRoute = isAccountTab
-          ? RoutePaths.profile
-          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
+      final targetRoute = isAccountTab ? RoutePaths.profile : RoutePaths.orders;
       showAuthModalBottomSheet(
         context,
         ref,

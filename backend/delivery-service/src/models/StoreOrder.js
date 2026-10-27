@@ -377,6 +377,8 @@ const storeOrderSchema = new mongoose.Schema(
     /** customerOtpVerified flags OTP validated on backend */
     customerOtpVerified: { type: Boolean, default: false },
     customerOtpVerifiedAt: { type: Date },
+    /** Last time the delivery OTP was SMSed to the customer (auto on out_for_delivery, or rider resend). */
+    customerOtpSmsSentAt: { type: Date },
     /** OTP attempt tracking to prevent brute-force */
     otpAttempts: { type: Number, default: 0 },
     otpLockedUntil: { type: Date },

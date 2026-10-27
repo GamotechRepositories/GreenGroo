@@ -548,15 +548,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
+        foregroundColor: _ink,
         elevation: 0,
+        toolbarHeight: 60,
         titleSpacing: 0,
+        shape: const Border(bottom: BorderSide(color: Color(0x0F0F172A))),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Payment Options',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: _ink,
               ),
@@ -564,7 +567,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             Text(
               '$itemCount ${itemCount == 1 ? 'item' : 'items'}. Total: $amountText',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: _muted,
               ),
@@ -594,7 +597,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
               if (_isPickup)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                   child: DarkStoreContactCard(
                     store: darkStore,
                     pickup: true,
@@ -605,17 +608,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 _NoticeBanner(
                   icon: Icons.local_offer_rounded,
                   title: 'You are saving ${formatInr(summary.savings)} on this order',
-                  color: const Color(0xFFFFF4D6),
-                  borderColor: const Color(0xFFF5D88A),
-                  iconColor: const Color(0xFFB7791F),
+                  color: const Color(0xFFE6F6EC),
+                  borderColor: const Color(0xFFE6F6EC),
+                  iconColor: const Color(0xFF0B7A3B),
+                  textColor: const Color(0xFF0B7A3B),
                 ),
               if (_errorMessage.isNotEmpty)
                 _NoticeBanner(
                   icon: Icons.error_outline_rounded,
                   title: _errorMessage,
                   color: const Color(0xFFFEF2F2),
-                  borderColor: const Color(0xFFFCA5A5),
+                  borderColor: const Color(0xFFFEE2E2),
                   iconColor: const Color(0xFFDC2626),
+                  textColor: const Color(0xFFB91C1C),
                 ),
 
               const _SectionTitle('Preferred Payment'),
@@ -640,7 +645,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     subtitle: _isPickup
                         ? 'Pay cash or UPI when you collect your order.'
                         : 'Pay cash at the time of delivery.',
-                    leading: const Icon(Icons.payments_outlined, color: Color(0xFF15803D), size: 22),
+                    leading: const Icon(Icons.payments_outlined, color: _accent, size: 22),
                     payLabel: 'Place Order',
                     address: effectiveAddress,
                   ),
@@ -834,8 +839,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 }
 
 const _pageBg = Color(0xFFF1F2F6);
-const _ink = Color(0xFF1F2430);
-const _muted = Color(0xFF6B7280);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _slate100 = Color(0xFFF1F5F9);
+const _slate200 = Color(0xFFE2E8F0);
 const _accent = Color(0xFF047857);
 
 /// Store â†’ customer route with the promised delivery time.
@@ -858,12 +865,12 @@ class _DeliveryRouteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final headline = etaLines.isNotEmpty ? etaLines.first : '';
     final strong = GoogleFonts.plusJakartaSans(
-      fontSize: 14.5,
-      fontWeight: FontWeight.w700,
+      fontSize: 14,
+      fontWeight: FontWeight.w800,
       color: _ink,
     );
     final soft = GoogleFonts.plusJakartaSans(
-      fontSize: 13.5,
+      fontSize: 12.5,
       fontWeight: FontWeight.w500,
       color: _muted,
     );
@@ -878,10 +885,11 @@ class _DeliveryRouteCard extends StatelessWidget {
         );
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-      decoration: const BoxDecoration(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,9 +953,9 @@ class _DeliveryRouteCard extends StatelessWidget {
                 child: Text(
                   line,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF374151),
+                    color: _accent,
                   ),
                 ),
               ),
@@ -965,6 +973,7 @@ class _NoticeBanner extends StatelessWidget {
     required this.color,
     required this.borderColor,
     required this.iconColor,
+    this.textColor = _ink,
   });
 
   final IconData icon;
@@ -972,28 +981,29 @@ class _NoticeBanner extends StatelessWidget {
   final Color color;
   final Color borderColor;
   final Color iconColor;
+  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
-          Icon(icon, color: iconColor, size: 20),
+          Icon(icon, color: iconColor, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: _ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: textColor,
               ),
             ),
           ),
@@ -1012,16 +1022,21 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Row(
         children: [
           if (leading != null) ...[leading!, const SizedBox(width: 8)],
-          Text(
-            title,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF3D4152),
+          Flexible(
+            child: Text(
+              title.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
+                color: _muted,
+              ),
             ),
           ),
         ],
@@ -1038,17 +1053,17 @@ class _MethodGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 12),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0)
-              const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16, color: Color(0xFFEDEEF2)),
+              const Divider(height: 1, thickness: 1, indent: 14, endIndent: 14, color: _slate100),
             children[i],
           ],
         ],
@@ -1081,23 +1096,24 @@ class _MethodTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: const EdgeInsets.all(14),
         child: Column(
           children: [
             Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 40,
+                  height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: selected ? const Color(0xFFECFDF5) : Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: selected ? const Color(0xFFA7F3D0) : _slate200),
                   ),
                   child: leading,
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,8 +1121,8 @@ class _MethodTile extends StatelessWidget {
                       Text(
                         title,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
                           color: _ink,
                         ),
                       ),
@@ -1115,7 +1131,7 @@ class _MethodTile extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.5,
+                            fontSize: 12,
                             fontWeight: FontWeight.w500,
                             color: _muted,
                           ),
@@ -1133,24 +1149,29 @@ class _MethodTile extends StatelessWidget {
               curve: Curves.easeOut,
               child: selected
                   ? Padding(
-                      padding: const EdgeInsets.only(left: 56, top: 12),
+                      padding: const EdgeInsets.only(left: 52, top: 12),
                       child: SizedBox(
                         width: double.infinity,
-                        height: 46,
+                        height: 48,
                         child: FilledButton(
                           onPressed: onPay,
                           style: FilledButton.styleFrom(
                             backgroundColor: _accent,
+                            foregroundColor: Colors.white,
                             disabledBackgroundColor: const Color(0xFFCBD5E1),
+                            disabledForegroundColor: Colors.white,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: Text(
                             payLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
@@ -1178,9 +1199,9 @@ class _SelectionMark extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? _accent : Colors.transparent,
+        color: selected ? _accent : Colors.white,
         border: Border.all(
-          color: selected ? _accent : const Color(0xFFC4C8D0),
+          color: selected ? _accent : const Color(0xFFCBD5E1),
           width: 1.6,
         ),
       ),

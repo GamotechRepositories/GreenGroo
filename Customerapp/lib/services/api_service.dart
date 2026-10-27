@@ -18,6 +18,7 @@ import '../models/hero_banner.dart';
 import '../models/offer_banner.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import '../models/site_banner.dart';
 import '../models/store_settings.dart';
 import '../models/testimonial.dart';
 import '../models/user.dart';
@@ -118,6 +119,9 @@ class ApiService {
 
   Future<Response<dynamic>> sendOtpLogin(Map<String, dynamic> data) =>
       _dio.post('/api/users/otp/send', data: data);
+
+  Future<Response<dynamic>> resendOtpLogin(Map<String, dynamic> data) =>
+      _dio.post('/api/users/otp/resend', data: data);
 
   Future<Response<dynamic>> verifyOtpLogin(Map<String, dynamic> data) =>
       _dio.post('/api/users/otp/verify', data: data);
@@ -369,6 +373,26 @@ class ApiService {
     };
   }
 
+  /// `GET /api/banners?section=&placement=` — mobile banners only, admin order.
+  Future<List<SiteBanner>> fetchSiteBanners({
+    required String section,
+    required String placement,
+  }) async {
+    final response = await _dio.get(
+      '/api/banners',
+      queryParameters: {'section': section, 'placement': placement},
+    );
+    final raw = ApiResponseParser.getData(response.data);
+    if (raw is! List) return const [];
+    final banners = raw
+        .whereType<Map>()
+        .map((e) => SiteBanner.fromJson(Map<String, dynamic>.from(e)))
+        .where((b) => b.imageUrl.isNotEmpty && b.device == 'mobile')
+        .toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
+    return banners;
+  }
+
   Future<List<HeroBanner>> fetchHeroBanners({String device = 'mobile'}) async {
     final response = await getHeroBanners(device: device);
     return parseOnBackground(parseHeroBannersResponse, response.data);
@@ -572,6 +596,20 @@ class ApiService {
           statusCode: response.statusCode,
         );
       }
+    }
+  }
+
+  Future<void> resendOtp(String phone, {String purpose = 'login'}) async {
+    final response = await resendOtpLogin({
+      'phone': phone.trim(),
+      'purpose': purpose,
+    });
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Failed to resend OTP',
+        statusCode: response.statusCode,
+      );
     }
   }
 

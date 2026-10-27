@@ -6,6 +6,7 @@ import Staff from "../../../staff-service/src/models/Staff.js";
 import { getIO } from "../../../socket.js";
 import { applyStoreOrderStatus, releaseAssignedRider } from "../services/storeOrderLifecycle.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
+import { sendDeliveryOtpSmsOnDispatch } from "../services/deliveryOtpSmsService.js";
 import { isVendorConfirmed } from "../services/preOrderProgress.js";
 import { getManager } from "./managerDashboardController.js";
 import {
@@ -664,6 +665,7 @@ export const adminSetPreOrderProgress = async (req, res, next) => {
     await syncCustomerOrderFromStore(order, syncStatus).catch((err) =>
       console.warn("[preorder] customer sync failed:", err.message)
     );
+    if (order.status === "out_for_delivery") sendDeliveryOtpSmsOnDispatch(order);
     emitPreOrderChange(order, "preorder_updated", {
       orderId: order._id.toString(),
       orderNumber: order.orderNumber,
@@ -827,6 +829,7 @@ export const markPreOrdersOutForDelivery = async (req, res, next) => {
       await syncCustomerOrderFromStore(order, "out_for_delivery").catch((err) =>
         console.warn("[preorder] customer sync failed:", err.message)
       );
+      sendDeliveryOtpSmsOnDispatch(order);
       emitPreOrderChange(order, "order_status_updated", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,

@@ -18,8 +18,10 @@ class HomeProductRow extends ConsumerWidget {
     required this.onViewAll,
     required this.products,
     required this.loading,
+    this.showHeader = true,
   });
 
+  final bool showHeader;
   final String title;
   final VoidCallback onViewAll;
   final List<Product> products;
@@ -115,15 +117,19 @@ class HomeProductRow extends ConsumerWidget {
     }
 
     return HomeSectionCard(
-      margin: const EdgeInsets.fromLTRB(0, 2, 0, 2),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      margin: EdgeInsets.zero,
+      padding: EdgeInsets.fromLTRB(12, showHeader ? 12 : 0, 0, 12),
       showDivider: false,
       child: Column(
         children: [
-          SectionHeader(
-            title: title,
-            dense: true,
-            onViewAll: onViewAll,
+          if (showHeader)
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: SectionHeader(
+              title: title,
+              dense: true,
+              onViewAll: onViewAll,
+            ),
           ),
           SizedBox(
             height: DealProductCardDimensions.height,
@@ -157,36 +163,6 @@ class HomeProductRow extends ConsumerWidget {
                       );
                     },
                   ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton(
-              onPressed: onViewAll,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: Color(0xFFE5E7EB)),
-                backgroundColor: const Color(0xFFF9FAFB),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary.withValues(alpha: 0.85),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right_rounded, size: 20),
-                ],
-              ),
-            ),
           ),
         ],
       ),

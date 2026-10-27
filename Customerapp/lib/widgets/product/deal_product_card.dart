@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
-import '../../models/product_pricing_models.dart';
 import '../common/app_network_image.dart';
-import 'product_price_display.dart';
 import 'variant_bottom_sheet.dart';
 import 'wishlist_button.dart';
 
@@ -17,11 +14,11 @@ import 'wishlist_button.dart';
 class DealProductCardDimensions {
   const DealProductCardDimensions._();
 
-  static const double width = 138;
-  static const double height = 210;
-  static const double gridChildAspectRatio = 0.59;
-  static const double twoColumnChildAspectRatio = 0.63;
-  static const double homeDealsGridAspectRatio = 0.59;
+  static const double width = 112;
+  static const double height = 196;
+  static const double gridChildAspectRatio = 0.555;
+  static const double twoColumnChildAspectRatio = 0.64;
+  static const double homeDealsGridAspectRatio = 0.555;
 }
 
 class DealProductCard extends ConsumerWidget {
@@ -119,12 +116,8 @@ class DealProductCard extends ConsumerWidget {
           // 1. IMAGE BOX ONLY has the border and rounded corners
           AspectRatio(
             aspectRatio: 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 1.0),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -132,32 +125,28 @@ class DealProductCard extends ConsumerWidget {
                     onTap: product.id.length > 10
                         ? () => context.push('/product/${product.id}')
                         : null,
-                    child: Padding(
-                      padding: const EdgeInsets.all(6.0),
+                    child: ColoredBox(
+                      color: Colors.white,
                       child: (product.primaryImage != null && product.primaryImage!.trim().isNotEmpty)
                           ? AppNetworkImage(
                               imageUrl: product.primaryImage!,
-                              fit: BoxFit.contain,
+                              fit: BoxFit.cover,
                               errorIcon: Icons.image_outlined,
                             )
                           : const AppImagePlaceholder(fit: BoxFit.contain),
                     ),
                   ),
 
-                  // Out of stock overlay
                   if (!inStock)
                     Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
+                      color: Colors.white.withValues(alpha: 0.8),
                       alignment: Alignment.center,
                       child: const Text(
                         'OUT OF STOCK',
                         style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.black54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF374151),
                         ),
                       ),
                     ),
@@ -168,11 +157,11 @@ class DealProductCard extends ConsumerWidget {
                       left: 0,
                       top: 0,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                         decoration: const BoxDecoration(
                           color: Color(0xFF2874F0),
                           borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(11),
+                            topLeft: Radius.circular(12),
                             bottomRight: Radius.circular(8),
                           ),
                         ),
@@ -215,7 +204,7 @@ class DealProductCard extends ConsumerWidget {
           // 2. DETAILS SECTION BELOW IMAGE CONTAINER (Flexible Column preventing overflow)
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 2.0),
+              padding: const EdgeInsets.only(top: 6.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -224,24 +213,6 @@ class DealProductCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Delivery Time Badge (e.g. ⏱ 14 MINS)
-                      Row(
-                        children: const [
-                          Icon(Icons.timer_outlined, size: 9.5, color: Color(0xFF4A4A4A)),
-                          SizedBox(width: 2),
-                          Text(
-                            '14 MINS',
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF4A4A4A),
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      // Product Title
                       GestureDetector(
                         onTap: product.id.length > 10
                             ? () => context.push('/product/${product.id}')
@@ -252,22 +223,21 @@ class DealProductCard extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            fontSize: 11.0,
+                            fontSize: 12.0,
                             color: Color(0xFF1C1C1C),
-                            height: 1.15,
+                            height: 1.2,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 1),
-                      // Quantity / Unit
+                      const SizedBox(height: 2),
                       Text(
                         unitText,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w400,
-                          fontSize: 10.0,
-                          color: Color(0xFF757575),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.0,
+                          color: Color(0xFF0A6C38),
                         ),
                       ),
                     ],
@@ -288,18 +258,18 @@ class DealProductCard extends ConsumerWidget {
                               '₹${salePrice.toInt()}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w900,
-                                fontSize: 12.5,
+                                fontSize: 13,
                                 color: Color(0xFF1C1C1C),
                                 height: 1.0,
                               ),
                             ),
                             if (hasDiscount) ...[
-                              const SizedBox(height: 1),
+                              const SizedBox(height: 2),
                               Text(
                                 '₹${originalPrice.toInt()}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  fontSize: 9.5,
+                                  fontSize: 10,
                                   color: Color(0xFF9CA3AF),
                                   decoration: TextDecoration.lineThrough,
                                   height: 1.0,
@@ -348,10 +318,10 @@ class DealProductCard extends ConsumerWidget {
       void openVariants() => _openVariantPicker(context);
       if (effectiveCartQuantity > 0) {
         return Container(
-          height: 28,
+          height: 30,
           decoration: BoxDecoration(
             color: const Color(0xFF0C831F),
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -397,28 +367,29 @@ class DealProductCard extends ConsumerWidget {
         );
       }
       return SizedBox(
-        height: 28,
+        height: 30,
         child: OutlinedButton(
           onPressed: inStock ? openVariants : null,
           style: OutlinedButton.styleFrom(
             elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: const Size(54, 30),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             side: BorderSide(
               color: inStock ? const Color(0xFF0C831F) : const Color(0xFFD1D5DB),
               width: 1,
             ),
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(7),
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
           child: Text(
             inStock ? 'ADD' : 'OUT',
             style: TextStyle(
               color: inStock ? const Color(0xFF0C831F) : const Color(0xFF9CA3AF),
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.4,
+              letterSpacing: 0.3,
             ),
           ),
         ),
@@ -477,10 +448,10 @@ class DealProductCard extends ConsumerWidget {
 
     if (effectiveCartQuantity > 0) {
       return Container(
-        height: 28,
+        height: 30,
         decoration: BoxDecoration(
           color: const Color(0xFF0C831F),
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -488,8 +459,8 @@ class DealProductCard extends ConsumerWidget {
             InkWell(
               onTap: handleDecrease,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(7),
-                bottomLeft: Radius.circular(7),
+                topLeft: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
               ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -517,8 +488,8 @@ class DealProductCard extends ConsumerWidget {
             InkWell(
               onTap: inStock ? handleIncrease : null,
               borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(7),
-                bottomRight: Radius.circular(7),
+                topRight: Radius.circular(8),
+                bottomRight: Radius.circular(8),
               ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -538,29 +509,30 @@ class DealProductCard extends ConsumerWidget {
     }
 
     return SizedBox(
-      height: 28,
+      height: 30,
       child: Builder(
         builder: (buttonContext) => OutlinedButton(
           onPressed: inStock ? () => onAdd(buttonContext) : null,
           style: OutlinedButton.styleFrom(
             elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: const Size(54, 30),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             side: BorderSide(
               color: inStock ? const Color(0xFF0C831F) : const Color(0xFFD1D5DB),
               width: 1,
             ),
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(7),
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
           child: Text(
             inStock ? 'ADD' : 'OUT',
             style: TextStyle(
               color: inStock ? const Color(0xFF0C831F) : const Color(0xFF9CA3AF),
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.4,
+              letterSpacing: 0.3,
             ),
           ),
         ),

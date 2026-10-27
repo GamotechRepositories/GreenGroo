@@ -24,6 +24,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _isRegister = false;
   bool _agreedTerms = false;
   bool _loading = false;
@@ -42,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -56,7 +58,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context);
     final phone = _phoneController.text.trim();
+    final name = _nameController.text.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+    if (_isRegister && name.length < 2) {
+      _showError(l10n.enterNameError);
+      return;
+    }
     if (!RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
       _showError(l10n.mobileNumberHint);
       return;
@@ -76,7 +83,11 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushNamed(
         context,
         AppRoutes.otpVerification,
-        arguments: {'phone': phone, 'isRegister': _isRegister},
+        arguments: {
+          'phone': phone,
+          'isRegister': _isRegister,
+          if (_isRegister) 'name': name,
+        },
       );
     } on AuthApiException catch (e) {
       if (mounted) _showError(e.message);
@@ -200,11 +211,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
+                      if (_isRegister) ...[
+                        AuthTextField(
+                          label: l10n.fullName,
+                          hint: l10n.fullNameHint,
+                          icon: Icons.person_rounded,
+                          controller: _nameController,
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 60,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r"[\p{L}\p{M} .'-]", unicode: true),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       AuthTextField(
                         label: l10n.mobileNumber,
-                        hint: '+91 00000 00000',
+                        hint: '00000 00000',
                         icon: Icons.smartphone_rounded,
                         controller: _phoneController,
+                        prefixText: '+91  ',
                         keyboardType: TextInputType.phone,
                         maxLength: 10,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],

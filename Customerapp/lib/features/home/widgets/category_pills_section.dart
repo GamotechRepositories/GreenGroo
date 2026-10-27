@@ -3,610 +3,247 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/providers/app_providers.dart';
-import '../../../core/utils/department_utils.dart';
-import '../../../core/utils/product_pricing.dart';
-import '../../../features/auth/auth_controller.dart';
-import '../../../features/cart/cart_controller.dart';
 import '../../../models/category.dart';
-import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
-import '../../../widgets/category/triangular_category_card.dart';
 import '../../../widgets/common/app_network_image.dart';
-import '../../../widgets/product/deal_product_card.dart';
 import '../home_providers.dart';
+
+/// Website `SHOP_BY_CATEGORY_ITEMS` (PreOrder home).
+const shopByCategoryItems = <({String name, String image, String filter})>[
+  (name: 'Vegetables', image: 'category_vegetables.jpg', filter: 'Vegetables'),
+  (name: 'Spices & Dry Fruits', image: 'category_spices_dry_fruits.jpg', filter: 'Spices'),
+  (name: 'Pulses & Grains', image: 'category_pulses_grains.jpg', filter: 'Pulses'),
+  (name: 'Exotic Vegetables', image: 'category_exotic_vegetables.jpg', filter: 'Vegetables'),
+  (name: 'Fruits', image: 'category_fruits.jpg', filter: 'Fruits'),
+  (name: 'Organic Range', image: 'category_organic_range.jpg', filter: 'Organic'),
+  (name: 'Dairy & Eggs', image: 'category_dairy_eggs.png', filter: 'Dairy'),
+  (name: 'Beverages & More', image: 'category_beverages.jpg', filter: 'Beverages'),
+  (name: 'Combo Packs', image: 'category_combo_packs.jpg', filter: 'Organic'),
+  (name: 'Oils & Ghee', image: 'category_oils_ghee.jpg', filter: 'Oils'),
+];
+
+String _categoryUrl(String name) =>
+    '${RoutePaths.product}?categoryName=${Uri.encodeComponent(name)}';
 
 class CategoryPillsSection extends ConsumerWidget {
   const CategoryPillsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
     final currentStore = ref.watch(selectedStoreTabProvider);
+    if (currentStore == 'main') return const _ShopByCategory();
+    return _DepartmentCategories(isInstant: currentStore == 'mall');
+  }
+}
 
-    final sectionTitle = currentStore == 'festive'
-        ? 'READY TO COOK CATEGORIES'
-        : currentStore == 'mall'
-            ? 'INSTANT ORDER CATEGORIES'
-            : 'Explore GG Category';
+class _Header extends StatelessWidget {
+  const _Header({required this.title, this.subtitle, required this.linkColor});
 
-    final sectionIcon = currentStore == 'festive'
-        ? Icons.restaurant_menu_rounded
-        : currentStore == 'mall'
-            ? Icons.bolt_rounded
-            : Icons.eco_rounded;
+  final String title;
+  final String? subtitle;
+  final Color linkColor;
 
-    final iconColor = currentStore == 'festive'
-        ? const Color(0xFFC2410C)
-        : currentStore == 'mall'
-            ? const Color(0xFF1E40AF)
-            : const Color(0xFF16A34A);
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        GestureDetector(
+          onTap: () => context.go(RoutePaths.categories),
+          child: Row(
+            children: [
+              Text(
+                'View All',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: linkColor,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(Icons.arrow_forward_rounded, size: 14, color: linkColor),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFF8FAFC), // Greyish white background
+/// Website ShopByCategory (mobile): two swipeable rows of bordered 135px cards.
+class _ShopByCategory extends StatelessWidget {
+  const _ShopByCategory();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ----------------------------------------------------
-          // SECTION 1: Department Category Grid (2 Rows)
-          // ----------------------------------------------------
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      sectionTitle,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20.5,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      sectionIcon,
-                      color: iconColor,
-                      size: 22,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                categoriesAsync.when(
-                  loading: () => const SizedBox(
-                    height: 140,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFF0284C7),
-                      ),
-                    ),
-                  ),
-                  error: (err, stack) => const SizedBox.shrink(),
-                  data: (categories) {
-                    if (categories.isEmpty) return const SizedBox.shrink();
-
-                    // 2 rows x 3 columns = 6 categories
-                    final displayCats = categories.take(6).toList();
-                    final catImages = categories.map((c) => c.categoryImage).toList();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GridView.builder(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 0.88,
-                          ),
-                          itemCount: displayCats.length,
-                          itemBuilder: (context, index) {
-                            final cat = displayCats[index];
-                            return CategoryTriangularCard(
-                              categoryName: cat.categoryName,
-                              imageUrl: cat.categoryImage,
-                              index: index,
-                              onTap: () {
-                                context.push(
-                                  '${RoutePaths.product}?categoryName=${Uri.encodeComponent(cat.categoryName)}',
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        _SeeAllButton(
-                          title: 'See all categories',
-                          categoryImages: catImages,
-                          onTap: () => context.go(RoutePaths.categories),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: _Header(title: 'Shop by Category', linkColor: Color(0xFF14532D)),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 2 * 129 + 10,
+            child: GridView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                mainAxisExtent: 135,
+              ),
+              itemCount: shopByCategoryItems.length,
+              itemBuilder: (context, i) {
+                final item = shopByCategoryItems[i];
+                return BorderedCategoryCard(
+                  name: item.name,
+                  image: Image.asset('assets/website/${item.image}', fit: BoxFit.contain),
+                  onTap: () => context.push(_categoryUrl(item.filter)),
+                );
+              },
             ),
           ),
-
-          // Featured sub-sections only on main / preorder tab
-          if (currentStore == 'main') ...[
-            const _BookYourOrderSection(),
-          ],
         ],
       ),
     );
   }
 }
 
-// =========================================================
-// Generic Reusable Full-Width "See All" Button
-// =========================================================
-class _SeeAllButton extends StatelessWidget {
-  const _SeeAllButton({
-    required this.title,
-    required this.categoryImages,
+class BorderedCategoryCard extends StatelessWidget {
+  const BorderedCategoryCard({
+    super.key,
+    required this.name,
+    required this.image,
     required this.onTap,
   });
 
-  final String title;
-  final List<String> categoryImages;
+  final String name;
+  final Widget image;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final avatars = categoryImages.where((img) => img.isNotEmpty).take(3).toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          height: 40,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xE6E5E7EB)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 1)),
+          ],
+        ),
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: ClipRRect(borderRadius: BorderRadius.circular(12), child: image),
+            ),
+            const Spacer(),
+            Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1F2937),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 52,
-                height: 28,
-                child: Stack(
-                  children: [
-                    for (int i = 0; i < (avatars.isEmpty ? 3 : avatars.length); i++)
-                      Positioned(
-                        left: i * 12.0,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFF1F5F9),
-                            border: Border.all(color: Colors.white, width: 1.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: i < avatars.length && avatars[i].isNotEmpty
-                                ? AppNetworkImage(
-                                    imageUrl: avatars[i],
-                                    fit: BoxFit.cover,
-                                  )
-                                : const Icon(
-                                    Icons.category_rounded,
-                                    size: 13,
-                                    color: Color(0xFF64748B),
-                                  ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF475569),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFF64748B),
-                size: 16,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// =========================================================
-// SECTION 2: Ready to Cook Categories Widget (2 Rows)
-// =========================================================
-class _ReadyToCookCategoriesSection extends ConsumerStatefulWidget {
-  const _ReadyToCookCategoriesSection();
+/// Website FestiveStoreSection categories: tinted cards, name top-left, image bottom-right.
+class _DepartmentCategories extends ConsumerWidget {
+  const _DepartmentCategories({required this.isInstant});
 
-  @override
-  ConsumerState<_ReadyToCookCategoriesSection> createState() =>
-      __ReadyToCookCategoriesSectionState();
-}
-
-class __ReadyToCookCategoriesSectionState
-    extends ConsumerState<_ReadyToCookCategoriesSection> {
-  List<Category> _categories = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCategories();
-  }
-
-  Future<void> _fetchCategories() async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      final cats = await api.fetchCategories(section: 'ready2cook');
-      if (mounted) {
-        setState(() {
-          _categories = cats.where((c) => c.isActive).toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const SizedBox(
-        height: 140,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFFEA580C),
-          ),
-        ),
-      );
-    }
-
-    if (_categories.isEmpty) return const SizedBox.shrink();
-
-    // 2 rows x 3 columns = 6 categories
-    final displayCats = _categories.take(6).toList();
-    final catImages = _categories.map((c) => c.categoryImage).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ready to cook',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 20.5,
-            fontWeight: FontWeight.w900,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.88,
-          ),
-          itemCount: displayCats.length,
-          itemBuilder: (context, index) {
-            final cat = displayCats[index];
-            return CategoryTriangularCard(
-              categoryName: cat.categoryName,
-              imageUrl: cat.categoryImage,
-              errorIcon: Icons.restaurant_rounded,
-              index: index + 3,
-              onTap: () {
-                context.push(
-                  '${RoutePaths.product}?categoryName=${Uri.encodeComponent(cat.categoryName)}',
-                );
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-        _SeeAllButton(
-          title: 'See all Ready to Cook categories',
-          categoryImages: catImages,
-          onTap: () => context.go(RoutePaths.categories),
-        ),
-      ],
-    );
-  }
-}
-
-// =========================================================
-// SECTION 3: Your Instant Order Products Widget
-// =========================================================
-class _InstantOrderProductsSection extends ConsumerStatefulWidget {
-  const _InstantOrderProductsSection();
-
-  @override
-  ConsumerState<_InstantOrderProductsSection> createState() =>
-      __InstantOrderProductsSectionState();
-}
-
-class __InstantOrderProductsSectionState
-    extends ConsumerState<_InstantOrderProductsSection> {
-  List<Product> _products = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchProducts();
-  }
-
-  Future<void> _fetchProducts() async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      var prods = await api.fetchProducts({'section': 'instantorder', 'limit': 12});
-      if (prods.isEmpty) {
-        prods = await api.fetchProducts({'limit': 12});
-      }
-      if (mounted) {
-        setState(() {
-          _products = prods.where((p) => p.isActive).take(6).toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const SizedBox(
-        height: 180,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFF2563EB),
-          ),
-        ),
-      );
-    }
-
-    if (_products.isEmpty) return const SizedBox.shrink();
-
-    final productImages = _products.map((p) => p.primaryImage ?? '').toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Your Instant Order',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 20.5,
-            fontWeight: FontWeight.w900,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
-          ),
-          itemCount: _products.length,
-          itemBuilder: (context, index) {
-            final product = _products[index];
-            return _Image1ProductTile(product: product);
-          },
-        ),
-        const SizedBox(height: 14),
-        _SeeAllButton(
-          title: 'See all Instant Order products',
-          categoryImages: productImages,
-          onTap: () {
-            context.push(
-              '${RoutePaths.product}?section=instantorder',
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-// =========================================================
-// Image 1 Style Product Tile (Uses DealProductCard)
-// =========================================================
-class _Image1ProductTile extends ConsumerWidget {
-  const _Image1ProductTile({required this.product});
-
-  final Product product;
-
-  Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
-    final defaults = resolveCartDefaults(product);
-    final result = await ref.read(cartControllerProvider.notifier).addToCart(
-          product,
-          defaults.quantity,
-          variantName: defaults.variantName,
-          colorName: defaults.colorName,
-          flySourceContext: context,
-        );
-    if (result == AddToCartResult.requiresLogin) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
-  }
+  final bool isInstant;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final qty = ref.watch(cartProductQuantityProvider(product.id));
-
-    return DealProductCard(
-      product: product,
-      fillCell: true,
-      cartQuantity: qty,
-      onAdd: (ctx) => _handleAdd(ref, ctx),
-    );
-  }
-}
-
-// =========================================================
-// SECTION 4: Book Your Order Products Widget
-// =========================================================
-class _BookYourOrderSection extends ConsumerStatefulWidget {
-  const _BookYourOrderSection();
-
-  @override
-  ConsumerState<_BookYourOrderSection> createState() =>
-      __BookYourOrderSectionState();
-}
-
-class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
-  List<Product> _products = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchProducts();
-  }
-
-  Future<void> _fetchProducts() async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      final prods = await api.fetchProducts({'section': 'preorder', 'limit': 12});
-      if (mounted) {
-        setState(() {
-          _products = prods
-              .where((p) => p.isActive && p.department == Department.preorder)
-              .take(6)
-              .toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const SizedBox(
-        height: 180,
-        child: Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFF047857),
-          ),
-        ),
-      );
-    }
-
-    if (_products.isEmpty) return const SizedBox.shrink();
-
-    final productImages = _products.map((p) => p.primaryImage ?? '').toList();
-
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFF0FDF4), // Soft mint background
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+    final categoriesAsync = ref.watch(categoriesProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'Book your order',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF064E3B),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                '🔥',
-                style: TextStyle(fontSize: 22),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
-            ),
-            itemCount: _products.length,
-            itemBuilder: (context, index) {
-              final product = _products[index];
-              return _Image2ProductTile(product: product);
-            },
+          _Header(
+            title: 'Shop by Category',
+            subtitle: isInstant
+                ? 'Top groceries, essentials & packaged foods'
+                : 'Fresh picks for every kitchen need',
+            linkColor: isInstant ? const Color(0xFF1D4ED8) : const Color(0xFF92400E),
           ),
           const SizedBox(height: 14),
-          _SeeAllButton(
-            title: 'See all Preorder products',
-            categoryImages: productImages,
-            onTap: () {
-              context.push(
-                '${RoutePaths.product}?section=preorder',
+          categoriesAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (categories) {
+              if (categories.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'No categories yet.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return GridView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: isInstant ? 3 : 4,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  mainAxisExtent: 100,
+                ),
+                itemCount: categories.length,
+                itemBuilder: (context, i) => _DepartmentCategoryCard(category: categories[i]),
               );
             },
           ),
@@ -616,37 +253,75 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
   }
 }
 
-// =========================================================
-// Image 2 Style Product Tile (Uses DealProductCard)
-// =========================================================
-class _Image2ProductTile extends ConsumerWidget {
-  const _Image2ProductTile({required this.product});
+class _DepartmentCategoryCard extends StatelessWidget {
+  const _DepartmentCategoryCard({required this.category});
 
-  final Product product;
-
-  Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
-    final defaults = resolveCartDefaults(product);
-    final result = await ref.read(cartControllerProvider.notifier).addToCart(
-          product,
-          defaults.quantity,
-          variantName: defaults.variantName,
-          colorName: defaults.colorName,
-          flySourceContext: context,
-        );
-    if (result == AddToCartResult.requiresLogin) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
-  }
+  final Category category;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final qty = ref.watch(cartProductQuantityProvider(product.id));
-
-    return DealProductCard(
-      product: product,
-      fillCell: true,
-      cartQuantity: qty,
-      onAdd: (ctx) => _handleAdd(ref, ctx),
+  Widget build(BuildContext context) {
+    final count = category.productCount;
+    return GestureDetector(
+      onTap: () => context.push(_categoryUrl(category.categoryName)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F8EE),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 4, 0),
+              child: FractionallySizedBox(
+                widthFactor: 0.62,
+                alignment: Alignment.topLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      category.categoryName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        height: 1.15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      count > 0 ? '$count+ items' : 'Shop now',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 6,
+              bottom: 6,
+              width: 44,
+              height: 44,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: category.categoryImage.isEmpty
+                    ? const SizedBox.shrink()
+                    : AppNetworkImage(imageUrl: category.categoryImage, fit: BoxFit.cover),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -11,6 +11,11 @@ import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../widgets/common/app_network_image.dart';
 
+const _brandGreen = Color(0xFF0C831F);
+const _slate900 = Color(0xFF0F172A);
+const _slate500 = Color(0xFF64748B);
+const _slate200 = Color(0xFFE2E8F0);
+
 class BuyAgainCard extends ConsumerWidget {
   const BuyAgainCard({
     super.key,
@@ -112,6 +117,9 @@ class BuyAgainCard extends ConsumerWidget {
     final variantText = item.variantName.trim().isNotEmpty
         ? item.variantName.trim()
         : (item.brandName.trim().isNotEmpty ? item.brandName.trim() : '1 unit');
+    final openProduct = item.productId.isNotEmpty
+        ? () => context.push('/product/${item.productId}')
+        : null;
 
     return SizedBox(
       width: width,
@@ -119,108 +127,84 @@ class BuyAgainCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Image box
           AspectRatio(
             aspectRatio: 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 1.0),
+            child: Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: _slate200),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: item.productId.isNotEmpty
-                        ? () => context.push('/product/${item.productId}')
-                        : null,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: item.image.isNotEmpty
-                                ? AppNetworkImage(
-                                    imageUrl: item.image,
-                                    fit: BoxFit.contain,
-                                    cacheWidth: 200,
-                                  )
-                                : const Center(
-                                    child: Icon(
-                                      Icons.image_outlined,
-                                      color: AppColors.textMuted,
-                                      size: 32,
-                                    ),
-                                  ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: openProduct,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: item.image.isNotEmpty
+                      ? AppNetworkImage(
+                          imageUrl: item.image,
+                          fit: BoxFit.contain,
+                          cacheWidth: 200,
+                        )
+                      : const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: AppColors.textMuted,
+                            size: 32,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 6),
-          // Product Name
           GestureDetector(
-            onTap: item.productId.isNotEmpty
-                ? () => context.push('/product/${item.productId}')
-                : null,
+            onTap: openProduct,
             child: Text(
               item.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                color: _slate900,
                 height: 1.25,
               ),
             ),
           ),
           const SizedBox(height: 2),
-          // Variant / Brand
           Text(
             variantText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
-              color: AppColors.textSecondary,
+              color: _slate500,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 6),
-          // Price & Add Button Row
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
                   formatInr(item.price),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+                    color: Colors.black,
                   ),
                 ),
               ),
               if (cartQuantity > 0)
                 Container(
-                  height: 30,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: _brandGreen,
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.25),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -230,7 +214,7 @@ class BuyAgainCard extends ConsumerWidget {
                         onTap: () => _handleDecrease(ref),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Text(
                           '$cartQuantity',
                           style: const TextStyle(
@@ -249,24 +233,24 @@ class BuyAgainCard extends ConsumerWidget {
                 )
               else
                 SizedBox(
-                  height: 30,
+                  height: 28,
                   child: OutlinedButton(
                     onPressed: () => _handleAdd(ref, context),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
+                      foregroundColor: _brandGreen,
                       backgroundColor: Colors.white,
-                      side: const BorderSide(color: AppColors.primary, width: 1.2),
+                      side: const BorderSide(color: _brandGreen),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Text(
                       'ADD',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.3,
                       ),

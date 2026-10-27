@@ -43,6 +43,7 @@ dependencies:
   google_maps_flutter: ^2.18.1
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -68,5 +69,6 @@ flutter:
     - .env
     - assets/images/
     - assets/images/payment/
+    - assets/website/
     - assets/sounds/
     - assets/video/

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/feature_flags.dart';
@@ -19,10 +20,13 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   String _phone = '';
+  String _name = '';
   bool _isRegister = false;
   String _otp = '';
   int _resendSeconds = 25;
   Timer? _timer;
+  final _otpController = TextEditingController();
+  final _otpFocus = FocusNode();
 
   @override
   void initState() {
@@ -31,9 +35,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map) {
-        if (args['phone'] != null) setState(() => _phone = args['phone']);
-        if (args['isRegister'] != null) setState(() => _isRegister = args['isRegister']);
+        setState(() {
+          if (args['phone'] != null) _phone = args['phone'];
+          if (args['isRegister'] != null) _isRegister = args['isRegister'];
+          if (args['name'] != null) _name = args['name'].toString();
+        });
       }
+      _otpFocus.requestFocus();
     });
   }
 
@@ -53,22 +61,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _otpController.dispose();
+    _otpFocus.dispose();
     super.dispose();
   }
 
-  void _onKeyPress(String val) {
-    if (_otp.length < 6) {
-      setState(() => _otp += val);
-      if (_otp.length == 6) {
-        _verifyOtp();
-      }
+  void _onOtpChanged(String value) {
+    setState(() => _otp = value);
+    if (value.length == 6) {
+      _otpFocus.unfocus();
+      _verifyOtp();
     }
   }
 
-  void _onBackspace() {
-    if (_otp.isNotEmpty) {
-      setState(() => _otp = _otp.substring(0, _otp.length - 1));
-    }
+  void _clearOtp() {
+    _otpController.clear();
+    setState(() => _otp = '');
+    _otpFocus.requestFocus();
   }
 
   bool _verifying = false;
@@ -81,6 +90,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         phone: _phone,
         otp: _otp,
         purpose: _isRegister ? 'register' : 'login',
+        name: _isRegister ? _name : null,
       );
       if (!mounted) return;
       if (PickupDriverService.instance.isLoggedIn) {
@@ -111,7 +121,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message), backgroundColor: Colors.red.shade700),
       );
-      setState(() => _otp = '');
+      _clearOtp();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +130,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           backgroundColor: Colors.red.shade700,
         ),
       );
-      setState(() => _otp = '');
+      _clearOtp();
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -167,7 +177,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         child: Column(
           children: [
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,12 +202,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // 6 OTP Digit Boxes
+                    Stack(
+                      children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(6, (index) {
                         final char = index < _otp.length ? _otp[index] : '';
-                        final active = index == _otp.length;
+                        final active = _otpFocus.hasFocus && index == _otp.length;
                         return Container(
                           width: 48,
                           height: 52,
@@ -226,6 +237,33 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         );
                       }),
                     ),
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0,
+                            child: TextField(
+                              controller: _otpController,
+                              focusNode: _otpFocus,
+                              enabled: !_verifying,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.done,
+                              autofillHints: const [AutofillHints.oneTimeCode],
+                              maxLength: 6,
+                              showCursor: false,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
+                              ],
+                              decoration: const InputDecoration(
+                                counterText: '',
+                                border: InputBorder.none,
+                              ),
+                              onChanged: _onOtpChanged,
+                              onTap: () => setState(() {}),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     Center(
                       child: GestureDetector(
@@ -253,77 +291,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            // In-app Numeric Dialpad
-            Container(
-              color: const Color(0xFFF8FAFC),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Column(
-                children: [
-                  for (final row in [
-                    ['1', '2', '3'],
-                    ['4', '5', '6'],
-                    ['7', '8', '9'],
-                    ['', '0', 'backspace'],
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: row.map((key) {
-                          if (key.isEmpty) {
-                            return const Expanded(child: SizedBox());
-                          }
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: InkWell(
-                                onTap: () {
-                                  if (key == 'backspace') {
-                                    _onBackspace();
-                                  } else {
-                                    _onKeyPress(key);
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x08000000),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: key == 'backspace'
-                                        ? const Icon(
-                                            Icons.backspace_outlined,
-                                            size: 20,
-                                            color: Color(0xFF374151),
-                                          )
-                                        : Text(
-                                            key,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w600,
-                                              color: const Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                ],
               ),
             ),
           ],

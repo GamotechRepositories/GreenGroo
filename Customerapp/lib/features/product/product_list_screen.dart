@@ -316,8 +316,20 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         children: [
           // Sticky top header: Search bar + Offers button (and back button)
           Container(
-            color: headerBgColor,
-            padding: EdgeInsets.only(top: topInset + 4, bottom: 6),
+            decoration: BoxDecoration(
+              color: headerBgColor,
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFF3F4F6)),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: EdgeInsets.only(top: topInset + 6, bottom: 8),
             child: HomeSearchBar(
               isLightBg: true,
               showBackButton: true,
@@ -387,7 +399,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                           height: 32,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.5,
-                                            color: Color(0xFF047857),
+                                            color: Color(0xFF0C831F),
                                           ),
                                         ),
                                         const SizedBox(height: 12),
@@ -540,22 +552,27 @@ class _LeftSubcategorySidebarState
       subItems.add(_SubcategoryItem(name: sub, imageUrl: img));
     }
 
+    const brandGreen = Color(0xFF0C831F);
+
     return Container(
       width: 78,
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
+        color: Colors.white,
         border: Border(
-          right: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+          right: BorderSide(color: Color(0xFFF3F4F6), width: 1),
         ),
       ),
-      child: ListView.builder(
+      child: ListView.separated(
         controller: _sidebarScrollController,
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        padding: EdgeInsets.only(
-          top: 4,
-          bottom: ShellBottomInsets.of(context),
+        padding: EdgeInsets.fromLTRB(
+          6,
+          10,
+          6,
+          ShellBottomInsets.of(context) + 12,
         ),
         itemCount: subItems.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 4),
         itemBuilder: (context, index) {
           final item = subItems[index];
           final isAll = index == 0;
@@ -565,67 +582,63 @@ class _LeftSubcategorySidebarState
               : (widget.activeSubcategory?.toLowerCase().trim() ==
                   item.name.toLowerCase().trim());
 
-          return InkWell(
-            onTap: () => widget.onSelectSubcategory(isAll ? null : item.name),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.white : Colors.transparent,
-                border: Border(
-                  left: BorderSide(
-                    color: isSelected
-                        ? const Color(0xFF047857)
-                        : Colors.transparent,
-                    width: 3.5,
-                  ),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFECFDF5)
-                          : const Color(0xFFF1F5F9),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF047857)
-                            : const Color(0xFFE2E8F0),
-                        width: isSelected ? 1.5 : 1,
+          return Material(
+            color: isSelected
+                ? brandGreen.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => widget.onSelectSubcategory(isAll ? null : item.name),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? brandGreen.withValues(alpha: 0.35)
+                              : const Color(0xFFF3F4F6),
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: (isAll || item.imageUrl == null || item.imageUrl!.trim().isEmpty)
+                            ? const AppImagePlaceholder(fit: BoxFit.contain)
+                            : AppNetworkImage(
+                                imageUrl: item.imageUrl!,
+                                fit: BoxFit.cover,
+                                errorIcon: Icons.category_rounded,
+                                errorIconSize: 18,
+                              ),
                       ),
                     ),
-                    padding: const EdgeInsets.all(4),
-                    child: ClipOval(
-                      child: (isAll || item.imageUrl == null || item.imageUrl!.trim().isEmpty)
-                          ? const AppImagePlaceholder(fit: BoxFit.contain)
-                          : AppNetworkImage(
-                              imageUrl: item.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorIcon: Icons.category_rounded,
-                              errorIconSize: 20,
-                            ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10,
+                        height: 1.15,
+                        letterSpacing: -0.1,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isSelected
+                            ? brandGreen
+                            : const Color(0xFF6B7280),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      fontWeight:
-                          isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected
-                          ? const Color(0xFF047857)
-                          : const Color(0xFF475569),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -870,8 +883,8 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
                 FilledButton.tonal(
                   onPressed: widget.onClearFilters,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFECFDF5),
-                    foregroundColor: const Color(0xFF047857),
+                    backgroundColor: const Color(0xFF0C831F).withValues(alpha: 0.10),
+                    foregroundColor: const Color(0xFF0C831F),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -902,7 +915,12 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
   }
 
   Widget _buildGrid(BuildContext context) {
-    final bottomPadding = ShellBottomInsets.listPadding(context, top: 12);
+    final bottomPadding = ShellBottomInsets.listPadding(
+      context,
+      left: 12,
+      top: 8,
+      right: 12,
+    );
     return CustomScrollView(
       controller: widget.scrollController,
       physics: AppScrollConfig.listPhysics,
@@ -915,7 +933,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 10,
+              crossAxisSpacing: 12,
               mainAxisSpacing: 12,
               childAspectRatio: DealProductCardDimensions.twoColumnChildAspectRatio,
             ),

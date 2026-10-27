@@ -11,151 +11,109 @@ import '../../../widgets/address/select_delivery_location_sheet.dart';
 import '../home_providers.dart';
 import 'home_header_category_strip.dart';
 
+/// Header top: the 3-way store switcher, then the delivery location row.
 class HomeDeliveryBar extends ConsumerWidget {
   const HomeDeliveryBar({super.key});
 
+  static const double height = 84;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = ref.watch(deliveryLocationProvider);
-    final nearestAsync = ref.watch(nearestStoreProvider);
     final currentStore = ref.watch(selectedStoreTabProvider);
+    final chrome = StoreChrome.forStore(currentStore);
+    final location = ref.watch(deliveryLocationProvider);
+    final storeName = ref.watch(nearestStoreProvider).value?.store?.storeName;
 
     final addressText = location?.hasLocation == true
         ? location!.displayAddress
         : 'Select location to see nearby stock';
 
-    final storeName = nearestAsync.value?.store?.storeName;
-    final chrome = StoreChrome.forStore(currentStore);
-
-    return Container(
-      color: Colors.transparent,
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: SizedBox(
-              height: 32,
+    return SizedBox(
+      height: height,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
               child: Row(
                 children: [
-                  _DepartmentPill(
+                  _StoreTab(
                     label: 'PreOrder',
-                    icon: Icons.calendar_today_rounded,
+                    icon: Icons.calendar_month_outlined,
                     selected: currentStore == 'main',
-                    chrome: _pillChrome(currentStore),
+                    accent: chrome.accent,
                     onTap: () => _selectStore(context, ref, 'main'),
                   ),
-                  const SizedBox(width: 6),
-                  _DepartmentPill(
+                  _StoreTab(
                     label: 'Ready2Cook',
-                    icon: Icons.restaurant_rounded,
+                    icon: Icons.soup_kitchen_outlined,
                     selected: currentStore == 'festive',
-                    chrome: _pillChrome(currentStore),
+                    accent: chrome.accent,
                     onTap: () => _selectStore(context, ref, 'festive'),
                   ),
-                  const SizedBox(width: 6),
-                  _DepartmentPill(
+                  _StoreTab(
                     label: 'InstantOrder',
-                    icon: Icons.bolt_rounded,
+                    icon: Icons.bolt_outlined,
                     selected: currentStore == 'mall',
-                    chrome: _pillChrome(currentStore),
+                    accent: chrome.accent,
                     onTap: () => _selectStore(context, ref, 'mall'),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          InkWell(
-            onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.location_on_rounded,
-                    size: 16,
-                    color: chrome.locationColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      addressText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 18,
-                    color: chrome.locationColor,
-                  ),
-                  if (storeName != null && storeName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 26,
+                child: Row(
+                  children: [
+                    Icon(Icons.location_on_rounded, size: 17, color: chrome.accent),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        '($storeName)',
+                        addressText,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: chrome.locationColor,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
                         ),
                       ),
                     ),
+                    Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: chrome.accent),
+                    if (storeName != null && storeName.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '($storeName)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: chrome.accent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
-
-  static _PillChrome _pillChrome(String store) {
-    switch (store) {
-      case 'festive':
-      case 'ready2cook':
-        return const _PillChrome(
-          idleBg: Color(0x30FFFFFF),
-          idleText: Colors.white,
-          activeBg: Colors.transparent,
-          activeText: Color(0xFF422006),
-          radius: 12,
-          showIcon: true,
-          activeBorder: Colors.transparent,
-        );
-      case 'mall':
-      case 'instantorder':
-        return const _PillChrome(
-          idleBg: Color(0x30FFFFFF),
-          idleText: Colors.white,
-          activeBg: Colors.transparent,
-          activeText: Color(0xFF1E3A8A),
-          radius: 12,
-          showIcon: true,
-          activeBorder: Colors.transparent,
-        );
-      default:
-        return const _PillChrome(
-          idleBg: Color(0x30FFFFFF),
-          idleText: Colors.white,
-          activeBg: Colors.transparent,
-          activeText: Color(0xFF0F291E),
-          radius: 12,
-          showIcon: true,
-          activeBorder: Colors.transparent,
-        );
-    }
   }
 
   void _selectStore(BuildContext context, WidgetRef ref, String store) {
@@ -165,86 +123,58 @@ class HomeDeliveryBar extends ConsumerWidget {
   }
 }
 
-class _PillChrome {
-  const _PillChrome({
-    required this.idleBg,
-    required this.idleText,
-    required this.activeBg,
-    required this.activeText,
-    required this.radius,
-    required this.showIcon,
-    this.activeBorder = Colors.white,
-  });
-
-  final Color idleBg;
-  final Color idleText;
-  final Color activeBg;
-  final Color activeText;
-  final double radius;
-  final bool showIcon;
-  final Color activeBorder;
-}
-
-class _DepartmentPill extends StatelessWidget {
-  const _DepartmentPill({
+/// Active tab fills the whole switcher height with a green box.
+class _StoreTab extends StatelessWidget {
+  const _StoreTab({
     required this.label,
     required this.icon,
     required this.selected,
-    required this.chrome,
+    required this.accent,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
   final bool selected;
-  final _PillChrome chrome;
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? chrome.activeBg : chrome.idleBg;
-    final fg = selected ? chrome.activeText : chrome.idleText;
-    final radius = BorderRadius.circular(chrome.radius);
-
+    final fg = selected ? accent : const Color(0xFF64748B);
     return Expanded(
-      child: Material(
-        color: bg,
-        borderRadius: radius,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
-                color: selected ? chrome.activeBorder : Colors.white24,
-                width: 1,
-              ),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: 0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected ? accent : Colors.transparent,
+              width: 1.5,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (chrome.showIcon) ...[
-                  Icon(icon, size: 12, color: fg),
-                  const SizedBox(width: 3),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                      color: fg,
-                      letterSpacing: -0.2,
-                    ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15, color: fg),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: fg,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

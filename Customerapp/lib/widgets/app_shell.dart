@@ -21,9 +21,10 @@ import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
 import 'layout/mobile_header.dart';
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, required this.navigationShell});
+  const AppShell({super.key, required this.navigationShell, this.location = ''});
 
   final StatefulNavigationShell navigationShell;
+  final String location;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -48,13 +49,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       icon: Icons.widgets_outlined,
       activeIcon: Icons.widgets_rounded,
       assetIcon: 'assets/images/categoriesIcon (1).png',
+      iconSize: 22,
     ),
     FlipkartNavItem(
-      label: 'Cart',
-      icon: Icons.shopping_bag_outlined,
-      activeIcon: Icons.shopping_bag_rounded,
+      label: 'Shop',
+      icon: Icons.storefront_outlined,
+      activeIcon: Icons.storefront_rounded,
       assetIcon: 'assets/images/cart.png',
-      showBadge: true,
+      iconSize: 28,
     ),
     FlipkartNavItem(
       label: 'Account',
@@ -65,7 +67,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   ];
 
   /// Visual tab order maps onto the existing shell branches.
-  /// Shop keeps the cart screen so checkout stays on the bar.
+  /// The Shop branch also hosts the cart screen, opened from the floating cart bar.
   static const _shellForVisual = [0, 2, 1, 3, 4];
 
   @override
@@ -99,16 +101,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  Future<void> _openCart() async {
+    if (!ref.read(authControllerProvider).isLoggedIn) {
+      await showAuthModalBottomSheet(
+        context,
+        ref,
+        mode: AuthModalMode.login,
+        redirectRoute: RoutePaths.cart,
+      );
+      return;
+    }
+    if (mounted) context.go(RoutePaths.cart);
+  }
+
   Future<void> _onTap(int visualIndex) async {
     final isOrderAgainTab = visualIndex == 1;
-    final isCartTab = visualIndex == 3;
     final isAccountTab = visualIndex == 4;
-    final isProtectedTab = isOrderAgainTab || isCartTab || isAccountTab;
+    final isProtectedTab = isOrderAgainTab || isAccountTab;
 
     if (isProtectedTab && !ref.read(authControllerProvider).isLoggedIn) {
-      final targetRoute = isAccountTab
-          ? RoutePaths.profile
-          : (isOrderAgainTab ? RoutePaths.orders : RoutePaths.cart);
+      final targetRoute = isAccountTab ? RoutePaths.profile : RoutePaths.orders;
       await showAuthModalBottomSheet(
         context,
         ref,
@@ -148,9 +160,6 @@ class _AppShellState extends ConsumerState<AppShell> {
               } else if (redirect == RoutePaths.orders) {
                 // Shell branch 2 corresponds to Order Again tab
                 widget.navigationShell.goBranch(2);
-              } else if (redirect == RoutePaths.cart) {
-                // Shell branch 3 corresponds to Cart tab
-                widget.navigationShell.goBranch(3);
               } else {
                 context.go(redirect);
               }
@@ -175,11 +184,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hideBottomNav = isKeyboardOpen;
     final visualIndex = _visualIndex(widget.navigationShell.currentIndex);
     final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
-    // Home and Categories branches only; the Cart tab has its own checkout bar.
+    // The cart screen has its own checkout bar.
+    final branch = widget.navigationShell.currentIndex;
     final showCartBar = !hideBottomNav &&
         cartCount > 0 &&
-        (widget.navigationShell.currentIndex == 0 ||
-            widget.navigationShell.currentIndex == 1);
+        branch != 4 &&
+        !widget.location.startsWith(RoutePaths.cart);
     final mediaQuery = MediaQuery.of(context);
 
     return PopScope(
@@ -228,7 +238,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     left: 12,
                     right: 12,
                     bottom: mediaQuery.padding.bottom + FlipkartBottomNav.barHeight + 8,
-                    child: FloatingCartBar(onOpenCart: () => _onTap(3)),
+                    child: FloatingCartBar(onOpenCart: _openCart),
                   ),
                 if (!hideBottomNav)
                   Positioned(

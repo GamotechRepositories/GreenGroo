@@ -34,8 +34,12 @@ import 'payment_method.dart';
 const _maxOrderNoteLength = 200;
 
 const _pageBg = Color(0xFFF1F2F6);
-const _ink = Color(0xFF1F2430);
-const _muted = Color(0xFF6B7280);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _slate700 = Color(0xFF334155);
+const _slate400 = Color(0xFF94A3B8);
+const _slate300 = Color(0xFFCBD5E1);
+const _slate100 = Color(0xFFF1F5F9);
 const _accent = Color(0xFF047857);
 const _savedBg = Color(0xFFE6F6EC);
 const _savedInk = Color(0xFF0B7A3B);
@@ -373,7 +377,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Checkout')),
+        backgroundColor: _pageBg,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          foregroundColor: _ink,
+          elevation: 0,
+          title: Text('Checkout', style: _font(size: 17, weight: FontWeight.w800)),
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -386,9 +397,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   style: _font(weight: FontWeight.w500, color: _muted),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () => ref.read(authControllerProvider.notifier).openAuthModal(),
-                  child: const Text('Login / Sign Up'),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () => ref.read(authControllerProvider.notifier).openAuthModal(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _accent,
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      'Login / Sign Up',
+                      style: _font(size: 14, weight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -546,18 +568,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 child: Text(
                                   'Pre-order and quick items arrive separately, '
                                   'but you pay once for the whole order.',
-                                  style: _font(size: 11.5, weight: FontWeight.w500, color: _muted),
+                                  style: _font(size: 12, weight: FontWeight.w500, color: _muted),
                                 ),
                               ),
-                            const Divider(height: 1),
+                            const Divider(height: 1, thickness: 1, color: _slate100),
                             _ActionRow(
                               icon: Icons.add_rounded,
+                              iconSize: 20,
                               label: 'Add more items',
                               onTap: () => context.go(RoutePaths.product),
                             ),
-                            const Divider(height: 1),
+                            const Divider(height: 1, thickness: 1, color: _slate100),
                             _ActionRow(
-                              icon: Icons.edit_note_rounded,
+                              icon: Icons.edit_outlined,
                               label: _message.trim().isEmpty
                                   ? 'Add a note for the store'
                                   : 'Note: ${_message.trim()}',
@@ -565,21 +588,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             ),
                             if (_showNote)
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.only(bottom: 8),
                                 child: TextFormField(
                                   initialValue: _message,
                                   maxLines: 3,
                                   maxLength: _maxOrderNoteLength,
-                                  style: _font(weight: FontWeight.w500),
+                                  cursorColor: _accent,
+                                  style: _font(size: 14, weight: FontWeight.w500),
                                   decoration: InputDecoration(
                                     hintText: 'Any special instructions for your order...',
-                                    hintStyle: _font(weight: FontWeight.w500, color: _muted),
+                                    hintStyle: _font(size: 14, weight: FontWeight.w500, color: _slate400),
                                     isDense: true,
                                     filled: true,
-                                    fillColor: _pageBg,
+                                    fillColor: _slate100,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Color(0xFFA7F3D0), width: 2),
                                     ),
                                   ),
                                   onChanged: (value) => setState(() => _message = value),
@@ -588,7 +618,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       _Card(
                         title: 'How do you want your order?',
                         child: Column(
@@ -610,9 +640,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       ),
                       if (hasPreOrder) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
                         _Card(
-                          title: 'Pre-order slot (tomorrow)',
+                          title: isPickup ? 'Pre-order pickup slot' : 'Pre-order delivery slot',
                           child: PreOrderSlotPicker(
                             slots: slots,
                             selected: _preOrderSlot,
@@ -643,7 +673,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             _BillRow(
                               icon: isPickup
                                   ? Icons.storefront_outlined
-                                  : Icons.delivery_dining_outlined,
+                                  : Icons.pedal_bike_outlined,
                               label: isPickup ? 'Store pickup' : 'Delivery Fee',
                               value: !feeKnown
                                   ? 'Calculating…'
@@ -657,7 +687,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                       '${cheaperSlab.shippingCharge <= 0 ? 'FREE delivery' : '${formatInr(cheaperSlab.shippingCharge)} delivery'}',
                             ),
                             Padding(
-                              padding: const EdgeInsets.only(left: 30, bottom: 4),
+                              padding: const EdgeInsets.only(left: 32),
                               child: Text(
                                 'GST included in item prices',
                                 style: _font(size: 11, weight: FontWeight.w500, color: _muted),
@@ -676,13 +706,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   Text(
                                     formatInr(mrpTotal + summary.shipping),
                                     style: _font(
-                                      size: 12.5,
+                                      size: 12,
                                       weight: FontWeight.w500,
-                                      color: _muted,
+                                      color: _slate400,
                                       decoration: TextDecoration.lineThrough,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                 ],
                                 Text(
                                   formatInr(summary.total),
@@ -693,7 +723,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       _CancellationNote(onReadPolicy: () => context.push(RoutePaths.terms)),
                     ],
                   ),
@@ -729,7 +759,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             actionColor: Colors.red.shade700,
             onAction: _removeCoupon,
           ),
-        if (applied != null && suggestion != null) const Divider(height: 20),
+        if (applied != null && suggestion != null)
+          const Divider(height: 24, thickness: 1, color: _slate100),
         if (suggestion != null)
           _CouponRow(
             title: suggestion.unlocked
@@ -749,32 +780,42 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: TextField(
                   controller: _couponController,
                   textCapitalization: TextCapitalization.characters,
-                  style: _font(weight: FontWeight.w600),
+                  cursorColor: _accent,
+                  style: _font(size: 14, weight: FontWeight.w600),
                   decoration: InputDecoration(
                     hintText: 'Enter coupon code',
-                    hintStyle: _font(weight: FontWeight.w500, color: _muted),
+                    hintStyle: _font(size: 14, weight: FontWeight.w500, color: _slate400),
                     isDense: true,
                     filled: true,
-                    fillColor: _pageBg,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    fillColor: _slate100,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFFA7F3D0), width: 2),
                     ),
                   ),
                   onSubmitted: _applyCoupon,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 4),
               TextButton(
                 onPressed: _applyingCoupon ? null : () => _applyCoupon(_couponController.text),
+                style: TextButton.styleFrom(
+                  foregroundColor: _accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 40),
+                ),
                 child: _applyingCoupon
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
                       )
-                    : Text('APPLY', style: _font(weight: FontWeight.w800, color: _accent)),
+                    : Text('APPLY', style: _font(size: 14, weight: FontWeight.w800, color: _accent)),
               ),
             ],
           ),
@@ -786,21 +827,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             style: _font(size: 12, weight: FontWeight.w500, color: Colors.red.shade700),
           ),
         ],
-        const Divider(height: 24),
+        const SizedBox(height: 12),
+        const Divider(height: 1, thickness: 1, color: _slate100),
         InkWell(
           onTap: _openCoupons,
-          child: Row(
-            children: [
-              const Icon(Icons.percent_rounded, size: 18, color: _ink),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'View all coupons & offers',
-                  style: _font(weight: FontWeight.w700),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _ink, width: 2),
+                  ),
+                  child: Text('%', style: _font(size: 10, weight: FontWeight.w900)),
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: _muted),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'View all coupons & offers',
+                    style: _font(size: 14, weight: FontWeight.w700),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: _slate400),
+              ],
+            ),
           ),
         ),
       ],
@@ -852,14 +906,18 @@ class _CheckoutHeader extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       toolbarHeight: 64,
       titleSpacing: 0,
+      leadingWidth: 52,
+      shape: const Border(bottom: BorderSide(color: Color(0x0F0F172A))),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: _ink),
+        tooltip: 'Back',
         onPressed: onBack,
       ),
       title: InkWell(
         onTap: onChangeAddress,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Row(
             children: [
               const Icon(Icons.near_me_rounded, size: 20, color: _accent),
@@ -879,7 +937,8 @@ class _CheckoutHeader extends StatelessWidget implements PreferredSizeWidget {
                             style: _font(size: 15.5, weight: FontWeight.w800),
                           ),
                         ),
-                        const Icon(Icons.keyboard_arrow_down_rounded, color: _ink),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: _ink),
                       ],
                     ),
                     Text(
@@ -909,11 +968,11 @@ class _SavedStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: _savedBg,
-      padding: const EdgeInsets.symmetric(vertical: 9),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.verified_rounded, size: 18, color: _savedInk),
+          const Icon(Icons.verified_rounded, size: 16, color: _savedInk),
           const SizedBox(width: 6),
           Text(
             '${formatInr(amount)} saved!',
@@ -934,7 +993,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -963,8 +1022,8 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
       child: Text(
-        text,
-        style: _font(size: 12, weight: FontWeight.w800, color: _muted, letterSpacing: 1.2),
+        text.toUpperCase(),
+        style: _font(size: 12, weight: FontWeight.w800, color: _muted, letterSpacing: 1.4),
       ),
     );
   }
@@ -1006,7 +1065,7 @@ class _CheckoutLine extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: _pageBg,
+                color: _slate100,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: image != null
@@ -1022,7 +1081,7 @@ class _CheckoutLine extends StatelessWidget {
                         errorIcon: Icons.image_outlined,
                       ),
                     )
-                  : const Icon(Icons.image_outlined, color: _muted),
+                  : const Icon(Icons.image_outlined, color: _slate400),
             ),
           ),
           const SizedBox(width: 12),
@@ -1071,7 +1130,7 @@ class _CheckoutLine extends StatelessWidget {
                   style: _font(
                     size: 11.5,
                     weight: FontWeight.w500,
-                    color: _muted,
+                    color: _slate400,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
@@ -1099,10 +1158,11 @@ class _Stepper extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget button(IconData icon, VoidCallback onTap) => InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, size: 16, color: _accent),
+          borderRadius: BorderRadius.circular(9),
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(icon, size: 16, color: _accent, weight: 700),
           ),
         );
 
@@ -1110,7 +1170,7 @@ class _Stepper extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: _slate300),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1121,7 +1181,7 @@ class _Stepper extends StatelessWidget {
             child: Text(
               '$quantity',
               textAlign: TextAlign.center,
-              style: _font(size: 13.5, weight: FontWeight.w800, color: _accent),
+              style: _font(size: 14, weight: FontWeight.w800, color: _accent),
             ),
           ),
           button(Icons.add_rounded, onIncrease),
@@ -1132,28 +1192,37 @@ class _Stepper extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.label, required this.onTap});
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconSize = 16,
+  });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: _ink),
+            SizedBox(
+              width: 20,
+              child: Icon(icon, size: iconSize, color: _ink),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _font(weight: FontWeight.w700),
+                style: _font(size: 14, weight: FontWeight.w700),
               ),
             ),
           ],
@@ -1183,11 +1252,12 @@ class _CouponRow extends StatelessWidget {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(6),
+          width: 32,
+          height: 32,
           decoration: const BoxDecoration(color: Color(0xFFFFEDD5), shape: BoxShape.circle),
           child: const Icon(Icons.local_offer_rounded, size: 16, color: Color(0xFFEA580C)),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1201,9 +1271,18 @@ class _CouponRow extends StatelessWidget {
         if (actionLabel != null)
           TextButton(
             onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: actionColor,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 36),
+            ),
             child: Text(
               actionLabel!,
-              style: _font(weight: FontWeight.w800, color: actionColor),
+              style: _font(
+                size: 14,
+                weight: FontWeight.w800,
+                color: onAction == null ? actionColor.withValues(alpha: 0.5) : actionColor,
+              ),
             ),
           ),
       ],
@@ -1237,27 +1316,32 @@ class _BillRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: _ink),
+              SizedBox(
+                width: 20,
+                child: Icon(icon, size: 17, color: _muted),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: Text(label, style: _font(weight: FontWeight.w500))),
+              Expanded(
+                child: Text(label, style: _font(weight: FontWeight.w500, color: _slate700)),
+              ),
               if (struck != null) ...[
                 Text(
                   struck!,
                   style: _font(
-                    size: 12.5,
+                    size: 12,
                     weight: FontWeight.w500,
-                    color: _muted,
+                    color: _slate400,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
               ],
               Text(value, style: _font(weight: FontWeight.w700, color: valueColor ?? _ink)),
             ],
           ),
           if (note != null)
             Padding(
-              padding: const EdgeInsets.only(left: 30, top: 3),
+              padding: const EdgeInsets.only(left: 32, top: 2),
               child: Text(
                 note!,
                 style: _font(size: 11.5, weight: FontWeight.w600, color: _accent),
@@ -1275,18 +1359,18 @@ class _DashedDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final count = (constraints.maxWidth / 7).floor();
+          final count = (constraints.maxWidth / 6).floor();
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(
               count,
               (_) => const SizedBox(
-                width: 3.5,
+                width: 3,
                 height: 1,
-                child: ColoredBox(color: Color(0xFFD1D5DB)),
+                child: ColoredBox(color: _slate300),
               ),
             ),
           );
@@ -1317,7 +1401,7 @@ class _CancellationNote extends StatelessWidget {
           Text(
             'You can cancel this order until the store starts packing it. '
             'Once it is packed, it can no longer be cancelled.',
-            style: _font(size: 12, weight: FontWeight.w500, color: _muted),
+            style: _font(size: 12, weight: FontWeight.w500, color: _muted).copyWith(height: 1.6),
           ),
           const SizedBox(height: 6),
           GestureDetector(
@@ -1369,9 +1453,10 @@ class _PayBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 20,
+            spreadRadius: -6,
+            offset: const Offset(0, -8),
           ),
         ],
       ),
@@ -1399,16 +1484,16 @@ class _PayBar extends StatelessWidget {
                   children: [
                     Text(
                       'PAY USING',
-                      style: _font(size: 10.5, weight: FontWeight.w700, color: _muted, letterSpacing: 0.8),
+                      style: _font(size: 10.5, weight: FontWeight.w700, color: _muted, letterSpacing: 1.0),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         if (current != null) ...[
                           asset != null
-                              ? SvgPicture.asset(asset, width: 20, height: 20)
-                              : Icon(current.icon, size: 20, color: _ink),
-                          const SizedBox(width: 8),
+                              ? SvgPicture.asset(asset, width: 18, height: 18)
+                              : Icon(current.icon, size: 16, color: _accent),
+                          const SizedBox(width: 6),
                         ],
                         Flexible(
                           child: Text(
@@ -1425,12 +1510,17 @@ class _PayBar extends StatelessWidget {
               ),
               TextButton(
                 onPressed: onChange,
+                style: TextButton.styleFrom(
+                  foregroundColor: _accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 36),
+                ),
                 child: Text(
                   current == null ? 'Choose' : 'Change',
                   style: _font(
-                    size: 13.5,
+                    size: 14,
                     weight: FontWeight.w800,
-                    color: onChange == null ? _muted : _accent,
+                    color: onChange == null ? _slate400 : _accent,
                   ),
                 ),
               ),
@@ -1512,16 +1602,17 @@ class _SlideToPayState extends State<_SlideToPay> {
             duration: const Duration(milliseconds: 200),
             height: _height,
             decoration: BoxDecoration(
-              color: widget.enabled ? _accent : const Color(0xFFCBD5E1),
-              borderRadius: BorderRadius.circular(14),
+              color: widget.enabled ? _accent : _slate300,
+              borderRadius: BorderRadius.circular(16),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
                 Positioned.fill(
                   child: Opacity(
                     opacity: 1 - progress,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: _knob + _inset * 2),
+                      padding: const EdgeInsets.only(left: 56, right: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1530,18 +1621,18 @@ class _SlideToPayState extends State<_SlideToPay> {
                               widget.label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _font(size: 15.5, weight: FontWeight.w800, color: Colors.white),
+                              style: _font(size: 15, weight: FontWeight.w800, color: Colors.white),
                             ),
                           ),
                           Container(
                             width: 1,
                             height: 18,
                             margin: const EdgeInsets.symmetric(horizontal: 10),
-                            color: Colors.white54,
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
                           Text(
                             widget.amount,
-                            style: _font(size: 15.5, weight: FontWeight.w800, color: Colors.white),
+                            style: _font(size: 15, weight: FontWeight.w800, color: Colors.white),
                           ),
                         ],
                       ),
@@ -1566,8 +1657,9 @@ class _SlideToPayState extends State<_SlideToPay> {
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Icon(
-                        Icons.double_arrow_rounded,
-                        color: widget.enabled ? _accent : const Color(0xFF94A3B8),
+                        Icons.keyboard_double_arrow_right_rounded,
+                        size: 26,
+                        color: widget.enabled ? _accent : _slate400,
                       ),
                     ),
                   ),

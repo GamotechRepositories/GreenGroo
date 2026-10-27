@@ -74,7 +74,10 @@ class NotificationsController extends Notifier<NotificationsState> {
         state = const NotificationsState();
         return;
       }
-      if (previous?.isLoggedIn != true) {
+      if (previous?.user?.id != next.user?.id) {
+        state = const NotificationsState();
+        refreshUnreadCount(force: true);
+      } else if (previous?.isLoggedIn != true) {
         refreshUnreadCount(force: true);
       }
     });

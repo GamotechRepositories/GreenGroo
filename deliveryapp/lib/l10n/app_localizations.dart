@@ -3148,6 +3148,30 @@ abstract class AppLocalizations {
   /// **'Go to Home'**
   String get goToHome;
 
+  /// No description provided for @deliveryPartnerApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Partner App'**
+  String get deliveryPartnerApp;
+
+  /// No description provided for @fullNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your full name'**
+  String get fullNameHint;
+
+  /// No description provided for @enterNameError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your full name'**
+  String get enterNameError;
+
+  /// No description provided for @noAreasInCity.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery hubs in this city yet. Please choose another city.'**
+  String get noAreasInCity;
+
   /// No description provided for @nextDelivery.
   ///
   /// In en, this message translates to:

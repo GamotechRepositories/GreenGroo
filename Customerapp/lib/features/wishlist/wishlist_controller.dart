@@ -56,7 +56,14 @@ class WishlistController extends Notifier<WishlistState> {
   WishlistState build() {
     ref.listen(authControllerProvider, (previous, next) {
       final wasLoggedOut = previous?.isLoggedIn != true;
-      if (wasLoggedOut && next.isLoggedIn) {
+      final switchedAccount = !wasLoggedOut &&
+          next.isLoggedIn &&
+          previous?.user?.id != next.user?.id;
+      if (switchedAccount) {
+        state = const WishlistState();
+        _pendingToggle = null;
+        _handleLogin();
+      } else if (wasLoggedOut && next.isLoggedIn) {
         _handleLogin();
       } else if (!next.isLoggedIn && previous?.isLoggedIn == true) {
         state = const WishlistState();

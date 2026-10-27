@@ -87,11 +87,11 @@ class _ChoiceCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF0FDF4) : Colors.white,
+          color: selected ? const Color(0xFFECFDF5) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-            width: selected ? 1.6 : 1,
+            color: selected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+            width: selected ? 1.5 : 1,
           ),
         ),
         child: Column(
@@ -293,7 +293,11 @@ class PreOrderSlotPicker extends StatelessWidget {
       children: [
         Text(
           'Pre-order items are delivered tomorrow. Pick a time slot:',
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF64748B)),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF64748B),
+          ),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -305,14 +309,19 @@ class PreOrderSlotPicker extends StatelessWidget {
                 label: Text(slot.label),
                 selected: selected == slot.label,
                 onSelected: (_) => onSelected(slot.label),
-                selectedColor: const Color(0xFFDCFCE7),
+                showCheckmark: true,
+                checkmarkColor: const Color(0xFF047857),
+                backgroundColor: Colors.white,
+                selectedColor: const Color(0xFFECFDF5),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 labelStyle: GoogleFonts.plusJakartaSans(
                   fontSize: 12.5,
-                  fontWeight: selected == slot.label ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: selected == slot.label ? FontWeight.w700 : FontWeight.w600,
                   color: selected == slot.label ? const Color(0xFF047857) : const Color(0xFF334155),
                 ),
                 side: BorderSide(
-                  color: selected == slot.label ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                  color: selected == slot.label ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
                 ),
               ),
           ],

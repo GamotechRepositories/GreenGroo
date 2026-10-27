@@ -31,6 +31,66 @@ import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 
+const _pageBg = Color(0xFFF3F5F9);
+const _brand = Color(0xFF0C831F);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _ring = Color(0xB3E2E8F0);
+
+BoxDecoration _cardDecoration() => BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _ring),
+    );
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.9,
+          color: _muted,
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const dash = 4.0;
+        const gap = 3.0;
+        final count = (constraints.maxWidth / (dash + gap)).floor();
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(
+            count,
+            (_) => const SizedBox(
+              width: dash,
+              height: 1,
+              child: ColoredBox(color: Color(0xFFE2E8F0)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
@@ -217,14 +277,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
     if (loading && items.isEmpty) {
       return const ColoredBox(
-        color: Color(0xFFF4F5F7),
+        color: _pageBg,
         child: SkeletonCartPage(),
       );
     }
 
     if (items.isEmpty) {
       return ColoredBox(
-        color: const Color(0xFFF4F5F7),
+        color: _pageBg,
         child: RefreshableBody(
           onRefresh: _loadCart,
           child: isLoggedIn
@@ -294,9 +354,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final couponDiscount = _appliedCoupon != null
         ? _appliedCoupon!.discountAmount.clamp(0.0, summary.subtotal)
         : 0.0;
+    final productSavings = items.fold<double>(0, (sum, item) {
+      final original = item.price > 0 ? item.price : item.discountedPrice;
+      return sum + (original - item.discountedPrice).clamp(0.0, double.infinity) * item.quantity;
+    });
+    final displaySavings = productSavings + couponDiscount;
+    final toPay = (summary.subtotal - couponDiscount).clamp(0.0, double.infinity) + 5;
+    final lastGroup = groups.keys.isEmpty ? null : groups.keys.last;
 
-    Widget itemsCard(List<CartItem> groupItems) => _CartItemsCard(
+    Widget itemsCard(List<CartItem> groupItems, {bool showAddMore = false}) => _CartItemsCard(
           items: groupItems,
+          onAddMore: showAddMore ? () => context.go(RoutePaths.product) : null,
           onRemove: _confirmRemoveItem,
           onMoveToWishlist: _moveToWishlist,
           onDecrease: (item) async {
@@ -322,30 +390,35 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
+      backgroundColor: _pageBg,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(56),
         child: _CartTopAppBar(
-          title: 'Checkout',
+          itemCount: summary.itemCount,
+          savings: displaySavings,
           onClear: _clearing || loading ? null : _clearCart,
         ),
       ),
       body: Stack(
         children: [
           RefreshIndicator(
-            color: const Color(0xFF16A34A),
+            color: _brand,
             onRefresh: _loadCart,
             child: ListView(
               controller: _scrollController,
               physics: AppScrollConfig.listPhysics,
               padding: EdgeInsets.only(
-                left: 14,
-                right: 14,
-                top: 10,
-                bottom: ShellBottomInsets.of(context) + 140, // Space for sticky bottom bar
+                left: 12,
+                right: 12,
+                top: 12,
+                bottom: ShellBottomInsets.of(context) + 150, // Space for sticky bottom bar
               ),
               children: [
-                // 1. Delivery Speed Banner
+                if (displaySavings > 0) ...[
+                  _SavingsBanner(savings: displaySavings),
+                  const SizedBox(height: 12),
+                ],
+
                 _DeliverySpeedHeaderCard(
                   itemCount: summary.itemCount,
                   title: isPickup
@@ -359,7 +432,22 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 2. Delivery or store pickup + dark store contact
+                // Cart items, grouped by department
+                for (final entry in groups.entries) ...[
+                  DepartmentGroupHeader(
+                    department: entry.key,
+                    itemCount: entry.value.length,
+                    etaText: departmentEtaText(
+                      entry.key,
+                      pickup: isPickup,
+                      preOrderSlot: slotChosen ? _preOrderSlot : null,
+                    ),
+                  ),
+                  itemsCard(entry.value, showAddMore: entry.key == lastGroup),
+                  const SizedBox(height: 12),
+                ],
+
+                // Delivery or store pickup + dark store contact
                 _CartSection(
                   title: 'How do you want your order?',
                   child: Column(
@@ -382,7 +470,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 3. Pre-order slot (required when the cart has pre-order items)
+                // Pre-order slot (required when the cart has pre-order items)
                 if (hasPreOrder) ...[
                   _CartSection(
                     title: isPickup ? 'Pre-order pickup slot (tomorrow)' : 'Pre-order delivery slot (tomorrow)',
@@ -395,24 +483,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                // 4. Cart items, grouped by department
-                for (final entry in groups.entries) ...[
-                  DepartmentGroupHeader(
-                    department: entry.key,
-                    itemCount: entry.value.length,
-                    etaText: departmentEtaText(
-                      entry.key,
-                      pickup: isPickup,
-                      preOrderSlot: slotChosen ? _preOrderSlot : null,
-                    ),
-                  ),
-                  itemsCard(entry.value),
-                  const SizedBox(height: 12),
-                ],
-
-                // 5. Make this a Gift Banner
                 const _GiftingCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Important Store Notices
                 if (storeSettings != null) ...[
@@ -420,7 +492,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                // Apply Coupon Card
+                const _SectionLabel('Offers & benefits'),
                 _ApplyCouponCard(
                   controller: _couponController,
                   appliedCoupon: _appliedCoupon,
@@ -437,7 +509,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 6. Bill Details Card with Total Savings Highlight
+                const _SectionLabel('Bill details'),
                 _BlinkitBillDetailsCard(
                   summary: summary,
                   items: items,
@@ -447,14 +519,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 7. Add GSTIN Card
                 const _AddGstinCard(),
                 const SizedBox(height: 12),
               ],
             ),
           ),
 
-          // Sticky Bottom Location & "Select Payment Method" Button Bar
+          // Sticky bottom bar: address, total and checkout button
           Positioned(
             left: 0,
             right: 0,
@@ -473,7 +544,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   : 'Delivering to',
               onChangeAddress: () => showSelectDeliveryLocationBottomSheet(context, ref),
               onProceed: proceedToPayment,
-              buttonText: hasPreOrder && !slotChosen ? 'Choose a pre-order slot' : 'Select Payment Method',
+              buttonText: hasPreOrder && !slotChosen ? 'Choose a pre-order slot' : 'Proceed to checkout',
+              total: toPay,
+              savings: displaySavings,
             ),
           ),
         ],
@@ -485,45 +558,127 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 // --- Top App Bar ---
 class _CartTopAppBar extends StatelessWidget {
   const _CartTopAppBar({
-    required this.title,
+    required this.itemCount,
+    required this.savings,
     required this.onClear,
   });
 
-  final String title;
+  final int itemCount;
+  final double savings;
   final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0.5,
-      leading: Navigator.canPop(context)
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pop(context),
-            )
-          : null,
-      title: Text(
-        title,
-        style: GoogleFonts.plusJakartaSans(
-          color: Colors.black,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
+    final canPop = Navigator.canPop(context);
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        border: const Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.search, color: Colors.black, size: 22),
-          onPressed: () => context.push(RoutePaths.product),
-        ),
-        if (onClear != null)
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
-            onPressed: onClear,
-            tooltip: 'Clear Cart',
+      padding: EdgeInsets.only(left: canPop ? 4 : 16, right: 4),
+      child: Row(
+        children: [
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, color: _ink, size: 28),
+              onPressed: () => Navigator.pop(context),
+            ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'My Cart',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '$itemCount ${itemCount == 1 ? 'item' : 'items'}'),
+                      if (savings > 0) ...[
+                        const TextSpan(text: ' · '),
+                        TextSpan(
+                          text: 'Saving ${formatInr(savings)}',
+                          style: const TextStyle(color: _brand, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
+                ),
+              ],
+            ),
           ),
-      ],
+          IconButton(
+            icon: const Icon(Icons.search_rounded, color: _ink, size: 22),
+            onPressed: () => context.push(RoutePaths.product),
+          ),
+          TextButton(
+            onPressed: onClear,
+            style: TextButton.styleFrom(
+              foregroundColor: _muted,
+              disabledForegroundColor: _muted.withValues(alpha: 0.5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              'Clear all',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavingsBanner extends StatelessWidget {
+  const _SavingsBanner({required this.savings});
+
+  final double savings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFECFDF5), Color(0xFFF0FDFA)]),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD1FAE5)),
+      ),
+      child: Row(
+        children: [
+          const Text('🎉', style: TextStyle(fontSize: 16)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: "You're saving "),
+                  TextSpan(text: formatInr(savings), style: const TextStyle(color: _brand)),
+                  const TextSpan(text: ' on this order'),
+                ],
+              ),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF064E3B),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -543,31 +698,18 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 36,
+            height: 36,
             decoration: const BoxDecoration(
               color: Color(0xFFECFDF5),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.access_time_filled,
-              color: Color(0xFF10B981),
-              size: 22,
-            ),
+            child: const Icon(Icons.bolt_rounded, color: _brand, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -577,18 +719,18 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1F2937),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   note ?? 'Shipment of $itemCount item${itemCount > 1 ? 's' : ''}',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF6B7280),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _muted,
                   ),
                 ),
               ],
@@ -609,27 +751,17 @@ class _CartSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             title,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1F2937),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _ink,
             ),
           ),
           const SizedBox(height: 12),
@@ -649,6 +781,7 @@ class _CartItemsCard extends StatelessWidget {
     required this.onDecrease,
     required this.onIncrease,
     required this.onTapItem,
+    this.onAddMore,
   });
 
   final List<CartItem> items;
@@ -657,22 +790,15 @@ class _CartItemsCard extends StatelessWidget {
   final ValueChanged<CartItem> onDecrease;
   final ValueChanged<CartItem> onIncrease;
   final ValueChanged<CartItem> onTapItem;
+  final VoidCallback? onAddMore;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      clipBehavior: Clip.antiAlias,
+      decoration: _cardDecoration(),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (int i = 0; i < items.length; i++) ...[
             _BlinkitCartItemRow(
@@ -684,7 +810,30 @@ class _CartItemsCard extends StatelessWidget {
               onTap: () => onTapItem(items[i]),
             ),
             if (i < items.length - 1)
-              Divider(height: 1, color: Colors.grey.shade100, indent: 14, endIndent: 14),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          ],
+          if (onAddMore != null) ...[
+            const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+            InkWell(
+              onTap: onAddMore,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_rounded, size: 18, color: _brand),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Add more items',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _brand,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -713,40 +862,41 @@ class _BlinkitCartItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final image = item.productImages.isNotEmpty ? item.productImages.first : null;
     final hasDiscount = item.price > item.discountedPrice && item.discountedPrice > 0;
+    final offPercent = hasDiscount ? ((item.price - item.discountedPrice) / item.price * 100).round() : 0;
+    final meta = [item.variantName, item.colorName].where((s) => s.isNotEmpty).join(' · ');
+    final removesOnDecrease = getDecreasedCartQuantityForCartItem(item) <= 0;
 
     return Padding(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product Thumbnail
           GestureDetector(
             onTap: onTap,
             child: Container(
-              width: 76,
-              height: 76,
+              width: 64,
+              height: 64,
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 child: image != null
                     ? AppNetworkImage(
                         imageUrl: image,
                         fit: BoxFit.contain,
-                        width: 76,
-                        height: 76,
+                        width: 56,
+                        height: 56,
                         errorIcon: Icons.image_outlined,
                       )
-                    : const Icon(Icons.image_outlined, color: Colors.grey),
+                    : const Icon(Icons.image_outlined, color: Color(0xFF94A3B8)),
               ),
             ),
           ),
           const SizedBox(width: 12),
-
-          // Details Column
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,38 +908,66 @@ class _BlinkitCartItemRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14.5,
-                      color: const Color(0xFF0F172A),
-                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      color: _ink,
+                      height: 1.3,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
-
-                // Variant / Subtitle
-                Text(
-                  item.variantName.isNotEmpty
-                      ? item.variantName
-                      : (item.colorName.isNotEmpty ? item.colorName : 'Standard'),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF64748B),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
                   ),
-                ),
+                ],
                 const SizedBox(height: 6),
-
-                // Move to Wishlist Link
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      formatInr(item.discountedPrice > 0 ? item.discountedPrice : item.price),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    if (hasDiscount) ...[
+                      Text(
+                        formatInr(item.price),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: const Color(0xFF94A3B8),
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      Text(
+                        '$offPercent% off',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _brand,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
                 GestureDetector(
                   onTap: onMoveToWishlist,
                   child: Text(
                     'Move to wishlist',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF16A34A),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
                       decoration: TextDecoration.underline,
+                      decorationColor: _muted,
                     ),
                   ),
                 ),
@@ -797,93 +975,64 @@ class _BlinkitCartItemRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-
-          // Stepper & Price Column
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Light Green Stepper Box [ − 1 + ]
               Container(
-                height: 34,
+                height: 32,
+                width: 88,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFFDF5), // Light green tint
+                  color: _brand,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF16A34A), width: 1.2),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
+                  ],
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: onDecrease,
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(7)),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        child: Text(
-                          '−',
-                          style: TextStyle(
-                            color: Color(0xFF16A34A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: onDecrease,
+                          child: Center(
+                            child: Icon(
+                              removesOnDecrease ? Icons.delete_outline_rounded : Icons.remove_rounded,
+                              size: 15,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text(
+                      Text(
                         '${item.quantity}',
                         style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF16A34A),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                    InkWell(
-                      onTap: onIncrease,
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(7)),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        child: Text(
-                          '+',
-                          style: TextStyle(
-                            color: Color(0xFF16A34A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                      Expanded(
+                        child: InkWell(
+                          onTap: onIncrease,
+                          child: const Center(
+                            child: Icon(Icons.add_rounded, size: 15, color: Colors.white),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-
-              // Price Line
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (hasDiscount) ...[
-                    Text(
-                      formatInr(item.price * item.quantity),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    formatInr(item.lineTotal),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 10),
+              Text(
+                formatInr(item.lineTotal),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
+                ),
               ),
             ],
           ),
@@ -900,28 +1049,21 @@ class _GiftingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFEF3C7), Color(0xFFFFFBEB)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.8),
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEF3C7),
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.card_giftcard,
+              Icons.card_giftcard_rounded,
               color: Color(0xFFD97706),
-              size: 26,
+              size: 19,
             ),
           ),
           const SizedBox(width: 12),
@@ -932,18 +1074,17 @@ class _GiftingCard extends StatelessWidget {
                 Text(
                   'Make this a gift!',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF92400E),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Get your items in a special gift bag for just ₹30',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFB45309),
+                    fontSize: 11.5,
+                    color: _muted,
                   ),
                 ),
               ],
@@ -954,16 +1095,18 @@ class _GiftingCard extends StatelessWidget {
             onPressed: () {},
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF16A34A),
-              side: const BorderSide(color: Color(0xFF16A34A), width: 1.2),
+              foregroundColor: _brand,
+              side: const BorderSide(color: _brand),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
             ),
-            child: const Text(
+            child: Text(
               'Select',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 12.5),
             ),
           ),
         ],
@@ -1010,18 +1153,34 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
     final grandTotal =
         (summary.subtotal - couponDiscount).clamp(0.0, double.infinity) + 5;
 
+    final itemCount = summary.itemCount;
+    final rowStyle = GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF334155));
+    final valueStyle = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: _ink,
+    );
+    final strikeStyle = GoogleFonts.plusJakartaSans(
+      fontSize: 12,
+      color: const Color(0xFF94A3B8),
+      decoration: TextDecoration.lineThrough,
+    );
+    final greenStyle = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: _brand,
+    );
+
+    Widget billRow(String label, List<Widget> values, {TextStyle? labelStyle}) => Row(
+          children: [
+            Expanded(child: Text(label, style: labelStyle ?? rowStyle)),
+            ...values,
+          ],
+        );
+
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      clipBehavior: Clip.antiAlias,
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1030,185 +1189,56 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Bill details',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Items total MRP
-                Row(
-                  children: [
-                    const Icon(Icons.article_outlined,
-                        size: 18, color: Color(0xFF4B5563)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Items total',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF374151),
-                      ),
-                    ),
-                    if (productDiscount > 0) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDBEAFE),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Saved ₹${productDiscount.toStringAsFixed(0)}',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1D4ED8),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
+                billRow(
+                  'Item total ($itemCount ${itemCount == 1 ? 'item' : 'items'})',
+                  [
                     if (originalTotalMRP > summary.subtotal) ...[
-                      Text(
-                        formatInr(originalTotalMRP),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          color: Colors.grey,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
+                      Text(formatInr(originalTotalMRP), style: strikeStyle),
+                      const SizedBox(width: 6),
                     ],
-                    Text(
-                      formatInr(summary.subtotal),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
+                    Text(formatInr(summary.subtotal), style: valueStyle),
                   ],
                 ),
                 const SizedBox(height: 10),
-
-                // Delivery charge
-                Row(
-                  children: [
-                    const Icon(Icons.delivery_dining_outlined,
-                        size: 18, color: Color(0xFF4B5563)),
-                    const SizedBox(width: 8),
-                    Text(
-                      pickup ? 'Store pickup' : 'Delivery charge',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF374151),
-                      ),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      '₹30',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'FREE',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF16A34A),
-                      ),
-                    ),
+                billRow(
+                  pickup ? 'Store pickup' : 'Delivery fee',
+                  [
+                    Text('₹30', style: strikeStyle),
+                    const SizedBox(width: 6),
+                    Text('FREE', style: greenStyle),
                   ],
                 ),
                 const SizedBox(height: 10),
-
-                // Handling charge
-                Row(
-                  children: [
-                    const Icon(Icons.shopping_bag_outlined,
-                        size: 18, color: Color(0xFF4B5563)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Handling charge',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF374151),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '₹5',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-                  ],
-                ),
-
+                billRow('Handling charge', [Text('₹5', style: valueStyle)]),
                 if (couponDiscount > 0 && appliedCoupon != null) ...[
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.local_offer_outlined,
-                          size: 18, color: Color(0xFF16A34A)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Coupon (${appliedCoupon!.code})',
+                  billRow(
+                    'Coupon (${appliedCoupon!.code})',
+                    [Text('-${formatInr(couponDiscount)}', style: greenStyle)],
+                    labelStyle: greenStyle.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                const _DashedDivider(),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'To pay',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF16A34A),
+                          color: _ink,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '-${formatInr(couponDiscount)}',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF16A34A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 14),
-
-                const Divider(height: 1),
-                const SizedBox(height: 14),
-
-                // Grand total
-                Row(
-                  children: [
-                    Text(
-                      'Grand total',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1F2937),
                       ),
                     ),
-                    const Spacer(),
                     Text(
                       formatInr(grandTotal),
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 18.5,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1F2937),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: _ink,
                       ),
                     ),
                   ],
@@ -1216,15 +1246,10 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // Total Savings Highlight Card
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            color: const Color(0xFFECFDF5),
             child: Row(
               children: [
                 Expanded(
@@ -1234,20 +1259,19 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                       Text(
                         'Your total savings',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1D4ED8),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF065F46),
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         couponDiscount > 0
                             ? 'Includes ₹${couponDiscount.toStringAsFixed(0)} coupon discount & ₹30 free delivery'
                             : 'Includes ₹30 savings through free delivery',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF3B82F6),
+                          fontSize: 11,
+                          color: const Color(0xFF047857),
                         ),
                       ),
                     ],
@@ -1256,9 +1280,9 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 Text(
                   '₹${totalSavings.toStringAsFixed(0)}',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF1D4ED8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: _brand,
                   ),
                 ),
               ],
@@ -1277,30 +1301,21 @@ class _AddGstinCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFDBEAFE),
-              borderRadius: BorderRadius.circular(10),
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF),
+              shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.percent_rounded,
+              Icons.receipt_long_rounded,
               color: Color(0xFF2563EB),
-              size: 20,
+              size: 18,
             ),
           ),
           const SizedBox(width: 12),
@@ -1311,24 +1326,23 @@ class _AddGstinCard extends StatelessWidget {
                 Text(
                   'Add GSTIN',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1F2937),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Claim GST input credit up to 18% on your order',
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF6B7280),
+                    fontSize: 11.5,
+                    color: _muted,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
         ],
       ),
     );
@@ -1358,46 +1372,46 @@ class _ApplyCouponCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(8),
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
+                  shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.local_offer_rounded,
-                  color: Color(0xFF16A34A),
+                  Icons.local_offer_outlined,
+                  color: _brand,
                   size: 18,
                 ),
               ),
-              const SizedBox(width: 10),
-              Text(
-                'Coupons & Offers',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1F2937),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Apply coupon',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    Text(
+                      'Browse offers available for you',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: _muted),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               InkWell(
                 onTap: onViewAll,
                 borderRadius: BorderRadius.circular(6),
@@ -1408,18 +1422,18 @@ class _ApplyCouponCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'View all',
+                        'View',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF16A34A),
+                          color: _brand,
                         ),
                       ),
                       const SizedBox(width: 2),
                       const Icon(
                         Icons.chevron_right_rounded,
-                        size: 18,
-                        color: Color(0xFF16A34A),
+                        size: 16,
+                        color: _brand,
                       ),
                     ],
                   ),
@@ -1544,21 +1558,21 @@ class _ApplyCouponCard extends StatelessWidget {
                           vertical: 10,
                         ),
                         filled: true,
-                        fillColor: const Color(0xFFF9FAFB),
+                        fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE5E7EB)),
+                              const BorderSide(color: Color(0xFFE2E8F0)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE5E7EB)),
+                              const BorderSide(color: Color(0xFFE2E8F0)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Color(0xFF16A34A),
+                            color: _brand,
                             width: 1.5,
                           ),
                         ),
@@ -1574,7 +1588,7 @@ class _ApplyCouponCard extends StatelessWidget {
                     onPressed:
                         isApplying ? null : () => onApply(controller.text),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: _brand,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -1640,6 +1654,8 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
     required this.onChangeAddress,
     required this.onProceed,
     required this.buttonText,
+    required this.total,
+    required this.savings,
     this.addressPrefix = 'Delivering to',
   });
 
@@ -1649,113 +1665,132 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
   final VoidCallback onChangeAddress;
   final VoidCallback onProceed;
   final String buttonText;
+  final double total;
+  final double savings;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        left: 14,
-        right: 14,
+        left: 16,
+        right: 16,
         top: 10,
-        bottom: ShellBottomInsets.of(context),
+        bottom: ShellBottomInsets.of(context) + 10,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
+            color: Color(0x0F0F172A),
+            blurRadius: 20,
+            offset: Offset(0, -6),
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Address Row
+          InkWell(
+            onTap: onChangeAddress,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, color: _brand, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$addressPrefix $addressLabel',
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: _ink),
+                          ),
+                          TextSpan(text: ' · $addressText'),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: _muted),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Change',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _brand,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF3C7),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.location_city_rounded,
-                  color: Color(0xFFD97706),
-                  size: 18,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formatInr(total),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                      height: 1.2,
+                    ),
+                  ),
+                  Text(
+                    savings > 0 ? 'Saved ${formatInr(savings)}' : 'Total to pay',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: savings > 0 ? _brand : _muted,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$addressPrefix $addressLabel',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F2937),
+                child: SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: onProceed,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _brand,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    Text(
-                      addressText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF6B7280),
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            buttonText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: onChangeAddress,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Change',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF16A34A),
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-
-          // Main Light Green Action Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              onPressed: onProceed,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                buttonText,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-            ),
           ),
         ],
       ),

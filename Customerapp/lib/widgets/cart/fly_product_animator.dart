@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../common/app_network_image.dart';
 import '../common/nav_icon_locator.dart';
+import '../layout/flipkart_bottom_nav.dart';
 
 class FlyProductRequest {
   const FlyProductRequest({
@@ -53,10 +54,10 @@ void triggerFlyToCart({
   if (target != null && target.attached && target.hasSize) {
     end = target.localToGlobal(target.size.center(Offset.zero));
   } else {
+    // Where the floating cart bar's Cart button appears once the first item lands.
     final size = MediaQuery.sizeOf(sourceContext);
     final bottom = MediaQuery.paddingOf(sourceContext).bottom;
-    final tab = size.width / 5;
-    end = Offset(tab * 3 + tab / 2, size.height - bottom - 28);
+    end = Offset(size.width - 12 - 48, size.height - bottom - FlipkartBottomNav.barHeight - 8 - 25);
   }
 
   _flyProductTrigger!(

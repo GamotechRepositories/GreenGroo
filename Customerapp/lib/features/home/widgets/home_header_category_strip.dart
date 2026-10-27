@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/store_chrome.dart';
 import '../../../routes/route_paths.dart';
 import '../home_providers.dart';
 
@@ -20,20 +21,17 @@ final selectedCategoryHeaderTabProvider =
 class HomeHeaderCategoryStrip extends ConsumerWidget {
   final bool isLightBg;
 
+  /// 1 = icons shown (expanded header), 0 = icons hidden (sticky header).
+  final double iconProgress;
+
+  static const double expandedHeight = 50;
+  static const double collapsedHeight = 30;
+
   const HomeHeaderCategoryStrip({
     super.key,
     this.isLightBg = false,
+    this.iconProgress = 1,
   });
-
-  static const _defaultCategories = [
-    'All',
-    'Beverages',
-    'Bakery',
-    'Dairy',
-    'Dry Fruits',
-    'Fruits',
-    'Grains',
-  ];
 
   IconData _getCategoryIcon(String name) {
     final lower = name.toLowerCase().trim();
@@ -241,19 +239,27 @@ class HomeHeaderCategoryStrip extends ConsumerWidget {
         }
         return uniqueNames;
       },
-      orElse: () => currentStore == 'main' ? _defaultCategories : const ['All'],
+      orElse: () => const ['All'],
     );
 
+    final indicator = StoreChrome.forStore(currentStore).stripIndicator;
+    final t = iconProgress.clamp(0.0, 1.0);
+    final iconSpace = 20.0 * t;
+    final height = collapsedHeight + (expandedHeight - collapsedHeight) * t;
+
     return Container(
-      color: Colors.transparent,
-      height: 52,
+      height: height,
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0x1A064E3B))),
+      ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: 10, right: 10, top: 2, bottom: 0),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: categoryList.length,
         itemBuilder: (context, index) {
           final catName = categoryList[index];
           final isSelected = selectedCategory == catName;
+          final fg = isSelected ? const Color(0xFF022C22) : const Color(0xA6064E3B);
 
           return GestureDetector(
             onTap: () {
@@ -276,39 +282,46 @@ class HomeHeaderCategoryStrip extends ConsumerWidget {
                 );
               }
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 6),
-              padding: const EdgeInsets.only(left: 18, right: 18, top: 6, bottom: 4),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.35),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _getCategoryIcon(catName),
-                    size: 20,
-                    color: isSelected ? Colors.black : const Color(0xFF0F291E),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    catName,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      fontWeight:
-                          isSelected ? FontWeight.w800 : FontWeight.w700,
-                      color:
-                          isSelected ? Colors.black : const Color(0xFF0F291E),
+            behavior: HitTestBehavior.opaque,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 54),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      height: iconSpace,
+                      child: t <= 0.05
+                          ? null
+                          : Opacity(
+                              opacity: t,
+                              child: Icon(_getCategoryIcon(catName), size: 18, color: fg),
+                            ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      catName,
+                      maxLines: 1,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: fg,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      height: 2.5,
+                      width: 28,
+                      decoration: BoxDecoration(
+                        color: isSelected ? indicator : Colors.transparent,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                ),
               ),
             ),
           );

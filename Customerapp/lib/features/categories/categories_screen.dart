@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
@@ -10,14 +11,36 @@ import '../../core/theme/store_chrome.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
-import '../../widgets/category/category_grid_tile.dart';
-import '../../widgets/category/triangular_category_card.dart';
-import '../../widgets/common/app_loading.dart';
+import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/offers_badge_button.dart';
 import '../../widgets/common/voice_mic_button.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../home/home_providers.dart';
+import '../home/widgets/category_pills_section.dart';
 import '../home/widgets/home_header_category_strip.dart';
+
+/// Admin → Sections (name, badge, colour, description) keyed by slug.
+final sectionsMetaProvider = FutureProvider<Map<String, Map<String, dynamic>>>((ref) async {
+  final sections = await ref.read(apiServiceProvider).fetchSections();
+  return {
+    for (final s in sections)
+      (s['slug'] ?? s['storeType'] ?? '').toString().toLowerCase(): s,
+  };
+});
+
+Color? _hex(String? value) {
+  var hex = (value ?? '').trim().replaceAll('#', '');
+  if (hex.length == 3) hex = hex.split('').map((c) => '$c$c').join();
+  if (hex.length != 6) return null;
+  final n = int.tryParse(hex, radix: 16);
+  return n == null ? null : Color(0xFF000000 | n);
+}
+
+String _departmentName(String store) {
+  if (store == 'festive') return 'Ready2Cook';
+  if (store == 'mall') return 'InstantOrder';
+  return 'PreOrder';
+}
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -41,14 +64,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     });
   }
 
-  Future<void> _refreshDepartments() async {
+  Future<void> _refresh() async {
     ref.invalidate(categoriesProvider);
-    ref.invalidate(departmentCategoriesProvider);
-    await Future.wait([
-      ref.read(departmentCategoriesProvider('preorder').future),
-      ref.read(departmentCategoriesProvider('ready2cook').future),
-      ref.read(departmentCategoriesProvider('instantorder').future),
-    ]).catchError((_) => <List<Category>>[]);
+    ref.invalidate(sectionsMetaProvider);
+    await ref.read(categoriesProvider.future).catchError((_) => <Category>[]);
   }
 
   @override
@@ -59,18 +78,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     super.dispose();
   }
 
-  void _onCategoryTapped(
-    BuildContext context,
-    String categoryName,
-    String storeType,
-  ) {
-    ref.read(selectedStoreTabProvider.notifier).setStore(storeType);
-    ref
-        .read(selectedCategoryHeaderTabProvider.notifier)
-        .setCategory(categoryName);
-    context.push(
-      '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
-    );
+  void _onCategoryTapped(String categoryName) {
+    ref.read(selectedCategoryHeaderTabProvider.notifier).setCategory(categoryName);
+    context.push('${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}');
   }
 
   void _submitSearch(String query) {
@@ -84,253 +94,110 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final preorderAsync = ref.watch(departmentCategoriesProvider('preorder'));
-    final readyAsync = ref.watch(departmentCategoriesProvider('ready2cook'));
-    final instantAsync = ref.watch(departmentCategoriesProvider('instantorder'));
+    final store = ref.watch(selectedStoreTabProvider);
+    final section = bannerSectionForStore(store);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final meta = ref.watch(sectionsMetaProvider).value?[section];
     final topInset = MediaQuery.paddingOf(context).top;
     final location = ref.watch(deliveryLocationProvider);
-    final nearestAsync = ref.watch(nearestStoreProvider);
+    final storeName = ref.watch(nearestStoreProvider).value?.store?.storeName;
+    final chrome = StoreChrome.forStore(store);
 
     final addressText = location?.hasLocation == true
         ? location!.displayAddress
         : 'Select location to see nearby stock';
-    final storeName = nearestAsync.value?.store?.storeName;
-    final isLoading = preorderAsync.isLoading && !preorderAsync.hasValue;
+
+    final title = (meta?['sectionName'] ?? _departmentName(store)).toString();
+    final titleColor = _hex(meta?['color']?.toString()) ?? chrome.accent;
 
     return ColoredBox(
-      color: const Color(0xFFF8FAFC),
+      color: Colors.white,
       child: RefreshIndicator(
-        onRefresh: _refreshDepartments,
-        color: const Color(0xFF047857),
-        child: isLoading
-            ? const AppLoading(message: 'Loading department categories...')
-            : _buildDirectoryBody(
-                context: context,
+        onRefresh: _refresh,
+        color: chrome.accent,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: AppScrollConfig.listPhysics,
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _StickyCategoryHeaderDelegate(
                 topInset: topInset,
                 addressText: addressText,
                 storeName: storeName,
-                preorderAll: preorderAsync.value ?? const [],
-                readyList: readyAsync.value ?? const [],
-                instantList: instantAsync.value ?? const [],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildDirectoryBody({
-    required BuildContext context,
-    required double topInset,
-    required String addressText,
-    required String? storeName,
-    required List<Category> preorderAll,
-    required List<Category> readyList,
-    required List<Category> instantList,
-  }) {
-    // The pre-order section endpoint returns every department's categories;
-    // keep Ready2Cook / Instant ones in their own sections only.
-    final otherDepartments = {
-      for (final c in [...readyList, ...instantList]) c.categoryName.trim().toLowerCase(),
-    };
-    final preorderList = preorderAll
-        .where((c) => !otherDepartments.contains(c.categoryName.trim().toLowerCase()))
-        .toList();
-    final isEmpty = preorderList.isEmpty && readyList.isEmpty && instantList.isEmpty;
-
-    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
-
-    return CustomScrollView(
-      controller: _scrollController,
-      physics: AppScrollConfig.listPhysics,
-      cacheExtent: AppScrollConfig.cacheExtent,
-      slivers: [
-        // 1. Pinned Sticky Header: Location Bar + Search Bar
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: _StickyCategoryHeaderDelegate(
-            topInset: topInset,
-            addressText: addressText,
-            storeName: storeName,
-            searchController: _searchController,
-            onSubmitted: _submitSearch,
-            headerColor: chrome.header,
-            locationColor: chrome.locationColor,
-            searchHint: chrome.searchHint,
-          ),
-        ),
-
-        if (isEmpty) _buildEmptyAreaSliver(storeName),
-
-        // 2. Department Section 1: Preorder Store Categories
-        if (preorderList.isNotEmpty) ...[
-          _buildDepartmentHeaderSliver(
-            title: 'Preorder Categories',
-            subtitle: 'Book in advance for fresh produce & farm items',
-            icon: Icons.calendar_today_rounded,
-            iconColor: const Color(0xFF047857),
-            badgeColor: Colors.white,
-          ),
-          _buildCategoryGridSliver(context, preorderList, 'main'),
-        ],
-
-        // 3. Department Section 2: Ready to Cook Store Categories
-        if (readyList.isNotEmpty) ...[
-          _buildDepartmentHeaderSliver(
-            title: 'Ready to Cook Categories',
-            subtitle: 'Pre-cut vegetables, meal kits & instant cooking',
-            icon: Icons.restaurant_rounded,
-            iconColor: const Color(0xFFEA580C),
-            badgeColor: Colors.white,
-          ),
-          _buildCategoryGridSliver(context, readyList, 'festive'),
-        ],
-
-        // 4. Department Section 3: Instant Order Store Categories
-        if (instantList.isNotEmpty) ...[
-          _buildDepartmentHeaderSliver(
-            title: 'Instant Order Categories',
-            subtitle: 'Express delivery items & quick snacks',
-            icon: Icons.bolt_rounded,
-            iconColor: const Color(0xFF2563EB),
-            badgeColor: Colors.white,
-          ),
-          _buildCategoryGridSliver(context, instantList, 'mall'),
-        ],
-
-        SliverToBoxAdapter(
-          child: SizedBox(height: ShellBottomInsets.of(context) + 24),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyAreaSliver(String? storeName) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 64, 24, 24),
-        child: Column(
-          children: [
-            const Icon(Icons.storefront_outlined, size: 48, color: Color(0xFF94A3B8)),
-            const SizedBox(height: 12),
-            Text(
-              'No products available here yet',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
+                searchController: _searchController,
+                onSubmitted: _submitSearch,
+                headerColor: chrome.header,
+                locationColor: chrome.locationColor,
+                searchHint: chrome.searchHint,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              storeName?.isNotEmpty == true
-                  ? '$storeName has not added products yet. Pull down to refresh.'
-                  : 'Try another delivery location to see nearby stores.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF64748B),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                child: Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 22,
+                    height: 1.2,
+                    fontWeight: FontWeight.w800,
+                    color: titleColor,
+                  ),
+                ),
               ),
             ),
+            ...categoriesAsync.when(
+              loading: () => [_message('Loading categories…')],
+              error: (_, _) => [_message('Could not load categories. Pull down to retry.')],
+              data: (categories) => categories.isEmpty
+                  ? [_message('No categories yet.')]
+                  : [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            mainAxisExtent: 122,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, i) {
+                              final category = categories[i];
+                              return BorderedCategoryCard(
+                                name: category.categoryName,
+                                image: category.categoryImage.isEmpty
+                                    ? const ColoredBox(color: Color(0xFFF8FAFC))
+                                    : AppNetworkImage(
+                                        imageUrl: category.categoryImage,
+                                        fit: BoxFit.contain,
+                                      ),
+                                onTap: () => _onCategoryTapped(category.categoryName),
+                              );
+                            },
+                            childCount: categories.length,
+                          ),
+                        ),
+                      ),
+                    ],
+            ),
+            SliverToBoxAdapter(child: SizedBox(height: ShellBottomInsets.of(context) + 24)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDepartmentHeaderSliver({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required Color badgeColor,
-  }) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(icon, size: 18, color: iconColor),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Widget _message(String text) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF64748B)),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryGridSliver(
-    BuildContext context,
-    List<Category> categoryList,
-    String storeType,
-  ) {
-    if (categoryList.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.88,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final cat = categoryList[index];
-            final imageUrl = resolveCategoryImageUrl(cat);
-
-            return CategoryTriangularCard(
-              categoryName: cat.categoryName,
-              imageUrl: imageUrl,
-              index: index,
-              onTap: () => _onCategoryTapped(context, cat.categoryName, storeType),
-            );
-          },
-          childCount: categoryList.length,
-        ),
-      ),
-    );
-  }
+      );
 }
 
 class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -355,46 +222,34 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   @override
-  double get minExtent => topInset + 86.0;
+  double get minExtent => topInset + 92.0;
 
   @override
-  double get maxExtent => topInset + 86.0;
+  double get maxExtent => topInset + 92.0;
 
   @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final currentHeight = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       width: double.infinity,
-      height: currentHeight,
-      decoration: BoxDecoration(
-        color: headerColor,
-        border: const Border(
-          bottom: BorderSide(
-            color: Color(0xFFCBD5E1),
-            width: 1.0,
-          ),
-        ),
+      height: maxExtent,
+      color: headerColor,
+      foregroundDecoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
       ),
       child: ClipRect(
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
           child: Padding(
-            padding: EdgeInsets.only(top: topInset),
+            padding: EdgeInsets.only(top: topInset + 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Select Location Row (with Back Button)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 2),
+                  padding: const EdgeInsets.fromLTRB(8, 0, 12, 6),
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 28,
+                        width: 32,
                         height: 28,
                         child: IconButton(
                           onPressed: () {
@@ -406,8 +261,8 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                           },
                           icon: const Icon(
                             Icons.arrow_back_rounded,
-                            size: 20,
-                            color: Color(0xFF0F172A),
+                            size: 22,
+                            color: Color(0xFF111827),
                           ),
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -423,11 +278,7 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                               padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    Icons.location_on_rounded,
-                                    size: 16,
-                                    color: locationColor,
-                                  ),
+                                  Icon(Icons.location_on_rounded, size: 16, color: locationColor),
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
@@ -435,17 +286,14 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 12.5,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF06311D),
+                                        color: const Color(0xFF111827),
                                       ),
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 18,
-                                    color: locationColor,
-                                  ),
+                                  Icon(Icons.keyboard_arrow_down_rounded,
+                                      size: 18, color: locationColor),
                                   if (storeName?.isNotEmpty == true) ...[
                                     const SizedBox(width: 4),
                                     Flexible(
@@ -470,34 +318,23 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ],
                   ),
                 ),
-                // 2. Search Bar Box (Pure White inner box)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
                       Expanded(
                         child: Container(
-                          height: 42,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(21),
-                            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
-                                blurRadius: 4,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE5E5E5)),
                           ),
                           padding: const EdgeInsets.only(left: 12, right: 4),
                           child: Row(
                             children: [
-                              const Icon(
-                                Icons.search_rounded,
-                                color: Color(0xFF64748B),
-                                size: 19,
-                              ),
+                              const Icon(Icons.search_rounded,
+                                  color: Color(0xFF6B7280), size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
@@ -512,9 +349,9 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                   decoration: InputDecoration(
                                     hintText: searchHint,
                                     hintStyle: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF94A3B8),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF9CA3AF),
                                     ),
                                     filled: false,
                                     isCollapsed: true,
@@ -533,9 +370,7 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 onTranscript: (text, isFinal) {
                                   searchController.value = TextEditingValue(
                                     text: text,
-                                    selection: TextSelection.collapsed(
-                                      offset: text.length,
-                                    ),
+                                    selection: TextSelection.collapsed(offset: text.length),
                                   );
                                   if (isFinal) onSubmitted(text);
                                 },
@@ -544,12 +379,12 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const OffersBadgeButton(height: 42),
+                      const SizedBox(width: 10),
+                      const OffersBadgeButton(height: 40),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
               ],
             ),
           ),

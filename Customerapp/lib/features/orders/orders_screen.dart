@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
-import '../../core/theme/store_chrome.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../models/order.dart';
@@ -16,8 +14,15 @@ import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/common/voice_mic_button.dart';
 import '../../features/profile/profile_recent_items.dart';
 import '../../widgets/product/buy_again_card.dart';
-import '../home/home_providers.dart';
 import 'widgets/blinkit_order_card.dart';
+
+const _pageBg = Color(0xFFF3F5F9);
+const _brandGreen = Color(0xFF0C831F);
+const _slate900 = Color(0xFF0F172A);
+const _slate500 = Color(0xFF64748B);
+const _slate400 = Color(0xFF94A3B8);
+const _slate200 = Color(0xFFE2E8F0);
+const _slate50 = Color(0xFFF8FAFC);
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -67,27 +72,46 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       if (next) _loadOrders();
     });
 
-    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
+    final canPop = context.canPop();
+    final showCount = isLoggedIn && hasLoaded && !loading;
 
     return Scaffold(
-      backgroundColor: AppColors.pageBackground,
+      backgroundColor: _pageBg,
       appBar: AppBar(
-        backgroundColor: chrome.header,
-        surfaceTintColor: chrome.header,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        leading: context.canPop()
+        scrolledUnderElevation: 0,
+        toolbarHeight: 60,
+        automaticallyImplyLeading: false,
+        titleSpacing: canPop ? 0 : 16,
+        leading: canPop
             ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                icon: const Icon(Icons.arrow_back_rounded, color: _slate900, size: 22),
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text(
-          'Order History',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'My Orders',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: _slate900,
+                height: 1.2,
+              ),
+            ),
+            if (showCount) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${orders.length} order${orders.length == 1 ? '' : 's'} placed',
+                style: const TextStyle(fontSize: 12, color: _slate500, fontWeight: FontWeight.w400),
+              ),
+            ],
+          ],
         ),
       ),
       body: _buildBody(
@@ -155,34 +179,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }).toList();
 
     final recentProducts = query.isEmpty ? extractRecentOrderItems(orders) : <OrderItem>[];
-    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
 
     return Column(
       children: [
         Container(
-          color: chrome.header,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: _slate200)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Container(
-            height: 44,
+            height: 42,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              color: _slate50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _slate200),
             ),
             padding: const EdgeInsets.only(left: 4, right: 4),
             child: Row(
               children: [
                 const SizedBox(width: 8),
-                const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                const Icon(Icons.search_rounded, color: _slate500, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _searchController,
                     onChanged: (val) => setState(() => _searchQuery = val),
                     textInputAction: TextInputAction.search,
+                    style: const TextStyle(fontSize: 13.5, color: _slate900),
                     decoration: const InputDecoration(
-                      hintText: 'Search your orders',
-                      hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      hintText: 'Search by item or order ID',
+                      hintStyle: TextStyle(color: _slate400, fontSize: 13.5),
                       filled: false,
                       isCollapsed: true,
                       border: InputBorder.none,
@@ -198,7 +225,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
                 if (_searchQuery.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                    icon: const Icon(Icons.close_rounded, size: 18, color: _slate400),
                     onPressed: () {
                       _searchController.clear();
                       setState(() => _searchQuery = '');
@@ -222,61 +249,69 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'No orders matching "$_searchQuery"',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.search_off_rounded, size: 40, color: Color(0xFFCBD5E1)),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No orders matching "$_searchQuery"',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: _slate500, fontSize: 13.5),
+                        ),
+                      ],
                     ),
                   ),
                 )
               : RefreshIndicator(
                   onRefresh: _loadOrders,
-                  color: AppColors.primary,
+                  color: _brandGreen,
                   child: ListView.builder(
                     controller: _scrollController,
                     physics: AppScrollConfig.listPhysics,
                     cacheExtent: AppScrollConfig.cacheExtent,
-                    padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
+                    padding: ShellBottomInsets.listPadding(context, left: 16, top: 16, right: 16),
                     itemCount: filteredOrders.length + (recentProducts.isNotEmpty ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (recentProducts.isNotEmpty) {
                         if (index == 0) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.only(bottom: 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
                                   'Buy Again',
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: _slate900,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 const Text(
                                   'Items from your previous orders',
-                                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                  style: TextStyle(fontSize: 12, color: _slate500),
                                 ),
                                 const SizedBox(height: 12),
                                 SizedBox(
-                                  height: 228,
+                                  height: 232,
                                   child: ListView.separated(
                                     scrollDirection: Axis.horizontal,
                                     itemCount: recentProducts.length,
-                                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                                     itemBuilder: (context, itemIdx) {
                                       return BuyAgainCard(item: recentProducts[itemIdx]);
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 20),
                                 const Text(
                                   'Past Orders',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                    color: _slate900,
                                   ),
                                 ),
                               ],
@@ -315,41 +350,12 @@ class _LoginPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: _StateCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              const Text(
-                'Login to view your orders',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Track orders and reorder your favourite products in one tap.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: onLogin,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.navSelected,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Login / Sign Up'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _StateView(
+      icon: Icons.lock_outline_rounded,
+      title: 'Login to view your orders',
+      message: 'Track orders and reorder your favourite products in one tap.',
+      actionLabel: 'Login / Sign Up',
+      onAction: onLogin,
     );
   }
 }
@@ -362,29 +368,12 @@ class _OrdersError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: _StateCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.cloud_off_outlined, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(onPressed: onRetry, child: const Text('Retry')),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _StateView(
+      icon: Icons.cloud_off_outlined,
+      title: 'Something went wrong',
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }
@@ -396,43 +385,83 @@ class _EmptyOrders extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _StateView(
+      icon: Icons.receipt_long_outlined,
+      title: 'No orders yet!',
+      message: "You haven't placed any orders yet. Order something fresh today!",
+      actionLabel: 'Start shopping',
+      onAction: onBrowse,
+    );
+  }
+}
+
+class _StateView extends StatelessWidget {
+  const _StateView({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: _StateCard(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _slate200),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 36),
+                child: Icon(icon, color: _brandGreen, size: 30),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'No orders yet!',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "You haven't placed any orders yet. Order something fresh today!",
+              const SizedBox(height: 14),
+              Text(
+                title,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _slate900),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _slate500, fontSize: 13, height: 1.45),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
+                height: 44,
                 child: FilledButton(
-                  onPressed: onBrowse,
+                  onPressed: onAction,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: _brandGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                   ),
-                  child: const Text('Go to Home'),
+                  child: Text(
+                    actionLabel,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ],
@@ -443,28 +472,3 @@ class _EmptyOrders extends StatelessWidget {
   }
 }
 
-class _StateCard extends StatelessWidget {
-  const _StateCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}

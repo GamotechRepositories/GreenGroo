@@ -51,6 +51,7 @@ abstract final class ApiConfig {
   static String notificationDelete(String id) =>
       '/api/delivery-boys/notifications/$id';
   static const areaManager = '/api/delivery-boys/area-manager';
+  static const activeHubs = '/api/delivery-boys/active-hubs';
   static const homeProgress = '/api/delivery-boys/home/progress';
   static String activityHistory({String range = 'week'}) =>
       '/api/delivery-boys/activity-history?range=$range';

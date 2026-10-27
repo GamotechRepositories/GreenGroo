@@ -457,11 +457,13 @@ export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
     }
 
     const language = String(req.body.language || "").trim();
+    const name = String(req.body.name || "").replace(/\s+/g, " ").trim().slice(0, 60);
     let deliveryBoy = await DeliveryBoy.findOne({ phone });
 
     if (isRegister && !deliveryBoy) {
       deliveryBoy = await DeliveryBoy.create({
         phone,
+        ...(name ? { name } : {}),
         language: ALLOWED_LANGUAGES.includes(language) ? language : "en",
         employmentType: "PART_TIME",
       });
@@ -483,10 +485,16 @@ export const verifyDeliveryPartnerOtpController = async (req, res, next) => {
       });
     }
 
+    let dirty = false;
     if (ALLOWED_LANGUAGES.includes(language) && deliveryBoy.language !== language) {
       deliveryBoy.language = language;
-      await deliveryBoy.save();
+      dirty = true;
     }
+    if (isRegister && name && !String(deliveryBoy.name || "").trim()) {
+      deliveryBoy.name = name;
+      dirty = true;
+    }
+    if (dirty) await deliveryBoy.save();
 
     const token = signToken(deliveryBoy);
     return res.json(authResponse(deliveryBoy, token));

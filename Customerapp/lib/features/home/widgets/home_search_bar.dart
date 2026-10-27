@@ -94,13 +94,13 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
 
     return Container(
       color: Colors.transparent,
-      padding: const EdgeInsets.fromLTRB(14, 1, 14, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
           if (canGoBack) ...[
             SizedBox(
               width: 32,
-              height: 44,
+              height: 36,
               child: IconButton(
                 onPressed: () {
                   if (context.canPop()) {
@@ -126,29 +126,19 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
                 _focusNode.requestFocus();
               },
               child: Container(
-                height: 44,
+                height: 36,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: const Color(0xFFE2E8F0),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                padding: const EdgeInsets.only(left: 12, right: 4),
+                padding: const EdgeInsets.only(left: 12, right: 2),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.search_rounded,
                       color: Color(0xFF64748B),
-                      size: 20,
+                      size: 16,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -158,16 +148,16 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
                         onSubmitted: _submitSearch,
                         textInputAction: TextInputAction.search,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           color: const Color(0xFF111827),
                         ),
                         decoration: InputDecoration(
                           hintText: hint,
                           hintStyle: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: const Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF94A3B8),
                           ),
                           filled: false,
                           isCollapsed: true,
@@ -201,7 +191,7 @@ class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
             ),
           ),
           const SizedBox(width: 8),
-          const OffersBadgeButton(height: 44),
+          const OffersBadgeButton(height: 36),
         ],
       ),
     );

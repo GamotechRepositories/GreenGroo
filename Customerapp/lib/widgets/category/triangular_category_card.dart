@@ -201,71 +201,83 @@ class CategoryTriangularCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = getCategoryColorTheme(categoryName, index);
+    const radius = BorderRadius.all(Radius.circular(14));
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+    return AspectRatio(
+      aspectRatio: 1,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
+          borderRadius: radius,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6,
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.topLeftColor,
+              theme.topLeftColor,
+              const Color(0xFFF4F1EA),
+              const Color(0xFFF4F1EA),
+            ],
+            stops: const [0, 0.55, 0.55, 1],
+          ),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: CustomPaint(
-            painter: TriangularSplitPainter(
-              topLeftColor: theme.topLeftColor,
-              bottomRightColor: theme.bottomRightColor,
-              textColor: theme.textColor,
-              categoryName: categoryName,
-            ),
-            child: Stack(
-              children: [
-                // Top Category Title (Distinctive Montserrat typography & unique color per category)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  right: 10,
-                  child: Text(
-                    categoryName.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: theme.textColor,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-
-                // Center-Bottom Image (Maximized Size)
-                Positioned.fill(
-                  top: 22,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-                    child: Center(
-                      child: SizedBox.expand(
-                        child: (imageUrl != null && imageUrl!.trim().isNotEmpty)
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageSize = constraints.maxWidth * 0.8;
+                  return Stack(
+                    children: [
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        width: imageSize,
+                        height: imageSize,
+                        child: hasImage
                             ? AppNetworkImage(
                                 imageUrl: imageUrl!,
                                 fit: BoxFit.contain,
+                                alignment: Alignment.bottomRight,
                                 errorIcon: errorIcon,
-                                errorIconSize: 46,
+                                errorIconSize: 40,
                               )
                             : const AppImagePlaceholder(fit: BoxFit.contain),
                       ),
-                    ),
-                  ),
-                ),
-              ],
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        width: constraints.maxWidth * 0.72,
+                        child: Text(
+                          categoryName.toUpperCase(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            height: 1.1,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
+                            color: const Color(0xFF111827)
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),

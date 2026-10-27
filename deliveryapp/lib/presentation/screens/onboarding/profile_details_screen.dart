@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class ProfileDetailsScreen extends StatefulWidget {
@@ -15,7 +16,9 @@ class ProfileDetailsScreen extends StatefulWidget {
 }
 
 class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
-  final _nameController = TextEditingController(text: 'Rahul Sharma');
+  final _nameController = TextEditingController(
+    text: AuthService.instance.deliveryBoy?.name ?? '',
+  );
   final _emailController = TextEditingController(text: 'rahulsharma@gmail.com');
   final _dobController = TextEditingController(text: '15/08/1995');
   final _emergencyController = TextEditingController(text: '9876543211');

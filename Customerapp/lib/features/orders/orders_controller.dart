@@ -42,7 +42,8 @@ class OrdersController extends Notifier<OrdersState> {
     ref.listen(authControllerProvider, (previous, next) {
       if (!next.isLoggedIn) {
         state = const OrdersState();
-      } else if (previous?.isLoggedIn != true) {
+      } else if (previous?.isLoggedIn != true || previous?.user?.id != next.user?.id) {
+        state = const OrdersState();
         loadOrders();
       }
     });

@@ -6,6 +6,7 @@ class RoutePaths {
   static const product = '/product';
   static const productDetail = '/product/:id';
   static const cart = '/cart';
+  static const shop = '/shop';
   static const wishlist = '/wishlist';
   static const justArrived = '/just-arrived';
   static const hotSelling = '/hot-selling';

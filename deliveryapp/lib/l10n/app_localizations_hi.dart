@@ -1620,6 +1620,19 @@ class AppLocalizationsHi extends AppLocalizations {
   String get goToHome => 'होम पर जाएँ';
 
   @override
+  String get deliveryPartnerApp => 'डिलीवरी पार्टनर ऐप';
+
+  @override
+  String get fullNameHint => 'अपना पूरा नाम लिखें';
+
+  @override
+  String get enterNameError => 'कृपया अपना पूरा नाम लिखें';
+
+  @override
+  String get noAreasInCity =>
+      'इस शहर में अभी कोई डिलीवरी हब नहीं है। कृपया दूसरा शहर चुनें।';
+
+  @override
   String get nextDelivery => 'अगली डिलीवरी';
 
   @override

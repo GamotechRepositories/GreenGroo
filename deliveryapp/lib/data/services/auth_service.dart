@@ -398,6 +398,7 @@ class AuthService {
     required String phone,
     required String otp,
     String purpose = 'login',
+    String? name,
   }) async {
     try {
       final res = await apiPost(
@@ -407,6 +408,7 @@ class AuthService {
           'otp': otp,
           'purpose': purpose,
           'language': _currentLanguage,
+          if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
         }),
       );
       return await _parseAuthResponse(res);
@@ -574,6 +576,34 @@ class AuthService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Areas in a city where a delivery manager has registered an active hub.
+  Future<List<String>> fetchHubAreasForCity({
+    required String cityId,
+    required String cityName,
+  }) async {
+    final res = await apiGet(ApiConfig.activeHubs);
+    if (res.statusCode != 200) {
+      throw AuthApiException('Could not load areas (${res.statusCode})');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    String norm(Object? v) =>
+        (v ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final wantId = norm(cityId);
+    final wantName = norm(cityName);
+    final seen = <String>{};
+    final areas = <String>[];
+    for (final hub in (body['activeHubs'] as List? ?? const [])) {
+      if (hub is! Map) continue;
+      final matchesCity = (wantId.isNotEmpty && norm(hub['cityId']) == wantId) ||
+          (wantName.isNotEmpty && norm(hub['city']) == wantName);
+      final area = (hub['area'] ?? '').toString().trim();
+      if (!matchesCity || area.isEmpty) continue;
+      if (seen.add(norm(area))) areas.add(area);
+    }
+    areas.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return areas;
   }
 
   Future<AreaManagerInfo?> fetchAreaManagerByLocation(String cityId, String area) async {

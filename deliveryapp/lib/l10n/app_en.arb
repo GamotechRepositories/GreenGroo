@@ -708,6 +708,10 @@
     }
   },
   "goToHome": "Go to Home",
+  "deliveryPartnerApp": "Delivery Partner App",
+  "fullNameHint": "Enter your full name",
+  "enterNameError": "Please enter your full name",
+  "noAreasInCity": "No delivery hubs in this city yet. Please choose another city.",
   "nextDelivery": "Next delivery",
   "detectingLocation": "Detecting your location…",
   "locationUnavailable": "Couldn't get your location. Turn on GPS and try again.",

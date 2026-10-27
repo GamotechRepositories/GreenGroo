@@ -9,6 +9,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class AreaSelectionScreen extends StatefulWidget {
@@ -36,19 +37,48 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
     return ServiceLocations.byId('pune');
   }
 
+  List<String> _hubAreas = const [];
+  bool _loadingAreas = true;
+  String? _areasError;
+
   List<String> get _filtered {
-    final areas = _city?.areas ?? const <String>[];
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return areas;
-    return areas.where((a) => a.toLowerCase().contains(q)).toList();
+    if (q.isEmpty) return _hubAreas;
+    return _hubAreas.where((a) => a.toLowerCase().contains(q)).toList();
   }
 
   @override
   void initState() {
     super.initState();
-    final areas = _city?.areas;
-    if (areas != null && areas.isNotEmpty) {
-      _onAreaSelect(areas.first);
+    _loadHubAreas();
+  }
+
+  Future<void> _loadHubAreas() async {
+    final city = _city;
+    setState(() {
+      _loadingAreas = true;
+      _areasError = null;
+    });
+    try {
+      final areas = await AuthService.instance.fetchHubAreasForCity(
+        cityId: city?.id ?? widget.cityId,
+        cityName: city?.name ?? '',
+      );
+      if (!mounted) return;
+      setState(() {
+        _hubAreas = areas;
+        _loadingAreas = false;
+        if (_selectedArea != null && !areas.contains(_selectedArea)) {
+          _selectedArea = null;
+        }
+      });
+      if (areas.length == 1) _onAreaSelect(areas.first);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _areasError = e.toString().replaceFirst('Exception: ', '');
+        _loadingAreas = false;
+      });
     }
   }
 
@@ -166,13 +196,60 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
 
             // Area List
             Expanded(
-              child: areas.isEmpty
+              child: _loadingAreas
+                  ? const Center(child: CircularProgressIndicator())
+                  : _areasError != null
                   ? Center(
-                      child: Text(
-                        'No areas found',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _areasError!,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: _loadHubAreas,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: Text(
+                                MaterialLocalizations.of(context)
+                                    .refreshIndicatorSemanticLabel,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : areas.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.storefront_outlined,
+                              size: 40,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _hubAreas.isEmpty
+                                  ? AppLocalizations.of(context).noAreasInCity
+                                  : 'No areas found',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     )

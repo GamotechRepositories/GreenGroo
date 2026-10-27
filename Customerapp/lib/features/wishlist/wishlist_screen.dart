@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../features/auth/auth_controller.dart';
@@ -133,15 +132,16 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     } else {
       body = RefreshIndicator(
         onRefresh: _loadWishlist,
+        color: _brandGreen,
         child: GridView.builder(
           physics: AppScrollConfig.listPhysics,
           cacheExtent: AppScrollConfig.cacheExtent,
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 100),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: DealProductCardDimensions.twoColumnChildAspectRatio,
           ),
           itemCount: wishlist.items.length,
           itemBuilder: (context, index) {
@@ -157,18 +157,51 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
       );
     }
 
+    final count = auth.isLoggedIn && !wishlist.loading ? wishlist.items.length : 0;
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded, color: _slate900, size: 22),
           onPressed: () => context.canPop() ? context.pop() : context.go(RoutePaths.home),
         ),
-        title: const Text('My Wishlist'),
+        title: Row(
+          children: [
+            const Text(
+              'My Wishlist',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _slate900),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _brandGreen),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
       body: body,
     );
   }
 }
+
+const _brandGreen = Color(0xFF0C831F);
+const _slate900 = Color(0xFF0F172A);
+const _slate500 = Color(0xFF64748B);
 
 class _WishlistDealCard extends ConsumerWidget {
   const _WishlistDealCard({
@@ -205,32 +238,12 @@ class _LoginPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'My Wishlist',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please login to save and view your favourite products.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: onLogin,
-              child: const Text('Login / Sign Up'),
-            ),
-          ],
-        ),
-      ),
+    return _WishlistStateView(
+      icon: Icons.lock_outline_rounded,
+      title: 'Login to see your wishlist',
+      message: 'Please login to save and view your favourite products.',
+      actionLabel: 'Login / Sign Up',
+      onAction: onLogin,
     );
   }
 }
@@ -242,27 +255,81 @@ class _EmptyWishlist extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _WishlistStateView(
+      icon: Icons.favorite_border_rounded,
+      title: 'Your wishlist is empty',
+      message: 'Tap the heart on any product to save it here.',
+      actionLabel: 'Browse Products',
+      onAction: onBrowse,
+    );
+  }
+}
+
+class _WishlistStateView extends StatelessWidget {
+  const _WishlistStateView({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Your wishlist is empty',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDCFCE7),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 34, color: _brandGreen),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tap the heart on any product to save it here.',
+            const SizedBox(height: 16),
+            Text(
+              title,
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _slate900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: _slate500, height: 1.45),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: onBrowse, child: const Text('Browse Products')),
+            SizedBox(
+              height: 44,
+              child: FilledButton(
+                onPressed: onAction,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _brandGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+                child: Text(
+                  actionLabel,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+

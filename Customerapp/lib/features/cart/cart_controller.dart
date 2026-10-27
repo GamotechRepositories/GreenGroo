@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
-import '../../features/home/home_fallback_data.dart';
 import '../../features/home/home_providers.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
@@ -109,7 +108,14 @@ class CartController extends Notifier<CartState> {
     ref.onDispose(() => _toastClearTimer?.cancel());
     ref.listen(authControllerProvider, (previous, next) {
       final wasLoggedOut = previous?.isLoggedIn != true;
-      if (wasLoggedOut && next.isLoggedIn) {
+      final switchedAccount = !wasLoggedOut &&
+          next.isLoggedIn &&
+          previous?.user?.id != next.user?.id;
+      if (switchedAccount) {
+        state = const CartState();
+        _pending = null;
+        _handleLogin();
+      } else if (wasLoggedOut && next.isLoggedIn) {
         _handleLogin();
       } else if (!next.isLoggedIn && previous?.isLoggedIn == true) {
         state = const CartState();
@@ -172,7 +178,7 @@ class CartController extends Notifier<CartState> {
       final items = await ref.read(apiServiceProvider).fetchCartItems();
       state = state.copyWith(items: items, loading: false);
     } catch (_) {
-      state = state.copyWith(items: const [], loading: false);
+      state = state.copyWith(loading: false);
     }
   }
 
@@ -233,7 +239,7 @@ class CartController extends Notifier<CartState> {
         );
       }
 
-      if (auth.isLoggedIn && !isFallbackProductId(product.id)) {
+      if (auth.isLoggedIn) {
         try {
           await ref.read(apiServiceProvider).addToCartItem({
             'productId': product.id,

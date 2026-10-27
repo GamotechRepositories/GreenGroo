@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/user.dart';
 import '../../routes/app_router.dart';
-import '../../routes/route_paths.dart';
 import 'auth_controller.dart';
 
 bool _isTopRoutePopup(NavigatorState navigator) {

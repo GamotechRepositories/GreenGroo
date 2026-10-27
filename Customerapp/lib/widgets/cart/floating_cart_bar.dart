@@ -11,13 +11,15 @@ import '../../features/cart/cart_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../models/coupon.dart';
 import '../../routes/route_paths.dart';
+import '../common/fly_target_anchor.dart';
+import '../common/nav_icon_locator.dart';
 
 const _panelColor = Color(0xFF2B303A);
 const _cartColor = Color(0xFF065F46);
 const _offerInk = Color(0xFF065F46);
 
 /// Height of the bar including the "Offers" tab that sits on its top edge.
-const double floatingCartBarHeight = 92;
+const double floatingCartBarHeight = 64;
 
 /// Floating "unlock offer + Cart" bar shown above the shell bottom nav.
 class FloatingCartBar extends ConsumerStatefulWidget {
@@ -129,7 +131,7 @@ class _FloatingCartBarState extends ConsumerState<FloatingCartBar> {
             left: 0,
             right: 0,
             bottom: 0,
-            height: 72,
+            height: 50,
             child: Row(
               children: [
                 Expanded(
@@ -139,13 +141,17 @@ class _FloatingCartBarState extends ConsumerState<FloatingCartBar> {
                     onTap: () => context.push(RoutePaths.coupons),
                   ),
                 ),
-                const SizedBox(width: 10),
-                _CartButton(count: cartCount, onTap: widget.onOpenCart),
+                const SizedBox(width: 8),
+                FlyTargetAnchor(
+                  onReport: NavIconLocator.reportCart,
+                  onClear: NavIconLocator.clearCart,
+                  child: _CartButton(count: cartCount, onTap: widget.onOpenCart),
+                ),
               ],
             ),
           ),
           Positioned(
-            top: 6,
+            top: 0,
             left: 0,
             right: 0,
             child: Row(
@@ -155,7 +161,7 @@ class _FloatingCartBarState extends ConsumerState<FloatingCartBar> {
                     child: _OffersTab(onTap: () => context.push(RoutePaths.coupons)),
                   ),
                 ),
-                const SizedBox(width: 10 + _CartButton.width),
+                const SizedBox(width: 8 + _CartButton.width),
               ],
             ),
           ),
@@ -193,87 +199,97 @@ class _OfferPanel extends StatelessWidget {
     final n = nudge;
     final title = n?.title ?? 'Item total ${formatInr(subtotal)}';
 
-    return Material(
-      color: _panelColor,
-      borderRadius: BorderRadius.circular(18),
-      elevation: 6,
-      shadowColor: Colors.black38,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox.expand(
-                      child: CircularProgressIndicator(
-                        value: (n?.progress ?? 1).clamp(0.0, 1.0),
-                        strokeWidth: 3.5,
-                        backgroundColor: Colors.white24,
-                        color: Colors.white,
-                        strokeCap: StrokeCap.round,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Color(0x38000000), blurRadius: 16, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Material(
+        color: _panelColor,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.expand(
+                        child: CircularProgressIndicator(
+                          value: (n?.progress ?? 1).clamp(0.0, 1.0),
+                          strokeWidth: 2.6,
+                          backgroundColor: Colors.white.withValues(alpha: 0.18),
+                          color: Colors.white,
+                          strokeCap: StrokeCap.round,
+                        ),
                       ),
-                    ),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF4B5563),
-                        shape: BoxShape.circle,
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF4B5563),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.percent_rounded, size: 11, color: Colors.white),
                       ),
-                      child: const Icon(Icons.percent_rounded, size: 16, color: Colors.white),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          height: 1.25,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text.rich(
-                      TextSpan(
-                        children: n == null
-                            ? const [TextSpan(text: 'View offers for your cart')]
-                            : [
-                                TextSpan(text: n.prefix),
-                                TextSpan(
-                                  text: n.amount,
-                                  style: const TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                                TextSpan(text: n.suffix),
-                              ],
+                      Text.rich(
+                        TextSpan(
+                          children: n == null
+                              ? const [TextSpan(text: 'View offers for your cart')]
+                              : [
+                                  TextSpan(text: n.prefix),
+                                  TextSpan(
+                                    text: n.amount,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                    ),
+                                  ),
+                                  TextSpan(text: n.suffix),
+                                ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                          height: 1.25,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -291,10 +307,10 @@ class _OffersTab extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 1),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(color: const Color(0xFFA7F3D0)),
           boxShadow: const [
             BoxShadow(color: Color(0x1F000000), blurRadius: 6, offset: Offset(0, 2)),
@@ -306,13 +322,13 @@ class _OffersTab extends StatelessWidget {
             Text(
               'Offers',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
                 color: _offerInk,
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_up_rounded, size: 18, color: _offerInk),
+            const Icon(Icons.keyboard_arrow_up_rounded, size: 13, color: _offerInk),
           ],
         ),
       ),
@@ -323,29 +339,33 @@ class _OffersTab extends StatelessWidget {
 class _CartButton extends StatelessWidget {
   const _CartButton({required this.count, required this.onTap});
 
-  static const double width = 124;
+  static const double width = 96;
 
   final int count;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: width,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4D065F46), blurRadius: 16, offset: Offset(0, 6)),
+        ],
+      ),
       child: Material(
         color: _cartColor,
-        borderRadius: BorderRadius.circular(18),
-        elevation: 6,
-        shadowColor: Colors.black38,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
               children: [
-                const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
-                const SizedBox(width: 8),
+                const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 20),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -354,9 +374,10 @@ class _CartButton extends StatelessWidget {
                       Text(
                         'Cart',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
+                          height: 1.25,
                         ),
                       ),
                       Text(
@@ -364,9 +385,10 @@ class _CartButton extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.5,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w500,
                           color: Colors.white.withValues(alpha: 0.85),
+                          height: 1.25,
                         ),
                       ),
                     ],

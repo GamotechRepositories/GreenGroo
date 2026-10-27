@@ -10,9 +10,11 @@ import '../features/coupons/coupons_screen.dart';
 import '../features/home/home_providers.dart';
 import '../features/home/home_screen.dart';
 import '../features/location/location_screen.dart';
+import '../features/product/catalog_flow_screen.dart';
 import '../features/product/featured_products_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/product/product_list_screen.dart';
+import '../features/shop/shop_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/wishlist/wishlist_screen.dart';
 import '../features/orders/order_detail_screen.dart';
@@ -37,7 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       StatefulShellRoute(
         builder: (context, state, navigationShell) {
-          return AppShell(navigationShell: navigationShell);
+          return AppShell(navigationShell: navigationShell, location: state.uri.path);
         },
         navigatorContainerBuilder: (context, navigationShell, children) {
           return TabSwipeShell(
@@ -69,6 +71,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.product,
                 builder: (context, state) {
                   final params = state.uri.queryParameters;
+                  final categoryName = params['categoryName']?.trim() ?? '';
+                  final isPlainCategory = categoryName.isNotEmpty &&
+                      (params['q'] ?? '').isEmpty &&
+                      (params['brandName'] ?? params['brand'] ?? '').isEmpty;
+                  if (isPlainCategory) {
+                    return CatalogFlowScreen(
+                      categoryName: categoryName,
+                      baseId: params['view'] == 'products' ? params['base'] ?? '' : '',
+                    );
+                  }
                   return ProductListScreen(
                     searchQuery: params['q'],
                     categoryName: params['categoryName'],
@@ -100,6 +112,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             observers: [shellBranchNavigatorObservers[3]],
             navigatorKey: shellBranchNavigatorKeys[3],
             routes: [
+              GoRoute(
+                path: RoutePaths.shop,
+                builder: (context, state) => const ShopScreen(),
+              ),
               GoRoute(
                 path: RoutePaths.cart,
                 builder: (context, state) => const CartScreen(),

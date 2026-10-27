@@ -1,3 +1,5 @@
+import '../config/env.dart';
+
 class Category {
   const Category({
     required this.id,
@@ -5,12 +7,16 @@ class Category {
     required this.categoryImage,
     this.subcategories = const [],
     this.isActive = true,
+    this.bg = '',
     int productCount = 0,
   }) : _productCount = productCount;
 
   final String id;
   final String categoryName;
   final String categoryImage;
+
+  /// Admin tile colour (`bg` / `bgColor`), e.g. `#E2F0D9`.
+  final String bg;
   final List<String> subcategories;
   final bool isActive;
 
@@ -23,11 +29,12 @@ class Category {
     return Category(
       id: json['_id']?.toString() ?? '',
       categoryName: json['categoryName']?.toString() ?? '',
-      categoryImage: json['categoryImage']?.toString() ?? '',
+      categoryImage: Env.resolveAssetUrl(json['categoryImage']?.toString() ?? ''),
       subcategories: (json['subcategories'] as List<dynamic>? ?? [])
           .map((item) => item.toString())
           .toList(),
       isActive: json['isActive'] as bool? ?? true,
+      bg: (json['bg'] ?? json['bgColor'])?.toString().trim() ?? '',
       productCount: _toNonNegativeInt(json['productCount']),
     );
   }

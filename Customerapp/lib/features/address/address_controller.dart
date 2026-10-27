@@ -38,7 +38,8 @@ class AddressController extends Notifier<AddressState> {
     ref.listen(authControllerProvider, (previous, next) {
       if (!next.isLoggedIn) {
         state = const AddressState();
-      } else if (previous?.isLoggedIn != true) {
+      } else if (previous?.isLoggedIn != true || previous?.user?.id != next.user?.id) {
+        state = const AddressState();
         loadAddresses();
       }
     });

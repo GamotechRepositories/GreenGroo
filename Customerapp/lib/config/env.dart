@@ -45,6 +45,28 @@ class Env {
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
+  /// Website that serves its own static assets (e.g. `/categories/*.jpg`),
+  /// which the API returns as site-relative paths.
+  static String get websiteAssetUrl {
+    final raw =
+        dotenv.isInitialized ? dotenv.env['WEBSITE_ASSET_URL']?.trim() : null;
+    final url = raw != null && raw.isNotEmpty ? raw : 'https://greengrocc.com';
+    return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+  }
+
+  /// Turns a site-relative image path into a loadable absolute URL.
+  static String resolveAssetUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty ||
+        value.startsWith('http://') ||
+        value.startsWith('https://') ||
+        value.startsWith('data:')) {
+      return value;
+    }
+    if (value.startsWith('//')) return 'https:$value';
+    return '$websiteAssetUrl${value.startsWith('/') ? '' : '/'}$value';
+  }
+
   /// Warnings for misconfigured `.env` (logged at startup in debug).
   static List<String> validate() {
     final issues = <String>[];

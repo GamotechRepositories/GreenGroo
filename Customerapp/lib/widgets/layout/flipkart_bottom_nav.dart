@@ -29,7 +29,7 @@ class FlipkartBottomNav extends StatefulWidget {
   final Color activeColor;
   final Color activeBackground;
 
-  static const barHeight = 62.0;
+  static const barHeight = 64.0;
   static const iconInactive = Color(0xFF64748B);
 
   @override
@@ -133,14 +133,14 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
       child: RepaintBoundary(
         child: DecoratedBox(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Color(0xF2FFFFFF),
             border: Border(
-              top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+              top: BorderSide(color: Color(0xCCE2E8F0), width: 1),
             ),
             boxShadow: [
               BoxShadow(
                 color: Color(0x0F000000),
-                blurRadius: 8,
+                blurRadius: 10,
                 offset: Offset(0, -2),
               ),
             ],
@@ -195,6 +195,7 @@ class FlipkartNavItem {
     required this.activeIcon,
     this.assetIcon,
     this.showBadge = false,
+    this.iconSize = 24,
   });
 
   final String label;
@@ -202,7 +203,15 @@ class FlipkartNavItem {
   final IconData activeIcon;
   final String? assetIcon;
   final bool showBadge;
+  final double iconSize;
 }
+
+const _grayscale = ColorFilter.matrix(<double>[
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0, 0, 0, 1, 0,
+]);
 
 class _FloatingNavTab extends ConsumerWidget {
   const _FloatingNavTab({
@@ -245,7 +254,7 @@ class _FloatingNavTab extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: selected ? activeColor : FlipkartBottomNav.iconInactive,
               ),
             ),
@@ -258,23 +267,27 @@ class _FloatingNavTab extends ConsumerWidget {
   Widget _buildIcon(int effectiveBadgeCount) {
     Widget iconWidget;
 
-    final iconSize = item.showBadge ? 26.0 : 22.0;
-    if (item.assetIcon != null && item.assetIcon!.isNotEmpty) {
-      // The nav PNGs are single-colour glyphs, so tint them with the department accent.
-      iconWidget = Image.asset(
-        item.assetIcon!,
-        width: iconSize,
-        height: iconSize,
-        fit: BoxFit.contain,
-        color: selected ? activeColor : FlipkartBottomNav.iconInactive,
-        colorBlendMode: BlendMode.srcIn,
-      );
-    } else if (isAccount && accountInitial != null) {
+    final iconSize = item.iconSize;
+    if (isAccount && accountInitial != null) {
       iconWidget = _AccountAvatar(
         initial: accountInitial!,
         selected: selected,
         activeColor: activeColor,
       );
+    } else if (item.assetIcon != null && item.assetIcon!.isNotEmpty) {
+      // Website style: full-colour icon when active, greyed out when inactive.
+      final image = Image.asset(
+        item.assetIcon!,
+        width: iconSize,
+        height: iconSize,
+        fit: BoxFit.contain,
+      );
+      iconWidget = selected
+          ? image
+          : Opacity(
+              opacity: 0.6,
+              child: ColorFiltered(colorFilter: _grayscale, child: image),
+            );
     } else {
       iconWidget = Icon(
         selected ? item.activeIcon : item.icon,
@@ -373,9 +386,9 @@ class _CartCountBadge extends StatelessWidget {
       constraints: BoxConstraints(minWidth: minWidth, minHeight: 17),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: const Color(0xFFEF4444),
+        color: const Color(0xFF0C831F),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white, width: 1.5),
+        border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),

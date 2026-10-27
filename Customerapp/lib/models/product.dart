@@ -1,5 +1,6 @@
 import '../core/utils/department_utils.dart';
 import '../core/utils/json_parsers.dart';
+import 'farmer_trace.dart';
 import 'product_pricing_models.dart';
 
 class Product {
@@ -35,6 +36,17 @@ class Product {
     this.createdAt,
     this.section = '',
     this.storeType = '',
+    this.baseProductId = '',
+    this.baseProductName = '',
+    this.baseProductImage = '',
+    this.varietyGroupId = '',
+    this.varietyName = '',
+    this.marathiName = '',
+    this.unit = '',
+    this.certification = '',
+    this.hotSelling = false,
+    this.justArrived = false,
+    this.farmer = const FarmerTrace(),
   });
 
   final String id;
@@ -68,6 +80,17 @@ class Product {
   final DateTime? createdAt;
   final String section;
   final String storeType;
+  final String baseProductId;
+  final String baseProductName;
+  final String baseProductImage;
+  final String varietyGroupId;
+  final String varietyName;
+  final String marathiName;
+  final String unit;
+  final String certification;
+  final bool hotSelling;
+  final bool justArrived;
+  final FarmerTrace farmer;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -145,6 +168,17 @@ class Product {
       createdAt: createdAt ?? this.createdAt,
       section: section ?? this.section,
       storeType: storeType ?? this.storeType,
+      baseProductId: baseProductId,
+      baseProductName: baseProductName,
+      baseProductImage: baseProductImage,
+      varietyGroupId: varietyGroupId,
+      varietyName: varietyName,
+      marathiName: marathiName,
+      unit: unit,
+      certification: certification,
+      hotSelling: hotSelling,
+      justArrived: justArrived,
+      farmer: farmer,
     );
   }
 
@@ -208,6 +242,17 @@ class Product {
           : null,
       section: json['section']?.toString() ?? '',
       storeType: json['storeType']?.toString() ?? '',
+      baseProductId: json['baseProductId']?.toString() ?? '',
+      baseProductName: json['baseProductName']?.toString() ?? '',
+      baseProductImage: json['baseProductImage']?.toString() ?? '',
+      varietyGroupId: json['varietyGroupId']?.toString() ?? '',
+      varietyName: json['varietyName']?.toString() ?? '',
+      marathiName: json['marathiName']?.toString() ?? '',
+      unit: json['unit']?.toString() ?? '',
+      certification: json['certification']?.toString() ?? '',
+      hotSelling: json['hotSelling'] == true,
+      justArrived: json['justArrived'] == true,
+      farmer: FarmerTrace.fromProductJson(json),
     );
   }
 }

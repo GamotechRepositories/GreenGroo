@@ -24,7 +24,7 @@ import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
 import { resolveStoreOrderType, isStoreOrderTrackable } from "../services/orderTrackingService.js";
-import { sendDeliveryVerificationOtp } from "@greengrocc/shared";
+import { sendDeliveryOtpSms } from "../services/deliveryOtpSmsService.js";
 import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 import { resolveCashForOrder } from "../services/CashSettlementService.js";
 
@@ -825,43 +825,15 @@ export const sendCustomerDeliveryOtp = async (req, res, next) => {
       return res.json({ success: true, alreadyVerified: true, message: "OTP already verified" });
     }
 
-    let customerPhone = "";
-    if (order.sourceOrderId) {
-      try {
-        const { default: EcommerceOrder } = await import("../../../legacy/models/order/Order.js");
-        const ecomOrder = await EcommerceOrder.findById(order.sourceOrderId).populate("user", "phone").lean();
-        customerPhone =
-          ecomOrder?.deliveryAddress?.number ||
-          ecomOrder?.deliveryAddress?.phone ||
-          ecomOrder?.user?.phone ||
-          "";
-      } catch (err) {
-        console.warn("[sendCustomerDeliveryOtp] could not fetch customer phone from Order:", err.message);
-      }
+    const result = await sendDeliveryOtpSms(order);
+    if (!result.success) {
+      return res.status(result.status || 400).json({ success: false, message: result.message });
     }
-    if (!customerPhone) customerPhone = order.customerPhone || "";
-    customerPhone = String(customerPhone).replace(/\D/g, "").slice(-10);
-
-    if (!customerPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Customer phone number not available for this order",
-      });
-    }
-
-    const otpCode = String(order.otpCode || order.deliveryOtp || randomDeliveryOtp()).trim();
-    if (!order.otpCode || order.otpCode !== otpCode) {
-      order.otpCode = otpCode;
-      order.deliveryOtp = otpCode;
-      await order.save();
-    }
-
-    const result = await sendDeliveryVerificationOtp(customerPhone, otpCode);
 
     return res.json({
       success: true,
       message: "Delivery verification OTP sent to customer via SMS",
-      customerPhoneHint: customerPhone.slice(-4),
+      customerPhoneHint: result.customerPhone.slice(-4),
       devMock: result.devMock,
     });
   } catch (error) {

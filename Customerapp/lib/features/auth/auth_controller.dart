@@ -25,6 +25,10 @@ class OtpVerifyResult {
 }
 
 class AuthController extends Notifier<AuthState> {
+  /// Bumped on every login/logout so a slow startup restore can't overwrite
+  /// a newer session with the previously cached user.
+  int _sessionEpoch = 0;
+
   @override
   AuthState build() {
     Future<void>.delayed(const Duration(milliseconds: 500), _restoreSession);
@@ -38,6 +42,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _restoreSession() async {
+    final epoch = _sessionEpoch;
     final storage = ref.read(authStorageProvider);
     final savedToken = storage.token;
 
@@ -67,6 +72,7 @@ class AuthController extends Notifier<AuthState> {
 
     try {
       final user = await ref.read(apiServiceProvider).fetchMe();
+      if (epoch != _sessionEpoch) return;
       if (user.isAdmin || user.isBlocked) {
         await storage.clear();
         state = const AuthState(loading: false);
@@ -76,6 +82,7 @@ class AuthController extends Notifier<AuthState> {
       await storage.saveSession(user: user.toJson(), token: savedToken);
       state = AuthState(user: user, token: savedToken, loading: false);
     } on DioException catch (dioError) {
+      if (epoch != _sessionEpoch) return;
       final statusCode = dioError.response?.statusCode;
       if (statusCode == 401 || statusCode == 403) {
         await storage.clear();
@@ -84,6 +91,7 @@ class AuthController extends Notifier<AuthState> {
         state = AuthState(user: cachedUser, token: savedToken, loading: false);
       }
     } catch (_) {
+      if (epoch != _sessionEpoch) return;
       // Keep user logged in if cached session exists
       if (cachedUser != null) {
         state = AuthState(user: cachedUser, token: savedToken, loading: false);
@@ -211,6 +219,20 @@ class AuthController extends Notifier<AuthState> {
     return OtpVerifyResult(user: session.user);
   }
 
+  Future<void> resendOtp(String phone, {String purpose = 'login'}) async {
+    await ref.read(apiServiceProvider).resendOtp(phone.trim(), purpose: purpose);
+  }
+
+  /// Website signup: OTP already verified via [verifyOtp] (needsSignup), then
+  /// create the retail or bulk account with the collected details.
+  Future<User> completeOtpSignup(Map<String, dynamic> payload) async {
+    final session =
+        await ref.read(apiServiceProvider).completeOtpSignupProfile(payload);
+    _assertCustomerUser(session.user);
+    await _persistSession(session);
+    return session.user;
+  }
+
   Future<User> completeOtpSignupProfile({
     required String phone,
     required String name,
@@ -249,6 +271,7 @@ class AuthController extends Notifier<AuthState> {
     } catch (_) {
       // Best effort: the next login on this phone reassigns the token anyway.
     }
+    _sessionEpoch++;
     await ref.read(authStorageProvider).clear();
     state = const AuthState(loading: false);
   }
@@ -275,6 +298,7 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _persistSession(AuthSession session) async {
     _assertCustomerUser(session.user);
+    _sessionEpoch++;
     await ref.read(authStorageProvider).saveSession(
           user: session.user.toJson(),
           token: session.token,

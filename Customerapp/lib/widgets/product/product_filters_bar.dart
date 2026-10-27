@@ -60,12 +60,15 @@ class ProductFiltersBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
             // 1. NEWEST
@@ -164,13 +167,12 @@ class ProductFiltersBar extends StatelessWidget {
               const SizedBox(width: 6),
               InkWell(
                 onTap: onClear,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFFCA5A5)),
                   ),
                   child: Row(
@@ -185,7 +187,7 @@ class ProductFiltersBar extends StatelessWidget {
                       Text(
                         'Clear',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFFEF4444),
                         ),
@@ -201,6 +203,9 @@ class ProductFiltersBar extends StatelessWidget {
     );
   }
 
+  static const _brandGreen = Color(0xFF0C831F);
+  static const _sheetRadius = BorderRadius.vertical(top: Radius.circular(24));
+
   Widget _buildPillButton({
     required IconData icon,
     required String label,
@@ -208,45 +213,36 @@ class ProductFiltersBar extends StatelessWidget {
     bool showDropdownArrow = false,
     VoidCallback? onTap,
   }) {
+    final fg = isSelected ? Colors.white : const Color(0xFF374151);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? _brandGreen : Colors.white,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.5 : 1,
+            color: isSelected ? _brandGreen : const Color(0xFFE5E7EB),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 13,
-              color: isSelected ? const Color(0xFF047857) : const Color(0xFF475569),
-            ),
+            Icon(icon, size: 13, color: fg),
             const SizedBox(width: 4),
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? const Color(0xFF047857) : const Color(0xFF1E293B),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: fg,
               ),
             ),
             if (showDropdownArrow) ...[
-              const SizedBox(width: 3),
-              Icon(
-                Icons.arrow_drop_down_rounded,
-                size: 16,
-                color: isSelected ? const Color(0xFF047857) : const Color(0xFF64748B),
-              ),
+              const SizedBox(width: 2),
+              Icon(Icons.keyboard_arrow_down_rounded, size: 15, color: fg),
             ],
           ],
         ),
@@ -287,7 +283,7 @@ class ProductFiltersBar extends StatelessWidget {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: _sheetRadius,
           ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(
@@ -327,7 +323,7 @@ class ProductFiltersBar extends StatelessWidget {
                         ? Icons.radio_button_checked_rounded
                         : Icons.radio_button_off_rounded,
                     color: isCurrent
-                        ? const Color(0xFF047857)
+                        ? _brandGreen
                         : const Color(0xFF94A3B8),
                   ),
                   title: Text(
@@ -336,7 +332,7 @@ class ProductFiltersBar extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
                       color: isCurrent
-                          ? const Color(0xFF047857)
+                          ? _brandGreen
                           : const Color(0xFF1E293B),
                     ),
                   ),
@@ -383,7 +379,7 @@ class ProductFiltersBar extends StatelessWidget {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: _sheetRadius,
           ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(
@@ -432,12 +428,12 @@ class ProductFiltersBar extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         side: BorderSide(
                           color: sortBy == ProductSortOption.weightAsc
-                              ? const Color(0xFF047857)
+                              ? _brandGreen
                               : const Color(0xFFCBD5E1),
                           width: sortBy == ProductSortOption.weightAsc ? 1.5 : 1,
                         ),
                         backgroundColor: sortBy == ProductSortOption.weightAsc
-                            ? const Color(0xFFECFDF5)
+                            ? _brandGreen.withValues(alpha: 0.10)
                             : Colors.white,
                       ),
                       child: Text(
@@ -446,7 +442,7 @@ class ProductFiltersBar extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: sortBy == ProductSortOption.weightAsc
-                              ? const Color(0xFF047857)
+                              ? _brandGreen
                               : const Color(0xFF334155),
                         ),
                       ),
@@ -463,12 +459,12 @@ class ProductFiltersBar extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         side: BorderSide(
                           color: sortBy == ProductSortOption.weightDesc
-                              ? const Color(0xFF047857)
+                              ? _brandGreen
                               : const Color(0xFFCBD5E1),
                           width: sortBy == ProductSortOption.weightDesc ? 1.5 : 1,
                         ),
                         backgroundColor: sortBy == ProductSortOption.weightDesc
-                            ? const Color(0xFFECFDF5)
+                            ? _brandGreen.withValues(alpha: 0.10)
                             : Colors.white,
                       ),
                       child: Text(
@@ -477,7 +473,7 @@ class ProductFiltersBar extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: sortBy == ProductSortOption.weightDesc
-                              ? const Color(0xFF047857)
+                              ? _brandGreen
                               : const Color(0xFF334155),
                         ),
                       ),
@@ -514,12 +510,12 @@ class ProductFiltersBar extends StatelessWidget {
                             horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: selectedWeightSize == null
-                              ? const Color(0xFFECFDF5)
+                              ? _brandGreen.withValues(alpha: 0.10)
                               : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: selectedWeightSize == null
-                                ? const Color(0xFF047857)
+                                ? _brandGreen
                                 : const Color(0xFFE2E8F0),
                           ),
                         ),
@@ -529,7 +525,7 @@ class ProductFiltersBar extends StatelessWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: selectedWeightSize == null
-                                ? const Color(0xFF047857)
+                                ? _brandGreen
                                 : const Color(0xFF475569),
                           ),
                         ),
@@ -551,12 +547,12 @@ class ProductFiltersBar extends StatelessWidget {
                               horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFECFDF5)
+                                ? _brandGreen.withValues(alpha: 0.10)
                                 : const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFF047857)
+                                  ? _brandGreen
                                   : const Color(0xFFE2E8F0),
                             ),
                           ),
@@ -568,7 +564,7 @@ class ProductFiltersBar extends StatelessWidget {
                                   ? FontWeight.w700
                                   : FontWeight.w500,
                               color: isSelected
-                                  ? const Color(0xFF047857)
+                                  ? _brandGreen
                                   : const Color(0xFF475569),
                             ),
                           ),
@@ -610,7 +606,7 @@ class ProductFiltersBar extends StatelessWidget {
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: _sheetRadius,
           ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(
@@ -650,7 +646,7 @@ class ProductFiltersBar extends StatelessWidget {
                               ? Icons.radio_button_checked_rounded
                               : Icons.radio_button_off_rounded,
                           color: selectedBrand.isEmpty
-                              ? const Color(0xFF047857)
+                              ? _brandGreen
                               : const Color(0xFF94A3B8),
                         ),
                         title: Text(
@@ -661,7 +657,7 @@ class ProductFiltersBar extends StatelessWidget {
                                 ? FontWeight.w800
                                 : FontWeight.w600,
                             color: selectedBrand.isEmpty
-                                ? const Color(0xFF047857)
+                                ? _brandGreen
                                 : const Color(0xFF1E293B),
                           ),
                         ),
@@ -681,7 +677,7 @@ class ProductFiltersBar extends StatelessWidget {
                                 ? Icons.radio_button_checked_rounded
                                 : Icons.radio_button_off_rounded,
                             color: isCurrent
-                                ? const Color(0xFF047857)
+                                ? _brandGreen
                                 : const Color(0xFF94A3B8),
                           ),
                           title: Text(
@@ -691,7 +687,7 @@ class ProductFiltersBar extends StatelessWidget {
                               fontWeight:
                                   isCurrent ? FontWeight.w800 : FontWeight.w600,
                               color: isCurrent
-                                  ? const Color(0xFF047857)
+                                  ? _brandGreen
                                   : const Color(0xFF1E293B),
                             ),
                           ),

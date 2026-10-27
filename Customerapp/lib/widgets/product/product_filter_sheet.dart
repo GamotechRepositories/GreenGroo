@@ -348,12 +348,12 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: const Color(0xFFE7F3E9),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.tune_rounded,
-                      color: Color(0xFF047857),
+                      color: Color(0xFF0C831F),
                       size: 20,
                     ),
                   ),
@@ -372,7 +372,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF047857),
+                        color: const Color(0xFF0C831F),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -544,7 +544,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                       child: FilledButton(
                         onPressed: _apply,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF047857),
+                          backgroundColor: const Color(0xFF0C831F),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -583,7 +583,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 17, color: const Color(0xFF047857)),
+            Icon(icon, size: 17, color: const Color(0xFF0C831F)),
             const SizedBox(width: 7),
             Text(
               title,
@@ -719,10 +719,10 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+              color: isSelected ? const Color(0xFFE7F3E9) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isSelected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+                color: isSelected ? const Color(0xFF0C831F) : const Color(0xFFE2E8F0),
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -732,7 +732,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                 Icon(
                   item.icon,
                   size: 15,
-                  color: isSelected ? const Color(0xFF047857) : const Color(0xFF64748B),
+                  color: isSelected ? const Color(0xFF0C831F) : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 6),
                 Column(
@@ -746,7 +746,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                         fontWeight:
                             isSelected ? FontWeight.w800 : FontWeight.w600,
                         color: isSelected
-                            ? const Color(0xFF047857)
+                            ? const Color(0xFF0C831F)
                             : const Color(0xFF1E293B),
                       ),
                     ),
@@ -756,7 +756,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                         fontSize: 9.5,
                         fontWeight: FontWeight.w500,
                         color: isSelected
-                            ? const Color(0xFF059669)
+                            ? const Color(0xFF0C831F)
                             : const Color(0xFF94A3B8),
                       ),
                     ),
@@ -767,7 +767,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                   const Icon(
                     Icons.check_circle_rounded,
                     size: 15,
-                    color: Color(0xFF047857),
+                    color: Color(0xFF0C831F),
                   ),
                 ],
               ],
@@ -805,7 +805,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                       const Icon(
                         Icons.pin_drop_outlined,
                         size: 18,
-                        color: Color(0xFF047857),
+                        color: Color(0xFF0C831F),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -867,8 +867,8 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                       ? null
                       : () => _lookupPincode(_pincodeController.text),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFECFDF5),
-                    foregroundColor: const Color(0xFF047857),
+                    backgroundColor: const Color(0xFFE7F3E9),
+                    foregroundColor: const Color(0xFF0C831F),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -880,7 +880,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF0C831F),
                           ),
                         )
                       : Text(
@@ -941,14 +941,14 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFF047857),
+                        color: Color(0xFF0C831F),
                       ),
                     )
                   else
                     const Icon(
                       Icons.my_location_rounded,
                       size: 15,
-                      color: Color(0xFF047857),
+                      color: Color(0xFF0C831F),
                     ),
                   const SizedBox(width: 6),
                   Text(
@@ -956,7 +956,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF047857),
+                      color: const Color(0xFF0C831F),
                     ),
                   ),
                 ],
@@ -987,10 +987,10 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+              color: isSelected ? const Color(0xFFE7F3E9) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isSelected ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+                color: isSelected ? const Color(0xFF0C831F) : const Color(0xFFE2E8F0),
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -1001,7 +1001,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                   const Icon(
                     Icons.percent_rounded,
                     size: 13,
-                    color: Color(0xFF047857),
+                    color: Color(0xFF0C831F),
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -1011,7 +1011,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                     color: isSelected
-                        ? const Color(0xFF047857)
+                        ? const Color(0xFF0C831F)
                         : const Color(0xFF1E293B),
                   ),
                 ),
@@ -1020,7 +1020,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                   const Icon(
                     Icons.check_circle_rounded,
                     size: 14,
-                    color: Color(0xFF047857),
+                    color: Color(0xFF0C831F),
                   ),
                 ],
               ],
@@ -1089,12 +1089,12 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
                       color: _selectedBrand == null
-                          ? const Color(0xFFECFDF5)
+                          ? const Color(0xFFE7F3E9)
                           : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: _selectedBrand == null
-                            ? const Color(0xFF047857)
+                            ? const Color(0xFF0C831F)
                             : const Color(0xFFE2E8F0),
                         width: _selectedBrand == null ? 1.5 : 1,
                       ),
@@ -1107,7 +1107,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                             ? FontWeight.w800
                             : FontWeight.w600,
                         color: _selectedBrand == null
-                            ? const Color(0xFF047857)
+                            ? const Color(0xFF0C831F)
                             : const Color(0xFF1E293B),
                       ),
                     ),
@@ -1128,12 +1128,12 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                           horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFFECFDF5)
+                            ? const Color(0xFFE7F3E9)
                             : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF047857)
+                              ? const Color(0xFF0C831F)
                               : const Color(0xFFE2E8F0),
                           width: isSelected ? 1.5 : 1,
                         ),
@@ -1149,7 +1149,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                                   ? FontWeight.w800
                                   : FontWeight.w600,
                               color: isSelected
-                                  ? const Color(0xFF047857)
+                                  ? const Color(0xFF0C831F)
                                   : const Color(0xFF1E293B),
                             ),
                           ),
@@ -1158,7 +1158,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                             const Icon(
                               Icons.check_rounded,
                               size: 14,
-                              color: Color(0xFF047857),
+                              color: Color(0xFF0C831F),
                             ),
                           ],
                         ],
@@ -1232,10 +1232,10 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isMatch ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+                  color: isMatch ? const Color(0xFFE7F3E9) : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isMatch ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+                    color: isMatch ? const Color(0xFF0C831F) : const Color(0xFFE2E8F0),
                   ),
                 ),
                 child: Text(
@@ -1244,7 +1244,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
                     fontSize: 11,
                     fontWeight: isMatch ? FontWeight.w700 : FontWeight.w500,
                     color: isMatch
-                        ? const Color(0xFF047857)
+                        ? const Color(0xFF0C831F)
                         : const Color(0xFF475569),
                   ),
                 ),
@@ -1275,7 +1275,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF047857),
+              color: const Color(0xFF0C831F),
             ),
           ),
           const SizedBox(width: 6),
@@ -1310,10 +1310,10 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _inStockOnly ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+        color: _inStockOnly ? const Color(0xFFE7F3E9) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _inStockOnly ? const Color(0xFF047857) : const Color(0xFFE2E8F0),
+          color: _inStockOnly ? const Color(0xFF0C831F) : const Color(0xFFE2E8F0),
           width: _inStockOnly ? 1.5 : 1,
         ),
       ),
@@ -1323,7 +1323,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: _inStockOnly
-                  ? const Color(0xFF047857)
+                  ? const Color(0xFF0C831F)
                   : const Color(0xFFE2E8F0),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -1360,8 +1360,8 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
           Switch(
             value: _inStockOnly,
             onChanged: (val) => setState(() => _inStockOnly = val),
-            activeThumbColor: const Color(0xFF047857),
-            activeTrackColor: const Color(0xFFA7F3D0),
+            activeThumbColor: const Color(0xFF0C831F),
+            activeTrackColor: const Color(0xFF9FD4A8),
           ),
         ],
       ),

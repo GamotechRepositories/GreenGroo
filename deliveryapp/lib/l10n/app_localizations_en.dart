@@ -1624,6 +1624,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goToHome => 'Go to Home';
 
   @override
+  String get deliveryPartnerApp => 'Delivery Partner App';
+
+  @override
+  String get fullNameHint => 'Enter your full name';
+
+  @override
+  String get enterNameError => 'Please enter your full name';
+
+  @override
+  String get noAreasInCity =>
+      'No delivery hubs in this city yet. Please choose another city.';
+
+  @override
   String get nextDelivery => 'Next delivery';
 
   @override
