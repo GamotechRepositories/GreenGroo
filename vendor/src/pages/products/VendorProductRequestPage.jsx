@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import CopyId from "../../components/ui/CopyId";
+import { CATALOG_SECTIONS as SECTIONS, catalogSectionName as sectionName, groupBySection } from "./catalogSections";
 
 const PAGE_SIZE = 24;
 const INPUT = "w-full border border-gray-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#217346]";
@@ -14,10 +15,12 @@ function formatPrice(value) {
 export default function VendorProductRequestPage() {
   const [search, setSearch] = useState("");
   const [q, setQ] = useState("");
+  const [section, setSection] = useState("");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [sectionCounts, setSectionCounts] = useState({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,11 +41,12 @@ export default function VendorProductRequestPage() {
     let alive = true;
     setLoading(true);
     vendorApi
-      .getCatalogProducts({ q, category, page, limit: PAGE_SIZE })
+      .getCatalogProducts({ q, section, category, page, limit: PAGE_SIZE })
       .then((res) => {
         if (!alive) return;
         setProducts(res.data?.products || []);
         setCategories(res.data?.categories || []);
+        setSectionCounts(res.data?.sections || {});
         setTotal(res.data?.total || 0);
         setError("");
       })
@@ -51,7 +55,7 @@ export default function VendorProductRequestPage() {
     return () => {
       alive = false;
     };
-  }, [q, category, page]);
+  }, [q, section, category, page]);
 
   const sendRequest = async () => {
     if (!selected || sending) return;
@@ -70,6 +74,11 @@ export default function VendorProductRequestPage() {
   };
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const allCount = Object.values(sectionCounts).reduce((sum, n) => sum + n, 0);
+  const sectionTabs = [{ key: "", name: "All sections", count: allCount }].concat(
+    SECTIONS.map((s) => ({ ...s, count: sectionCounts[s.key] || 0 }))
+  );
+  const groups = groupBySection(products);
 
   return (
     <div className="space-y-4 p-6">
@@ -89,6 +98,33 @@ export default function VendorProductRequestPage() {
         <div className="border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{toast}</div>
       ) : null}
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
+
+      <div className="flex flex-wrap gap-2">
+        {sectionTabs.map((tab) => {
+          const active = section === tab.key;
+          return (
+            <button
+              key={tab.key || "all"}
+              type="button"
+              onClick={() => {
+                setSection(tab.key);
+                setCategory("");
+                setPage(1);
+              }}
+              className={`border px-3 py-1.5 text-xs font-semibold transition ${
+                active
+                  ? "border-[#217346] bg-[#217346] text-white"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-[#E8F5E9]"
+              }`}
+            >
+              {tab.name}
+              <span className={`ml-1.5 px-1.5 text-[10px] ${active ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
@@ -132,8 +168,17 @@ export default function VendorProductRequestPage() {
                 <th className="px-4 py-2 text-right">Action</th>
               </tr>
             </thead>
-            <tbody>
-              {products.map((p) => (
+            {groups.map((group, groupIndex) => (
+            <tbody key={`${group.section}-${groupIndex}`}>
+              <tr className="border-t border-gray-200 bg-[#E8F5E9]">
+                <td colSpan={6} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[#217346]">
+                  {sectionName(group.section)}
+                  <span className="ml-2 font-semibold normal-case text-gray-500">
+                    · {sectionCounts[group.section] ?? group.items.length} products
+                  </span>
+                </td>
+              </tr>
+              {group.items.map((p) => (
                 <tr key={p.productId} className="border-t border-gray-100 hover:bg-gray-50/60">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
@@ -188,6 +233,7 @@ export default function VendorProductRequestPage() {
                 </tr>
               ))}
             </tbody>
+            ))}
           </table>
         </div>
       )}

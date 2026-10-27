@@ -82,7 +82,7 @@ const PLACEMENTS = [
     id: 'category',
     name: 'Category banners',
     where: 'Above each category row on the home page; the text is drawn on top of the image.',
-    size: { desktop: [1024, 342], mobile: [1024, 342] },
+    size: { desktop: [1024, 342], mobile: [1024, 540] },
     sections: ['preorder'],
     hasText: true,
     groups: [

@@ -66,7 +66,7 @@ function CategoryProductSection({ categoryName, limit = 20, section = null, bann
         <OfferBannerCarousel banners={desktopBanners} className="mb-4 hidden lg:mb-5 lg:block" />
       ) : null}
       {mobileBanners.length ? (
-        <OfferBannerCarousel banners={mobileBanners} className="mb-4 lg:hidden" />
+        <OfferBannerCarousel banners={mobileBanners} className="mb-4 lg:hidden" aspectClass="aspect-[1024/540]" />
       ) : null}
       <SectionHeader
         title={categoryName}

@@ -24,6 +24,7 @@ export default function OfferBannerCarousel({
   trustPoints = DEFAULT_TRUST_POINTS,
   interval = 5000,
   className = "",
+  aspectClass = "aspect-[1024/342]",
 }) {
   const [active, setActive] = useState(0);
 
@@ -42,7 +43,7 @@ export default function OfferBannerCarousel({
     <div className={`relative ${className}`}>
       <Link
         to={banner.link}
-        className="relative block aspect-[1024/342] w-full overflow-hidden rounded-xl sm:rounded-2xl"
+        className={`relative block ${aspectClass} w-full overflow-hidden rounded-xl sm:rounded-2xl`}
       >
         <img
           src={banner.image}

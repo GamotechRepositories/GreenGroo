@@ -7,8 +7,9 @@ import { categoryFromName, cropCodeFromName, varietyCodeFromName } from "../../e
 import { pushFarmerProductReview } from "./farmerPush.js";
 
 const CATALOG_FIELDS =
-  "name sku categories subcategory productImages price discountedPrice unit stock inStock isActive brandName varietyName";
+  "name sku categories subcategory section productImages price discountedPrice unit stock inStock isActive brandName varietyName";
 const ADMIN_CATALOG_FILTER = { isActive: { $ne: false }, ownerManagerId: null };
+const CATALOG_SECTION_ORDER = ["preorder", "ready2cook", "instantorder"];
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -24,6 +25,7 @@ export function catalogProductSummary(p) {
     category: p.categories?.[0] || "",
     categories: p.categories || [],
     subcategory: p.subcategory || "",
+    section: p.section || "",
     image: p.productImages?.[0] || "",
     price: p.price ?? 0,
     discountedPrice: p.discountedPrice ?? p.price ?? 0,
@@ -208,17 +210,30 @@ export async function listVendorCatalogProducts(req, res) {
     const vendorId = vendorIdOf(req);
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(60, Math.max(1, Number(req.query.limit) || 24));
-    const filter = { ...ADMIN_CATALOG_FILTER };
+    const section = String(req.query.section || "").trim().toLowerCase();
+    const sectionFilter = section ? { ...ADMIN_CATALOG_FILTER, section } : ADMIN_CATALOG_FILTER;
+    const filter = { ...sectionFilter };
     if (req.query.category) filter.categories = String(req.query.category);
     const q = String(req.query.q || "").trim();
     if (q) {
       const rx = new RegExp(escapeRegex(q), "i");
       filter.$or = [{ name: rx }, { sku: rx }, { subcategory: rx }, { brandName: rx }, { varietyName: rx }];
     }
-    const [products, total, categories, added, pending] = await Promise.all([
-      Product.find(filter).select(CATALOG_FIELDS).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
+    const sectionCountFilter = { ...filter };
+    delete sectionCountFilter.section;
+    const [products, total, categories, sectionCounts, added, pending] = await Promise.all([
+      Product.aggregate([
+        { $match: filter },
+        { $addFields: { _sectionRank: { $indexOfArray: [CATALOG_SECTION_ORDER, "$section"] } } },
+        { $addFields: { _sectionRank: { $cond: [{ $lt: ["$_sectionRank", 0] }, 99, "$_sectionRank"] } } },
+        { $sort: { _sectionRank: 1, name: 1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+        { $project: Object.fromEntries(CATALOG_FIELDS.split(" ").map((f) => [f, 1])) },
+      ]),
       Product.countDocuments(filter),
-      Product.distinct("categories", ADMIN_CATALOG_FILTER),
+      Product.distinct("categories", sectionFilter),
+      Product.aggregate([{ $match: sectionCountFilter }, { $group: { _id: "$section", count: { $sum: 1 } } }]),
       VendorProduct.find({ vendorId }).select("productId").lean(),
       VendorProductRequest.find({ vendorId, status: "Pending" }).select("productId").lean(),
     ]);
@@ -228,6 +243,7 @@ export async function listVendorCatalogProducts(req, res) {
       page,
       limit,
       total,
+      sections: Object.fromEntries(sectionCounts.filter((s) => s._id).map((s) => [s._id, s.count])),
       categories: categories.filter(Boolean).sort(),
       products: products.map((p) => {
         const summary = catalogProductSummary(p);

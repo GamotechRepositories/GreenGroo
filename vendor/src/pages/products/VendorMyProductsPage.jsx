@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import CopyId from "../../components/ui/CopyId";
 import VendorProductEditModal from "./VendorProductEditModal";
+import { CATALOG_SECTIONS, catalogSectionName, catalogSectionRank, groupBySection } from "./catalogSections";
 
 const PRODUCT_ID_TEXT = "font-mono text-[10px] font-semibold tracking-wide text-[#217346]";
 
@@ -40,6 +41,7 @@ export default function VendorMyProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
+  const [section, setSection] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(null);
 
@@ -90,7 +92,7 @@ export default function VendorMyProductsPage() {
     window.setTimeout(() => setNotice(""), 3000);
   };
 
-  const filtered = useMemo(() => {
+  const searched = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return products;
     return products.filter((p) =>
@@ -99,6 +101,22 @@ export default function VendorMyProductsPage() {
       )
     );
   }, [products, q]);
+
+  const sectionCounts = useMemo(
+    () => searched.reduce((acc, p) => ({ ...acc, [p.section || ""]: (acc[p.section || ""] || 0) + 1 }), {}),
+    [searched]
+  );
+
+  const sectionTabs = [{ key: "", name: "All sections", count: searched.length }].concat(
+    CATALOG_SECTIONS.map((s) => ({ ...s, count: sectionCounts[s.key] || 0 }))
+  );
+
+  const groups = useMemo(() => {
+    const list = section ? searched.filter((p) => (p.section || "") === section) : searched;
+    // Array sort is stable, so each section keeps the newest-first order from the API.
+    const sorted = [...list].sort((a, b) => catalogSectionRank(a.section) - catalogSectionRank(b.section));
+    return groupBySection(sorted);
+  }, [searched, section]);
 
   const pendingCount = requests.filter((r) => r.status === "Pending").length;
 
@@ -138,6 +156,30 @@ export default function VendorMyProductsPage() {
                 />
               ) : null}
             </div>
+            {products.length ? (
+              <div className="flex flex-wrap gap-2 border-b border-gray-100 px-4 py-2.5">
+                {sectionTabs.map((tab) => {
+                  const active = section === tab.key;
+                  return (
+                    <button
+                      key={tab.key || "all"}
+                      type="button"
+                      onClick={() => setSection(tab.key)}
+                      className={`border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "border-[#217346] bg-[#217346] text-white"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-[#E8F5E9]"
+                      }`}
+                    >
+                      {tab.name}
+                      <span className={`ml-1.5 px-1.5 text-[10px] ${active ? "bg-white/20" : "bg-gray-100 text-gray-500"}`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
             {products.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-gray-400">
                 No products yet.{" "}
@@ -145,7 +187,7 @@ export default function VendorMyProductsPage() {
                   Request a product from All Products
                 </Link>
               </p>
-            ) : filtered.length === 0 ? (
+            ) : groups.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-gray-400">No matching products</p>
             ) : (
               <div className="overflow-x-auto">
@@ -161,8 +203,19 @@ export default function VendorMyProductsPage() {
                       <th className="px-4 py-2" />
                     </tr>
                   </thead>
-                  <tbody>
-                    {filtered.map((p) => (
+                  {groups.map((group, groupIndex) => (
+                  <tbody key={`${group.section || "other"}-${groupIndex}`}>
+                    {catalogSectionRank(group.section) < CATALOG_SECTIONS.length ? (
+                      <tr className="border-t border-gray-200 bg-[#E8F5E9]">
+                        <td colSpan={7} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[#217346]">
+                          {catalogSectionName(group.section)}
+                          <span className="ml-2 font-semibold normal-case text-gray-500">
+                            · {group.items.length} product{group.items.length === 1 ? "" : "s"}
+                          </span>
+                        </td>
+                      </tr>
+                    ) : null}
+                    {group.items.map((p) => (
                       <tr key={p.productId} className="border-t border-gray-100">
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
@@ -232,6 +285,7 @@ export default function VendorMyProductsPage() {
                       </tr>
                     ))}
                   </tbody>
+                  ))}
                 </table>
               </div>
             )}
