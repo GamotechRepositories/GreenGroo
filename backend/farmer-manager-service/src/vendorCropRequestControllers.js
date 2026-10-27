@@ -27,7 +27,7 @@ export function serializeVendorCropRequest(doc) {
 }
 
 /** One row per crop name + variety from the admin crop master (ErpCrop holds a record per farmer). */
-async function distinctCatalogCrops(match = {}) {
+export async function distinctCatalogCrops(match = {}) {
   const rows = await ErpCrop.aggregate([
     { $match: { ...ACTIVE_CROP_FILTER, ...match } },
     { $sort: { createdAt: 1 } },
@@ -92,6 +92,16 @@ export async function listFarmerVendorCrops(req, res) {
     res.json({ vendorId: farmer.vendorId || "", crops: await vendorAvailableCrops(farmer.vendorId) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
+  }
+}
+
+export async function listManagerVendorCropsCatalog(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || "";
+    if (!vendorId) return res.json([]);
+    res.json(await vendorAvailableCrops(vendorId));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load collection centre crops" });
   }
 }
 

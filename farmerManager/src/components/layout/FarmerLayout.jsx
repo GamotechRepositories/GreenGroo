@@ -43,12 +43,12 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
+        <RoleAnnouncements
+          roleKey="farmer_manager"
+          load={() => getLiveAnnouncements("farmer_manager")}
+          loadCalendar={() => getLiveCalendar("farmer_manager")}
+        />
         <main className="farmer-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-5 lg:p-6 max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-          <RoleAnnouncements
-            roleKey="farmer_manager"
-            load={() => getLiveAnnouncements("farmer_manager")}
-            loadCalendar={() => getLiveCalendar("farmer_manager")}
-          />
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

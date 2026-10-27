@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
 import { isPendingProductApproval } from "../../utils/productActions";
-import { formatProductBusinessId } from "../../utils/cropLinks";
+import { formatProductBusinessId, managerProductPath } from "../../utils/cropLinks";
 import CopyId from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
@@ -100,22 +100,26 @@ function productThumb(p, name) {
   );
 }
 
+function productDetailPath(product) {
+  const fId = product.farmerId;
+  const pId = product.id || product.productId;
+  if (fId && pId) return managerProductPath(fId, pId);
+  return productFarmersPath(product);
+}
+
 function ProductMobileCard({ p, busyId, onReview }) {
-  const listings = p.listings || [p];
-  const single = listings.length === 1 ? listings[0] : null;
-  const reviewId = single ? single.id || single.productId : "";
-  const canReview = Boolean(single && isPendingProductApproval(single.status));
+  const reviewId = p.id || p.productId || "";
+  const canReview = isPendingProductApproval(p.status);
   const name = productNameOf(p);
-  const farmersPath = productFarmersPath(p);
-  const createPath = single ? orderCreatePath(single) : farmersPath;
-  const farmerCount = new Set(listings.map((item) => item.farmerId).filter(Boolean)).size;
+  const detailPath = productDetailPath(p);
+  const createPath = orderCreatePath(p);
   return (
     <article className={`${EXCEL_PANEL} p-3`}>
       <div className="flex items-start gap-2.5">
         {productThumb(p, name)}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <Link to={farmersPath} className="min-w-0 truncate text-[13px] font-bold text-[#217346]">
+            <Link to={detailPath} className="min-w-0 truncate text-[13px] font-bold text-[#217346]">
               {name}
               {p.variety ? <span className="font-medium text-[#6B7280]"> · {p.variety}</span> : null}
             </Link>
@@ -131,9 +135,9 @@ function ProductMobileCard({ p, busyId, onReview }) {
             {[p.category, p.subCategory].filter(Boolean).join(" · ") || "—"}
             {" · "}
             <span className="font-semibold text-[#217346]">
-              {Number(p.totalQty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
+              {Number(productQty(p) || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
             </span>
-            {farmerCount > 1 ? ` · ${farmerCount} farmers` : ""}
+            {p.farmerName ? ` · ${p.farmerName}` : ""}
           </p>
         </div>
       </div>
@@ -141,13 +145,13 @@ function ProductMobileCard({ p, busyId, onReview }) {
         <Link to={createPath} className={MOBILE_BTN}>
           Create Order
         </Link>
-        <Link to={farmersPath} className={MOBILE_BTN}>
+        <Link to={detailPath} className={MOBILE_BTN}>
           View
         </Link>
         <button
           type="button"
           disabled={busyId === reviewId || !canReview}
-          onClick={() => onReview(single, "approved")}
+          onClick={() => onReview(p, "approved")}
           className={MOBILE_APPROVE}
         >
           Approve
@@ -155,7 +159,7 @@ function ProductMobileCard({ p, busyId, onReview }) {
         <button
           type="button"
           disabled={busyId === reviewId || !canReview}
-          onClick={() => onReview(single, "rejected")}
+          onClick={() => onReview(p, "rejected")}
           className={MOBILE_REJECT}
         >
           Reject
@@ -198,11 +202,11 @@ export default function ManagerProductsPage() {
   const totalStockKg = products.reduce((sum, p) => sum + productQty(p), 0);
   const pendingCount = products.filter((p) => isPendingProductApproval(p.status)).length;
   const allCategories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
-  const uniqueProductCount = useMemo(() => groupByProduct(products).length, [products]);
+  const uniqueProductCount = products.length;
 
   const filtered = useMemo(() => {
-    const listings = products.filter((p) => {
-      if (selectedFarmerId && p.farmerId !== selectedFarmerId) return false;
+    return products.filter((p) => {
+      if (selectedFarmerId && p.farmerId !== selectedFarmerId && p.farmerId !== farmers.find((f) => f.id === selectedFarmerId)?.farmerId) return false;
       if (selectedCategory && p.category !== selectedCategory) return false;
       if (selectedStatus === "Pending Approval" && !isPendingProductApproval(p.status)) return false;
       if (selectedStatus && selectedStatus !== "Pending Approval" && p.status !== selectedStatus) return false;
@@ -218,7 +222,6 @@ export default function ManagerProductsPage() {
         String(p.farmerName || "").toLowerCase().includes(query)
       );
     });
-    return groupByProduct(listings);
   }, [products, farmers, selectedFarmerId, selectedCategory, selectedStatus, q]);
 
   const handleReview = async (product, decision) => {
@@ -247,7 +250,7 @@ export default function ManagerProductsPage() {
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className={EXCEL_PAGE_TITLE}>All Products</h1>
-          <p className={`${EXCEL_PAGE_SUB} hidden md:block`}>Approve farmer products before they go live</p>
+          <p className={`${EXCEL_PAGE_SUB} hidden md:block`}>Products shown farmer-wise. Adding a product saves it on that farmer only.</p>
         </div>
         <Link
           to="/manager/products/add"
@@ -326,14 +329,14 @@ export default function ManagerProductsPage() {
         <>
           <div className="space-y-2.5 md:hidden">
             {filtered.map((p) => (
-              <ProductMobileCard key={p.groupKey} p={p} busyId={busyId} onReview={handleReview} />
+              <ProductMobileCard key={`${p.farmerId}-${p.id || p.productId}`} p={p} busyId={busyId} onReview={handleReview} />
             ))}
           </div>
           <div className={`${EXCEL_PANEL} hidden overflow-x-auto md:block`}>
           <table className="w-full min-w-[780px] text-xs">
             <thead>
               <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                {["Product", "Variety", "Product ID", "Category", "Qty", "Status"].map((h) => (
+                {["Farmer", "Product", "Variety", "Product ID", "Category", "Qty", "Status"].map((h) => (
                   <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
                 ))}
                 <th className="sticky right-0 z-20 whitespace-nowrap border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
@@ -343,15 +346,22 @@ export default function ManagerProductsPage() {
             </thead>
             <tbody>
               {filtered.map((p) => {
-                const listings = p.listings || [p];
-                const single = listings.length === 1 ? listings[0] : null;
-                const reviewId = single ? single.id || single.productId : "";
-                const canReview = Boolean(single && isPendingProductApproval(single.status));
+                const reviewId = p.id || p.productId || "";
+                const canReview = isPendingProductApproval(p.status);
                 const name = productNameOf(p);
-                const farmersPath = productFarmersPath(p);
-                const createPath = single ? orderCreatePath(single) : farmersPath;
+                const detailPath = productDetailPath(p);
+                const createPath = orderCreatePath(p);
+                const qty = productQty(p);
                 return (
-                  <tr key={p.groupKey} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                  <tr key={`${p.farmerId}-${reviewId}`} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                    <td className="px-3 py-2.5">
+                      <Link
+                        to={p.farmerId ? `/manager/farmers/${encodeURIComponent(p.farmerId)}` : "/manager/farmers"}
+                        className="font-semibold text-[#217346] hover:underline"
+                      >
+                        {p.farmerName || farmerName(p.farmerId)}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {p.image ? (
@@ -361,7 +371,7 @@ export default function ManagerProductsPage() {
                             {String(name || "P").charAt(0)}
                           </div>
                         )}
-                        <Link to={farmersPath} className="font-semibold text-[#217346] hover:underline">
+                        <Link to={detailPath} className="font-semibold text-[#217346] hover:underline">
                           {name}
                         </Link>
                       </div>
@@ -374,7 +384,7 @@ export default function ManagerProductsPage() {
                       {p.category} {p.subCategory ? `· ${p.subCategory}` : ""}
                     </td>
                     <td className="px-3 py-2.5 font-bold text-[#217346]">
-                      {Number(p.totalQty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
+                      {Number(qty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
                     </td>
                     <td className="px-3 py-2.5">
                       <span
@@ -396,13 +406,16 @@ export default function ManagerProductsPage() {
                         <Link to={createPath} className={ACTION_BTN}>
                           Create Order
                         </Link>
-                        <Link to={farmersPath} className={ACTION_BTN}>
+                        <Link to={detailPath} className={ACTION_BTN}>
                           View
+                        </Link>
+                        <Link to={`${detailPath}/edit`} className={ACTION_BTN}>
+                          Edit
                         </Link>
                         <button
                           type="button"
                           disabled={busyId === reviewId || !canReview}
-                          onClick={() => handleReview(single, "approved")}
+                          onClick={() => handleReview(p, "approved")}
                           className={APPROVE_BTN}
                         >
                           Approve
@@ -410,7 +423,7 @@ export default function ManagerProductsPage() {
                         <button
                           type="button"
                           disabled={busyId === reviewId || !canReview}
-                          onClick={() => handleReview(single, "rejected")}
+                          onClick={() => handleReview(p, "rejected")}
                           className={REJECT_BTN}
                         >
                           Reject

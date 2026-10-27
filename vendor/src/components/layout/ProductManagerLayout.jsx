@@ -22,6 +22,7 @@ import {
   ScrollText,
   ShoppingCart,
   Sprout,
+  Leaf,
   Star,
   Store,
   Tractor,
@@ -90,7 +91,6 @@ const navSections = [
         children: [
           { to: '/vendor/products', label: 'Product Requests', end: true },
           { to: '/vendor/my-products', label: 'My Supply Products' },
-          { to: '/vendor/farmer-products', label: 'Farmer Products' },
         ],
       },
       { to: '/vendor/market-prices', label: 'Market Prices', icon: TrendingUp },
@@ -142,6 +142,24 @@ const navSections = [
         children: [
           { to: '/vendor/crops', label: 'All Crops', end: true },
           { to: '/vendor/my-crops', label: 'My Crops' },
+        ],
+      },
+      {
+        id: 'farmer-crops',
+        label: 'Farmer Crops',
+        icon: Leaf,
+        children: [
+          { to: '/vendor/farmer-crops', label: 'Farmer Crops', end: true },
+          { to: '/vendor/farmer-crop-requests', label: 'Crop Requests' },
+        ],
+      },
+      {
+        id: 'farmer-products',
+        label: 'Farmer Products',
+        icon: Package,
+        children: [
+          { to: '/vendor/farmer-products', label: 'Farmer Products', end: true },
+          { to: '/vendor/farmer-products/add', label: 'Add Product' },
         ],
       },
       {

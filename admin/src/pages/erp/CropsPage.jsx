@@ -87,7 +87,7 @@ const CROP_CODES_LOOKUP = {
   maize: 'MAI',
 };
 
-function resolveCropCode(name = '') {
+export function resolveCropCode(name = '') {
   const key = String(name || '').trim().toLowerCase();
   if (!key) return 'XXX';
   if (CROP_CODES_LOOKUP[key]) return CROP_CODES_LOOKUP[key];
@@ -97,7 +97,7 @@ function resolveCropCode(name = '') {
   return (clean.slice(0, 3) || 'XXX').toUpperCase().padEnd(3, 'X');
 }
 
-function resolveVarietyCode(name = '') {
+export function resolveVarietyCode(name = '') {
   const raw = String(name || '').trim();
   if (!raw || raw.toUpperCase() === 'NAN') return 'NAN';
   const lower = raw.toLowerCase();

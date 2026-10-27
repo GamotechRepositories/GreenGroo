@@ -3,14 +3,24 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import ProductManageForm from "../components/products/ProductManageForm";
 import LoadingState from "../components/ui/LoadingState";
-import { getCrops, getMyProduct, updateMyProduct } from "../api/farmerApi";
-import { formatProductBusinessId } from "../utils/cropLinks";
+import {
+  getCrops,
+  getManagerFarmerCrops,
+  getManagerFarmerProductById,
+  getMyProduct,
+  updateManagerFarmerProduct,
+  updateMyProduct,
+} from "../api/farmerApi";
+import { formatProductBusinessId, managerProductPath } from "../utils/cropLinks";
 import CopyId from "../components/ui/CopyId";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function ProductEditPage() {
-  const { id } = useParams();
+  const { farmerId, id } = useParams();
   const navigate = useNavigate();
+  const isManager = Boolean(farmerId);
+  const viewPath = isManager ? managerProductPath(farmerId, id) : `/farmer/products/${id}`;
+  const listPath = isManager ? `/manager/farmers/${encodeURIComponent(farmerId)}` : "/farmer/products";
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [product, setProduct] = useState(null);
@@ -19,21 +29,26 @@ function ProductEditPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [productData, cropData] = await Promise.all([getMyProduct(id), getCrops()]);
+        const [productData, cropData] = await Promise.all([
+          isManager ? getManagerFarmerProductById(farmerId, id) : getMyProduct(id),
+          isManager ? getManagerFarmerCrops(farmerId) : getCrops(),
+        ]);
         setProduct(productData);
-        setCrops(cropData);
+        setCrops(Array.isArray(cropData) ? cropData : cropData?.crops || []);
         const nextId = productData.productId || productData.id;
         if (nextId && nextId !== id) {
-          navigate(`/farmer/products/${nextId}/edit`, { replace: true });
+          navigate(isManager ? `${managerProductPath(farmerId, nextId)}/edit` : `/farmer/products/${nextId}/edit`, {
+            replace: true,
+          });
         }
       } catch (err) {
         toast.error(err.message || "Product not found");
-        navigate("/farmer/products");
+        navigate(listPath);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id, navigate]);
+  }, [id, farmerId, navigate]);
 
   if (loading) return <LoadingState rows={8} />;
   if (!product) return null;
@@ -48,7 +63,7 @@ function ProductEditPage() {
           <p className={`${EXCEL_PAGE_SUB} hidden truncate sm:block`}>{product.productName || product.name}</p>
           <CopyId value={formatProductBusinessId(product)} className="max-w-full" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]" />
         </div>
-        <Link to={`/farmer/products/${id}`} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
+        <Link to={viewPath} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
           View
         </Link>
       </div>
@@ -62,9 +77,10 @@ function ProductEditPage() {
           onSubmit={async (values, publish) => {
             setSubmitting(true);
             try {
-              await updateMyProduct(id, { ...values, publish });
+              if (isManager) await updateManagerFarmerProduct(farmerId, id, { ...values, publish });
+              else await updateMyProduct(id, { ...values, publish });
               toast.success(publish ? "Submitted for approval" : "Product updated");
-              navigate(`/farmer/products/${id}`);
+              navigate(viewPath);
             } catch (err) {
               toast.error(err.message || "Failed to update product");
             } finally {

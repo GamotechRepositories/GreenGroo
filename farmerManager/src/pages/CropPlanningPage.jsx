@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getCropPlans, updateCropPlan } from "../api/farmerApi";
+import { getManagerAllCrops } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
-import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
+import {
+  createManagerProductPath,
+  formatCropDate,
+  formatCropBusinessId,
+  managerCropPath,
+} from "../utils/cropLinks";
 import CopyId from "../components/ui/CopyId";
 import {
   EXCEL_BTN,
@@ -15,158 +20,143 @@ import {
   EXCEL_PANEL,
 } from "../utils/excelStyles";
 
-function CropPlanningPage() {
-  const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState("");
-  const [edits, setEdits] = useState({});
+function farmerIdOf(crop) {
+  return String(crop.farmerId || "").trim();
+}
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await getCropPlans();
-      setPlans(data);
-      setEdits(
-        Object.fromEntries(
-          data.map((p) => [
-            p.planId || p.id,
-            {
-              estimatedProduction: p.estimatedProduction ?? "",
-              expectedDemand: p.expectedDemand ?? "",
-              suggestedSaleQuantity: p.suggestedSaleQuantity ?? "",
-            },
-          ])
-        )
-      );
-    } catch (err) {
-      toast.error(err.message || "Failed to load crop plans");
-    } finally {
-      setLoading(false);
-    }
-  };
+function CropPlanningPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [crops, setCrops] = useState([]);
+  const [farmers, setFarmers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const selectedFarmerId = searchParams.get("farmerId") || "";
 
   useEffect(() => {
-    load();
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await getManagerAllCrops();
+        setCrops(Array.isArray(res) ? res : res?.crops || []);
+        setFarmers(Array.isArray(res?.farmers) ? res.farmers : []);
+      } catch (err) {
+        toast.error(err.message || "Failed to load crop plans");
+        setCrops([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  const savePlan = async (plan) => {
-    const id = plan.planId || plan.id;
-    const values = edits[id] || {};
-    const estimatedProduction = Number(values.estimatedProduction);
-    const expectedDemand = Number(values.expectedDemand || 0);
-    const suggestedSaleQuantity = Number(values.suggestedSaleQuantity || 0);
-    if (!(estimatedProduction > 0)) {
-      toast.error("Estimated production must be greater than 0");
-      return;
+  const filtered = useMemo(() => {
+    if (!selectedFarmerId) return crops;
+    return crops.filter((c) => farmerIdOf(c) === selectedFarmerId);
+  }, [crops, selectedFarmerId]);
+
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const crop of filtered) {
+      const key = farmerIdOf(crop) || crop.farmerName || "unknown";
+      if (!map.has(key)) {
+        map.set(key, { farmerId: farmerIdOf(crop), farmerName: crop.farmerName || "Farmer", items: [] });
+      }
+      map.get(key).items.push(crop);
     }
-    if (suggestedSaleQuantity > estimatedProduction) {
-      toast.error("Suggested sale quantity cannot be greater than estimated production");
-      return;
-    }
-    setSavingId(id);
-    try {
-      await updateCropPlan(id, { estimatedProduction, expectedDemand, suggestedSaleQuantity });
-      toast.success("Plan updated");
-      await load();
-    } catch (err) {
-      toast.error(err.message || "Failed to update plan");
-    } finally {
-      setSavingId("");
-    }
-  };
+    return Array.from(map.values()).sort((a, b) => a.farmerName.localeCompare(b.farmerName));
+  }, [filtered]);
+
+  const addPath = selectedFarmerId
+    ? `/manager/farmers/${encodeURIComponent(selectedFarmerId)}/crops/add`
+    : "/manager/crops/add";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className={EXCEL_PAGE_TITLE}>Crop Planning</h1>
-          <p className={EXCEL_PAGE_SUB}>Plan expected production and future sale quantity for each crop.</p>
+          <p className={EXCEL_PAGE_SUB}>Plan production farmer-wise, same as the farmer app.</p>
         </div>
-        <Link to="/farmer/crops/add" className={`${EXCEL_BTN_PRIMARY} px-4 py-2`}>
+        <Link to={addPath} className={`${EXCEL_BTN_PRIMARY} px-4 py-2`}>
           Add Crop
         </Link>
       </div>
 
+      <select
+        className={`${EXCEL_INPUT} max-w-xs`}
+        value={selectedFarmerId}
+        onChange={(e) => {
+          const next = new URLSearchParams(searchParams);
+          if (e.target.value) next.set("farmerId", e.target.value);
+          else next.delete("farmerId");
+          setSearchParams(next, { replace: true });
+        }}
+      >
+        <option value="">All Farmers</option>
+        {farmers.map((f) => (
+          <option key={f.id || f.farmerId} value={f.id || f.farmerId}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+
       {loading ? (
         <LoadingState rows={6} />
-      ) : plans.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="No crop plans yet"
-          description="Add a crop first. A production plan is created automatically."
+          description="Add a crop for a farmer first. A production plan is created automatically."
           action={
-            <Link to="/farmer/crops/add" className={EXCEL_BTN_PRIMARY}>
+            <Link to={addPath} className={EXCEL_BTN_PRIMARY}>
               Add Crop
             </Link>
           }
         />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {plans.map((plan) => {
-            const id = plan.planId || plan.id;
-            const values = edits[id] || {};
-            return (
-              <section key={id} className={`${EXCEL_PANEL} p-3 space-y-2`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-bold text-[#1F2937]">{plan.cropName || "Crop"}</p>
-                    <CopyId value={formatCropBusinessId(plan)} className="mt-0.5" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700" />
-                    <p className="text-[11px] text-[#6B7280]">
-                      {plan.variety || "—"} • Harvest {formatCropDate(plan.harvestDate)}
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-semibold uppercase text-[#6B7280]">{plan.status}</span>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <MiniField
-                    label={`Estimated Production (${plan.unit})`}
-                    value={values.estimatedProduction}
-                    onChange={(v) => setEdits((prev) => ({ ...prev, [id]: { ...prev[id], estimatedProduction: v } }))}
-                  />
-                  <MiniField
-                    label={`Expected Demand (${plan.unit})`}
-                    value={values.expectedDemand}
-                    onChange={(v) => setEdits((prev) => ({ ...prev, [id]: { ...prev[id], expectedDemand: v } }))}
-                  />
-                  <MiniField
-                    label={`Suggested Sale (${plan.unit})`}
-                    value={values.suggestedSaleQuantity}
-                    onChange={(v) => setEdits((prev) => ({ ...prev, [id]: { ...prev[id], suggestedSaleQuantity: v } }))}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-3">
-                  <Link to={`/farmer/crops/${plan.cropId}/plan`} className={EXCEL_BTN}>
-                    View Plan
-                  </Link>
-                  <button type="button" className={EXCEL_BTN} disabled={savingId === id} onClick={() => savePlan(plan)}>
-                    {savingId === id ? "Saving…" : "Update"}
-                  </button>
-                  <Link
-                    to={createProductPath({
-                      cropName: plan.cropName,
-                      variety: plan.variety,
-                      expectedHarvestDate: plan.harvestDate,
-                      unit: plan.unit,
-                      cropId: plan.cropId,
-                    })}
-                    className={EXCEL_BTN_PRIMARY}
-                  >
-                    Create Product
-                  </Link>
-                </div>
-              </section>
-            );
-          })}
+        <div className="space-y-5">
+          {groups.map((group) => (
+            <section key={group.farmerId || group.farmerName} className="space-y-2">
+              <Link
+                to={group.farmerId ? `/manager/farmers/${encodeURIComponent(group.farmerId)}` : "/manager/farmers"}
+                className="text-sm font-bold text-[#217346] hover:underline"
+              >
+                {group.farmerName}
+              </Link>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {group.items.map((crop) => {
+                  const farmerId = farmerIdOf(crop);
+                  const cropId = crop.cropId || crop.id;
+                  return (
+                    <article key={`${farmerId}-${cropId}`} className={`${EXCEL_PANEL} space-y-2 p-3`}>
+                      <div>
+                        <p className="text-xs font-bold text-[#1F2937]">{crop.cropName || crop.name || "Crop"}</p>
+                        <CopyId
+                          value={formatCropBusinessId(crop)}
+                          className="mt-0.5"
+                          textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700"
+                        />
+                        <p className="text-[11px] text-[#6B7280]">
+                          {crop.variety || "—"} • Harvest {formatCropDate(crop.expectedHarvestDate)}
+                          {crop.estimatedQuantity != null ? ` • ${crop.estimatedQuantity} ${crop.unit || "Kg"}` : ""}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                        <Link to={managerCropPath(farmerId, cropId, "/plan")} className={EXCEL_BTN}>
+                          View Plan
+                        </Link>
+                        <Link to={managerCropPath(farmerId, cropId)} className={EXCEL_BTN}>
+                          View Crop
+                        </Link>
+                        <Link to={createManagerProductPath(farmerId, crop)} className={EXCEL_BTN_PRIMARY}>
+                          Create Product
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function MiniField({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="mb-1 block text-[11px] font-semibold text-[#6B7280]">{label}</label>
-      <input className={EXCEL_INPUT} type="number" min="0" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

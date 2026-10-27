@@ -36,6 +36,9 @@ import {
   assignCentreFarmerAdmin,
   listCentreFarmerManagersAdmin,
   assignCentreFarmerManagerAdmin,
+  listCropCatalogAdmin,
+  deleteCropCatalogAdmin,
+  listFarmerCropsAdmin,
   getCollectionDashboardAdmin,
   listVendorProductRequestsAdmin,
   approveVendorProductRequestAdmin,
@@ -400,6 +403,9 @@ router.get("/collection-farmers", listCentreFarmersAdmin);
 router.put("/collection-farmers/:farmerId", assignCentreFarmerAdmin);
 router.put("/collection-farmers/:farmerId/assign", assignCentreFarmerAdmin);
 router.patch("/collection-farmers/:farmerId/assign", assignCentreFarmerAdmin);
+router.get("/crop-catalog", listCropCatalogAdmin);
+router.delete("/crop-catalog/:cropId", deleteCropCatalogAdmin);
+router.get("/collection-farmer-crops", listFarmerCropsAdmin);
 router.get("/collection-farmer-managers", listCentreFarmerManagersAdmin);
 router.put("/collection-farmer-managers/:managerId", assignCentreFarmerManagerAdmin);
 router.put("/collection-farmer-managers/:managerId/assign", assignCentreFarmerManagerAdmin);

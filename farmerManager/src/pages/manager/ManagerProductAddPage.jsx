@@ -7,12 +7,44 @@ import {
   getManagerFarmers,
   getManagerFarmerById,
   getManagerFarmerCrops,
+  getVendorProductsCatalog,
 } from "../../api/farmerApi";
 import LoadingState from "../../components/ui/LoadingState";
+import { managerProductPath } from "../../utils/cropLinks";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL, FORM_INPUT } from "../../utils/excelStyles";
 
 function asArray(value) {
-  return Array.isArray(value) ? value : [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.farmers)) return value.farmers;
+  if (Array.isArray(value?.crops)) return value.crops;
+  if (Array.isArray(value?.products)) return value.products;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
+function farmerSelectId(farmer) {
+  return farmer?.id || farmer?.farmerId || "";
+}
+
+function uniqueVendorProducts(products) {
+  const seen = new Set();
+  const list = [];
+  for (const item of products) {
+    const productName = String(item?.productName || item?.name || "").trim();
+    if (!productName) continue;
+    const variety = String(item.variety || item.varietyName || "").trim();
+    const key = `${productName.toLowerCase()}:::${variety.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push({
+      id: item.productId || item.id,
+      productName,
+      variety,
+      unit: item.unit || "Kg",
+      image: item.image || item.productImage || "",
+    });
+  }
+  return list.sort((a, b) => a.productName.localeCompare(b.productName) || a.variety.localeCompare(b.variety));
 }
 
 function ManagerProductAddPage() {
@@ -20,11 +52,17 @@ function ManagerProductAddPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const lockedFarmerId = farmerIdParam || searchParams.get("farmerId") || "";
+  const cropId = searchParams.get("cropId") || "";
+  const cropName = searchParams.get("crop") || "";
+  const variety = searchParams.get("variety") || "";
+  const harvestDate = searchParams.get("harvestDate") || "";
+  const unit = searchParams.get("unit") || "Kg";
 
   const [farmers, setFarmers] = useState([]);
   const [farmerId, setFarmerId] = useState(lockedFarmerId);
   const [farmerName, setFarmerName] = useState("");
   const [crops, setCrops] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,6 +71,10 @@ function ManagerProductAddPage() {
     (async () => {
       setLoading(true);
       try {
+        const productCatalog = await getVendorProductsCatalog().catch(() => []);
+        if (!cancelled) {
+          setCatalogProducts(uniqueVendorProducts(asArray(productCatalog)));
+        }
         if (!lockedFarmerId) {
           const list = await getManagerFarmers({ lite: true });
           if (!cancelled) setFarmers(asArray(list));
@@ -65,6 +107,9 @@ function ManagerProductAddPage() {
     ? `/manager/farmers/${lockedFarmerId}`
     : "/manager/products";
 
+  const matchedCrop =
+    crops.find((c) => (c.cropId || c.id) === cropId) || crops.find((c) => c.cropName === cropName) || null;
+
   if (loading) return <LoadingState rows={8} />;
 
   return (
@@ -82,7 +127,7 @@ function ManagerProductAddPage() {
           </>
         ) : (
           <Link to="/manager/products" className="hover:text-[#217346]">
-            All Products
+            My Products
           </Link>
         )}
         <span>›</span>
@@ -110,7 +155,7 @@ function ManagerProductAddPage() {
           >
             <option value="">Select farmer</option>
             {farmers.map((f) => (
-              <option key={f.id} value={f.id}>
+              <option key={farmerSelectId(f)} value={farmerSelectId(f)}>
                 {f.name} {f.mobile ? `· ${f.mobile}` : ""}
               </option>
             ))}
@@ -118,32 +163,35 @@ function ManagerProductAddPage() {
         </div>
       ) : null}
 
-      {farmerId && crops.length === 0 ? (
-        <p className="text-[11px] text-[#B45309] sm:text-xs">
-          Add a crop for this farmer first, then create a product.{" "}
-          <Link
-            to={`/manager/farmers/${encodeURIComponent(farmerId)}/crops/add`}
-            className="font-semibold text-[#217346] hover:underline"
-          >
-            Add Crop
-          </Link>
-        </p>
-      ) : null}
-
       {farmerId ? (
         <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
           <ProductManageForm
-            key={farmerId}
+            key={`${farmerId}-${matchedCrop?.cropId || matchedCrop?.id || cropId || "new"}`}
             crops={crops}
+            catalogProducts={catalogProducts}
+            initialProduct={{
+              productName: matchedCrop?.cropName || cropName,
+              cropId: matchedCrop?.cropId || matchedCrop?.id || cropId,
+              cropName: matchedCrop?.cropName || cropName,
+              variety: variety || matchedCrop?.variety || "",
+              harvestDate: harvestDate || matchedCrop?.expectedHarvestDate || "",
+              unit: unit || matchedCrop?.unit || "Kg",
+              farmingType: matchedCrop?.farmingType || "",
+              media: { cropPhotos: matchedCrop?.photos || [] },
+            }}
             submitting={submitting}
             draftLabel="Save Draft"
             publishLabel="Save & Go Live"
             onSubmit={async (values, publish) => {
+              if (!farmerId) {
+                toast.error("Select a farmer first");
+                return;
+              }
               setSubmitting(true);
               try {
-                await createManagerFarmerProduct(farmerId, { ...values, publish });
+                const saved = await createManagerFarmerProduct(farmerId, { ...values, publish });
                 toast.success(publish ? "Product is live" : "Draft saved");
-                navigate(backTo);
+                navigate(managerProductPath(farmerId, saved.productId || saved.id));
               } catch (err) {
                 toast.error(err.message || "Failed to save product");
               } finally {

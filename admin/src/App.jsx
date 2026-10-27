@@ -36,6 +36,9 @@ import ShippingMethodsPage from './pages/ops/ShippingMethodsPage';
 import DarkStoreRequestsPage from './pages/ops/DarkStoreRequestsPage';
 import ZoneRequestsPage from './pages/ops/ZoneRequestsPage';
 import CentreFarmersPage from './pages/ops/CentreFarmersPage';
+import AdminCropCatalogPage from './pages/ops/AdminCropCatalogPage';
+import AdminAddCropPage from './pages/ops/AdminAddCropPage';
+import AdminFarmerCropsPage from './pages/ops/AdminFarmerCropsPage';
 import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
 import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
 import VendorCatalogRequestsPage from './pages/ops/VendorCatalogRequestsPage';
@@ -155,6 +158,9 @@ export default function App() {
               <Route path="vendor-catalog-requests" element={<VendorCatalogRequestsPage />} />
               <Route path="vendor-crop-requests" element={<VendorCropRequestsPage />} />
               <Route path="collection-farmers" element={<CentreFarmersPage />} />
+              <Route path="collection-crops" element={<AdminCropCatalogPage />} />
+              <Route path="collection-crops/add" element={<AdminAddCropPage />} />
+              <Route path="collection-farmer-crops" element={<AdminFarmerCropsPage />} />
               <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />
               <Route path="staff-management" element={<StaffManagementPage />} />
               <Route path="hr-management" element={<HrManagement />} />

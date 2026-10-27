@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { deleteMyProduct, getMyProduct, updateMyProductStatus } from "../api/farmerApi";
+import {
+  deleteManagerFarmerProduct,
+  deleteMyProduct,
+  getManagerFarmerProductById,
+  getMyProduct,
+  updateManagerFarmerProductStatus,
+  updateMyProductStatus,
+} from "../api/farmerApi";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { canProductAction, formatProductPrice, primaryGradeLabel } from "../utils/productActions";
-import { formatCropDate, formatProductBusinessId } from "../utils/cropLinks";
+import { formatCropDate, formatProductBusinessId, managerProductPath } from "../utils/cropLinks";
 import CopyId from "../components/ui/CopyId";
 import {
   EXCEL_BTN,
@@ -20,8 +27,11 @@ import {
 } from "../utils/excelStyles";
 
 function ProductDetailPage() {
-  const { id } = useParams();
+  const { farmerId, id } = useParams();
   const navigate = useNavigate();
+  const isManager = Boolean(farmerId);
+  const productBase = isManager ? managerProductPath(farmerId, id) : `/farmer/products/${id}`;
+  const listPath = isManager ? `/manager/farmers/${encodeURIComponent(farmerId)}` : "/farmer/products";
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -29,11 +39,11 @@ function ProductDetailPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getMyProduct(id);
+      const data = isManager ? await getManagerFarmerProductById(farmerId, id) : await getMyProduct(id);
       setProduct(data);
       const nextId = data.productId || data.id;
       if (nextId && nextId !== id) {
-        navigate(`/farmer/products/${nextId}`, { replace: true });
+        navigate(isManager ? managerProductPath(farmerId, nextId) : `/farmer/products/${nextId}`, { replace: true });
       }
     } catch (err) {
       setProduct(null);
@@ -45,11 +55,15 @@ function ProductDetailPage() {
 
   useEffect(() => {
     load();
-  }, [id]);
+  }, [id, farmerId]);
 
   const onStatus = async (status) => {
     try {
-      setProduct(await updateMyProductStatus(id, status));
+      setProduct(
+        isManager
+          ? await updateManagerFarmerProductStatus(farmerId, id, status)
+          : await updateMyProductStatus(id, status)
+      );
       toast.success(status === "Paused" ? "Product paused" : "Product activated");
     } catch (err) {
       toast.error(err.message || "Failed to update status");
@@ -61,10 +75,10 @@ function ProductDetailPage() {
     return (
       <EmptyState
         title="Product not found"
-        description="This product may have been deleted or does not belong to your account."
+        description="This product may have been deleted or does not belong to this farmer."
         action={
-          <Link to="/farmer/products" className={EXCEL_BTN_PRIMARY}>
-            Back to My Products
+          <Link to={listPath} className={EXCEL_BTN_PRIMARY}>
+            {isManager ? "Back to farmer" : "Back to My Products"}
           </Link>
         }
       />
@@ -156,20 +170,20 @@ function ProductDetailPage() {
 
       <div className="flex flex-wrap gap-2">
         {canProductAction(status, "edit") ? (
-          <Link to={`/farmer/products/${id}/edit`} className={EXCEL_BTN}>
+          <Link to={`${productBase}/edit`} className={EXCEL_BTN}>
             Edit
           </Link>
         ) : null}
-        <Link to={`/farmer/products/${id}/media`} className={EXCEL_BTN}>
+        <Link to={`${productBase}/media`} className={EXCEL_BTN}>
           Photos & Media
         </Link>
         {canProductAction(status, "stock") || canProductAction(status, "edit") ? (
-          <Link to={`/farmer/products/${id}/stock`} className={EXCEL_BTN}>
+          <Link to={`${productBase}/stock`} className={EXCEL_BTN}>
             Update Stock
           </Link>
         ) : null}
         {canProductAction(status, "price") || canProductAction(status, "edit") ? (
-          <Link to={`/farmer/products/${id}/stock`} className={EXCEL_BTN_PRIMARY}>
+          <Link to={`${productBase}/stock`} className={EXCEL_BTN_PRIMARY}>
             Update Price
           </Link>
         ) : null}
@@ -199,9 +213,10 @@ function ProductDetailPage() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {
           try {
-            await deleteMyProduct(id);
+            if (isManager) await deleteManagerFarmerProduct(farmerId, id);
+            else await deleteMyProduct(id);
             toast.success("Product deleted");
-            navigate("/farmer/products");
+            navigate(listPath);
           } catch (err) {
             toast.error(err.message || "Failed to delete product");
           }

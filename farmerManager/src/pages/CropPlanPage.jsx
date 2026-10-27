@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getCrop, getCropPlan, updateCropPlan } from "../api/farmerApi";
+import { getCrop, getCropPlan, getManagerFarmerCrop, updateCropPlan, updateManagerCropPlan } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
-import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
+import { createManagerProductPath, createProductPath, formatCropDate, formatCropBusinessId, managerCropPath } from "../utils/cropLinks";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function CropPlanPage() {
-  const { cropId } = useParams();
+  const { farmerId, cropId } = useParams();
+  const isManager = Boolean(farmerId);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [crop, setCrop] = useState(null);
@@ -21,9 +22,9 @@ function CropPlanPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const cropData = await getCrop(cropId);
+      const cropData = isManager ? await getManagerFarmerCrop(farmerId, cropId) : await getCrop(cropId);
       setCrop(cropData);
-      const plan = cropData.plan || (await getCropPlan(cropId).catch(() => null));
+      const plan = cropData.plan || (!isManager ? await getCropPlan(cropId).catch(() => null) : null);
       setForm({
         estimatedProduction: plan?.estimatedProduction ?? cropData.estimatedQuantity ?? "",
         expectedDemand: plan?.expectedDemand ?? "",
@@ -38,7 +39,7 @@ function CropPlanPage() {
 
   useEffect(() => {
     load();
-  }, [cropId]);
+  }, [cropId, farmerId]);
 
   const onSave = async (e) => {
     e.preventDefault();
@@ -56,13 +57,15 @@ function CropPlanPage() {
     setError("");
     setSaving(true);
     try {
-      await updateCropPlan(crop.plan?.planId || crop.plan?.id || cropId, {
+      const planPayload = {
         estimatedProduction,
         expectedDemand,
         suggestedSaleQuantity,
         harvestDate: crop.expectedHarvestDate,
         unit: crop.unit,
-      });
+      };
+      if (isManager) await updateManagerCropPlan(farmerId, cropId, planPayload);
+      else await updateCropPlan(crop.plan?.planId || crop.plan?.id || cropId, planPayload);
       toast.success("Crop plan updated");
       await load();
     } catch (err) {
@@ -114,10 +117,10 @@ function CropPlanPage() {
             <button type="submit" disabled={saving} className={EXCEL_BTN_PRIMARY}>
               {saving ? "Saving…" : "Update Quantity"}
             </button>
-            <Link to={`/farmer/crops/${cropId}`} className={EXCEL_BTN}>
+            <Link to={isManager ? managerCropPath(farmerId, cropId) : `/farmer/crops/${cropId}`} className={EXCEL_BTN}>
               View Crop
             </Link>
-            <Link to={createProductPath(crop)} className={EXCEL_BTN}>
+            <Link to={isManager ? createManagerProductPath(farmerId, crop) : createProductPath(crop)} className={EXCEL_BTN}>
               Create Product
             </Link>
           </div>

@@ -45,12 +45,12 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
+        <RoleAnnouncements
+          roleKey="farmer"
+          load={() => getLiveAnnouncements("farmer")}
+          loadCalendar={() => getLiveCalendar("farmer")}
+        />
         <main className="farmer-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-5 lg:p-6">
-          <RoleAnnouncements
-            roleKey="farmer"
-            load={() => getLiveAnnouncements("farmer")}
-            loadCalendar={() => getLiveCalendar("farmer")}
-          />
           <Suspense fallback={<LoadingState rows={6} />}>
             <Outlet context={{ search, setSearch }} />
           </Suspense>

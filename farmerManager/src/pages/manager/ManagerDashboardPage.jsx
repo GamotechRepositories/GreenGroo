@@ -557,7 +557,7 @@ export default function ManagerDashboardPage() {
         badge: "Stock Alert",
         badgeColor: "bg-red-100 text-red-800 border-red-200",
         actionLabel: "Adjust Stock",
-        to: "/manager/inventory/history",
+        to: "/manager/inventory",
         icon: Boxes,
       });
     }

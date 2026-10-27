@@ -120,6 +120,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   void initState() {
     super.initState();
     final p = widget.editingProduct;
+    FarmerState().fetchVendorAvailableProducts().then((_) {
+      if (mounted) setState(() {});
+    });
     final options = _getProductOptions();
 
     if (p != null) {
@@ -207,27 +210,29 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final List<AvailableProductOption> list = [];
     final Set<String> seen = {};
 
-    // Only from All Products (FarmerState().products)
-    for (final p in FarmerState().products) {
-      final name = p.productName.trim();
-      final key = 'product_${p.id.isNotEmpty ? p.id : name}';
-      if (name.isNotEmpty && !seen.contains(key)) {
-        seen.add(key);
-        final displayName = p.variety.isNotEmpty ? '$name (${p.variety})' : name;
-        list.add(AvailableProductOption(
-          key: key,
-          displayName: displayName,
-          cleanName: name,
-          variety: p.variety.isNotEmpty ? p.variety : null,
-          unit: p.unit.isNotEmpty ? p.unit : 'Kg',
-          category: p.category,
-          imageUrl: p.imageUrl.isNotEmpty ? p.imageUrl : (p.photos.isNotEmpty ? p.photos.first : null),
-          suggestedPrice: p.pricePerUnit > 0 ? p.pricePerUnit : null,
-          source: 'All Products',
-        ));
-      }
+    for (final p in FarmerState().vendorAvailableProducts) {
+      final name = (p['productName'] ?? p['name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      if (!seen.add(key)) continue;
+      final variety = (p['variety'] ?? p['varietyName'] ?? '').toString().trim();
+      final unit = (p['unit'] ?? 'Kg').toString().trim();
+      final image = (p['image'] ?? p['imageUrl'] ?? '').toString().trim();
+      final priceRaw = p['sellingPrice'] ?? p['discountedPrice'] ?? p['price'];
+      list.add(AvailableProductOption(
+        key: key,
+        displayName: name,
+        cleanName: name,
+        variety: variety.isNotEmpty ? variety : null,
+        unit: unit.isNotEmpty ? unit : 'Kg',
+        category: (p['category'] ?? '').toString(),
+        imageUrl: image.isNotEmpty ? image : null,
+        suggestedPrice: priceRaw is num ? priceRaw.toDouble() : double.tryParse('$priceRaw'),
+        source: 'Vendor',
+      ));
     }
 
+    list.sort((a, b) => a.cleanName.toLowerCase().compareTo(b.cleanName.toLowerCase()));
     return list;
   }
 
@@ -235,52 +240,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() {
       _selectedProductOptionKey = opt.key;
 
-      // Find original ProductItem from All Products
-      ProductItem? orig;
-      for (final p in FarmerState().products) {
-        if ('product_${p.id.isNotEmpty ? p.id : p.productName}' == opt.key || p.productName.toLowerCase() == opt.cleanName.toLowerCase()) {
-          orig = p;
-          break;
-        }
-      }
-
-      final pName = orig != null ? orig.productName : opt.cleanName;
+      final pName = opt.cleanName;
       _productName = pName;
       _productNameController.text = pName;
-      _cropName = (orig != null && orig.cropLinked.isNotEmpty) ? orig.cropLinked : pName;
+      _cropName = pName;
 
-      final pVariety = orig != null && orig.variety.isNotEmpty ? orig.variety : (opt.variety ?? 'Standard');
+      final pVariety = (opt.variety ?? '').trim();
       _varietyController.text = pVariety;
 
-      final pUnit = orig != null && orig.unit.isNotEmpty ? orig.unit : (opt.unit ?? 'Kg');
+      final pUnit = opt.unit ?? 'Kg';
       if (_cropUnits.contains(pUnit)) {
         _unit = pUnit;
       }
 
-      if (orig != null && _farmingTypes.contains(orig.farmingType)) {
-        _farmingType = orig.farmingType;
-      }
-
-      final img = orig != null && orig.imageUrl.isNotEmpty ? orig.imageUrl : (opt.imageUrl ?? '');
+      final img = opt.imageUrl ?? '';
       if (img.isNotEmpty) {
         _mainPhoto = img;
       }
-      if (orig != null && orig.photos.length > 1 && _farmPhoto.isEmpty) {
-        _farmPhoto = orig.photos[1];
-      }
-      if (orig != null && orig.photos.length > 2 && _cropPhoto.isEmpty) {
-        _cropPhoto = orig.photos[2];
-      }
-      if (orig != null && orig.photos.length > 3 && _harvestPhoto.isEmpty) {
-        _harvestPhoto = orig.photos[3];
-      }
 
-      if (orig != null && (orig.pricePerUnit > 0 || orig.gradeAPrice > 0)) {
-        final pPrice = orig.gradeAPrice > 0 ? orig.gradeAPrice : orig.pricePerUnit;
-        if (_grades.isNotEmpty) {
-          _grades[0].price = pPrice.toStringAsFixed(0);
-        }
-      } else if (opt.suggestedPrice != null && opt.suggestedPrice! > 0) {
+      if (opt.suggestedPrice != null && opt.suggestedPrice! > 0) {
         if (_grades.isNotEmpty) {
           _grades[0].price = opt.suggestedPrice!.toStringAsFixed(0);
         }
@@ -427,10 +405,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final next = <String, String>{};
 
     final pName = _productNameController.text.trim().isNotEmpty ? _productNameController.text.trim() : _productName.trim();
-    if (pName.isEmpty) next['productName'] = AppLanguage().tr(mr: 'उत्पादनाचे नाव आवश्यक आहे', en: 'Product name is required');
+    if (pName.isEmpty || (!isEditing && _selectedProductOptionKey == null)) {
+      next['productName'] = AppLanguage().tr(mr: 'संकलन केंद्रातील उत्पादन निवडा', en: 'Select a product from your collection centre');
+    }
+    if (_varietyController.text.trim().isEmpty) {
+      next['variety'] = AppLanguage().tr(mr: 'वाण आवश्यक आहे', en: 'Variety is required');
+    }
 
     if (isPublish) {
-      if (_varietyController.text.trim().isEmpty) next['variety'] = AppLanguage().tr(mr: 'वाण आवश्यक आहे', en: 'Variety is required');
       if (_harvestDate == null) next['harvestDate'] = AppLanguage().tr(mr: 'काढणी तारीख आवश्यक आहे', en: 'Harvest date is required');
       if (_availableFrom == null) next['availableFrom'] = AppLanguage().tr(mr: 'उपलब्ध पासून तारीख आवश्यक आहे', en: 'Available from date is required');
       if (_availableUntil == null) next['availableUntil'] = AppLanguage().tr(mr: 'उपलब्ध पर्यंत तारीख आवश्यक आहे', en: 'Available until date is required');
@@ -627,8 +609,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 // Top Subtitle
                 Text(
                   AppLanguage().tr(
-                    mr: 'सर्व उत्पादनांमधून उत्पादन निवडा किंवा नवीन नाव प्रविष्ट करा, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.',
-                    en: 'Select a product from all products or enter a new name, then save as draft or publish.',
+                    mr: 'संकलन केंद्रातील उत्पादन निवडा, वाण आपोआप भरेल, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.',
+                    en: 'Select a collection centre product, variety fills automatically, then save as draft or publish.',
                   ),
                   style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                 ),
@@ -682,8 +664,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन माहिती', en: 'PRODUCT DETAILS')),
                       const SizedBox(height: 6),
 
-                      // Select Product from All Products (Full Width)
-                      _buildLabel(AppLanguage().tr(mr: 'सर्व उत्पादनांमधून उत्पादन निवडा', en: 'Select Product from All Products'), required: true),
+                      _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
                       DropdownButtonFormField<String>(
                         initialValue: _selectedProductOptionKey != null && productOptions.any((o) => o.key == _selectedProductOptionKey)
                             ? _selectedProductOptionKey
@@ -695,8 +676,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             Expanded(
                               child: Text(
                                 productOptions.isEmpty
-                                    ? AppLanguage().tr(mr: 'सर्व उत्पादनांमध्ये कोणतीही उत्पादने नाहीत (खाली नाव टाईप करा)', en: 'No products in All Products (Type name below)')
-                                    : AppLanguage().tr(mr: 'सर्व उत्पादनांमधून उत्पादन निवडा', en: 'Select Product from All Products'),
+                                    ? AppLanguage().tr(mr: 'संकलन केंद्रात अद्याप उत्पादने नाहीत', en: 'No products at your collection centre yet')
+                                    : AppLanguage().tr(mr: 'उत्पादन निवडा', en: 'Select product'),
                                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -768,56 +749,22 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      // 2-Column Row 1: Product Name & Variety
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
-                                SizedBox(
-                                  height: 38,
-                                  child: TextFormField(
-                                    controller: _productNameController,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                    decoration: _inputDecoration(
-                                      hint: AppLanguage().tr(mr: 'उत्पादनाचे नाव प्रविष्ट करा', en: 'Enter product name'),
-                                      error: _errors['productName'],
-                                    ),
-                                    onChanged: (val) {
-                                      _productName = val.trim();
-                                      if (_cropName.isEmpty) _cropName = val.trim();
-                                      setState(() => _errors.remove('productName'));
-                                    },
-                                  ),
-                                ),
-                                if (_errors['productName'] != null) _buildErrorText(_errors['productName']!),
-                              ],
-                            ),
+                      _buildLabel(AppLanguage().tr(mr: 'वाण', en: 'Variety'), required: true),
+                      SizedBox(
+                        height: 38,
+                        child: TextFormField(
+                          controller: _varietyController,
+                          readOnly: true,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                          decoration: _inputDecoration(
+                            hint: _productName.isEmpty
+                                ? AppLanguage().tr(mr: 'आधी उत्पादन निवडा', en: 'Select product first')
+                                : AppLanguage().tr(mr: 'आपोआप निवडले', en: 'Auto selected'),
+                            error: _errors['variety'],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel(AppLanguage().tr(mr: 'वाण', en: 'Variety'), required: true),
-                                SizedBox(
-                                  height: 38,
-                                  child: TextFormField(
-                                    controller: _varietyController,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                    decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'वाणाचे नाव', en: 'Variety name'), error: _errors['variety']),
-                                    onChanged: (_) => setState(() => _errors.remove('variety')),
-                                  ),
-                                ),
-                                if (_errors['variety'] != null) _buildErrorText(_errors['variety']!),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
+                      if (_errors['variety'] != null) _buildErrorText(_errors['variety']!),
                       const SizedBox(height: 10),
 
                       // 2-Column Row 2: Farming Type & Quantity with Unit

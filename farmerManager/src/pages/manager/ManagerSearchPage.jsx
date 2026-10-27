@@ -1,30 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getManagerAllProducts, getManagerFarmers } from "../../api/farmerApi";
+import { managerProductPath } from "../../utils/cropLinks";
 import { EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE } from "../../utils/excelStyles";
-
-function isBusinessProductId(value) {
-  const id = String(value || "").trim();
-  return Boolean(id) && !/^[a-f0-9]{24}$/i.test(id);
-}
 
 function productNameOf(item = {}) {
   return item.productName || item.name || "Farm Produce";
 }
 
-function productGroupKey(item = {}) {
-  const id = String(item.productId || item.id || "").trim();
-  if (isBusinessProductId(id)) return id.toUpperCase();
-  return `${productNameOf(item).trim().toLowerCase()}|${String(item.variety || "").trim().toLowerCase()}`;
-}
-
-function productFarmersPath(product) {
-  const key = productGroupKey(product);
-  const params = new URLSearchParams({ name: productNameOf(product) });
-  const productId =
-    [product.productId, product.id].find((v) => isBusinessProductId(v)) || product.productId || product.id || "";
-  if (productId) params.set("productId", productId);
-  return `/manager/products/${encodeURIComponent(key)}/farmers?${params.toString()}`;
+function productDetailPath(product) {
+  return managerProductPath(product.farmerId, product.productId || product.id);
 }
 
 function asFarmers(data) {
@@ -127,7 +112,7 @@ export default function ManagerSearchPage() {
                 {productHits.slice(0, 12).map((p) => (
                   <Link
                     key={`${p.farmerId || ""}-${p.id || p.productId}`}
-                    to={productFarmersPath(p)}
+                    to={productDetailPath(p)}
                     className="block rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm"
                   >
                     <p className="text-sm font-semibold text-[#217346]">{productNameOf(p)}</p>

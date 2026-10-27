@@ -27,6 +27,7 @@ import {
   getManagedFarmerCrop,
   createManagedFarmerCrop,
   updateManagedFarmerCrop,
+  updateManagedCropPlan,
   deleteManagedFarmerCrop,
   listFarmerCropPlans,
   getFarmerCropPlan,
@@ -55,8 +56,10 @@ import {
   getFarmerProductById,
   createFarmerProduct,
   createManagedFarmerProduct,
+  updateManagedFarmerProduct,
   updateFarmerProduct,
   reviewFarmerProduct,
+  reviewFarmerCrop,
   deleteFarmerProduct,
   getFarmerInventory,
   adjustFarmerStock,
@@ -99,6 +102,7 @@ import {
   getVendorDashboard,
   getVendorAllProducts,
   getVendorAllCrops,
+  getVendorFarmerCropRequests,
   // Manager auth
   managerLogin,
   getManagerMe,
@@ -186,6 +190,7 @@ import {
   createVendorProductRequest,
   cancelVendorProductRequest,
   listFarmerVendorProducts,
+  listManagerVendorProductsCatalog,
   requestFarmerProduct,
 } from "./vendorProductRequestControllers.js";
 import {
@@ -194,6 +199,7 @@ import {
   listVendorMyCrops,
   createVendorCropRequest,
   cancelVendorCropRequest,
+  listManagerVendorCropsCatalog,
 } from "./vendorCropRequestControllers.js";
 import {
   listQualityPending,
@@ -521,8 +527,10 @@ vendorRouter.put("/farmers/:farmerId/manager", requireVendor, assignFarmerManage
 vendorRouter.get("/farmers/:farmerId/products", requireVendor, getFarmerProducts);
 vendorRouter.post("/farmers/:farmerId/products", requireVendor, createManagedFarmerProduct);
 vendorRouter.patch("/farmers/:farmerId/products/:productId/review", requireVendor, reviewFarmerProduct);
+vendorRouter.patch("/farmers/:farmerId/crops/:cropId/review", requireVendor, reviewFarmerCrop);
 vendorRouter.get("/products", requireVendor, getVendorAllProducts);
 vendorRouter.get("/crops", requireVendor, getVendorAllCrops);
+vendorRouter.get("/farmer-crop-requests", requireVendor, getVendorFarmerCropRequests);
 vendorRouter.post("/crops", requireVendor, createManagedFarmerCrop);
 vendorRouter.get("/crops/catalog", requireVendor, getPublicCropsCatalog);
 vendorRouter.get("/farmers/:farmerId/crops", requireVendor, getManagedFarmerCrops);
@@ -636,7 +644,9 @@ managerRouter.get("/farmers", requireManager, getManagerFarmers);
 managerRouter.get("/products", requireManager, getManagerAllProducts);
 managerRouter.get("/crops", requireManager, getManagerAllCrops);
 managerRouter.post("/crops", requireManager, createManagedFarmerCrop);
-managerRouter.get("/crops/catalog", requireManager, getPublicCropsCatalog);
+managerRouter.get("/crops/catalog", requireManager, listManagerVendorCropsCatalog);
+managerRouter.get("/vendor-crops", requireManager, listManagerVendorCropsCatalog);
+managerRouter.get("/vendor-products", requireManager, listManagerVendorProductsCatalog);
 managerRouter.patch("/farmers/:farmerId/products/:productId/review", requireManager, reviewFarmerProduct);
 managerRouter.get("/orders", requireManager, getManagerAllOrders);
 managerRouter.get("/inventory", requireManager, getManagerAllInventory);
@@ -666,9 +676,14 @@ managerRouter.get("/farmers/:farmerId/crops", requireManager, getManagedFarmerCr
 managerRouter.post("/farmers/:farmerId/crops", requireManager, createManagedFarmerCrop);
 managerRouter.get("/farmers/:farmerId/crops/:cropId", requireManager, getManagedFarmerCrop);
 managerRouter.put("/farmers/:farmerId/crops/:cropId", requireManager, updateManagedFarmerCrop);
+managerRouter.put("/farmers/:farmerId/crops/:cropId/plan", requireManager, updateManagedCropPlan);
 managerRouter.delete("/farmers/:farmerId/crops/:cropId", requireManager, deleteManagedFarmerCrop);
 managerRouter.get("/farmers/:farmerId/products/:productId", requireManager, getFarmerProductById);
-managerRouter.put("/farmers/:farmerId/products/:productId", requireManager, updateFarmerProduct);
+managerRouter.put("/farmers/:farmerId/products/:productId", requireManager, updateManagedFarmerProduct);
+managerRouter.delete("/farmers/:farmerId/products/:productId", requireManager, deleteMyProduct);
+managerRouter.patch("/farmers/:farmerId/products/:productId/price", requireManager, patchMyProductPrice);
+managerRouter.patch("/farmers/:farmerId/products/:productId/stock", requireManager, patchMyProductStock);
+managerRouter.patch("/farmers/:farmerId/products/:productId/status", requireManager, patchMyProductStatus);
 managerRouter.get("/farmers/:farmerId/inventory", requireManager, getFarmerInventory);
 managerRouter.post("/farmers/:farmerId/inventory/adjust", requireManager, adjustFarmerStock);
 managerRouter.put("/farmers/:farmerId/inventory/:inventoryId", requireManager, updateFarmerInventoryItem);

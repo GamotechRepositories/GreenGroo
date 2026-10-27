@@ -1,13 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function todayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function dayKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 function formatDay(value) {
-  const day = String(value || "").slice(0, 10);
+  const day = dayKey(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return "";
   return new Date(`${day}T00:00:00`).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
+}
+
+function isActiveOnOrAfterToday(value) {
+  const day = dayKey(value);
+  if (!day) return true;
+  return day >= todayKey();
+}
+
+function itemLabel(item) {
+  if (item.kind === "holiday") return "Holiday";
+  if (item.kind === "shift") return "Shift";
+  if (item.kind === "note") return "Note";
+  if (item.status === "scheduled") return "Upcoming";
+  return "Announcement";
 }
 
 export default function RoleAnnouncements({ roleKey, load, loadCalendar }) {
@@ -40,7 +72,7 @@ export default function RoleAnnouncements({ roleKey, load, loadCalendar }) {
           kind: row.kind || row.category || "announcement",
           title: row.title,
           body: row.body || "",
-          date: row.scheduledAt || row.publishedAt || row.createdAt || "",
+          date: row.scheduledAt || row.date || row.publishedAt || row.createdAt || "",
           status: "published",
         })),
         ...extra.map((row) => ({
@@ -48,11 +80,13 @@ export default function RoleAnnouncements({ roleKey, load, loadCalendar }) {
           kind: row.kind || row.category || "announcement",
           title: row.title,
           body: row.body || "",
-          date: row.date || "",
+          date: row.date || row.scheduledAt || "",
           status: row.status || "",
         })),
-      ];
-      setItems(merged.slice(0, 8));
+      ]
+        .filter((row) => isActiveOnOrAfterToday(row.date))
+        .sort((a, b) => dayKey(a.date).localeCompare(dayKey(b.date)));
+      setItems(merged.slice(0, 20));
     });
     return () => {
       cancelled = true;
@@ -61,67 +95,38 @@ export default function RoleAnnouncements({ roleKey, load, loadCalendar }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleKey]);
 
+  const loop = useMemo(() => {
+    if (!items.length) return [];
+    const copies = items.length === 1 ? 4 : 2;
+    return Array.from({ length: copies }, () => items).flat();
+  }, [items]);
+
   if (!items.length) return null;
 
+  const speed = Math.max(18, Math.min(48, items.length * 9));
+
   return (
-    <section className="mb-3 space-y-2 sm:mb-4 print:hidden">
-      {items.map((item) => {
-        const isShift = item.kind === "shift";
-        const isHoliday = item.kind === "holiday";
-        const isNote = item.kind === "note";
-        const isUpcoming = item.status === "scheduled";
-        const tone = isHoliday
-          ? "border-rose-200 bg-rose-50"
-          : isShift
-            ? "border-sky-200 bg-sky-50"
-            : isNote
-              ? "border-orange-200 bg-orange-50"
-              : isUpcoming
-                ? "border-amber-200 bg-amber-50"
-                : "border-violet-200 bg-violet-50";
-        const labelTone = isHoliday
-          ? "text-rose-700"
-          : isShift
-            ? "text-sky-700"
-            : isNote
-              ? "text-orange-700"
-              : isUpcoming
-                ? "text-amber-700"
-                : "text-violet-700";
-        const label = isHoliday
-          ? "Holiday"
-          : isShift
-            ? "Shift"
-            : isNote
-              ? "Note"
-              : isUpcoming
-                ? "Upcoming"
-                : "Announcement";
-        const when = formatDay(item.date);
-        return (
-          <article
-            key={`${item.kind}-${item.id}`}
-            className={`rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${tone}`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className={`text-[10px] font-bold uppercase tracking-wide sm:text-[11px] ${labelTone}`}>
-                {label}
-              </p>
-              {when ? (
-                <p className="text-[10px] tabular-nums text-slate-500 sm:text-[11px]">{when}</p>
-              ) : null}
-            </div>
-            <p className="mt-0.5 break-words text-[13px] font-semibold text-slate-900 sm:text-sm">
-              {item.title}
-            </p>
-            {item.body ? (
-              <p className="mt-1 whitespace-pre-wrap break-words text-[12px] text-slate-600 sm:text-sm">
-                {item.body}
-              </p>
-            ) : null}
-          </article>
-        );
-      })}
+    <section className="announcement-strip print:hidden" aria-label="Announcements">
+      <div className="announcement-strip-inner">
+        <span className="announcement-strip-badge">Live</span>
+        <div className="announcement-marquee">
+          <div className="announcement-marquee-track" style={{ "--announcement-speed": `${speed}s` }}>
+            {loop.map((item, index) => {
+              const when = formatDay(item.date);
+              const text = [item.title, item.body].filter(Boolean).join(" — ");
+              return (
+                <span key={`${item.kind}-${item.id}-${index}`} className="announcement-marquee-item">
+                  <span className={`announcement-kind announcement-kind-${item.kind || "announcement"}`}>
+                    {itemLabel(item)}
+                  </span>
+                  {when ? <span className="announcement-date">{when}</span> : null}
+                  <span className="announcement-text">{text}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

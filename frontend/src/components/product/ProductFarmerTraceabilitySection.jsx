@@ -133,6 +133,10 @@ function getOrderTraceStatus(status) {
   };
 }
 
+export function isFarmerTraceabilityEnabled(product) {
+  return product?.showFarmerTraceability !== false;
+}
+
 function formatRealDateTime(dateStr) {
   if (!dateStr) return "Recently";
   const d = new Date(dateStr);
@@ -255,6 +259,7 @@ export default function ProductFarmerTraceabilitySection({
   const [activeTab, setActiveTab] = useState("details"); // 'details' | 'nutrition' | 'reviews'
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTraceModal, setShowTraceModal] = useState(false);
+  const showFarmerTraceability = isFarmerTraceabilityEnabled(product);
 
   // Farmer Details extraction
   const rawFarmerName = String(
@@ -265,7 +270,9 @@ export default function ProductFarmerTraceabilitySection({
     : `श्री. ${rawFarmerName}`;
 
   const farmerLocation = String(
-    product?.farmerDetails?.location || product?.farmerLocation || "निफाड, नाशिक, महाराष्ट्र"
+    product?.farmerDetails?.location ||
+      product?.farmerLocation ||
+      (showFarmerTraceability ? "निफाड, नाशिक, महाराष्ट्र" : "")
   ).trim();
 
   const farmerLand = String(
@@ -363,6 +370,8 @@ export default function ProductFarmerTraceabilitySection({
 
   return (
     <div className={`space-y-4 sm:space-y-5 ${className}`}>
+      {showFarmerTraceability ? (
+        <>
       {/* ====================================================
           1. MEET YOUR FARMER CARD
           ==================================================== */}
@@ -553,6 +562,8 @@ export default function ProductFarmerTraceabilitySection({
           </div>
         </div>
       )}
+        </>
+      ) : null}
 
       {/* ====================================================
           3. TABS CONTAINER (Details, Nutrition, Reviews)
@@ -640,12 +651,13 @@ export default function ProductFarmerTraceabilitySection({
                   <span className="font-semibold text-slate-900">{packingDate}</span>
                 </div>
 
-                {/* Source */}
+                {farmerLocation ? (
                 <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-baseline">
                   <span className="text-slate-500 font-medium">Source</span>
                   <span className="text-slate-400">:</span>
                   <span className="font-semibold text-slate-900">{farmerLocation}</span>
                 </div>
+                ) : null}
 
                 {/* Status */}
                 <div className="grid grid-cols-[105px_15px_1fr] sm:grid-cols-[125px_15px_1fr] items-center">
@@ -707,7 +719,7 @@ export default function ProductFarmerTraceabilitySection({
       {/* ====================================================
           MODAL 1: FARMER PROFILE MODAL
           ==================================================== */}
-      {showProfileModal && (
+      {showFarmerTraceability && showProfileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="relative w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden">
             {/* Header */}
@@ -809,7 +821,7 @@ export default function ProductFarmerTraceabilitySection({
       {/* ====================================================
           MODAL 2: PRODUCT TRACEABILITY JOURNEY MODAL (Real Order Only)
           ==================================================== */}
-      {showTraceModal && hasOrderedThisProduct && matchingOrder && (
+      {showFarmerTraceability && showTraceModal && hasOrderedThisProduct && matchingOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="relative w-full max-w-lg bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden">
             {/* Header */}

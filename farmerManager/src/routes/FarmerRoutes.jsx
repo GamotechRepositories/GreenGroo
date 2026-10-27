@@ -12,10 +12,19 @@ import ManagerAddFarmerPage from "../pages/manager/ManagerAddFarmerPage";
 import ManagerFarmerDetailPage from "../pages/manager/ManagerFarmerDetailPage";
 import ManagerFarmerCropViewPage from "../pages/manager/ManagerFarmerCropViewPage";
 import ManagerFarmerCropFormPage from "../pages/manager/ManagerFarmerCropFormPage";
-import ManagerCropsPage from "../pages/manager/ManagerCropsPage";
-import ManagerProductsPage from "../pages/manager/ManagerProductsPage";
 import ManagerProductAddPage from "../pages/manager/ManagerProductAddPage";
-import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
+import ProductDetailPage from "../pages/ProductDetailPage";
+import ProductEditPage from "../pages/ProductEditPage";
+import ProductMediaPage from "../pages/ProductMediaPage";
+import ProductPriceStockPage from "../pages/ProductPriceStockPage";
+import ProductDetailsHubPage from "../pages/ProductDetailsHubPage";
+import CropPlanPage from "../pages/CropPlanPage";
+import CropsPage from "../pages/CropsPage";
+import ProductsPage from "../pages/ProductsPage";
+import CropPlanningPage from "../pages/CropPlanningPage";
+import InventoryPage from "../pages/InventoryPage";
+import InventoryAddPage from "../pages/InventoryAddPage";
+import InventoryViewPage from "../pages/InventoryViewPage";
 import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
 import ManagerStockAuditDetailPage from "../pages/manager/ManagerStockAuditDetailPage";
 import OrdersPage from "../pages/OrdersPage";
@@ -55,15 +64,24 @@ function ManagerRoutes() {
           <Route path="farmers/add" element={<ManagerAddFarmerPage />} />
           <Route path="farmers/:farmerId/crops/add" element={<ManagerFarmerCropFormPage />} />
           <Route path="farmers/:farmerId/crops/:cropId/edit" element={<ManagerFarmerCropFormPage />} />
+          <Route path="farmers/:farmerId/crops/:cropId/plan" element={<CropPlanPage />} />
           <Route path="farmers/:farmerId/crops/:cropId" element={<ManagerFarmerCropViewPage />} />
           <Route path="farmers/:farmerId/products/add" element={<ManagerProductAddPage />} />
+          <Route path="farmers/:farmerId/products/:id/edit" element={<ProductEditPage />} />
+          <Route path="farmers/:farmerId/products/:id/media" element={<ProductMediaPage />} />
+          <Route path="farmers/:farmerId/products/:id/stock" element={<ProductPriceStockPage />} />
+          <Route path="farmers/:farmerId/products/:id" element={<ProductDetailPage />} />
+          <Route path="farmers/:farmerId/inventory/add" element={<InventoryAddPage />} />
+          <Route path="farmers/:farmerId/inventory/:id" element={<InventoryViewPage />} />
           <Route path="farmers/:farmerId" element={<ManagerFarmerDetailPage />} />
-          <Route path="crops" element={<ManagerCropsPage />} />
+          <Route path="crops" element={<CropsPage />} />
           <Route path="crops/add" element={<ManagerFarmerCropFormPage />} />
+          <Route path="crop-planning" element={<CropPlanningPage />} />
           <Route path="products/add" element={<ManagerProductAddPage />} />
-          <Route path="products/:productKey/farmers" element={<ManagerProductFarmersPage />} />
-          <Route path="products" element={<ManagerProductsPage />} />
-          <Route path="inventory" element={<ManagerInventoryPage />} />
+          <Route path="products/details" element={<ProductDetailsHubPage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="inventory/add" element={<InventoryAddPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/history" element={<ManagerInventoryHistoryPage />} />
           <Route path="inventory/history/:id" element={<ManagerStockAuditDetailPage />} />
           <Route path="inventory/audit/:id" element={<ManagerStockAuditDetailPage />} />

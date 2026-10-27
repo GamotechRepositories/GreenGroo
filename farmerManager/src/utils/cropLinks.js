@@ -1,5 +1,5 @@
-export function createProductPath(crop = {}) {
-  const q = new URLSearchParams({
+function cropProductQuery(crop = {}) {
+  return new URLSearchParams({
     crop: crop.cropName || "",
     variety: crop.variety || "",
     harvestDate: crop.expectedHarvestDate || "",
@@ -7,7 +7,38 @@ export function createProductPath(crop = {}) {
     unit: crop.unit || "Kg",
     cropId: crop.cropId || crop.id || "",
   });
-  return `/farmer/products/add?${q.toString()}`;
+}
+
+export function createProductPath(crop = {}) {
+  return `/farmer/products/add?${cropProductQuery(crop).toString()}`;
+}
+
+export function createManagerProductPath(farmerId, crop = {}) {
+  const id = encodeURIComponent(farmerId || "");
+  const q = cropProductQuery(crop);
+  if (farmerId) q.set("farmerId", farmerId);
+  return `/manager/farmers/${id}/products/add?${q.toString()}`;
+}
+
+export function managerCropPath(farmerId, cropId, suffix = "") {
+  return `/manager/farmers/${encodeURIComponent(farmerId || "")}/crops/${encodeURIComponent(cropId || "")}${suffix}`;
+}
+
+export function managerProductPath(farmerId, productId, suffix = "") {
+  return `/manager/farmers/${encodeURIComponent(farmerId || "")}/products/${encodeURIComponent(productId || "")}${suffix}`;
+}
+
+export function managerInventoryViewPath(farmerId, productId) {
+  return `/manager/farmers/${encodeURIComponent(farmerId || "")}/inventory/${encodeURIComponent(productId || "")}`;
+}
+
+export function managerInventoryAddPath(farmerId, productId = "") {
+  if (farmerId) {
+    const q = productId ? `?productId=${encodeURIComponent(productId)}` : "";
+    return `/manager/farmers/${encodeURIComponent(farmerId)}/inventory/add${q}`;
+  }
+  const q = productId ? `?productId=${encodeURIComponent(productId)}` : "";
+  return `/manager/inventory/add${q}`;
 }
 
 export function formatCropDate(value) {

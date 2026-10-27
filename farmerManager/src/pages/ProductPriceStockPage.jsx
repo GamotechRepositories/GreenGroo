@@ -3,13 +3,24 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import LoadingState from "../components/ui/LoadingState";
 import StatusBadge from "../components/ui/StatusBadge";
-import { getMyProduct, updateMyProductPrice, updateMyProductStock } from "../api/farmerApi";
+import {
+  getManagerFarmerProductById,
+  getMyProduct,
+  updateManagerFarmerProductPrice,
+  updateManagerFarmerProductStock,
+  updateMyProductPrice,
+  updateMyProductStock,
+} from "../api/farmerApi";
+import { managerProductPath } from "../utils/cropLinks";
 import { formatProductPrice } from "../utils/productActions";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function ProductPriceStockPage() {
-  const { id } = useParams();
+  const { farmerId, id } = useParams();
   const navigate = useNavigate();
+  const isManager = Boolean(farmerId);
+  const viewPath = isManager ? managerProductPath(farmerId, id) : `/farmer/products/${id}`;
+  const listPath = isManager ? `/manager/farmers/${encodeURIComponent(farmerId)}` : "/farmer/products";
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -26,7 +37,7 @@ function ProductPriceStockPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await getMyProduct(id);
+      const data = isManager ? await getManagerFarmerProductById(farmerId, id) : await getMyProduct(id);
       setProduct(data);
       setForm({
         availableQuantity: data.availableQuantity ?? "",
@@ -39,7 +50,7 @@ function ProductPriceStockPage() {
       });
     } catch (err) {
       toast.error(err.message || "Product not found");
-      navigate("/farmer/products");
+      navigate(listPath);
     } finally {
       setLoading(false);
     }
@@ -47,18 +58,22 @@ function ProductPriceStockPage() {
 
   useEffect(() => {
     load();
-  }, [id]);
+  }, [id, farmerId]);
 
   if (loading) return <LoadingState rows={8} />;
   if (!product) return null;
 
   const locked = product.status === "Pending Approval";
+  const saveStockApi = (payload) =>
+    isManager ? updateManagerFarmerProductStock(farmerId, id, payload) : updateMyProductStock(id, payload);
+  const savePriceApi = (payload) =>
+    isManager ? updateManagerFarmerProductPrice(farmerId, id, payload) : updateMyProductPrice(id, payload);
 
   const saveStock = async () => {
     if (locked) return;
     setSaving("stock");
     try {
-      await updateMyProductStock(id, {
+      await saveStockApi({
         availableQuantity: Number(form.availableQuantity),
         minimumOrderQuantity: Number(form.minimumOrderQuantity),
         availableFrom: form.availableFrom,
@@ -83,7 +98,7 @@ function ProductPriceStockPage() {
     }
     setSaving("price");
     try {
-      await updateMyProductPrice(id, {
+      await savePriceApi({
         pricePerKg: Number(form.pricePerKg),
         grades: form.grades.map((g) => ({ ...g, price: Number(g.price || form.pricePerKg) || 0 })),
       });
@@ -104,11 +119,11 @@ function ProductPriceStockPage() {
     }
     setSaving("all");
     try {
-      await updateMyProductPrice(id, {
+      await savePriceApi({
         pricePerKg: Number(form.pricePerKg),
         grades: form.grades.map((g) => ({ ...g, price: Number(g.price || form.pricePerKg) || 0 })),
       });
-      await updateMyProductStock(id, {
+      await saveStockApi({
         availableQuantity: Number(form.availableQuantity),
         minimumOrderQuantity: Number(form.minimumOrderQuantity),
         availableFrom: form.availableFrom,
@@ -131,7 +146,7 @@ function ProductPriceStockPage() {
         <h1 className={EXCEL_PAGE_TITLE}>Price & Stock</h1>
         <p className={EXCEL_PAGE_SUB}>
           {product.productName || product.name} • {formatProductPrice(product.pricePerKg, product.unit)}{" "}
-          <Link to={`/farmer/products/${id}`} className="font-semibold text-[#217346] hover:underline">
+          <Link to={viewPath} className="font-semibold text-[#217346] hover:underline">
             Back to details
           </Link>
         </p>

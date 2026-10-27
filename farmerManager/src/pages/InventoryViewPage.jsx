@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getProductById, getStockHistory } from "../api/farmerApi";
+import { getManagerFarmerProductById, getManagerFarmerStockHistory } from "../api/farmerApi";
 import InventoryHistoryTable from "../components/inventory/InventoryHistoryTable";
 import LoadingState from "../components/ui/LoadingState";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -11,6 +11,7 @@ import {
   EXCEL_PANEL,
   EXCEL_PANEL_HEAD,
 } from "../utils/excelStyles";
+import { managerInventoryAddPath } from "../utils/cropLinks";
 
 function formatHarvestDate(dateStr) {
   if (!dateStr) return "—";
@@ -27,8 +28,18 @@ function getGradeQty(product, index) {
   return 0;
 }
 
+function asHistory(data) {
+  const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : Array.isArray(data?.history) ? data.history : [];
+  return list.map((entry) => ({
+    ...entry,
+    changedQuantity: entry.changedQuantity ?? entry.change,
+    newStock: entry.newStock ?? entry.stockAfter,
+    previousStock: entry.previousStock ?? (entry.newStock - (entry.changedQuantity || 0)),
+  }));
+}
+
 function InventoryViewPage() {
-  const { id } = useParams();
+  const { farmerId, id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [history, setHistory] = useState([]);
@@ -38,39 +49,40 @@ function InventoryViewPage() {
     (async () => {
       try {
         const [productData, historyData] = await Promise.all([
-          getProductById(id),
-          getStockHistory(id),
+          getManagerFarmerProductById(farmerId, id),
+          getManagerFarmerStockHistory(farmerId, id),
         ]);
         setProduct(productData);
-        setHistory(historyData);
+        setHistory(asHistory(historyData));
       } catch (err) {
         toast.error(err.message || "Inventory not found");
-        navigate("/farmer/inventory");
+        navigate("/manager/inventory");
       } finally {
         setLoading(false);
       }
     })();
-  }, [id, navigate]);
+  }, [id, farmerId, navigate]);
 
   if (loading) return <LoadingState rows={6} />;
   if (!product) return null;
 
   const qty = getGradeQty(product, 0) + getGradeQty(product, 1);
+  const name = product.productName || product.name;
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <Link
-            to="/farmer/inventory"
+            to="/manager/inventory"
             className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-[#6B7280] hover:text-[#217346]"
           >
             ← Back to Inventory
           </Link>
-          <h1 className={EXCEL_PAGE_TITLE}>{product.name}</h1>
+          <h1 className={EXCEL_PAGE_TITLE}>{name}</h1>
           <StatusBadge status={product.status} />
         </div>
-        <Link to={`/farmer/inventory/add?productId=${product.id}`} className={EXCEL_BTN_PRIMARY}>
+        <Link to={managerInventoryAddPath(farmerId, product.productId || product.id)} className={EXCEL_BTN_PRIMARY}>
           Edit Inventory
         </Link>
       </div>
@@ -78,6 +90,7 @@ function InventoryViewPage() {
       <section className={EXCEL_PANEL}>
         <h2 className={EXCEL_PANEL_HEAD}>Inventory Details</h2>
         <div className="grid gap-2 p-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
+          <Detail label="Farmer" value={product.farmerName || "—"} />
           <Detail label="Category" value={product.category} />
           <Detail label="Unit" value={product.unit} />
           <Detail label="Avail. Qty" value={`${qty}`} />
@@ -104,7 +117,7 @@ function InventoryViewPage() {
         <h2 className={EXCEL_PANEL_HEAD}>Inventory History – Farmer</h2>
         <InventoryHistoryTable
           rows={history}
-          emptyMessage={`No inventory history for ${product.name}.`}
+          emptyMessage={`No inventory history for ${name}.`}
         />
       </section>
     </div>

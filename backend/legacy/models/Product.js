@@ -494,6 +494,11 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    /** When false, Meet Your Farmer / farm traceability is hidden on the product page. */
+    showFarmerTraceability: {
+      type: Boolean,
+      default: true,
+    },
     farmerName: {
       type: String,
       trim: true,

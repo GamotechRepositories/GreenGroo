@@ -592,6 +592,16 @@ const farmerCropSchema = new mongoose.Schema(
     ],
     previousCropId: { type: String, default: "" },
     status: { type: String, enum: CROP_STATUSES, default: "Planning Created" },
+    approvalStatus: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected"],
+      default: "Approved",
+      index: true,
+    },
+    rejectionReason: { type: String, default: "" },
+    requestedBy: { type: String, default: "" },
+    reviewedBy: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

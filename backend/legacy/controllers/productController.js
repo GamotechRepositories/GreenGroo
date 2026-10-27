@@ -16,6 +16,7 @@ import {
 } from "../../delivery-service/src/services/catalogStoreInventory.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
 import { DynamicPricingRule } from "../../admin-ops-service/src/models.js";
+import { VendorProduct } from "../../farmer-manager-service/src/models.js";
 import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import { createMemoryCache } from "../../shared/cache/memoryCache.js";
@@ -32,6 +33,54 @@ const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeProductFlag = (value) => value === true || value === "true";
+
+const normalizeShowFarmerTraceability = (value, fallback = true) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (value === false || value === 0 || value === "0") return false;
+  if (typeof value === "string" && value.trim().toLowerCase() === "false") return false;
+  if (value === true || value === 1 || value === "1") return true;
+  if (typeof value === "string" && value.trim().toLowerCase() === "true") return true;
+  return fallback;
+};
+
+const VENDOR_FARMER_OVERRIDE_KEYS = [
+  "showFarmerTraceability",
+  "farmerName",
+  "farmerLocation",
+  "farmerImage",
+  "farmImage",
+  "harvestingDate",
+  "packingDate",
+  "certification",
+  "nutritionNote",
+  "nutritionFacts",
+  "farmerDetails",
+];
+
+function applyVendorFarmerOverride(product, overrides) {
+  if (!overrides || typeof overrides !== "object") return product;
+  const next = { ...product };
+  for (const key of VENDOR_FARMER_OVERRIDE_KEYS) {
+    if (!(key in overrides) || overrides[key] === undefined) continue;
+    next[key] = key === "showFarmerTraceability"
+      ? normalizeShowFarmerTraceability(overrides[key], true)
+      : overrides[key];
+  }
+  return next;
+}
+
+async function attachVendorFarmerOverride(product, catalog) {
+  const vendorId = String(catalog?.manager?.vendorId || "").trim();
+  const productId = String(product?._id || product?.id || "").trim();
+  if (!vendorId || !productId) return product;
+  try {
+    const row = await VendorProduct.findOne({ vendorId, productId }).select("overrides").lean();
+    if (!row?.overrides) return product;
+    return transformProductResponse(applyVendorFarmerOverride(product, row.overrides));
+  } catch {
+    return product;
+  }
+}
 
 export async function generateAdminProductId({ categoryName = "", name = "", varietyName = "" } = {}) {
   const catCode = resolveCategoryCode(categoryName || name);
@@ -445,6 +494,7 @@ const buildProductPayload = (body) => {
     deptNumber: normalizeDeptToken(body.deptNumber),
     rackRow: normalizeDeptToken(body.rackRow, 6).replace(/^R/, ""),
     rackColumn: normalizeDeptToken(body.rackColumn, 6).replace(/^C/, ""),
+    showFarmerTraceability: normalizeShowFarmerTraceability(body.showFarmerTraceability, true),
     farmerName: body.farmerName?.trim() || body.farmerDetails?.name?.trim() || "",
     farmerLocation: body.farmerLocation?.trim() || body.farmerDetails?.location?.trim() || "",
     farmerImage: body.farmerImage?.trim() || body.farmerDetails?.farmerImage?.trim() || "",
@@ -1045,16 +1095,18 @@ export const getProductById = async (req, res) => {
       )
     );
 
+    const payload = decorated || {
+      ...transformProductResponse(product),
+      purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+      inStock: false,
+      stock: 0,
+      storeStock: 0,
+      storeName: catalog.store?.storeName,
+    };
+
     res.status(200).json({
       success: true,
-      data: decorated || {
-        ...transformProductResponse(product),
-        purchaseCount: purchaseCounts.get(String(product._id)) || 0,
-        inStock: false,
-        stock: 0,
-        storeStock: 0,
-        storeName: catalog.store?.storeName,
-      },
+      data: await attachVendorFarmerOverride(payload, catalog),
       store: catalog.store,
     });
   } catch (error) {
@@ -1332,6 +1384,7 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
     rackRow: payload.rackRow,
     rackColumn: payload.rackColumn,
   }),
+  showFarmerTraceability: payload.showFarmerTraceability !== false,
   farmerName: payload.farmerName || "",
   farmerLocation: payload.farmerLocation || "",
   farmerImage: payload.farmerImage || "",
@@ -1596,6 +1649,10 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
             : existing.section,
       storeType:
         body.storeType !== undefined ? body.storeType : existing.storeType,
+      showFarmerTraceability:
+        body.showFarmerTraceability !== undefined
+          ? normalizeShowFarmerTraceability(body.showFarmerTraceability, existing.showFarmerTraceability !== false)
+          : existing.showFarmerTraceability !== false,
       farmerName:
         body.farmerName !== undefined ? body.farmerName : existing.farmerName,
       farmerLocation:

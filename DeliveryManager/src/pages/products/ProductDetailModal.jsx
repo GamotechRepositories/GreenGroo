@@ -67,7 +67,9 @@ export default function ProductDetailModal({ product, onClose, onEdit, onDelete 
   const images = (product.productImages || []).filter(Boolean);
   const [activeImage, setActiveImage] = useState(images[0] || "");
   const farmer = product.farmerDetails || {};
-  const hasFarmer = FARMER_FIELDS.some(([key]) => farmer[key]) || farmer.bio;
+  const hasFarmer =
+    product.showFarmerTraceability !== false &&
+    (FARMER_FIELDS.some(([key]) => farmer[key]) || farmer.bio);
   const variants = product.variantType === "multi" ? product.variants || [] : [];
   const discount =
     product.discountedPercent ||

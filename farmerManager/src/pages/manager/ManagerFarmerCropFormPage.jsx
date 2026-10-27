@@ -15,7 +15,10 @@ import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL, FORM_INPUT } from "../../utils/excelStyles";
 
 function asArray(value) {
-  return Array.isArray(value) ? value : [];
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.farmers)) return value.farmers;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
 }
 
 function ManagerFarmerCropFormPage() {
@@ -41,13 +44,7 @@ function ManagerFarmerCropFormPage() {
       try {
         if (!lockedFarmerId) {
           const list = await getManagerFarmers({ lite: true });
-          if (!cancelled) {
-            const arr = asArray(list);
-            setFarmers(arr);
-            if (!selectedFarmerId && arr.length > 0) {
-              setSelectedFarmerId(arr[0].id);
-            }
-          }
+          if (!cancelled) setFarmers(asArray(list));
         }
       } catch (err) {
         toast.error(err.message || "Failed to load farmers");
@@ -93,21 +90,31 @@ function ManagerFarmerCropFormPage() {
   const backTo = lockedFarmerId
     ? `/manager/farmers/${lockedFarmerId}`
     : "/manager/crops";
+  const farmerSelectId = (f) => f.id || f.farmerId;
 
   const onSubmit = async (values) => {
-    const targetFarmer = selectedFarmerId || (farmers[0]?.id || farmers[0]?.farmerId || "general");
+    const targetFarmer = selectedFarmerId || lockedFarmerId;
+    if (!targetFarmer) {
+      toast.error("Select a farmer first");
+      return;
+    }
     setSubmitting(true);
     try {
       const saved = isEdit
         ? await updateManagerFarmerCrop(targetFarmer, cropId, values)
         : await createManagerFarmerCrop(targetFarmer, values);
       const id = saved.cropId || saved.id;
-      toast.success(isEdit ? "Crop updated" : "Crop saved");
-      if (lockedFarmerId) {
-        navigate(`/manager/farmers/${targetFarmer}/crops/${encodeURIComponent(id)}`);
-      } else {
-        navigate("/manager/crops");
-      }
+      const savedFarmerId = saved.farmerId || targetFarmer;
+      toast.success(
+        isEdit
+          ? "Crop updated"
+          : `Crop added for ${saved.farmerName || farmerName || "this farmer"}`
+      );
+      navigate(
+        isEdit
+          ? `/manager/farmers/${encodeURIComponent(savedFarmerId)}/crops/${encodeURIComponent(id)}`
+          : `/manager/farmers/${encodeURIComponent(savedFarmerId)}/crops/${encodeURIComponent(id)}/plan`
+      );
     } catch (err) {
       toast.error(err.message || "Failed to save crop");
     } finally {
@@ -132,7 +139,7 @@ function ManagerFarmerCropFormPage() {
           </>
         ) : (
           <Link to="/manager/crops" className="hover:text-[#217346]">
-            All Crops
+            My Crops
           </Link>
         )}
         <span>›</span>
@@ -148,8 +155,8 @@ function ManagerFarmerCropFormPage() {
             {isEdit
               ? `Update crop for ${farmerName || "this farmer"}.`
               : farmerName
-              ? `Add a crop for ${farmerName}.`
-              : "Select a farmer, then enter crop details."}
+              ? `Add a collection centre crop for ${farmerName}.`
+              : "Select a farmer, then choose a crop from your collection centre."}
           </p>
         </div>
         <Link to={backTo} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
@@ -165,17 +172,40 @@ function ManagerFarmerCropFormPage() {
         />
       ) : null}
 
-      <div className={`${EXCEL_PANEL} p-3 sm:p-5`}>
-        <CropForm
-          key={`${selectedFarmerId}-${crop?.id || "new"}`}
-          initialCrop={crop || farmDefaults}
-          farmAreaUnit={farmAreaUnit}
-          submitting={submitting}
-          showStatus={isEdit}
-          submitLabel="Save Crop"
-          onSubmit={onSubmit}
-        />
-      </div>
+      {!lockedFarmerId ? (
+        <div className={`${EXCEL_PANEL} p-3 sm:p-4`}>
+          <label className="mb-1 block text-[11px] font-semibold text-slate-600">Farmer *</label>
+          <select
+            className={FORM_INPUT}
+            value={selectedFarmerId}
+            onChange={(e) => setSelectedFarmerId(e.target.value)}
+          >
+            <option value="">Select farmer</option>
+            {farmers.map((f) => (
+              <option key={farmerSelectId(f)} value={farmerSelectId(f)}>
+                {f.name} {f.mobile ? `· ${f.mobile}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {selectedFarmerId || lockedFarmerId ? (
+        <div className={`${EXCEL_PANEL} p-3 sm:p-5`}>
+          <CropForm
+            key={`${selectedFarmerId}-${crop?.id || "new"}`}
+            initialCrop={crop || farmDefaults}
+            farmAreaUnit={farmAreaUnit}
+            submitting={submitting}
+            showStatus={isEdit}
+            submitLabel="Save Crop"
+            restrictToCatalog={!isEdit}
+            onSubmit={onSubmit}
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-[#6B7280]">Select a farmer to continue.</p>
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ function CropFormPage() {
     try {
       const saved = isEdit ? await updateCrop(cropId, values) : await createCrop(values);
       const id = saved.cropId || saved.id;
-      toast.success(isEdit ? "Crop updated" : "Crop saved");
+      toast.success(isEdit ? "Crop updated" : saved.message || "Crop request sent for collection centre approval");
       navigate(isEdit ? `/farmer/crops/${id}` : `/farmer/crops/${id}/plan`);
     } catch (err) {
       toast.error(err.message || "Failed to save crop");
@@ -77,6 +77,7 @@ function CropFormPage() {
           key={crop?.id || "new"}
           initialCrop={crop || farmDefaults}
           farmAreaUnit={farmAreaUnit}
+          restrictToCatalog={!isEdit}
           submitting={submitting}
           showStatus={isEdit}
           submitLabel={isEdit ? "Save Crop" : "Save Crop"}

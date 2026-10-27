@@ -38,6 +38,12 @@ function cropKey(crop) {
   return crop.cropId || crop.id;
 }
 
+function cropDisplayStatus(crop) {
+  if (crop.approvalStatus === "Pending") return "Pending Approval";
+  if (crop.approvalStatus === "Rejected") return "Rejected";
+  return crop.status;
+}
+
 function CropIdLabel({ crop, className = "" }) {
   const id = formatCropBusinessId(crop);
   return (
@@ -182,7 +188,7 @@ function CropsPage() {
                             <span className="font-medium text-slate-500"> · {crop.variety}</span>
                           ) : null}
                         </p>
-                        <StatusBadge status={crop.status} className="max-w-[46%] shrink-0" />
+                        <StatusBadge status={cropDisplayStatus(crop)} className="max-w-[46%] shrink-0" />
                       </div>
                       <CropIdLabel crop={crop} className="truncate text-[10px]" />
                       <p className="mt-0.5 truncate text-[10px] text-slate-500">
@@ -239,7 +245,7 @@ function CropsPage() {
                     <td className={`${EXCEL_CELL} whitespace-nowrap`}>{formatCropDate(crop.sowingDate)}</td>
                     <td className={`${EXCEL_CELL} whitespace-nowrap`}>{formatCropDate(crop.expectedHarvestDate)}</td>
                     <td className={EXCEL_CELL}>
-                      <StatusBadge status={crop.status} />
+                      <StatusBadge status={cropDisplayStatus(crop)} />
                     </td>
                     <td className={`${EXCEL_CELL} ${ACTION_COL} sticky right-0 z-10 border-l border-slate-200 bg-white group-hover:bg-slate-50`}>
                       <CropActions crop={crop} onDelete={setDeleteId} />

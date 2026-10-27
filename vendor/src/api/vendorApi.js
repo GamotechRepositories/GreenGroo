@@ -104,6 +104,12 @@ export const vendorApi = {
   getFarmerById: (id) => api.get(`/api/vendor/farmers/${id}`),
   getCrops: () => api.get("/api/vendor/crops"),
   getAllCrops: () => api.get("/api/vendor/crops"),
+  getFarmerCropRequests: (params) => api.get("/api/vendor/farmer-crop-requests", { params }),
+  reviewFarmerCrop: (farmerId, cropId, decision, reason = "") =>
+    api.patch(
+      `/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}/review`,
+      { decision, reason }
+    ),
   getCropsCatalog: () => api.get("/api/vendor/crops/catalog").then((res) => res.data || []).catch(() => []),
   getFarmerCrops: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/crops`),
   getFarmerCrop: (farmerId, cropId) => api.get(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`),

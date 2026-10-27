@@ -6,19 +6,18 @@ import {
   getManagerFarmerById,
   getManagerFarmerCrops,
   getManagerFarmerProducts,
-  getManagerFarmerInventory,
   getManagerFarmerOrders,
   getManagerFarmerEarnings,
   getManagerFarmerDocuments,
   uploadManagerFarmerDocument,
   deleteManagerFarmerCrop,
-  reviewManagerFarmerProduct,
+  deleteManagerFarmerProduct,
 } from "../../api/farmerApi";
-import { isPendingProductApproval } from "../../utils/productActions";
-import { formatCropDate, formatCropBusinessId, formatProductBusinessId } from "../../utils/cropLinks";
+import { formatCropDate, formatCropBusinessId, formatProductBusinessId, createManagerProductPath, managerProductPath, managerInventoryAddPath, managerInventoryViewPath } from "../../utils/cropLinks";
 import CopyId from "../../components/ui/CopyId";
 import FileUpload from "../../components/ui/FileUpload";
 import StatusBadge from "../../components/ui/StatusBadge";
+import { DOCUMENT_TYPES } from "../../utils/constants";
 import {
   EXCEL_PANEL,
   EXCEL_PAGE_TITLE,
@@ -83,7 +82,6 @@ export default function ManagerFarmerDetailPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingType, setUploadingType] = useState("");
-  const [busyProductId, setBusyProductId] = useState("");
 
   const loadDocuments = () =>
     getManagerFarmerDocuments(farmerId)
@@ -101,8 +99,16 @@ export default function ManagerFarmerDetailPage() {
 
   useLive(() => {
     if (tab === "Crops") getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
-    if (tab === "Products") getManagerFarmerProducts(farmerId).then(setProducts).catch(() => {});
-    if (tab === "Inventory") getManagerFarmerInventory(farmerId).then(setInventory).catch(() => {});
+    if (tab === "Products") {
+      getManagerFarmerProducts(farmerId)
+        .then((res) => setProducts(Array.isArray(res) ? res : res?.products || []))
+        .catch(() => setProducts([]));
+    }
+    if (tab === "Inventory") {
+      getManagerFarmerProducts(farmerId)
+        .then((res) => setInventory(Array.isArray(res) ? res : res?.products || []))
+        .catch(() => setInventory([]));
+    }
     if (tab === "Orders") getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
     if (tab === "Earnings") {
       getManagerFarmerEarnings(farmerId)
@@ -111,26 +117,6 @@ export default function ManagerFarmerDetailPage() {
     }
     if (tab === "Documents") loadDocuments();
   }, [tab, farmerId]);
-
-  const handleReviewProduct = async (product, decision) => {
-    const id = product.id || product.productId;
-    let reason = "";
-    if (decision === "rejected") {
-      const typed = window.prompt("Reason for rejection (optional)");
-      if (typed === null) return;
-      reason = typed;
-    }
-    setBusyProductId(id);
-    try {
-      await reviewManagerFarmerProduct(farmerId, id, decision, reason);
-      toast.success(decision === "approved" ? "Product approved" : "Product rejected");
-      setProducts(await getManagerFarmerProducts(farmerId));
-    } catch (err) {
-      toast.error(err.message || "Failed to review product");
-    } finally {
-      setBusyProductId("");
-    }
-  };
 
   const handleUploadDocument = async (type, file) => {
     if (!file) return;
@@ -285,6 +271,18 @@ export default function ManagerFarmerDetailPage() {
                           View
                         </Link>
                         <Link
+                          to={`/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}/plan`}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          Plan
+                        </Link>
+                        <Link
+                          to={createManagerProductPath(farmerId, crop)}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          Product
+                        </Link>
+                        <Link
                           to={`/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}/edit`}
                           className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
                         >
@@ -332,43 +330,57 @@ export default function ManagerFarmerDetailPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
-                  {["Product", "Product ID", "Category", "Grades", "Harvest Date", "Status", "Action"].map((h) => (
+                  {["Product", "Product ID", "Crop", "Qty", "Harvest", "Status", "Action"].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No products</td></tr>
+                  <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No products added for this farmer</td></tr>
                 ) : products.map((p) => (
-                  <tr key={p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                    <td className="px-3 py-2.5 font-semibold">{p.name}</td>
+                  <tr key={p.productId || p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                    <td className="px-3 py-2.5 font-semibold">{p.productName || p.name}</td>
                     <td className="px-3 py-2.5">
                       <CopyId value={formatProductBusinessId(p)} />
                     </td>
-                    <td className="px-3 py-2.5">{p.category}</td>
-                    <td className="px-3 py-2.5">
-                      {p.grades?.map((g) => `${g.label}: ${g.quantity} Kg`).join(" · ") || "—"}
+                    <td className="px-3 py-2.5">{p.cropName || "—"}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {p.availableQuantity || p.totalQuantity || 0} {p.unit || "Kg"}
                     </td>
-                    <td className="px-3 py-2.5">{p.harvestDate || "—"}</td>
-                    <td className="px-3 py-2.5">{STATUS_BADGE(p.status)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(p.harvestDate)}</td>
+                    <td className="px-3 py-2.5">{STATUS_BADGE(p.stockStatus || p.status)}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-nowrap items-center gap-1">
+                        <Link
+                          to={managerProductPath(farmerId, p.productId || p.id)}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          View
+                        </Link>
+                        <Link
+                          to={managerProductPath(farmerId, p.productId || p.id, "/edit")}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          Edit
+                        </Link>
                         <button
                           type="button"
-                          disabled={busyProductId === (p.id || p.productId) || !isPendingProductApproval(p.status)}
-                          onClick={() => handleReviewProduct(p, "approved")}
-                          className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 hover:bg-green-200 disabled:opacity-40"
+                          className="border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          onClick={async () => {
+                            const id = p.productId || p.id;
+                            if (!window.confirm(`Delete product "${p.productName || p.name}"?`)) return;
+                            try {
+                              await deleteManagerFarmerProduct(farmerId, id);
+                              toast.success("Product deleted");
+                              const res = await getManagerFarmerProducts(farmerId).catch(() => []);
+                              setProducts(Array.isArray(res) ? res : res?.products || []);
+                            } catch (err) {
+                              toast.error(err?.message || "Failed to delete product");
+                            }
+                          }}
                         >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyProductId === (p.id || p.productId) || !isPendingProductApproval(p.status)}
-                          onClick={() => handleReviewProduct(p, "rejected")}
-                          className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 hover:bg-red-200 disabled:opacity-40"
-                        >
-                          Reject
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -381,30 +393,64 @@ export default function ManagerFarmerDetailPage() {
         )}
 
         {tab === "Inventory" && (
-          <div className="overflow-x-auto">
+          <div>
+            <div className="flex items-center justify-between gap-2 border-b border-[#D4D4D4] px-3 py-2.5">
+              <p className="text-xs font-semibold text-[#1F2937]">Inventory</p>
+              <Link
+                to={managerInventoryAddPath(farmerId)}
+                className={`${EXCEL_BTN_PRIMARY} px-3 py-1.5 text-[11px]`}
+              >
+                + Add Inventory
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
-                  {["Product", "Grade", "Quantity", "Status"].map((h) => (
+                  {["Product", "Unit", "Gr A", "Gr B", "Avail. Qty", "Harvest", "Status", "Action"].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {inventory.length === 0 ? (
-                  <tr><td colSpan={4} className="px-3 py-4 text-center text-[#6B7280]">No inventory</td></tr>
-                ) : inventory.flatMap((p) =>
-                  (p.grades || [{ label: "All", quantity: p.stock || 0 }]).map((g, gi) => (
-                    <tr key={`${p.id}-${gi}`} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                      <td className="px-3 py-2.5 font-semibold">{gi === 0 ? p.name : ""}</td>
-                      <td className="px-3 py-2.5">{g.label}</td>
-                      <td className="px-3 py-2.5">{g.quantity} Kg</td>
+                  <tr><td colSpan={8} className="px-3 py-4 text-center text-[#6B7280]">No inventory added for this farmer</td></tr>
+                ) : inventory.map((p) => {
+                  const id = p.productId || p.id;
+                  const gradeA = p.grades?.[0]?.quantity ?? p.gradeAQty ?? 0;
+                  const gradeB = p.grades?.[1]?.quantity ?? p.gradeBQty ?? 0;
+                  const qty = Number(gradeA) + Number(gradeB);
+                  return (
+                    <tr key={id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                      <td className="px-3 py-2.5 font-semibold">{p.productName || p.name}</td>
+                      <td className="px-3 py-2.5">{p.unit || "Kg"}</td>
+                      <td className="px-3 py-2.5">{gradeA}</td>
+                      <td className="px-3 py-2.5">{gradeB}</td>
+                      <td className="px-3 py-2.5">{qty}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(p.harvestDate)}</td>
                       <td className="px-3 py-2.5">{STATUS_BADGE(p.status)}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex flex-nowrap items-center gap-1">
+                          <Link
+                            to={managerInventoryViewPath(farmerId, id)}
+                            className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                          >
+                            View
+                          </Link>
+                          <Link
+                            to={managerInventoryAddPath(farmerId, id)}
+                            className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                      </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

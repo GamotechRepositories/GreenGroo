@@ -463,6 +463,36 @@ export async function listFarmerVendorProducts(req, res) {
   }
 }
 
+export async function listManagerVendorProductsCatalog(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || "";
+    if (!vendorId) return res.json([]);
+    const products = await vendorProductsWithCatalog(vendorId);
+    const seen = new Set();
+    const result = [];
+    for (const vp of products) {
+      const name = String(vp.productName || vp.name || "").trim();
+      const variety = String(vp.variety || vp.varietyName || vp.catalog?.varietyName || "").trim();
+      const key = `${name.toLowerCase()}:::${variety.toLowerCase()}`;
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        id: vp.productId || vp.id,
+        productId: vp.productId || vp.id,
+        productName: name,
+        name,
+        variety,
+        category: vp.category || "",
+        unit: vp.unit || "Kg",
+        image: vp.image || vp.productImage || "",
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load collection centre products" });
+  }
+}
+
 export async function requestFarmerProduct(req, res) {
   try {
     const farmerId = req.user?.farmerId || req.user?.id || req.params.farmerId || req.body?.farmerId || req.query.farmerId;

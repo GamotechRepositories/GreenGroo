@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getManagerFarmerById, getManagerFarmerCrop } from "../../api/farmerApi";
+import { deleteManagerFarmerCrop, getManagerFarmerById, getManagerFarmerCrop } from "../../api/farmerApi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
-import { formatCropDate, formatCropBusinessId } from "../../utils/cropLinks";
+import Modal from "../../components/ui/Modal";
+import { createManagerProductPath, formatCropDate, formatCropBusinessId, managerCropPath } from "../../utils/cropLinks";
 import CopyId from "../../components/ui/CopyId";
-import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../../utils/excelStyles";
+import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../../utils/excelStyles";
 
 function ManagerFarmerCropViewPage() {
   const { farmerId, cropId } = useParams();
+  const navigate = useNavigate();
   const [crop, setCrop] = useState(null);
   const [farmerName, setFarmerName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -113,17 +116,53 @@ function ManagerFarmerCropViewPage() {
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Link
-          to={`/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}/edit`}
-          className={EXCEL_BTN_PRIMARY}
+          to={managerCropPath(farmerId, crop.cropId || crop.id, "/edit")}
+          className={EXCEL_BTN}
         >
           Edit Crop
         </Link>
-        <Link to={`/manager/farmers/${farmerId}`} className={EXCEL_BTN}>
-          Back to farmer
+        <Link to={managerCropPath(farmerId, crop.cropId || crop.id, "/plan")} className={EXCEL_BTN}>
+          Crop Plan
         </Link>
+        <Link to={createManagerProductPath(farmerId, crop)} className={EXCEL_BTN_PRIMARY}>
+          Create Product
+        </Link>
+        <button type="button" className={EXCEL_BTN_DANGER} onClick={() => setConfirmDelete(true)}>
+          Delete
+        </button>
       </div>
+
+      <Modal
+        open={confirmDelete}
+        title="Delete crop?"
+        onClose={() => setConfirmDelete(false)}
+        footer={
+          <>
+            <button type="button" className={EXCEL_BTN} onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={EXCEL_BTN_DANGER}
+              onClick={async () => {
+                try {
+                  await deleteManagerFarmerCrop(farmerId, crop.cropId || crop.id);
+                  toast.success("Crop deleted");
+                  navigate(`/manager/farmers/${farmerId}`);
+                } catch (err) {
+                  toast.error(err.message || "Failed to delete crop");
+                }
+              }}
+            >
+              Delete
+            </button>
+          </>
+        }
+      >
+        <p>This will also remove the crop plan for {farmerName || "this farmer"}.</p>
+      </Modal>
     </div>
   );
 }

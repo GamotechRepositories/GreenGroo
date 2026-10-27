@@ -49,7 +49,21 @@ function emptyCrop(defaults = {}) {
   };
 }
 
-export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submitting, onSubmit, submitLabel = "Save Crop", showStatus = false }) {
+function catalogCropKey(item) {
+  return `${String(item?.cropId || item?.id || "").trim()}::${String(item?.cropName || item?.name || "").trim().toLowerCase()}::${String(item?.variety || "").trim().toLowerCase()}`;
+}
+
+export default function CropForm({
+  initialCrop,
+  farmAreaUnit = "Acre",
+  submitting,
+  onSubmit,
+  submitLabel = "Save Crop",
+  showStatus = false,
+  restrictToCatalog = false,
+}) {
+  const isEdit = Boolean(initialCrop?.id || initialCrop?.cropId);
+  const catalogOnly = restrictToCatalog && !isEdit;
   const [form, setForm] = useState(() =>
     emptyCrop({
       ...initialCrop,
@@ -57,6 +71,7 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     })
   );
   const [catalog, setCatalog] = useState([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -96,6 +111,47 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const applyCatalogRow = (found) => {
+    const cropName = String(found?.cropName || found?.name || "").trim();
+    const variety = String(found?.variety || "").trim();
+    const cropSplit = splitPreset(dynamicCropOptions, cropName);
+    const varOpts = variety
+      ? [...new Set([variety, ...varietyOptionsForCrop(cropName).filter((v) => v !== "Other")]), "Other"]
+      : varietyOptionsForCrop(cropName);
+    const varSplit = splitPreset(varOpts, variety);
+    setForm((prev) => ({
+      ...prev,
+      cropName: cropSplit.select,
+      customCropName: cropSplit.custom,
+      variety: varSplit.select,
+      customVariety: varSplit.custom,
+      unit: prev.unit || found?.unit || "Kg",
+      farmingMethod: prev.farmingMethod || found?.farmingMethod || prev.farmingMethod,
+      farmingType: prev.farmingType || found?.farmingType || prev.farmingType,
+      irrigationType: prev.irrigationType || found?.irrigationType || prev.irrigationType,
+      photos: found?.photos?.length && !prev.photos?.filter(Boolean).length ? found.photos : prev.photos,
+    }));
+    setErrors((prev) => ({ ...prev, cropName: "", variety: "" }));
+  };
+
+  const applyCatalogCrop = (catId) => {
+    setSelectedCatalogId(catId);
+    if (!catId) {
+      if (catalogOnly) {
+        setForm((prev) => ({
+          ...prev,
+          cropName: "",
+          customCropName: "",
+          variety: "",
+          customVariety: "",
+        }));
+      }
+      return;
+    }
+    const found = catalog.find((c) => catalogCropKey(c) === catId || String(c.cropId || c.id) === catId);
+    if (found) applyCatalogRow(found);
   };
 
   const syncDefaultsFromCatalog = (cropName, variety) => {
@@ -177,8 +233,18 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     const farmingType = resolvePreset(form.farmingType, form.customFarmingType);
     const irrigationType = resolvePreset(form.irrigationType, form.customIrrigationType);
     const next = {};
-    if (!cropName) next.cropName = "Crop is required";
+    if (catalogOnly && !selectedCatalogId) next.cropName = "Select a crop from your collection centre";
+    if (!cropName) next.cropName = next.cropName || "Crop is required";
     if (!variety) next.variety = "Variety is required";
+    if (catalogOnly && cropName) {
+      const allowed = catalog.some(
+        (c) =>
+          String(c.cropName || c.name || "").trim().toLowerCase() === cropName.toLowerCase() &&
+          (!String(c.variety || "").trim() ||
+            String(c.variety || "").trim().toLowerCase() === variety.toLowerCase())
+      );
+      if (!allowed) next.cropName = "Choose a crop from your collection centre list";
+    }
     if (!(Number(form.area) > 0)) next.area = "Area must be greater than 0";
     if (!areaUnit) next.areaUnit = "Area unit is required";
     if (!form.sowingDate) next.sowingDate = "Sowing date is required";
@@ -238,32 +304,72 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
       ) : null}
 
       <Section title="Crop">
-        <SelectWithOther
-          label="Select Crop"
-          required
-          options={dynamicCropOptions}
-          selectValue={form.cropName}
-          customValue={form.customCropName}
-          onSelect={onCropSelect}
-          onCustom={onCropCustom}
-          error={errors.cropName}
-          customLabel="Crop name"
-          placeholder="Enter crop name"
-          inputClass={FORM_INPUT}
-        />
-        <SelectWithOther
-          label="Variety"
-          required
-          options={varietyOptions}
-          selectValue={form.variety}
-          customValue={form.customVariety}
-          onSelect={(v) => onVarietyChange(v, false)}
-          onCustom={(v) => onVarietyChange(v, true)}
-          error={errors.variety}
-          customLabel="Variety name"
-          placeholder="Enter variety"
-          inputClass={FORM_INPUT}
-        />
+        {catalogOnly ? (
+          <>
+            {catalog.length === 0 ? (
+              <p className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Your collection centre has no crops yet. Ask them to add crops first.
+              </p>
+            ) : null}
+            <Field label="Select Crop" required error={errors.cropName} className="col-span-2">
+              <select
+                className={FORM_INPUT}
+                value={selectedCatalogId}
+                disabled={catalog.length === 0}
+                onChange={(e) => applyCatalogCrop(e.target.value)}
+              >
+                <option value="">Select crop</option>
+                {catalog.map((crop) => (
+                  <option key={catalogCropKey(crop)} value={catalogCropKey(crop)}>
+                    {crop.cropName || crop.name}
+                    {crop.variety ? ` · ${crop.variety}` : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Crop Name" required>
+              <input className={FORM_INPUT} value={resolvedCropName} readOnly disabled={!selectedCatalogId} placeholder="Select crop first" />
+            </Field>
+            <Field label="Variety" required error={errors.variety}>
+              <input
+                className={FORM_INPUT}
+                value={resolvedVariety}
+                readOnly
+                disabled={!selectedCatalogId}
+                placeholder={selectedCatalogId ? "Auto selected" : "Select crop first"}
+              />
+            </Field>
+          </>
+        ) : (
+          <>
+            <SelectWithOther
+              label="Select Crop"
+              required
+              options={dynamicCropOptions}
+              selectValue={form.cropName}
+              customValue={form.customCropName}
+              onSelect={onCropSelect}
+              onCustom={onCropCustom}
+              error={errors.cropName}
+              customLabel="Crop name"
+              placeholder="Enter crop name"
+              inputClass={FORM_INPUT}
+            />
+            <SelectWithOther
+              label="Variety"
+              required
+              options={varietyOptions}
+              selectValue={form.variety}
+              customValue={form.customVariety}
+              onSelect={(v) => onVarietyChange(v, false)}
+              onCustom={(v) => onVarietyChange(v, true)}
+              error={errors.variety}
+              customLabel="Variety name"
+              placeholder="Enter variety"
+              inputClass={FORM_INPUT}
+            />
+          </>
+        )}
       </Section>
 
       <Section title="Area & quantity">

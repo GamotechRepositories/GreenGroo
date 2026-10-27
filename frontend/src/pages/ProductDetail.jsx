@@ -423,6 +423,7 @@ function hasText(value) {
 }
 
 function FarmerDetailsCard({ product }) {
+  if (product?.showFarmerTraceability === false) return null;
   const name = String(product?.farmerName || product?.farmerDetails?.name || "").trim();
   const location = String(product?.farmerLocation || product?.farmerDetails?.location || "").trim();
   const farmerImage = String(product?.farmerImage || product?.farmerDetails?.farmerImage || "").trim();

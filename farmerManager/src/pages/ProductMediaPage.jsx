@@ -3,7 +3,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import ProductMediaFields from "../components/products/ProductMediaFields";
 import LoadingState from "../components/ui/LoadingState";
-import { getMyProduct, updateMyProduct } from "../api/farmerApi";
+import {
+  getManagerFarmerProductById,
+  getMyProduct,
+  updateManagerFarmerProduct,
+  updateMyProduct,
+} from "../api/farmerApi";
+import { managerProductPath } from "../utils/cropLinks";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function emptyMedia(product) {
@@ -17,8 +23,11 @@ function emptyMedia(product) {
 }
 
 function ProductMediaPage() {
-  const { id } = useParams();
+  const { farmerId, id } = useParams();
   const navigate = useNavigate();
+  const isManager = Boolean(farmerId);
+  const viewPath = isManager ? managerProductPath(farmerId, id) : `/farmer/products/${id}`;
+  const listPath = isManager ? `/manager/farmers/${encodeURIComponent(farmerId)}` : "/farmer/products";
   const [product, setProduct] = useState(null);
   const [media, setMedia] = useState(emptyMedia());
   const [loading, setLoading] = useState(true);
@@ -27,17 +36,17 @@ function ProductMediaPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getMyProduct(id);
+        const data = isManager ? await getManagerFarmerProductById(farmerId, id) : await getMyProduct(id);
         setProduct(data);
         setMedia(emptyMedia(data));
       } catch (err) {
         toast.error(err.message || "Product not found");
-        navigate("/farmer/products");
+        navigate(listPath);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id, navigate]);
+  }, [id, farmerId, navigate]);
 
   if (loading) return <LoadingState rows={8} />;
   if (!product) return null;
@@ -48,7 +57,7 @@ function ProductMediaPage() {
     if (locked) return;
     setSaving(true);
     try {
-      await updateMyProduct(id, {
+      const payload = {
         productName: product.productName || product.name,
         cropId: product.cropId,
         cropName: product.cropName,
@@ -70,9 +79,11 @@ function ProductMediaPage() {
           harvestPhotos: (media.harvestPhotos || []).filter(Boolean),
           videos: (media.videos || []).filter(Boolean),
         },
-      });
+      };
+      if (isManager) await updateManagerFarmerProduct(farmerId, id, payload);
+      else await updateMyProduct(id, payload);
       toast.success("Photos saved");
-      navigate(`/farmer/products/${id}`);
+      navigate(viewPath);
     } catch (err) {
       toast.error(err.message || "Failed to save photos");
     } finally {
@@ -87,7 +98,7 @@ function ProductMediaPage() {
           <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">Product Photos</h1>
           <p className={`${EXCEL_PAGE_SUB} hidden truncate sm:block`}>{product.productName || product.name}</p>
         </div>
-        <Link to={`/farmer/products/${id}`} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
+        <Link to={viewPath} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
           Back
         </Link>
       </div>
@@ -97,7 +108,7 @@ function ProductMediaPage() {
           <button type="button" disabled={saving || locked} className={`${EXCEL_BTN_PRIMARY} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`} onClick={onSave}>
             {saving ? "Saving…" : "Save"}
           </button>
-          <Link to={`/farmer/products/${id}`} className={`${EXCEL_BTN} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`}>
+          <Link to={viewPath} className={`${EXCEL_BTN} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`}>
             Cancel
           </Link>
         </div>

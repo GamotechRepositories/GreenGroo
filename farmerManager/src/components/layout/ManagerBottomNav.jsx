@@ -93,7 +93,7 @@ const TABS = [
   { to: "/manager/dashboard", label: "Home", icon: HomeIcon, end: true },
   { to: "/manager/orders", label: "Orders", icon: BellIcon },
   { to: "/manager/farmers", label: "Farmers", icon: SearchIcon },
-  { to: "/manager/inventory/history", label: "History", icon: HistoryIcon },
+  { to: "/manager/inventory", label: "Inventory", icon: HistoryIcon },
 ];
 
 function TabLink({ to, label, icon: TabIcon, end }) {

@@ -752,6 +752,7 @@ export default function Products() {
     specifications: [],
     isActive: true,
     // Farmer & Farm Traceability
+    showFarmerTraceability: true,
     farmerName: '',
     farmerLocation: '',
     farmerImage: '',
@@ -1009,6 +1010,7 @@ export default function Products() {
       features: Array.isArray(options.features) ? [...options.features] : [],
       specifications: Array.isArray(options.specifications) ? [...options.specifications] : [],
       isActive: true,
+      showFarmerTraceability: options.showFarmerTraceability !== false,
       farmerName: options.farmerName || '',
       farmerLocation: options.farmerLocation || '',
       farmerImage: options.farmerImage || '',
@@ -1125,6 +1127,7 @@ export default function Products() {
       farmImage: product.farmImage,
       harvestingDate: product.harvestingDate,
       farmerDetails: product.farmerDetails,
+      showFarmerTraceability: product.showFarmerTraceability !== false,
       cardGlowColor: product.cardGlowColor,
       badge: product.badge,
       minOrderQuantity: product.minOrderQuantity,
@@ -1198,6 +1201,7 @@ export default function Products() {
         rackColumn: prod.rackColumn || '',
         farmerName: prod.farmerName || '',
         farmerLocation: prod.farmerLocation || '',
+        showFarmerTraceability: prod.showFarmerTraceability !== false,
       };
 
       await apiClient.put(`/products/${prod._id}`, payload);
@@ -1301,6 +1305,7 @@ export default function Products() {
       features: Array.isArray(product.features) ? [...product.features] : [],
       specifications: Array.isArray(product.specifications) ? [...product.specifications] : [],
       isActive: product.isActive !== undefined ? product.isActive : true,
+      showFarmerTraceability: product.showFarmerTraceability !== false,
       farmerName: product.farmerName || product.farmerDetails?.name || '',
       farmerLocation: product.farmerLocation || product.farmerDetails?.location || '',
       farmerImage: product.farmerImage || product.farmerDetails?.farmerImage || '',
@@ -1339,6 +1344,7 @@ export default function Products() {
   const handleAutoFillFarmer = () => {
     setFormData((prev) => ({
       ...prev,
+      showFarmerTraceability: true,
       farmerName: DEMO_FARMER.name,
       farmerLocation: DEMO_FARMER.location,
       farmerImage: DEMO_FARMER.farmerImage,
@@ -1892,6 +1898,7 @@ export default function Products() {
         deptNumber: formData.deptNumber?.trim() || '',
         rackRow: formData.rackRow?.trim() || '',
         rackColumn: formData.rackColumn?.trim() || '',
+        showFarmerTraceability: formData.showFarmerTraceability !== false,
         farmerName: formData.farmerName?.trim() || '',
         farmerLocation: formData.farmerLocation?.trim() || '',
         farmerImage: formData.farmerImage?.trim() || '',
@@ -2476,6 +2483,7 @@ export default function Products() {
   if (isEditorOpen) {
     const activeSteps = catalogMode === 'bulk' ? BULK_FORM_STEPS : RETAIL_FORM_STEPS;
     const isBulkEditor = catalogMode === 'bulk';
+    const farmerTraceabilityOn = formData.showFarmerTraceability !== false;
 
     return (
       <div className="space-y-5 pb-12">
@@ -2621,6 +2629,11 @@ export default function Products() {
                   <div className="min-w-0">
                     <div className="text-xs font-bold leading-tight truncate flex items-center gap-1.5">
                       <span>{step.title}</span>
+                      {step.id === 4 && !farmerTraceabilityOn ? (
+                        <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                          Off
+                        </span>
+                      ) : null}
                     </div>
                     <p className="text-[10px] text-slate-400 truncate hidden sm:block">
                       {step.subtitle}
@@ -4094,13 +4107,50 @@ export default function Products() {
                   <button
                     type="button"
                     onClick={handleAutoFillFarmer}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+                    disabled={!farmerTraceabilityOn}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors cursor-pointer shrink-0 self-start sm:self-auto disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                     <span>Auto Fill Example</span>
                   </button>
                 </div>
 
+                <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900">Farmer Traceability on product page</p>
+                    <p className="text-[11px] text-slate-500">
+                      {farmerTraceabilityOn
+                        ? 'Enabled — Meet Your Farmer and farm traceability are visible to customers.'
+                        : 'Disabled — Farmer Traceability is hidden on the product page. Other product details stay visible.'}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 rounded-lg border border-slate-200 bg-white p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, showFarmerTraceability: true })}
+                      className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                        farmerTraceabilityOn
+                          ? 'bg-emerald-700 text-white'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Enable
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, showFarmerTraceability: false })}
+                      className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                        !farmerTraceabilityOn
+                          ? 'bg-slate-700 text-white'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Disable
+                    </button>
+                  </div>
+                </div>
+
+                <fieldset disabled={!farmerTraceabilityOn} className="min-w-0 space-y-4 disabled:opacity-50">
                 <div>
                   <p className="text-xs font-bold text-slate-900">Meet Your Farmer</p>
                   <p className="text-[11px] text-slate-500">Name, location, farm size, photo, and story on the farmer card.</p>
@@ -4664,6 +4714,8 @@ export default function Products() {
                     className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
                   />
                 </div>
+
+                </fieldset>
 
                 {/* Step 4 Footer Action — Publish only on last screen */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">

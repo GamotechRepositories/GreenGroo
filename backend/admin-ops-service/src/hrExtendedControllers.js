@@ -305,18 +305,23 @@ export async function listLiveHrAnnouncements(req, res, next) {
     const queried = String(req.query.role || "").trim().toLowerCase();
     const roleKey = HR_ROLE_KEYS.includes(queried) ? queried : mapJwtRoleToHrKey(req.user?.role);
     if (!roleKey) return fail(res, 400, "role is required");
+    const today = todayYmd();
     const rows = await HrAnnouncement.find({
       status: "published",
       roleKey: { $in: ["all", roleKey] },
       ...liveHrOwnerFilter(req.user),
     })
       .sort({ publishedAt: -1, createdAt: -1 })
-      .limit(20)
+      .limit(40)
       .select("title body roleKey category scheduledAt publishedAt createdAt")
       .lean();
+    const live = rows.filter((row) => {
+      const date = String(row.scheduledAt || row.publishedAt || row.createdAt || "").slice(0, 10);
+      return !date || date >= today;
+    });
     return ok(
       res,
-      rows.map((row) => ({
+      live.slice(0, 20).map((row) => ({
         ...row,
         kind: announcementKind(row),
         category: announcementKind(row),
@@ -909,9 +914,6 @@ export async function listLiveHrCalendar(req, res, next) {
     const horizon = new Date();
     horizon.setDate(horizon.getDate() + 30);
     const until = todayYmd(horizon);
-    const recentCut = new Date();
-    recentCut.setDate(recentCut.getDate() - 14);
-    const recentDay = todayYmd(recentCut);
     const viewerVendorId = String(req.user?.vendorId || "").trim();
     const teamShiftFilter =
       viewerVendorId && VENDOR_HR_ROLE_KEYS.includes(roleKey)
@@ -951,7 +953,7 @@ export async function listLiveHrCalendar(req, res, next) {
         if (!date) return null;
         if (row.status === "scheduled") {
           if (date < today || date > until) return null;
-        } else if (date < recentDay) {
+        } else if (date < today) {
           return null;
         }
         const kind = announcementKind(row);

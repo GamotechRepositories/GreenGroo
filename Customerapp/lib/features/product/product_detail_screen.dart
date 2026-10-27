@@ -312,7 +312,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       if (showVariants) _buildQuantitySelector(product, activeVariantName),
       _buildHighlightsRow(context, product, activeVariantName),
       if (hasBrandOrWarranty) _buildBrandAndWarranty(context, product),
-      if (!product.farmer.isEmpty) FarmerTraceabilityCard(product: product),
+      if (product.showFarmerTraceability && !product.farmer.isEmpty)
+        FarmerTraceabilityCard(product: product),
     ];
 
     return PopScope(

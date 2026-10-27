@@ -290,8 +290,9 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Crops",
     icon: "crops",
     children: [
-      { to: "/manager/crops", label: "All Crops", end: true },
+      { to: "/manager/crops", label: "My Crops", end: true },
       { to: "/manager/crops/add", label: "Add Crop" },
+      { to: "/manager/crop-planning", label: "Crop Planning" },
     ],
   },
   {
@@ -299,18 +300,12 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Products",
     icon: "products",
     children: [
-      { to: "/manager/products", label: "All Products", end: true },
+      { to: "/manager/products", label: "My Products", end: true },
       { to: "/manager/products/add", label: "Add Product" },
+      { to: "/manager/products/details", label: "Product Details" },
     ],
   },
-  {
-    id: "inventory",
-    label: "Inventory",
-    icon: "inventory",
-    children: [
-      { to: "/manager/inventory/history", label: "Inventory History" },
-    ],
-  },
+  { to: "/manager/inventory", label: "Inventory", icon: "inventory" },
   {
     id: "orders",
     label: "Orders",

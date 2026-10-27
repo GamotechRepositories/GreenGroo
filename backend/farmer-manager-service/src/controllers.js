@@ -237,12 +237,16 @@ function indexFarmersByIdentity(farmers) {
   const farmerMap = new Map();
   const ids = [];
   farmers.forEach((f) => {
-    [f.id, f.farmerId].filter(Boolean).forEach((id) => {
+    [f.id, f.farmerId, f.farmerCode].filter(Boolean).forEach((id) => {
       ids.push(id);
       farmerMap.set(id, f);
     });
   });
   return { ids: [...new Set(ids)], farmerMap };
+}
+
+function farmerIdentityIds(farmer, extraId) {
+  return [...new Set([farmer?.id, farmer?.farmerId, farmer?.farmerCode, extraId].filter(Boolean))];
 }
 
 function accessibleFarmerQuery(req, farmerId) {
@@ -1797,6 +1801,8 @@ function publicCrop(crop, farmer) {
   return {
     ...plain,
     cropId: plain.cropId || plain.id,
+    farmerId: farmer?.id || plain.farmerId,
+    farmerName: farmer?.name || plain.farmerName || "",
     ...farmSummary(farmer),
   };
 }
@@ -1961,11 +1967,9 @@ async function normalizeProductList(products) {
 export async function listFarmerCrops(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const [farmer, crops] = await Promise.all([
-      Farmer.findOne({ id: farmerId }).lean(),
-      FarmerCrop.find({ farmerId }).sort({ createdAt: -1 }),
-    ]);
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }, { farmerCode: farmerId }] }).lean();
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crops = await FarmerCrop.find({ farmerId: { $in: farmerIdentityIds(farmer, farmerId) } }).sort({ createdAt: -1 });
     const normalized = await normalizeCropList(crops);
     res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
@@ -2088,7 +2092,7 @@ async function resolveProductIdsFromCrop(farmer, crop, cropName, variety) {
   return { id, productId, cropBusinessId: cropDoc?.cropId || "" };
 }
 
-async function persistNewCrop(farmer, parsed) {
+async function persistNewCrop(farmer, parsed, extras = {}) {
   const cropId = await resolveSharedCropBusinessId(parsed);
   const id = await uniqueCropRecordId(cropId, farmer);
   const crop = await FarmerCrop.create({
@@ -2111,6 +2115,9 @@ async function persistNewCrop(farmer, parsed) {
     irrigationType: parsed.irrigationType,
     photos: parsed.photos,
     status: deriveCropStatus(parsed.sowingDate, parsed.expectedHarvestDate),
+    approvalStatus: extras.approvalStatus || "Approved",
+    requestedBy: extras.requestedBy || "",
+    rejectionReason: "",
   });
   await syncFarmerCropToErp(crop, farmer);
   await ensureEntityQr({
@@ -2176,8 +2183,50 @@ export async function createFarmerCrop(req, res) {
       });
     }
 
-    const { crop, plan } = await persistNewCrop(farmer, parsed);
-    res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
+    const existing = await FarmerCrop.findOne({
+      farmerId: { $in: farmerIdentityIds(farmer) },
+      cropName: new RegExp(`^${String(parsed.cropName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      variety: new RegExp(`^${String(parsed.variety).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+    });
+    if (existing) {
+      const approval = String(existing.approvalStatus || "Approved");
+      if (approval === "Pending") {
+        return res.status(409).json({ message: "A request for this crop is already waiting for collection centre approval." });
+      }
+      if (approval === "Approved") {
+        return res.status(409).json({ message: "This crop is already in your farm." });
+      }
+      existing.approvalStatus = "Pending";
+      existing.rejectionReason = "";
+      existing.requestedBy = "farmer";
+      existing.area = parsed.area;
+      existing.areaUnit = parsed.areaUnit;
+      existing.sowingDate = parsed.sowingDate;
+      existing.expectedHarvestDate = parsed.expectedHarvestDate;
+      existing.estimatedQuantity = parsed.estimatedQuantity;
+      existing.unit = parsed.unit;
+      existing.farmingMethod = parsed.farmingMethod;
+      existing.farmingType = parsed.farmingType;
+      existing.irrigationType = parsed.irrigationType;
+      if (parsed.photos?.length) existing.photos = parsed.photos;
+      await existing.save();
+      const plan = await upsertCropPlan(farmer.id, existing);
+      return res.json({
+        ...publicCrop(existing, farmer),
+        plan: publicPlan(plan, existing),
+        message: "Crop request re-submitted to your collection centre for approval.",
+      });
+    }
+
+    const { crop, plan } = await persistNewCrop(farmer, parsed, {
+      approvalStatus: "Pending",
+      requestedBy: "farmer",
+    });
+    res.status(201).json({
+      ...publicCrop(crop, farmer),
+      plan: publicPlan(plan, crop),
+      message: "Crop request sent to your collection centre for approval.",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create crop" });
   }
@@ -2216,7 +2265,7 @@ export async function getManagedFarmerCrops(req, res) {
     const { farmerId } = req.params;
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    const crops = await FarmerCrop.find({ farmerId: farmer.id }).sort({ createdAt: -1 });
+    const crops = await FarmerCrop.find({ farmerId: { $in: farmerIdentityIds(farmer, farmerId) } }).sort({ createdAt: -1 });
     const normalized = await normalizeCropList(crops);
     res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
@@ -2230,13 +2279,13 @@ export async function getManagedFarmerCrop(req, res) {
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crop = await FarmerCrop.findOne({
-      farmerId: farmer.id,
+      farmerId: { $in: farmerIdentityIds(farmer, farmerId) },
       $or: [{ id: cropId }, { cropId }, { previousCropId: cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
     const normalized = await ensureSharedCropBusinessId(crop);
     const plan = await FarmerCropPlan.findOne({
-      farmerId: farmer.id,
+      farmerId: { $in: farmerIdentityIds(farmer, farmerId) },
       $or: [{ cropId: normalized.id }, { cropId: normalized.cropId }],
     }).lean();
     res.json({ ...publicCrop(normalized, farmer), plan: plan ? publicPlan(plan, normalized) : null });
@@ -2248,16 +2297,17 @@ export async function getManagedFarmerCrop(req, res) {
 export async function createManagedFarmerCrop(req, res) {
   try {
     const farmerParam = req.params.farmerId;
+    const isManager = req.user?.role === "FARMER_MANAGER";
+    if (isManager && (!farmerParam || farmerParam === "general")) {
+      return res.status(400).json({ message: "Select a farmer to add this crop" });
+    }
     let farmer = null;
     if (farmerParam && farmerParam !== "general") {
       farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerParam));
-      if (!farmer) {
-        farmer = await Farmer.findOne({
-          $or: [{ id: farmerParam }, { farmerId: farmerParam }],
-        });
-      }
     }
-    // Catalog crops (no farmer in the URL) land on a placeholder farmer and must not notify anyone.
+    if (isManager && !farmer) {
+      return res.status(404).json({ message: "Farmer not found" });
+    }
     const forChosenFarmer = Boolean(farmer);
     if (!farmer) {
       if (req.user?.vendorId) {
@@ -2266,24 +2316,39 @@ export async function createManagedFarmerCrop(req, res) {
       if (!farmer && req.user?.managerId) {
         farmer = await Farmer.findOne({ managerId: req.user.managerId });
       }
-      if (!farmer) {
-        farmer = await Farmer.findOne({});
-      }
     }
     if (!farmer) {
-      farmer = await Farmer.create({
-        id: "farmer-master-catalog",
-        farmerId: "GGC-FR-MH-AHI-SAN-00001",
-        vendorId: req.user?.vendorId || "vendor-1",
-        managerId: req.user?.managerId || "mgr-1",
-        name: "Master Crop Catalog",
-        mobile: "9999999999",
-      });
+      return res.status(404).json({ message: "Farmer not found" });
     }
 
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
-    const { crop, plan } = await persistNewCrop(farmer, parsed);
+    const vendorId = farmer.vendorId || req.user?.vendorId || "";
+    const available = await vendorAvailableCrops(vendorId);
+    if (!available.length) {
+      return res.status(400).json({
+        message: "Your collection centre has no crops yet. Ask them to add crops first.",
+      });
+    }
+    if (!isCropAvailableForVendor(available, parsed.cropName, parsed.variety)) {
+      return res.status(400).json({
+        message: "Choose a crop from your collection centre crop list.",
+      });
+    }
+    const nameRx = new RegExp(`^${String(parsed.cropName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    const varietyRx = new RegExp(`^${String(parsed.variety).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+    const existing = await FarmerCrop.findOne({
+      farmerId: { $in: farmerIdentityIds(farmer, farmerParam) },
+      cropName: nameRx,
+      variety: varietyRx,
+    });
+    if (existing) {
+      return res.status(409).json({ message: "This crop is already added for this farmer." });
+    }
+    const { crop, plan } = await persistNewCrop(farmer, parsed, {
+      approvalStatus: "Approved",
+      requestedBy: req.user?.role || "vendor",
+    });
     if (forChosenFarmer && isStaffChange(req)) pushFarmerCropChange(crop, { isNew: true });
     res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
   } catch (err) {
@@ -2296,7 +2361,7 @@ export async function updateManagedFarmerCrop(req, res) {
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crop = await FarmerCrop.findOne({
-      farmerId: farmer.id,
+      farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
       $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
@@ -2309,17 +2374,43 @@ export async function updateManagedFarmerCrop(req, res) {
   }
 }
 
+export async function updateManagedCropPlan(req, res) {
+  try {
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const cropId = req.params.cropId;
+    const ids = farmerIdentityIds(farmer, req.params.farmerId);
+    const crop = await FarmerCrop.findOne({
+      farmerId: { $in: ids },
+      $or: [{ id: cropId }, { cropId }, { previousCropId: cropId }],
+    });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    let plan = await FarmerCropPlan.findOne({
+      farmerId: { $in: ids },
+      $or: [{ cropId: crop.id }, { cropId: crop.cropId }, { id: cropId }, { planId: cropId }],
+    });
+    if (!plan) {
+      plan = await upsertCropPlan(farmer.id, crop);
+    }
+    await updatePlanFields(plan, req.body || {}, crop, res);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || "Failed to update crop plan" });
+    }
+  }
+}
+
 export async function deleteManagedFarmerCrop(req, res) {
   try {
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crop = await FarmerCrop.findOne({
-      farmerId: farmer.id,
+      farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
       $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
     await FarmerCropPlan.deleteMany({
-      farmerId: farmer.id,
+      farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
       $or: [{ cropId: crop.id }, { cropId: crop.cropId }],
     });
     await FarmerCrop.deleteOne({ id: crop.id });
@@ -2598,10 +2689,17 @@ function publicMyProduct(product, farmer, crop) {
 }
 
 async function loadOwnProduct(req, res) {
-  const farmerId = authFarmerId(req);
   const productId = req.params.productId;
-    const product = await FarmerProduct.findOne({
-    farmerId,
+  if (req.params.farmerId) {
+    const loaded = await loadAccessibleFarmerProduct(req, res);
+    return loaded?.product || null;
+  }
+  const farmerId = authFarmerId(req);
+  const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }, { farmerCode: farmerId }] });
+  const ids = farmerIdentityIds(farmer, farmerId);
+  const product = await FarmerProduct.findOne({
+    farmerId: { $in: ids },
+    isDeleted: { $ne: true },
     $or: [{ id: productId }, { productId }, { previousProductId: productId }],
   });
   if (!product) {
@@ -2713,21 +2811,18 @@ function applyProductFields(product, parsed, farmer, crop) {
 export async function listMyProducts(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const query = { farmerId, isDeleted: { $ne: true } };
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }, { farmerCode: farmerId }] }).lean();
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const ids = farmerIdentityIds(farmer, farmerId);
+    const query = { farmerId: { $in: ids }, isDeleted: { $ne: true } };
     if (req.query?.status) {
       query.status = req.query.status;
-    } else {
-      query.status = { $in: ["Active", "Approved", "Published"] };
     }
-    const [farmer, products] = await Promise.all([
-      Farmer.findOne({ id: farmerId }).lean(),
-      FarmerProduct.find(query).sort({ createdAt: -1 }),
-    ]);
-    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const products = await FarmerProduct.find(query).sort({ createdAt: -1 });
     const upgraded = await normalizeProductList(products);
     const cropIds = [...new Set(products.map((p) => p.cropId).filter(Boolean))];
     const crops = cropIds.length
-      ? await FarmerCrop.find({ farmerId, $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }] }).lean()
+      ? await FarmerCrop.find({ farmerId: { $in: ids }, $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }] }).lean()
       : [];
     const cropMap = new Map(crops.map((c) => [c.id, c]));
     crops.forEach((c) => cropMap.set(c.cropId, c));
@@ -2815,7 +2910,7 @@ export async function createManagedFarmerProduct(req, res) {
     let crop = null;
     if (parsed.cropId) {
       crop = await FarmerCrop.findOne({
-        farmerId: farmer.id,
+        farmerId: { $in: farmerIdentityIds(farmer, farmerId) },
         $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }],
       });
       if (!crop) return res.status(400).json({ message: "Selected crop was not found on this farm" });
@@ -2856,6 +2951,67 @@ export async function createManagedFarmerProduct(req, res) {
     res.status(201).json(publicMyProduct(product, farmer, crop));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create product" });
+  }
+}
+
+export async function updateManagedFarmerProduct(req, res) {
+  try {
+    const loaded = await loadAccessibleFarmerProduct(req, res);
+    if (!loaded) return;
+    const { farmer, product } = loaded;
+    const current = normalizeProductStatus(product.status);
+    if (current === "Pending Approval") {
+      return res.status(400).json({ message: "Product is pending approval and cannot be edited" });
+    }
+
+    const publish = Boolean(req.body?.publish);
+    const parsed = validateMyProductPayload({ ...toPlain(product), ...(req.body || {}), media: req.body?.media || product.media }, { publish });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    let crop = null;
+    if (parsed.cropId) {
+      crop = await FarmerCrop.findOne({
+        farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
+        $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }],
+      });
+      if (!crop) return res.status(400).json({ message: "Selected crop was not found on this farm" });
+      crop = await ensureSharedCropBusinessId(crop);
+      parsed.cropId = crop.cropId || crop.id;
+    }
+
+    applyProductFields(product, parsed, farmer, crop);
+    if (req.body?.farmLocation) product.farmLocation = String(req.body.farmLocation).trim();
+    if (req.body?.availableForDelivery !== undefined) {
+      product.availableForDelivery = req.body.availableForDelivery === true || req.body.availableForDelivery === "yes";
+    }
+    if (req.body?.category) product.category = String(req.body.category).trim();
+    if (req.body?.produceType) {
+      product.produceType = String(req.body.produceType);
+      product.organic = product.produceType !== "non-organic";
+    } else if (req.body?.organic !== undefined) {
+      product.organic = Boolean(req.body.organic);
+      product.produceType = product.organic ? "organic" : "non-organic";
+    }
+    if (publish) {
+      product.status = "Pending Approval";
+      product.rejectionReason = "";
+    } else if (req.body?.status) {
+      const next = normalizeProductStatus(req.body.status);
+      if (next === "Pending Approval") {
+        const published = validateMyProductPayload({ ...toPlain(product), ...parsed, media: parsed.media }, { publish: true });
+        if (published.error) return res.status(400).json({ message: published.error });
+        product.status = "Pending Approval";
+      } else {
+        product.status = next;
+      }
+    } else if (!LIFECYCLE_LOCKED.includes(current)) {
+      product.status = applyStockDrivenStatus(current, parsed.availableQuantity, parsed.lowStockLimit);
+    }
+    await product.save();
+    if (isStaffChange(req)) pushFarmerProductChange(product);
+    res.json(publicMyProduct(product, farmer, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update product" });
   }
 }
 
@@ -4140,13 +4296,31 @@ export async function getFarmerDashboard(req, res) {
 export async function getFarmerProducts(req, res) {
   try {
     const { farmerId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    }
-    const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 });
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const ids = farmerIdentityIds(farmer, farmerId);
+    const products = await FarmerProduct.find({
+      farmerId: { $in: ids },
+      isDeleted: { $ne: true },
+    }).sort({ createdAt: -1 });
     const upgraded = await normalizeProductList(products);
-    res.json(upgraded.map((p) => enrichProductRow(toPlain(p))));
+    const cropIds = [...new Set(upgraded.map((p) => p.cropId).filter(Boolean))];
+    const crops = cropIds.length
+      ? await FarmerCrop.find({
+          farmerId: { $in: ids },
+          $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }],
+        }).lean()
+      : [];
+    const cropMap = new Map();
+    crops.forEach((c) => {
+      cropMap.set(c.id, c);
+      if (c.cropId) cropMap.set(c.cropId, c);
+    });
+    res.json(
+      upgraded.map((p) =>
+        enrichProductRow(publicMyProduct(p, farmer, cropMap.get(p.cropId)), farmer.name)
+      )
+    );
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
   }
@@ -4154,17 +4328,17 @@ export async function getFarmerProducts(req, res) {
 
 export async function getFarmerProductById(req, res) {
   try {
-    const { farmerId, productId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    }
-    const product = await FarmerProduct.findOne({
-      farmerId,
-      $or: [{ id: productId }, { productId }, { previousProductId: productId }],
-    });
-    if (!product) return res.status(404).json({ message: "Product not found" });
-    res.json(await upgradeFarmerProductId(product));
+    const loaded = await loadAccessibleFarmerProduct(req, res);
+    if (!loaded) return;
+    const { farmer, product } = loaded;
+    const upgraded = await upgradeFarmerProductId(product);
+    const crop = upgraded.cropId
+      ? await FarmerCrop.findOne({
+          farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
+          $or: [{ id: upgraded.cropId }, { cropId: upgraded.cropId }],
+        })
+      : null;
+    res.json(publicMyProduct(upgraded, farmer, crop));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch product" });
   }
@@ -4178,7 +4352,8 @@ async function loadAccessibleFarmerProduct(req, res) {
     return null;
   }
   const product = await FarmerProduct.findOne({
-    farmerId,
+    farmerId: { $in: farmerIdentityIds(farmer, farmerId) },
+    isDeleted: { $ne: true },
     $or: [{ id: productId }, { productId }, { previousProductId: productId }],
   });
   if (!product) {
@@ -4426,9 +4601,11 @@ export async function updateFarmerProduct(req, res) {
 
 export async function deleteFarmerProduct(req, res) {
   try {
-    const { farmerId, productId } = req.params;
-    await FarmerProduct.deleteOne({ id: productId, farmerId });
-    await FarmerStockHistory.deleteMany({ productId });
+    const loaded = await loadAccessibleFarmerProduct(req, res);
+    if (!loaded) return;
+    const { farmer, product } = loaded;
+    await FarmerProduct.deleteOne({ id: product.id, farmerId: product.farmerId });
+    await FarmerStockHistory.deleteMany({ productId: product.id, farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) } });
     res.json({ success: true, message: "Product deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete product" });
@@ -4441,11 +4618,12 @@ export async function deleteFarmerProduct(req, res) {
 export async function getFarmerInventory(req, res) {
   try {
     const { farmerId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    }
-    const products = await FarmerProduct.find({ farmerId }).select("-images -description").lean();
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const products = await FarmerProduct.find({
+      farmerId: { $in: farmerIdentityIds(farmer, farmerId) },
+      isDeleted: { $ne: true },
+    }).select("-images -description").lean();
     const inventoryList = [];
 
     products.forEach((p) => {
@@ -4483,13 +4661,17 @@ export async function getFarmerInventory(req, res) {
 export async function adjustFarmerStock(req, res) {
   try {
     const { farmerId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer && (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER")) {
+      return res.status(404).json({ message: "Farmer not found" });
     }
     const { productId, gradeId, change, grade, updatedBy = "Vendor", reason = "Manual Update", reference = "—" } = req.body;
+    const farmerIds = farmer ? farmerIdentityIds(farmer, farmerId) : [farmerId];
 
-    const product = await FarmerProduct.findOne({ id: productId, farmerId });
+    const product = await FarmerProduct.findOne({
+      farmerId: { $in: farmerIds },
+      $or: [{ id: productId }, { productId }],
+    });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const delta = Number(change) || 0;
@@ -4531,9 +4713,9 @@ export async function adjustFarmerStock(req, res) {
       id: `sh-${Date.now()}`,
       vendorId: product.vendorId,
       managerId: product.managerId,
-      farmerId,
-      productId,
-      productName: product.name,
+      farmerId: product.farmerId || farmer?.id || farmerId,
+      productId: product.id || productId,
+      productName: product.name || product.productName,
       grade: grades[gIdx].label,
       action: appliedChange >= 0 ? "Stock Added" : "Stock Reduced",
       previousStock: prevStock,
@@ -4565,14 +4747,15 @@ export async function adjustFarmerStock(req, res) {
 export async function getStockHistory(req, res) {
   try {
     const { farmerId } = req.params;
-    if (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER") {
-      const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
-      if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer && (req.user?.role === "VENDOR" || req.user?.role === "FARMER_MANAGER" || req.user?.role === "FARMER")) {
+      return res.status(404).json({ message: "Farmer not found" });
     }
     const { productId } = req.query;
+    const farmerIds = farmer ? farmerIdentityIds(farmer, farmerId) : [farmerId];
 
-    const query = { farmerId };
-    if (productId) query.productId = productId;
+    const query = { farmerId: { $in: farmerIds } };
+    if (productId) query.productId = { $in: [productId] };
 
     if (isPaginationRequested(req.query)) {
       const { page, limit, skip } = getPageParams(req.query, PAGE_LIMITS.stockHistory);
@@ -6422,18 +6605,15 @@ export async function getVendorAllCrops(req, res) {
     const farmerMap = new Map();
     const vendorFarmerIds = [];
     farmers.forEach((f) => {
-      if (f.id) {
-        farmerMap.set(f.id, f);
-        vendorFarmerIds.push(f.id);
-      }
-      if (f.farmerId) {
-        farmerMap.set(f.farmerId, f);
-        vendorFarmerIds.push(f.farmerId);
-      }
+      [f.id, f.farmerId, f.farmerCode].filter(Boolean).forEach((id) => {
+        farmerMap.set(id, f);
+        vendorFarmerIds.push(id);
+      });
     });
 
     const crops = await FarmerCrop.find({
       $or: [{ vendorId }, { farmerId: { $in: vendorFarmerIds } }],
+      approvalStatus: { $nin: ["Pending", "Rejected"] },
     })
       .select(CROP_LIST_EXCLUDE)
       .sort({ createdAt: -1 })
@@ -6446,16 +6626,113 @@ export async function getVendorAllCrops(req, res) {
         const f = farmerMap.get(c.farmerId) || {};
         return {
           ...c,
+          farmerId: f.id || f.farmerId || c.farmerId,
           farmerName: f.name || c.farmerName || "—",
           farmerMobile: f.mobile || c.farmerMobile || "",
           farmerCode: f.farmerCode || f.farmerId || f.id || c.farmerId,
           farmerLocation: f.farmLocation || f.location || c.farmerLocation || "",
+          farmName: f.farmName || "",
           managerName: f.managerName || c.managerName || "—",
         };
       }),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch crops" });
+  }
+}
+
+function serializeVendorFarmerCrop(crop, farmer = {}) {
+  return {
+    ...crop,
+    farmerId: farmer.id || farmer.farmerId || crop.farmerId,
+    farmerName: farmer.name || crop.farmerName || "—",
+    farmerMobile: farmer.mobile || crop.farmerMobile || "",
+    farmerCode: farmer.farmerCode || farmer.farmerId || farmer.id || crop.farmerId,
+    farmerLocation: farmer.farmLocation || farmer.location || crop.farmerLocation || "",
+    managerName: farmer.managerName || crop.managerName || "—",
+    approvalStatus: crop.approvalStatus || "Approved",
+  };
+}
+
+export async function getVendorFarmerCropRequests(req, res) {
+  try {
+    const vendorId = req.user?.vendorId || req.user?.id || "";
+    if (!vendorId) return res.json({ farmers: [], crops: [], stats: { pending: 0, approved: 0, rejected: 0 } });
+
+    const farmers = await Farmer.find({ vendorId, isDeleted: { $ne: true } })
+      .select("id farmerId name mobile farmName farmLocation location farmerCode managerName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const farmerMap = new Map();
+    const vendorFarmerIds = [];
+    farmers.forEach((f) => {
+      [f.id, f.farmerId, f.farmerCode].filter(Boolean).forEach((id) => {
+        farmerMap.set(id, f);
+        vendorFarmerIds.push(id);
+      });
+    });
+
+    const requested = { approvalStatus: { $in: ["Pending", "Approved", "Rejected"] } };
+    const cropFilter = vendorFarmerIds.length
+      ? { $and: [{ $or: [{ vendorId }, { farmerId: { $in: vendorFarmerIds } }] }, requested] }
+      : { vendorId, ...requested };
+
+    const allRequested = vendorFarmerIds.length || vendorId
+      ? await FarmerCrop.find(cropFilter).select(CROP_LIST_EXCLUDE).sort({ createdAt: -1 }).lean()
+      : [];
+
+    const stats = { pending: 0, approved: 0, rejected: 0 };
+    allRequested.forEach((crop) => {
+      const key = String(crop.approvalStatus || "").toLowerCase();
+      if (key === "pending") stats.pending += 1;
+      else if (key === "rejected") stats.rejected += 1;
+      else stats.approved += 1;
+    });
+
+    const status = String(req.query.status || "Pending").trim();
+    const crops = (status && status !== "all"
+      ? allRequested.filter((crop) => String(crop.approvalStatus || "") === status)
+      : allRequested
+    ).map((crop) => serializeVendorFarmerCrop(crop, farmerMap.get(crop.farmerId) || {}));
+
+    res.json({ farmers, crops, stats });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load farmer crop requests" });
+  }
+}
+
+export async function reviewFarmerCrop(req, res) {
+  try {
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crop = await FarmerCrop.findOne({
+      farmerId: { $in: farmerIdentityIds(farmer, req.params.farmerId) },
+      $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
+    });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    if (String(crop.approvalStatus || "") !== "Pending") {
+      return res.status(400).json({ message: "Only pending crop requests can be reviewed" });
+    }
+
+    const decision = String(req.body?.decision || req.body?.status || "").trim().toLowerCase();
+    const reviewer = req.user?.name || req.user?.role || "";
+    if (["approved", "approve", "active"].includes(decision)) {
+      crop.approvalStatus = "Approved";
+      crop.rejectionReason = "";
+    } else if (["rejected", "reject"].includes(decision)) {
+      crop.approvalStatus = "Rejected";
+      crop.rejectionReason = String(req.body?.reason || req.body?.rejectionReason || "").trim();
+    } else {
+      return res.status(400).json({ message: "Decision must be approved or rejected" });
+    }
+    crop.reviewedBy = reviewer;
+    crop.reviewedAt = new Date();
+    await crop.save();
+    if (isStaffChange(req)) pushFarmerCropChange(crop);
+    res.json(publicCrop(crop, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to review crop request" });
   }
 }
 
@@ -6487,36 +6764,42 @@ export async function getVendorAllProducts(req, res) {
     }
 
     const farmers = await Farmer.find({ vendorId, isDeleted: { $ne: true } })
-      .select("id name mobile farmName")
+      .select("id farmerId farmerCode name mobile farmName farmLocation location")
       .sort({ createdAt: -1 })
       .lean();
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
 
-    const farmerIds = farmers.map((f) => f.id);
-    const vendorProductScope = {
-      $or: [{ vendorId }, { farmerId: { $in: farmerIds } }],
+    const scopedIds = req.query.farmerId
+      ? farmerIdentityIds(farmerMap.get(String(req.query.farmerId)), String(req.query.farmerId)).filter((id) => farmerIds.includes(id))
+      : farmerIds;
+    const farmerProductScope = scopedIds.length
+      ? { farmerId: { $in: scopedIds }, isDeleted: { $ne: true } }
+      : { farmerId: "__none__", isDeleted: { $ne: true } };
+
+    const withFarmer = (p) => {
+      const f = farmerMap.get(p.farmerId) || {};
+      return enrichProductRow({
+        ...p,
+        farmerId: f.id || p.farmerId,
+        farmerName: f.name || p.farmerName || "—",
+      }, f.name || p.farmerName || "—");
     };
 
     if (isPaginationRequested(req.query)) {
-      const filter = applyProductPageFilters({ ...vendorProductScope }, req.query);
-      if (req.query.farmerId) filter.farmerId = String(req.query.farmerId);
-      const [farmersList, { page, limit, total, products }] = await Promise.all([
-        Farmer.find({ vendorId, isDeleted: { $ne: true } }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
-        findProductPage(filter, req.query),
-      ]);
-      const farmerNameMap = new Map(farmersList.map((f) => [f.id, f.name]));
-      const rows = products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—"));
-      return res.json({ ...paginatedResponse(rows, total, page, limit), farmers: farmersList });
+      const filter = applyProductPageFilters({ ...farmerProductScope }, req.query);
+      const { page, limit, total, products } = await findProductPage(filter, req.query);
+      return res.json({ ...paginatedResponse(products.map(withFarmer), total, page, limit), farmers });
     }
 
-    const products = await FarmerProduct.find(vendorProductScope)
+    if (!farmerIds.length) return res.json({ farmers, products: [] });
+    const products = await FarmerProduct.find(farmerProductScope)
       .select(PRODUCT_LIST_EXCLUDE)
       .sort({ createdAt: -1 })
       .lean();
 
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
     res.json({
       farmers,
-      products: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+      products: products.map(withFarmer),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
@@ -6790,6 +7073,7 @@ export async function getManagerAllCrops(req, res) {
         const f = farmerMap.get(c.farmerId) || {};
         return {
           ...c,
+          farmerId: f.id || c.farmerId,
           farmerName: f.name || c.farmerName || "—",
           farmerMobile: f.mobile || c.farmerMobile || "",
           farmerCode: f.farmerCode || f.farmerId || f.id || c.farmerId,
@@ -6805,19 +7089,24 @@ export async function getManagerAllCrops(req, res) {
 
 export async function getManagerAllProducts(req, res) {
   try {
-    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
-    const farmerIds = farmers.map((f) => f.id);
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const assignedFarmers = await getAssignedFarmers(req);
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(assignedFarmers);
+    const farmers = attachFarmerMeta(assignedFarmers);
     if (isPaginationRequested(req.query)) {
       const requested = req.query.farmerId ? String(req.query.farmerId) : "";
-      const scopedIds = requested ? farmerIds.filter((id) => id === requested) : farmerIds;
+      const scopedIds = requested
+        ? farmerIdentityIds(farmerMap.get(requested), requested).filter((id) => farmerIds.includes(id))
+        : farmerIds;
       if (!scopedIds.length) {
         const { page, limit } = getPageParams(req.query, PAGE_LIMITS.products);
         return res.json({ ...paginatedResponse([], 0, page, limit), farmers });
       }
       const filter = applyProductPageFilters({ farmerId: { $in: scopedIds } }, req.query);
       const { page, limit, total, products } = await findProductPage(filter, req.query);
-      const rows = products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—"));
+      const rows = products.map((p) => {
+        const f = farmerMap.get(p.farmerId) || {};
+        return enrichProductRow(p, f.name || p.farmerName || "—");
+      });
       return res.json({ ...paginatedResponse(rows, total, page, limit), farmers });
     }
     if (!farmerIds.length) return res.json({ farmers, products: [] });
@@ -6827,7 +7116,14 @@ export async function getManagerAllProducts(req, res) {
       .lean();
     res.json({
       farmers,
-      products: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+      products: products.map((p) => {
+        const f = farmerMap.get(p.farmerId) || {};
+        return enrichProductRow({
+          ...p,
+          farmerId: f.id || p.farmerId,
+          farmerName: f.name || p.farmerName || "—",
+        }, f.name || p.farmerName || "—");
+      }),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
@@ -6892,8 +7188,12 @@ export async function getManagerAllInventory(req, res) {
     res.json({
       farmers,
       inventory: products.map((p) => {
-        const f = farmerMap.get(p.farmerId);
-        return enrichProductRow(p, f?.name || f?.fullName || "—");
+        const f = farmerMap.get(p.farmerId) || {};
+        return enrichProductRow({
+          ...p,
+          farmerId: f.id || p.farmerId,
+          farmerName: f.name || f.fullName || p.farmerName || "—",
+        }, f.name || f.fullName || "—");
       }),
     });
   } catch (err) {

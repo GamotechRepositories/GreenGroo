@@ -284,7 +284,23 @@ export async function getCrops() {
 }
 
 export async function getCropsCatalog() {
-  return apiFetch("/api/farmer/crops/catalog", { headers: authHeaders() }).catch(() => []);
+  return apiFetch("/api/farmer/crops/vendor-available", { headers: authHeaders() })
+    .then((res) => {
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.crops)) return res.crops;
+      return [];
+    })
+    .catch(() => []);
+}
+
+export async function getVendorProductsCatalog() {
+  return apiFetch("/api/farmer/products/vendor-available", { headers: authHeaders() })
+    .then((res) => {
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.products)) return res.products;
+      return [];
+    })
+    .catch(() => []);
 }
 
 export async function getCrop(cropId) {

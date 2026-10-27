@@ -46,6 +46,7 @@ class Product {
     this.certification = '',
     this.hotSelling = false,
     this.justArrived = false,
+    this.showFarmerTraceability = true,
     this.farmer = const FarmerTrace(),
   });
 
@@ -90,6 +91,7 @@ class Product {
   final String certification;
   final bool hotSelling;
   final bool justArrived;
+  final bool showFarmerTraceability;
   final FarmerTrace farmer;
 
   String? get primaryImage =>
@@ -178,6 +180,7 @@ class Product {
       certification: certification,
       hotSelling: hotSelling,
       justArrived: justArrived,
+      showFarmerTraceability: showFarmerTraceability,
       farmer: farmer,
     );
   }
@@ -252,6 +255,7 @@ class Product {
       certification: json['certification']?.toString() ?? '',
       hotSelling: json['hotSelling'] == true,
       justArrived: json['justArrived'] == true,
+      showFarmerTraceability: json['showFarmerTraceability'] != false,
       farmer: FarmerTrace.fromProductJson(json),
     );
   }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ProductMediaFields from "./ProductMediaFields";
 import { CROP_UNITS, FARMING_TYPES, PRODUCT_GRADE_OPTIONS } from "../../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY, FORM_CONTROL, FORM_INPUT } from "../../utils/excelStyles";
@@ -49,6 +49,27 @@ function emptyForm(defaults = {}) {
   };
 }
 
+function catalogName(item) {
+  return String(item?.productName || item?.name || item?.cropName || "").trim();
+}
+
+function catalogVariety(item) {
+  return String(item?.variety || item?.varietyName || "").trim();
+}
+
+function matchFarmerCrop(crops, productName, variety) {
+  const name = String(productName || "").trim().toLowerCase();
+  const varName = String(variety || "").trim().toLowerCase();
+  if (!name) return null;
+  const exact = crops.find((c) => {
+    const cName = String(c.cropName || "").trim().toLowerCase();
+    const cVar = String(c.variety || "").trim().toLowerCase();
+    return cName === name && (!varName || !cVar || cVar === varName);
+  });
+  if (exact) return exact;
+  return crops.find((c) => String(c.cropName || "").trim().toLowerCase() === name) || null;
+}
+
 function payloadFromForm(form) {
   const grades = form.grades
     .filter((g) => g.grade)
@@ -92,6 +113,7 @@ function payloadFromForm(form) {
 
 export default function ProductManageForm({
   crops = [],
+  catalogProducts,
   initialProduct,
   submitting,
   onSubmit,
@@ -101,10 +123,69 @@ export default function ProductManageForm({
 }) {
   const [form, setForm] = useState(() => emptyForm(initialProduct));
   const [errors, setErrors] = useState({});
+  const catalogMode = Array.isArray(catalogProducts);
+  const catalog = catalogMode ? catalogProducts : [];
+
+  const productNameOptions = useMemo(() => {
+    const names = [];
+    const seen = new Set();
+    catalog.forEach((item) => {
+      const name = catalogName(item);
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return;
+      seen.add(key);
+      names.push(name);
+    });
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [catalog]);
+
+  const varietiesForName = useMemo(() => {
+    const name = form.productName.trim().toLowerCase();
+    if (!name) return [];
+    const seen = new Set();
+    const list = [];
+    catalog.forEach((item) => {
+      if (catalogName(item).toLowerCase() !== name) return;
+      const variety = catalogVariety(item);
+      if (!variety || seen.has(variety.toLowerCase())) return;
+      seen.add(variety.toLowerCase());
+      list.push(variety);
+    });
+    return list;
+  }, [catalog, form.productName]);
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const applyCatalogProduct = (productName, varietyOverride) => {
+    const name = String(productName || "").trim();
+    const matches = catalog.filter((item) => catalogName(item).toLowerCase() === name.toLowerCase());
+    const preferredVariety = String(varietyOverride || "").trim();
+    const picked =
+      (preferredVariety
+        ? matches.find((item) => catalogVariety(item).toLowerCase() === preferredVariety.toLowerCase())
+        : null) || matches[0];
+    const variety = preferredVariety || catalogVariety(picked) || "";
+    const crop = matchFarmerCrop(crops, name, variety);
+    setForm((prev) => ({
+      ...prev,
+      productName: name,
+      cropName: name,
+      variety,
+      cropId: crop?.cropId || crop?.id || "",
+      harvestDate: crop?.expectedHarvestDate || prev.harvestDate,
+      unit: picked?.unit || crop?.unit || prev.unit,
+      farmingType: crop?.farmingType || prev.farmingType,
+      availableQuantity: prev.availableQuantity || crop?.estimatedQuantity || "",
+      media: {
+        ...prev.media,
+        mainPhoto: picked?.image || prev.media.mainPhoto,
+        cropPhotos: crop?.photos?.length ? crop.photos : prev.media.cropPhotos,
+      },
+    }));
+    setErrors((prev) => ({ ...prev, cropId: "", productName: "", variety: "" }));
   };
 
   const selectCrop = (cropId) => {
@@ -130,7 +211,14 @@ export default function ProductManageForm({
   const validate = (publish) => {
     const next = {};
     if (!form.productName.trim()) next.productName = "Product name is required";
-    if (!form.cropId && !form.cropName) next.cropId = "Crop is required";
+    if (catalogMode && form.productName.trim()) {
+      const allowed = catalog.some(
+        (item) => catalogName(item).toLowerCase() === form.productName.trim().toLowerCase()
+      );
+      if (!allowed) next.productName = "Choose a product from your collection centre list";
+    }
+    if (!catalogMode && !form.cropId && !form.cropName) next.cropId = "Crop is required";
+    if (catalogMode && !form.variety.trim()) next.variety = "Variety is required";
     if (publish) {
       if (!form.variety.trim()) next.variety = "Variety is required";
       if (!form.unit) next.unit = "Unit is required";
@@ -187,28 +275,80 @@ export default function ProductManageForm({
       ) : null}
 
       <Section title="Product">
-        <Field label="Select Crop" required error={errors.cropId} className="col-span-2">
-          <select className={FORM_INPUT} value={form.cropId} disabled={locked} onChange={(e) => selectCrop(e.target.value)}>
-            <option value="">Select crop</option>
-            {crops.map((crop) => (
-              <option key={crop.cropId || crop.id} value={crop.cropId || crop.id}>
-                {crop.cropName} {crop.variety ? `(${crop.variety})` : ""} — {formatCropBusinessId(crop)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Product Name" required error={errors.productName}>
-          <input
-            className={FORM_INPUT}
-            value={form.productName}
-            disabled={locked || !form.cropId}
-            readOnly
-            placeholder="Select crop first"
-          />
-        </Field>
-        <Field label="Variety" required error={errors.variety}>
-          <input className={FORM_INPUT} value={form.variety} disabled={locked} onChange={(e) => setField("variety", e.target.value)} />
-        </Field>
+        {catalogMode ? (
+          <>
+            {catalog.length === 0 ? (
+              <p className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Your collection centre has no products yet. Ask them to add products first.
+              </p>
+            ) : null}
+            <Field label="Product Name" required error={errors.productName}>
+              <select
+                className={FORM_INPUT}
+                value={form.productName}
+                disabled={locked || catalog.length === 0}
+                onChange={(e) => applyCatalogProduct(e.target.value)}
+              >
+                <option value="">Select product</option>
+                {productNameOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Variety" required error={errors.variety}>
+              {varietiesForName.length > 1 ? (
+                <select
+                  className={FORM_INPUT}
+                  value={form.variety}
+                  disabled={locked || !form.productName}
+                  onChange={(e) => applyCatalogProduct(form.productName, e.target.value)}
+                >
+                  {varietiesForName.map((variety) => (
+                    <option key={variety} value={variety}>
+                      {variety}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  className={FORM_INPUT}
+                  value={form.variety}
+                  disabled={locked || !form.productName}
+                  readOnly={varietiesForName.length === 1}
+                  placeholder={form.productName ? "Auto selected" : "Select product first"}
+                  onChange={(e) => setField("variety", e.target.value)}
+                />
+              )}
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Select Crop" required error={errors.cropId} className="col-span-2">
+              <select className={FORM_INPUT} value={form.cropId} disabled={locked} onChange={(e) => selectCrop(e.target.value)}>
+                <option value="">Select crop</option>
+                {crops.map((crop) => (
+                  <option key={crop.cropId || crop.id} value={crop.cropId || crop.id}>
+                    {crop.cropName} {crop.variety ? `(${crop.variety})` : ""} — {formatCropBusinessId(crop)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Product Name" required error={errors.productName}>
+              <input
+                className={FORM_INPUT}
+                value={form.productName}
+                disabled={locked || !form.cropId}
+                readOnly
+                placeholder="Select crop first"
+              />
+            </Field>
+            <Field label="Variety" required error={errors.variety}>
+              <input className={FORM_INPUT} value={form.variety} disabled={locked} onChange={(e) => setField("variety", e.target.value)} />
+            </Field>
+          </>
+        )}
         <Field label="Farming Type" required error={errors.farmingType}>
           <select
             className={FORM_INPUT}

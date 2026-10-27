@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import ProductManageForm from "../components/products/ProductManageForm";
-import { createMyProduct, getCrops } from "../api/farmerApi";
+import { createMyProduct, getCrops, getVendorProductsCatalog } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
@@ -10,6 +10,7 @@ function ProductAddPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [crops, setCrops] = useState([]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,7 +23,12 @@ function ProductAddPage() {
   useEffect(() => {
     (async () => {
       try {
-        setCrops(await getCrops());
+        const [cropList, productCatalog] = await Promise.all([
+          getCrops().catch(() => []),
+          getVendorProductsCatalog().catch(() => []),
+        ]);
+        setCrops(Array.isArray(cropList) ? cropList : cropList?.crops || []);
+        setCatalogProducts(Array.isArray(productCatalog) ? productCatalog : productCatalog?.products || []);
       } catch (err) {
         toast.error(err.message || "Failed to load crops");
       } finally {
@@ -41,25 +47,18 @@ function ProductAddPage() {
         <div className="min-w-0">
           <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">Add Product</h1>
           <p className={`${EXCEL_PAGE_SUB} hidden sm:block`}>
-            Link this product to a crop, then save as draft or publish for approval.
+            Select a collection centre product, then save as draft or publish for approval.
           </p>
         </div>
         <Link to="/farmer/products" className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
           Back
         </Link>
       </div>
-      {crops.length === 0 ? (
-        <p className="text-[11px] text-[#B45309] sm:text-xs">
-          Add a crop first, then create a product.{" "}
-          <Link to="/farmer/crops/add" className="font-semibold text-[#217346] hover:underline">
-            Add Crop
-          </Link>
-        </p>
-      ) : null}
       <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
         <ProductManageForm
           key={matchedCrop?.cropId || matchedCrop?.id || cropId || "new"}
           crops={crops}
+          catalogProducts={catalogProducts}
           initialProduct={{
             productName: matchedCrop?.cropName || cropName,
             cropId: matchedCrop?.cropId || matchedCrop?.id || cropId,

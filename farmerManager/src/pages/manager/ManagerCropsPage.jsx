@@ -94,6 +94,9 @@ function ManagerCropsPage() {
         crop.name,
         crop.variety,
         crop.season,
+        crop.farmerName,
+        crop.farmerCode,
+        farmerIdOf(crop),
         cId,
       ].filter(Boolean);
 
@@ -153,7 +156,7 @@ function ManagerCropsPage() {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search crop, variety, ID…"
+              placeholder="Search crop, farmer, variety, ID…"
               className="w-full bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
             />
             {search && (
@@ -195,7 +198,7 @@ function ManagerCropsPage() {
 
               return (
                 <div
-                  key={id}
+                  key={`${fId}-${id}`}
                   className="bg-white rounded-xl border border-slate-200 p-3.5 space-y-2.5 shadow-sm hover:border-emerald-500 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
@@ -207,6 +210,7 @@ function ManagerCropsPage() {
                       />
                       <div className="min-w-0">
                         <h3 className="text-sm font-bold text-slate-900 truncate">{crop.cropName || crop.name || "Crop"}</h3>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-500">{crop.farmerName || "Farmer"}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {crop.variety && (
                             <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10.5px] font-medium text-emerald-800 border border-emerald-200">
@@ -252,15 +256,17 @@ function ManagerCropsPage() {
           <div className="hidden lg:block overflow-hidden border border-[#9CA3AF] rounded-lg bg-white shadow-sm">
             <table className="w-full table-fixed border-collapse text-xs">
               <colgroup>
-                <col className="w-[6%]" />
-                <col className="w-[32%]" />
-                <col className="w-[28%]" />
+                <col className="w-[5%]" />
+                <col className="w-[22%]" />
                 <col className="w-[20%]" />
-                <col className="w-[14%]" />
+                <col className="w-[18%]" />
+                <col className="w-[20%]" />
+                <col className="w-[15%]" />
               </colgroup>
               <thead className="bg-[#E8F0EA] sticky top-0 z-10 border-b border-[#9CA3AF]">
                 <tr>
                   <th className="border border-[#9CA3AF] px-2 py-2 text-center text-xs font-semibold text-[#374151]">#</th>
+                  <th className="border border-[#9CA3AF] px-3 py-2 text-left text-xs font-semibold text-[#374151]">Farmer</th>
                   <th className="border border-[#9CA3AF] px-3 py-2 text-left text-xs font-semibold text-[#374151]">Crop</th>
                   <th className="border border-[#9CA3AF] px-3 py-2 text-left text-xs font-semibold text-[#374151]">Variety</th>
                   <th className="border border-[#9CA3AF] px-2 py-2 text-center text-xs font-semibold text-[#374151]">Crop ID</th>
@@ -277,8 +283,16 @@ function ManagerCropsPage() {
                   const zebra = idx % 2 === 0 ? "bg-white hover:bg-emerald-50/60" : "bg-[#F9FAFB] hover:bg-emerald-50/60";
 
                   return (
-                    <tr key={id} className={`transition-colors ${zebra}`}>
+                    <tr key={`${fId}-${id}`} className={`transition-colors ${zebra}`}>
                       <td className="border border-[#9CA3AF] px-2 py-2 text-center text-slate-400 font-normal">{idx + 1}</td>
+                      <td className="border border-[#9CA3AF] px-3 py-2 text-left">
+                        <Link
+                          to={fId ? `/manager/farmers/${encodeURIComponent(fId)}` : "/manager/farmers"}
+                          className="font-semibold text-[#217346] hover:underline"
+                        >
+                          {crop.farmerName || "Farmer"}
+                        </Link>
+                      </td>
                       <td className="border border-[#9CA3AF] px-3 py-2 text-left">
                         <div className="flex items-center gap-2.5">
                           <CropPhoto
@@ -343,7 +357,7 @@ function ManagerCropsPage() {
       {deleteModal.open && deleteModal.crop && (
         <Modal
           title="Delete Crop"
-          isOpen={deleteModal.open}
+          open={deleteModal.open}
           onClose={() => setDeleteModal({ open: false, crop: null })}
         >
           <div className="space-y-4 text-xs">

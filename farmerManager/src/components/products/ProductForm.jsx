@@ -79,8 +79,8 @@ function productToInventoryForm(product) {
 
   return mapDefaultValues(
     {
-      productId: product.id,
-      name: product.name,
+      productId: product.id || product.productId,
+      name: product.productName || product.name,
       category: product.category,
       unit: product.unit || "Kg",
       availableQuantity: product.availableQuantity ?? product.stock ?? 0,
@@ -300,6 +300,8 @@ function ProductForm({
   initialProductId = "",
   disableProductSelect = false,
   onStockAdjusted,
+  adjustStockFn,
+  stockUpdatedBy = "Farmer",
 }) {
   const isBasic = mode === "basic";
   const isInventory = mode === "inventory";
@@ -342,7 +344,7 @@ function ProductForm({
     if (!isInventory || !availableProducts.length) return;
     const productId = selectedProductId || initialProductId;
     if (!productId) return;
-    const product = availableProducts.find((item) => item.id === productId);
+    const product = availableProducts.find((item) => (item.id || item.productId) === productId);
     if (product) {
       reset(productToInventoryForm(product));
     }
@@ -374,12 +376,13 @@ function ProductForm({
     setStockBusy(true);
     try {
       const change = stockModal === "add" ? qty : -qty;
-      const { product } = await adjustStock({
+      const adjust = adjustStockFn || adjustStock;
+      const { product } = await adjust({
         productId: activeProductId,
         change,
         grade: stockGrade,
         reason: stockReason,
-        updatedBy: "Farmer",
+        updatedBy: stockUpdatedBy,
       });
       reset(productToInventoryForm(product));
       onStockAdjusted?.(product);
@@ -488,8 +491,8 @@ function ProductForm({
                 >
                   <option value="">Select product</option>
                   {availableProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
+                    <option key={product.id || product.productId} value={product.id || product.productId}>
+                      {product.productName || product.name}
                     </option>
                   ))}
                 </select>

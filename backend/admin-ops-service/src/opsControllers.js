@@ -12,6 +12,7 @@ import {
   CollectionCentre,
   DarkStoreRequest,
   Farmer,
+  FarmerCrop,
   FarmerDocument,
   FarmerManager,
   FarmerProduct,
@@ -26,6 +27,7 @@ import {
 } from "../../farmer-manager-service/src/models.js";
 import {
   catalogCropSummary,
+  distinctCatalogCrops,
   serializeVendorCropRequest,
   vendorCropsWithCatalog,
 } from "../../farmer-manager-service/src/vendorCropRequestControllers.js";
@@ -508,6 +510,214 @@ export async function assignCentreFarmerManagerAdmin(req, res, next) {
     };
 
     return ok(res, updatedData, { message: "Collection centre assigned to manager successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const CATALOG_DUMMY_FARMER_IDS = ["", "farmer-master-catalog"];
+
+function farmerIdentityKeys(farmer, extraId) {
+  return [...new Set([farmer?.id, farmer?.farmerId, farmer?.farmerCode, extraId].filter(Boolean))];
+}
+
+function catalogCropKey(crop) {
+  return `${String(crop.cropName || "").trim().toLowerCase()}:::${String(crop.variety || "").trim().toLowerCase()}`;
+}
+
+export async function listCropCatalogAdmin(req, res, next) {
+  try {
+    const match = {};
+    if (req.query.category && req.query.category !== "all") {
+      match.category = new RegExp(`^${escapeRegex(String(req.query.category))}$`, "i");
+    }
+    const q = String(req.query.q || "").trim();
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), "i");
+      match.$or = [{ cropName: rx }, { variety: rx }, { cropId: rx }, { cropCode: rx }];
+    }
+    const [crops, categories] = await Promise.all([
+      distinctCatalogCrops(match),
+      ErpCrop.distinct("category", { isDeleted: { $ne: true } }),
+    ]);
+    const names = [...new Set(crops.map((c) => c.cropName).filter(Boolean))];
+    const planted = names.length
+      ? await FarmerCrop.find({
+          cropName: { $in: names },
+          farmerId: { $nin: CATALOG_DUMMY_FARMER_IDS },
+        })
+          .select("cropName variety farmerId")
+          .lean()
+      : [];
+    const plantedByKey = new Map();
+    planted.forEach((row) => {
+      const key = catalogCropKey(row);
+      if (!plantedByKey.has(key)) plantedByKey.set(key, new Set());
+      plantedByKey.get(key).add(row.farmerId);
+    });
+    const data = crops.map((crop) => ({
+      ...crop,
+      farmerCropCount: plantedByKey.get(catalogCropKey(crop))?.size || 0,
+    }));
+    return ok(res, data, { total: data.length, categories: categories.filter(Boolean).sort() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteCropCatalogAdmin(req, res, next) {
+  try {
+    const crop = await ErpCrop.findOne({ cropId: req.params.cropId, isDeleted: { $ne: true } });
+    if (!crop) return fail(res, 404, "Crop not found in catalog");
+    const nameRx = new RegExp(`^${escapeRegex(String(crop.cropName || "").trim())}$`, "i");
+    const varRx = new RegExp(`^${escapeRegex(String(crop.variety || "").trim())}$`, "i");
+    await ErpCrop.updateMany(
+      { cropName: nameRx, variety: varRx, isDeleted: { $ne: true } },
+      {
+        $set: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: String(req.user?.id || req.user?._id || "admin"),
+          status: "CLOSED",
+        },
+      }
+    );
+    return ok(res, { cropId: crop.cropId }, { message: "Crop removed from catalog" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+function serializeAdminFarmerCrop(crop) {
+  return {
+    id: crop.id,
+    cropId: crop.cropId,
+    cropName: crop.cropName || "",
+    variety: crop.variety || "",
+    category: crop.category || "",
+    area: crop.area || 0,
+    areaUnit: crop.areaUnit || "Acre",
+    sowingDate: crop.sowingDate || "",
+    expectedHarvestDate: crop.expectedHarvestDate || "",
+    estimatedQuantity: crop.estimatedQuantity || 0,
+    unit: crop.unit || "Kg",
+    status: crop.status || "",
+    createdAt: crop.createdAt,
+  };
+}
+
+export async function listFarmerCropsAdmin(req, res, next) {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+    const q = String(req.query.q || "").trim();
+    const vendorId = String(req.query.vendorId || "").trim();
+    const onlyWithCrops = String(req.query.withCrops || "1") !== "0";
+
+    const farmerFilter = { isDeleted: { $ne: true } };
+    if (vendorId) farmerFilter.vendorId = vendorId;
+
+    const [farmers, cropRows] = await Promise.all([
+      Farmer.find(farmerFilter)
+        .select("id farmerId farmerCode name mobile address status vendorId createdAt")
+        .sort({ createdAt: -1 })
+        .lean(),
+      FarmerCrop.find({ farmerId: { $nin: CATALOG_DUMMY_FARMER_IDS } })
+        .select(
+          "id cropId farmerId cropName variety category area areaUnit sowingDate expectedHarvestDate estimatedQuantity unit status createdAt"
+        )
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const farmerByIdentity = new Map();
+    farmers.forEach((farmer) => {
+      farmerIdentityKeys(farmer).forEach((id) => farmerByIdentity.set(id, farmer));
+    });
+
+    const cropsByFarmerDocId = new Map();
+    const unmatched = [];
+    cropRows.forEach((crop) => {
+      const farmer = farmerByIdentity.get(crop.farmerId);
+      if (!farmer) {
+        unmatched.push(crop);
+        return;
+      }
+      const key = farmer.id;
+      if (!cropsByFarmerDocId.has(key)) cropsByFarmerDocId.set(key, []);
+      cropsByFarmerDocId.get(key).push(crop);
+    });
+
+    const centreNames = await centreNamesFor(farmers.map((f) => f.vendorId));
+
+    let rows = farmers.map((farmer) => {
+      const crops = (cropsByFarmerDocId.get(farmer.id) || []).map(serializeAdminFarmerCrop);
+      return {
+        id: farmer.farmerId || farmer.id,
+        farmerId: farmer.farmerId || farmer.id,
+        name: farmer.name,
+        mobile: farmer.mobile,
+        village: farmer.address?.village || "",
+        taluka: farmer.address?.taluka || "",
+        district: farmer.address?.district || "",
+        status: farmer.status,
+        vendorId: farmer.vendorId || "",
+        vendorName: centreNames.get(String(farmer.vendorId))?.vendorName || "",
+        cropCount: crops.length,
+        crops,
+      };
+    });
+
+    if (unmatched.length && !vendorId) {
+      const byUnknown = new Map();
+      unmatched.forEach((crop) => {
+        const key = crop.farmerId || "unknown";
+        if (!byUnknown.has(key)) byUnknown.set(key, []);
+        byUnknown.get(key).push(crop);
+      });
+      for (const [farmerId, crops] of byUnknown) {
+        rows.push({
+          id: farmerId,
+          farmerId,
+          name: "Unknown farmer",
+          mobile: "",
+          village: "",
+          taluka: "",
+          district: "",
+          status: "",
+          vendorId: "",
+          vendorName: "",
+          cropCount: crops.length,
+          crops: crops.map(serializeAdminFarmerCrop),
+        });
+      }
+    }
+
+    if (onlyWithCrops) rows = rows.filter((row) => row.cropCount > 0);
+
+    if (q) {
+      const needle = q.toLowerCase();
+      rows = rows.filter((row) => {
+        const farmerHit = [row.name, row.farmerId, row.mobile, row.village, row.district, row.vendorName].some((value) =>
+          String(value || "").toLowerCase().includes(needle)
+        );
+        const cropHit = row.crops.some((crop) =>
+          `${crop.cropName} ${crop.variety} ${crop.cropId}`.toLowerCase().includes(needle)
+        );
+        return farmerHit || cropHit;
+      });
+    }
+
+    rows.sort((a, b) => b.cropCount - a.cropCount || String(a.name || "").localeCompare(String(b.name || "")));
+    const total = rows.length;
+    const totalCrops = rows.reduce((sum, row) => sum + row.cropCount, 0);
+    const perCentre = {};
+    rows.forEach((row) => {
+      if (!row.vendorId) return;
+      perCentre[row.vendorId] = (perCentre[row.vendorId] || 0) + 1;
+    });
+    const data = rows.slice((page - 1) * limit, page * limit);
+    return ok(res, data, { total, page, limit, totalCrops, farmerCount: total, perCentre });
   } catch (error) {
     next(error);
   }
