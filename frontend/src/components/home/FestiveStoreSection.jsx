@@ -12,11 +12,14 @@ import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import InstantOrderHeroCarousel from "./InstantOrderHeroCarousel";
 import Ready2CookHeroCarousel from "./Ready2CookHeroCarousel";
 import HomeMidBannerSlider from "./HomeMidBannerSlider";
+import LazySection from "../common/LazySection";
+import { useRevealCount } from "../../hooks/useRevealCount";
 import {
   sectionToStoreKey,
   storeToSection,
   buildStoreProductUrl,
 } from "../../utils/storeSection";
+import OptimizedImg from "../common/OptimizedImg";
 
 function FestiveStoreSection() {
   const [searchParams] = useSearchParams();
@@ -74,6 +77,7 @@ function FestiveStoreSection() {
       });
     });
   }, [apiProducts, currentFilter]);
+  const [gridCount, gridSentinelRef] = useRevealCount(filteredProducts.length, 12);
 
   const cardProps = (product) => ({
     product,
@@ -158,7 +162,7 @@ function FestiveStoreSection() {
                     </p>
                   </div>
                   <div className="absolute bottom-1.5 right-1.5 h-11 w-11 overflow-hidden rounded-xl sm:bottom-2 sm:right-2 sm:h-14 sm:w-14">
-                    <img
+                    <OptimizedImg
                       src={cat.image}
                       alt=""
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
@@ -174,19 +178,25 @@ function FestiveStoreSection() {
         )}
       </section>
 
-      <HomeMidBannerSlider />
+      <LazySection minHeight={180}>
+        <HomeMidBannerSlider />
+      </LazySection>
 
-      <SuggestedForYouSection
-        title={isInstant ? "Instant bestsellers" : "Suggested for you"}
-        subtitle={
-          isInstant
-            ? "Fast-moving grocery & essentials"
-            : "Handpicked prep-ready picks"
-        }
-        customProducts={filteredProducts}
-      />
+      <LazySection>
+        <SuggestedForYouSection
+          title={isInstant ? "Instant bestsellers" : "Suggested for you"}
+          subtitle={
+            isInstant
+              ? "Fast-moving grocery & essentials"
+              : "Handpicked prep-ready picks"
+          }
+          customProducts={filteredProducts}
+        />
+      </LazySection>
 
-      <TopPaymentOffersSection />
+      <LazySection minHeight={160}>
+        <TopPaymentOffersSection />
+      </LazySection>
 
       <section className="px-4 py-2 sm:px-6">
         <SectionHeader
@@ -217,7 +227,7 @@ function FestiveStoreSection() {
             </div>
 
             <div className="hidden gap-4 lg:grid lg:grid-cols-6">
-              {filteredProducts.map((product) => (
+              {filteredProducts.slice(0, gridCount).map((product) => (
                 <QuickCommerceProductCard
                   key={product._id}
                   {...cardProps(product)}
@@ -225,6 +235,9 @@ function FestiveStoreSection() {
                 />
               ))}
             </div>
+            {gridCount < filteredProducts.length ? (
+              <div ref={gridSentinelRef} className="hidden h-px lg:block" aria-hidden="true" />
+            ) : null}
           </>
         )}
       </section>

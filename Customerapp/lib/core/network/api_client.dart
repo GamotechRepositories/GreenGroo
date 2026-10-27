@@ -29,18 +29,7 @@ class ApiClient {
             }
           }
 
-          final path = options.path;
-          if (path.contains('/api/products') ||
-              path.contains('/api/stores') ||
-              path.contains('/api/categories')) {
-            final locationParams = _locationGetter?.call()?.toQueryParams();
-            if (locationParams != null && locationParams.isNotEmpty) {
-              options.queryParameters = {
-                ...locationParams,
-                ...options.queryParameters,
-              };
-            }
-          }
+          options.queryParameters = _withLocation(options.path, options.queryParameters);
 
           handler.next(options);
         },
@@ -76,4 +65,23 @@ class ApiClient {
   late final Dio _dio;
 
   Dio get dio => _dio;
+
+  Map<String, dynamic> _withLocation(String path, Map<String, dynamic> params) {
+    if (!path.contains('/api/products') &&
+        !path.contains('/api/stores') &&
+        !path.contains('/api/categories')) {
+      return params;
+    }
+    final locationParams = _locationGetter?.call()?.toQueryParams();
+    if (locationParams == null || locationParams.isEmpty) return params;
+    return {...locationParams, ...params};
+  }
+
+  /// The exact request [path] + [params] resolve to (location included), for caching.
+  String cacheKey(String path, [Map<String, dynamic>? params]) {
+    final query = _withLocation(path, params ?? const {});
+    final keys = query.keys.where((k) => query[k] != null).toList()..sort();
+    if (keys.isEmpty) return path;
+    return '$path?${keys.map((k) => '$k=${Uri.encodeQueryComponent(query[k].toString())}').join('&')}';
+  }
 }

@@ -1,6 +1,8 @@
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
+import { useRevealCount } from "../../hooks/useRevealCount";
 
 function ProductScrollRow({ products, cardProps }) {
+  const [count, sentinelRef] = useRevealCount(products?.length || 0, 8, "300px 600px");
   if (!products?.length) return null;
 
   return (
@@ -8,7 +10,7 @@ function ProductScrollRow({ products, cardProps }) {
       className="hide-scrollbar flex gap-2.5 overflow-x-auto overflow-y-hidden"
       style={{ overscrollBehavior: "auto" }}
     >
-      {products.map((product) => (
+      {products.slice(0, count).map((product) => (
         <div
           key={product._id}
           className="w-[calc((100vw-2rem-1.875rem)/3.2)] shrink-0"
@@ -19,6 +21,7 @@ function ProductScrollRow({ products, cardProps }) {
           />
         </div>
       ))}
+      {count < products.length ? <div ref={sentinelRef} className="w-px shrink-0" aria-hidden="true" /> : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import OptimizedImg from "../common/OptimizedImg";
 function Product3DImage({ src, alt = "", size = 56, className = "" }) {
   return (
     <div
@@ -13,7 +14,7 @@ function Product3DImage({ src, alt = "", size = 56, className = "" }) {
         style={{ width: size, height: size }}
       >
         {src ? (
-          <img
+          <OptimizedImg
             src={src}
             alt={alt}
             className="h-full w-full object-contain p-1"

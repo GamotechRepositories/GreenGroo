@@ -12,7 +12,7 @@ class StoreSettingsNotifier extends AsyncNotifier<StoreSettings?> {
   @override
   Future<StoreSettings?> build() async {
     try {
-      return await ref.read(apiServiceProvider).fetchStoreSettings();
+      return await ref.read(apiServiceProvider).fetchStoreSettings(live: ref);
     } catch (_) {
       return null;
     }

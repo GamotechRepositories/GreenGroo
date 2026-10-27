@@ -18,6 +18,7 @@ import { calculateOrderTotal } from "../utils/gst";
 import { formatCouponHeadline, formatCouponUnlockMessage } from "../utils/couponDisplay";
 import { useStoreSettingsQuery } from "../hooks/queries/useStoreSettingsQuery";
 import { useAvailableCouponsQuery } from "../hooks/queries/useAvailableCouponsQuery";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 const BRAND = "#0C831F";
 
@@ -100,7 +101,7 @@ function CartLine({ item, disabled, onIncrease, onDecrease }) {
         className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-100"
       >
         {item.productImages?.[0] ? (
-          <img src={item.productImages[0]} alt={item.name} className="h-full w-full object-contain p-1" />
+          <OptimizedImg src={item.productImages[0]} alt={item.name} className="h-full w-full object-contain p-1" />
         ) : null}
       </Link>
 

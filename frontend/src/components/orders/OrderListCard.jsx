@@ -24,6 +24,7 @@ import {
   getPrimaryProductId,
   isActiveOrder,
 } from "../../utils/orderUtils";
+import OptimizedImg from "../common/OptimizedImg";
 
 const BRAND = "#0C831F";
 const MAX_THUMBS = 4;
@@ -44,7 +45,7 @@ function Thumb({ item }) {
   return (
     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-50 ring-1 ring-slate-100">
       {src ? (
-        <img src={src} alt={item.name || ""} loading="lazy" className="h-full w-full object-contain p-1" />
+        <OptimizedImg src={src} alt={item.name || ""} loading="lazy" className="h-full w-full object-contain p-1" />
       ) : (
         <Package className="h-5 w-5 text-slate-300" />
       )}

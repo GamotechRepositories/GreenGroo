@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import TestimonialsImpact from "./TestimonialsImpact";
+import OptimizedImg from "../common/OptimizedImg";
 
 const STEPS = [
   { num: 1, title: "Browse Products", desc: "Explore wide range of products." },
@@ -80,7 +81,7 @@ function HowItWorksBulkQuote() {
           </Link>
         </div>
         <div className="hidden sm:block absolute right-0 bottom-0 top-0 w-[55%] pointer-events-none">
-          <img
+          <OptimizedImg
             src={PHONES_IMAGE}
             alt="Smartphones"
             className="h-full w-full object-contain object-right-bottom"

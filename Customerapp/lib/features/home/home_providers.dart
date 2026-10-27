@@ -41,7 +41,8 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
     sectionParam = 'preorder';
   }
 
-  final categories = await ref.read(apiServiceProvider).fetchCategories(section: sectionParam);
+  final categories =
+      await ref.read(apiServiceProvider).fetchCategories(section: sectionParam, live: ref);
   return _shopCategories(categories);
 });
 
@@ -51,7 +52,7 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
 final departmentCategoriesProvider =
     FutureProvider.family<List<Category>, String>((ref, section) async {
   ref.watch(deliveryLocationKeyProvider);
-  final categories = await ref.read(apiServiceProvider).fetchCategories(section: section);
+  final categories = await ref.read(apiServiceProvider).fetchCategories(section: section, live: ref);
   return _shopCategories(categories);
 });
 
@@ -93,7 +94,7 @@ final categoryPreviewProductsProvider =
     'categoryName': param.categoryName,
     'section': sectionParam,
     'limit': 12,
-  });
+  }, ref);
 
   final activeDept = departmentForSection(sectionParam);
   return products
@@ -126,7 +127,7 @@ final siteBannersProvider =
     FutureProvider.family<List<SiteBanner>, BannerSlot>((ref, slot) async {
   return ref
       .read(apiServiceProvider)
-      .fetchSiteBanners(section: slot.section, placement: slot.placement);
+      .fetchSiteBanners(section: slot.section, placement: slot.placement, live: ref);
 });
 
 /// Main-tab rows show PreOrder products only.
@@ -150,12 +151,13 @@ final justArrivedProvider = FutureProvider<List<Product>>((ref) async {
   final api = ref.read(apiServiceProvider);
   final arrived = await api.fetchProducts(
     {'justArrived': true, 'section': 'preorder', 'limit': limit},
+    ref,
   );
   if (_mergeUnique([arrived], limit).length >= limit) {
     return _mergeUnique([arrived], limit);
   }
   final newest =
-      await api.fetchProducts({'sort': 'newest', 'section': 'preorder', 'limit': 32});
+      await api.fetchProducts({'sort': 'newest', 'section': 'preorder', 'limit': 32}, ref);
   return _mergeUnique([arrived, newest], limit);
 });
 
@@ -167,18 +169,19 @@ final mostViewedProductsProvider = FutureProvider<List<Product>>((ref) async {
   final ids = (await RecentlyViewedStore.getIds()).take(limit).toList();
   var viewed = <Product>[];
   if (ids.isNotEmpty) {
-    final fetched = await api.fetchProducts({'ids': ids.join(','), 'limit': limit});
+    final fetched = await api.fetchProducts({'ids': ids.join(','), 'limit': limit}, ref);
     final byId = {for (final p in fetched) p.id: p};
     viewed = ids.map((id) => byId[id]).whereType<Product>().toList();
   }
   if (_mergeUnique([viewed], limit).length >= limit) return _mergeUnique([viewed], limit);
   final hot = await api.fetchProducts(
     {'hotSelling': true, 'sort': 'newest', 'section': 'preorder', 'limit': 32},
+    ref,
   );
   final merged = _mergeUnique([viewed, hot], limit);
   if (merged.length >= limit) return merged;
   final newest =
-      await api.fetchProducts({'sort': 'newest', 'section': 'preorder', 'limit': 32});
+      await api.fetchProducts({'sort': 'newest', 'section': 'preorder', 'limit': 32}, ref);
   return _mergeUnique([viewed, hot, newest], limit);
 });
 
@@ -201,7 +204,7 @@ final previouslyBoughtProvider = FutureProvider<List<Product>>((ref) async {
     if (ids.length >= 12) break;
   }
   if (ids.isEmpty) return const [];
-  final fetched = await api.fetchProducts({'ids': ids.join(','), 'limit': 12});
+  final fetched = await api.fetchProducts({'ids': ids.join(','), 'limit': 12}, ref);
   final byId = {for (final p in _mergeUnique([fetched], 12)) p.id: p};
   return ids.map((id) => byId[id]).whereType<Product>().take(8).toList();
 });
@@ -210,7 +213,7 @@ final previouslyBoughtProvider = FutureProvider<List<Product>>((ref) async {
 final suggestedProductsProvider = FutureProvider<List<Product>>((ref) async {
   ref.watch(deliveryLocationKeyProvider);
   final products =
-      await ref.read(apiServiceProvider).fetchProducts({'section': 'preorder', 'limit': 12});
+      await ref.read(apiServiceProvider).fetchProducts({'section': 'preorder', 'limit': 12}, ref);
   return _mergeUnique([products], 12);
 });
 
@@ -219,7 +222,7 @@ final departmentProductsProvider =
     FutureProvider.family<List<Product>, String>((ref, section) async {
   ref.watch(deliveryLocationKeyProvider);
   final products =
-      await ref.read(apiServiceProvider).fetchProducts({'section': section, 'limit': 40});
+      await ref.read(apiServiceProvider).fetchProducts({'section': section, 'limit': 40}, ref);
   final dept = departmentForSection(section);
   return products.where((p) => p.isActive && p.department == dept).toList();
 });
@@ -230,7 +233,7 @@ final hotSellingProvider = FutureProvider<List<Product>>((ref) async {
     'hotSelling': true,
     'section': 'preorder',
     'limit': homeProductLimit,
-  });
+  }, ref);
   return products
       .where((product) => product.isActive && product.department == Department.preorder)
       .take(homeProductLimit)
@@ -245,7 +248,7 @@ final recentlyViewedProductsProvider = FutureProvider<List<Product>>((ref) async
   final products = await ref.read(apiServiceProvider).fetchProducts({
     'ids': ids.join(','),
     'limit': homeProductLimit,
-  });
+  }, ref);
   final active = products.where((product) => product.isActive).toList();
   final byId = {for (final product in active) product.id: product};
 

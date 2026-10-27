@@ -7,6 +7,7 @@ import {
   calculateShippingCharge,
 } from "../../utils/orderSettings";
 import { calculateOrderTotal } from "../../utils/gst";
+import OptimizedImg from "../common/OptimizedImg";
 
 const formatPrice = (amount) => {
   const value = Number(amount) || 0;
@@ -90,7 +91,7 @@ export default function CartSidebar() {
                   >
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-100 bg-white p-1">
                       {item.productImages?.[0] ? (
-                        <img src={item.productImages[0]} alt={item.name} className="h-full w-full object-contain" />
+                        <OptimizedImg src={item.productImages[0]} alt={item.name} className="h-full w-full object-contain" />
                       ) : (
                         <div className="h-full w-full rounded bg-slate-50" />
                       )}

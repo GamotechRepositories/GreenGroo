@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Leaf,
 } from "lucide-react";
+import OptimizedImg from "../common/OptimizedImg";
 
 const MAHARASHTRA_PILLARS_DESKTOP = [
   {
@@ -124,7 +125,7 @@ export default function MaharashtraPrideBanner() {
       <div className="hidden lg:flex w-full flex-row items-stretch">
         {/* Left Side: Generated Maharashtra Farm Sunrise Hero Block */}
         <div className="relative w-[42%] min-h-[270px] flex items-center overflow-hidden shrink-0">
-          <img
+          <OptimizedImg
             src="/assets/payment/maharashtra_farm_sunrise.jpg"
             alt="Maharashtra Farmland at Sunrise"
             className="absolute inset-0 w-full h-full object-cover object-center"
@@ -216,7 +217,7 @@ export default function MaharashtraPrideBanner() {
       <div className="block lg:hidden w-full relative">
         {/* Top Hero Banner with Farm Photo */}
         <div className="relative w-full min-h-[310px] sm:min-h-[340px] flex flex-col justify-between overflow-hidden">
-          <img
+          <OptimizedImg
             src="/assets/payment/maharashtra_farm_sunrise.jpg"
             alt="Maharashtra Farmland at Sunrise"
             className="absolute inset-0 w-full h-full object-cover object-center"

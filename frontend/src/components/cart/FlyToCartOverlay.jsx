@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { pulseCartTarget } from "../../utils/flyToCart";
+import OptimizedImg from "../common/OptimizedImg";
 
 const FLY_SIZE = 40;
 
@@ -25,7 +26,7 @@ function FlyToCartOverlay({ animation, onComplete }) {
   const offsetY = animation.endY - animation.startY;
 
   return (
-    <img
+    <OptimizedImg
       src={animation.productImage}
       alt=""
       aria-hidden="true"

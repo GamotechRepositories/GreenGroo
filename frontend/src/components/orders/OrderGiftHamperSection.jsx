@@ -1,4 +1,5 @@
 import { formatOrderPrice } from "../../utils/orderUtils";
+import OptimizedImg from "../common/OptimizedImg";
 
 function GiftHamperImage({ src, alt, className = "h-20 w-20" }) {
   return (
@@ -6,7 +7,7 @@ function GiftHamperImage({ src, alt, className = "h-20 w-20" }) {
       className={`${className} shrink-0 overflow-hidden rounded-lg border border-[#F5D0A8] bg-white p-1`}
     >
       {src ? (
-        <img src={src} alt={alt} className="h-full w-full object-contain" />
+        <OptimizedImg src={src} alt={alt} className="h-full w-full object-contain" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-2xl">🎁</div>
       )}

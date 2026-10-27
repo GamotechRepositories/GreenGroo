@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { LOGO_URL } from "../layout/Header";
+import OptimizedImg from "../common/OptimizedImg";
 
 const ONBOARDING_KEY = "greengrocc_onboarding_done";
 const HERO_IMAGE = "/onboarding-hero.png";
@@ -27,7 +28,7 @@ function OnboardingScreen({ onComplete }) {
       {/* Mobile: text top · full image · buttons bottom */}
       <div className="relative flex h-full w-full flex-col lg:hidden">
         <div className="relative z-20 shrink-0 px-6 pt-[max(2rem,env(safe-area-inset-top))] text-center">
-          <img
+          <OptimizedImg
             src={LOGO_URL}
             alt="GreenGrocc"
             className="mx-auto h-10 w-auto object-contain"
@@ -41,7 +42,7 @@ function OnboardingScreen({ onComplete }) {
         </div>
 
         <div className="relative min-h-0 flex-1">
-          <img
+          <OptimizedImg
             src={HERO_IMAGE}
             alt="Fresh groceries"
             className="absolute inset-0 h-full w-full object-cover object-[center_78%]"
@@ -70,7 +71,7 @@ function OnboardingScreen({ onComplete }) {
 
       {/* Desktop: full image background · text overlay left */}
       <div className="relative hidden h-full w-full overflow-hidden lg:block">
-        <img
+        <OptimizedImg
           src={DESKTOP_IMAGE}
           alt="Fresh groceries"
           className="absolute inset-0 h-full w-full object-cover object-[right_center]"
@@ -78,7 +79,7 @@ function OnboardingScreen({ onComplete }) {
 
         <div className="relative z-10 flex h-full items-center justify-start pl-[12%] pr-8 xl:pl-[14%] 2xl:pl-[16%]">
           <div className="flex w-full max-w-[440px] flex-col items-start">
-            <img
+            <OptimizedImg
               src={LOGO_URL}
               alt="GreenGrocc"
               className="h-11 w-auto object-contain object-left xl:h-12"

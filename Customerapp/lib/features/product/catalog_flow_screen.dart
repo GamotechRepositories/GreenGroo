@@ -29,7 +29,7 @@ final catalogProductsProvider =
     'categoryName': key.category,
     'section': key.section,
     'limit': 200,
-  });
+  }, ref);
   final dept = departmentForSection(key.section);
   return products.where((p) => p.isActive && p.department == dept).toList();
 });

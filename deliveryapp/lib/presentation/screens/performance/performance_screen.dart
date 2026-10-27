@@ -1,9 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/config/cached_get.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
@@ -37,17 +36,17 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       _error = null;
     });
     try {
-      final res = await apiGet(
+      await cachedApiGet(
         ApiConfig.performance,
         headers: AuthService.instance.authHeaders,
+        onData: (body) {
+          if (!mounted) return;
+          setState(() {
+            _loading = false;
+            _data = body;
+          });
+        },
       );
-      if (res.statusCode != 200) throw Exception('Failed');
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _data = body;
-      });
     } catch (_) {
       if (!mounted) return;
       setState(() {

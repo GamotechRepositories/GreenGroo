@@ -8,6 +8,7 @@ import CategoryHeaderSection from "./CategoryHeaderSection";
 import ProductFiltersBar from "./ProductFiltersBar";
 import ShopTopSlidingBanners from "./ShopTopSlidingBanners";
 import MobileCategoryBrowse from "./MobileCategoryBrowse";
+import OptimizedImg from "../common/OptimizedImg";
 function buildCategoryUrl(categoryName, params = {}, storeParam = "") {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);
@@ -205,7 +206,7 @@ function useLoadMoreOnVisible({ enabled, onLoadMore }) {
           onLoadMore();
         }
       },
-      { rootMargin: "240px 0px" }
+      { rootMargin: "800px 0px" }
     );
 
     observer.observe(node);
@@ -528,7 +529,7 @@ function CategoryProductMain({
                 className="overflow-hidden rounded-2xl border border-slate-100 bg-white"
               >
                 {card.image ? (
-                  <img src={card.image} alt="" className="aspect-[5/4] w-full object-contain" />
+                  <OptimizedImg src={card.image} alt="" className="aspect-[5/4] w-full object-contain" />
                 ) : (
                   <div className="aspect-[5/4] w-full bg-slate-50" />
                 )}

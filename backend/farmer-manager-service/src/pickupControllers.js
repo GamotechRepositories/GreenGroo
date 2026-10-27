@@ -13,6 +13,7 @@ import { getIO } from "../../shared/socket.js";
 import { pushFarmerOrderChange } from "./farmerPush.js";
 import { pushDriverAccountStatus, pushDriverPickupAssigned, pushDriverPickupReceived } from "./driverPush.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { timestampId } from "../../shared/ids.js";
 import { resolveLocation, cityCode } from "../../erp-service/src/services/locationResolver.js";
 import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, DRIVER_LIST_EXCLUDE } from "./listProjections.js";
 import { PAGE_LIMITS, isPaginationRequested, getPageParams, paginatedResponse } from "./pagination.js";
@@ -619,7 +620,7 @@ export async function ensurePickupForOrder(order, farmer) {
     city: farmer?.farmAddress?.district || farmer?.district || "",
     address: farmer?.farmAddress?.village || farmer?.farmLocation || "",
   });
-  const pickupId = `PKP-${Date.now()}`;
+  const pickupId = timestampId("PKP").toUpperCase();
   const qrToken = qrTokenForPickup();
   const created = await Pickup.create({
     id: pickupId,

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_env.dart';
+import '../live/live_cache.dart';
 
 /// The server answered with a non-2xx status. The host is reachable, so trying
 /// the other candidate hosts would only repeat the same failing request.
@@ -19,7 +20,13 @@ class ApiHttpException implements Exception {
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
-  ApiService._internal();
+  ApiService._internal() {
+    LiveCache.instance.configure(baseUrl: () => _baseUrl, token: () => _token, fetch: (path) => get(path));
+  }
+
+  /// GET served from the device cache and kept current by server pushes
+  /// (see [LiveCache]); use for screens' main data, not for one-off lookups.
+  Future<dynamic> getCached(String endpoint) => LiveCache.instance.get(endpoint);
 
   static const List<String> candidateHosts = [
     'http://192.168.1.35:5001',
@@ -79,7 +86,9 @@ class ApiService {
   }
 
   void setToken(String? token) async {
+    final changed = token != _token;
     _token = token;
+    if (changed) unawaited(LiveCache.instance.onAuthChanged());
     final prefs = await SharedPreferences.getInstance();
     if (token != null) {
       await prefs.setString('farmer_jwt_token', token);
@@ -285,7 +294,7 @@ class ApiService {
   // Data endpoints matching backend farmer-manager-service
   Future<dynamic> fetchFarmerProfile(String farmerId) async {
     try {
-      return await get('/api/farmers/me');
+      return await getCached('/api/farmers/me');
     } catch (_) {
       return await get('/api/farmers/$farmerId');
     }
@@ -341,7 +350,7 @@ class ApiService {
   Future<dynamic> fetchDashboard(String farmerId) async => get('/api/farmers/$farmerId/dashboard');
   Future<dynamic> fetchCrops() async {
     try {
-      return await get('/api/farmer/crops');
+      return await getCached('/api/farmer/crops');
     } catch (_) {
       return await get('/api/farmers/crops');
     }
@@ -405,7 +414,7 @@ class ApiService {
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
   Future<dynamic> fetchProducts(String farmerId) async {
     try {
-      final parsed = _coerceList(await get('/api/farmer/products'), const ['products', 'data']);
+      final parsed = _coerceList(await getCached('/api/farmer/products'), const ['products', 'data']);
       if (parsed != null) return parsed;
     } catch (_) {}
     try {
@@ -418,7 +427,7 @@ class ApiService {
     const timeout = Duration(seconds: 15);
     List<dynamic>? first;
     try {
-      first = _coerceList(await get('/api/farmer/orders', timeout: timeout), const ['orders', 'data', 'rows']);
+      first = _coerceList(await getCached('/api/farmer/orders'), const ['orders', 'data', 'rows']);
       if (first != null && first.isNotEmpty) return first;
     } catch (_) {}
     if (farmerId.trim().isEmpty) return first ?? [];
@@ -428,11 +437,11 @@ class ApiService {
     } catch (_) {}
     return first ?? [];
   }
-  Future<dynamic> fetchDocuments(String farmerId) async => get('/api/farmers/$farmerId/documents');
+  Future<dynamic> fetchDocuments(String farmerId) async => getCached('/api/farmers/$farmerId/documents');
 
   Future<dynamic> fetchLiveGovtSchemes() async {
     try {
-      final res = await get('/api/admin-ops/govt-schemes/live');
+      final res = await getCached('/api/admin-ops/govt-schemes/live');
       if (res is Map && res['data'] is List) return res['data'];
       if (res is List) return res;
     } catch (_) {}
@@ -441,7 +450,7 @@ class ApiService {
 
   Future<dynamic> fetchMySchemeApplications(String farmerId) async {
     try {
-      final res = await get('/api/admin-ops/govt-schemes/applications/mine?farmerId=$farmerId');
+      final res = await getCached('/api/admin-ops/govt-schemes/applications/mine?farmerId=$farmerId');
       if (res is Map && res['data'] is List) return res['data'];
       if (res is List) return res;
     } catch (_) {}
@@ -476,6 +485,9 @@ class ApiService {
     }
     return fileUrl;
   }
+
+  Future<String> uploadDocumentFileToS3(String farmerId, List<int> bytes, String mimeType, {String? fileName}) =>
+      uploadDocumentFile(farmerId, bytes, mimeType: mimeType);
 
   Future<dynamic> createProduct(String farmerId, Map<String, dynamic> body) async {
     return post('/api/farmers/$farmerId/products', body);
@@ -533,7 +545,7 @@ class ApiService {
 
   Future<dynamic> getFarmerNotifications({String? category}) {
     final query = category != null && category.isNotEmpty && category != 'all' ? '?category=$category' : '';
-    return get('/api/farmer/notifications$query');
+    return query.isEmpty ? getCached('/api/farmer/notifications') : get('/api/farmer/notifications$query');
   }
 
   Future<dynamic> readAllFarmerNotifications() {

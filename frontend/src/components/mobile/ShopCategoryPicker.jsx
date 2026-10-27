@@ -4,6 +4,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { sectionToStoreKey, storeToSection } from "../../utils/storeSection";
 import MobileSearchBar from "./MobileSearchBar";
+import OptimizedImg from "../common/OptimizedImg";
 
 const FALLBACK_IMAGE = "/categories/category_vegetables.jpg";
 
@@ -82,7 +83,7 @@ function ShopCategoryPicker() {
           aria-label="Choose category"
           className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white"
         >
-          <img src={thumb} alt="" className="h-full w-full object-cover" />
+          <OptimizedImg src={thumb} alt="" className="h-full w-full object-cover" />
         </button>
 
         <div className="flex min-w-0 flex-col items-start">
@@ -156,7 +157,7 @@ function ShopCategoryPicker() {
                     }`}
                   >
                     <span className="aspect-square w-full overflow-hidden rounded-xl border border-gray-100 bg-white">
-                      <img
+                      <OptimizedImg
                         src={cat.categoryImage || FALLBACK_IMAGE}
                         alt=""
                         loading="lazy"

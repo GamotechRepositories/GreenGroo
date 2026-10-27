@@ -5,6 +5,7 @@ import StoreInventory from "../delivery-service/src/models/StoreInventory.js";
 import DeliveryManager from "../delivery-service/src/models/DeliveryManager.js";
 import {
   attachStoreAvailability,
+  loadStoreInventory,
   matchProductToItem,
   mongoMatchForInventory,
   storePublicPayload,
@@ -42,7 +43,7 @@ async function catalogForStore(storeId) {
   }
   const [manager, items] = await Promise.all([
     DeliveryManager.findById(storeId).lean(),
-    StoreInventory.find({ managerId: storeId, isActive: true }).lean(),
+    loadStoreInventory(storeId),
   ]);
   if (!manager) return { requested: true, manager: null, store: null, items: [] };
   return { requested: true, manager, store: storePublicPayload(manager), items };

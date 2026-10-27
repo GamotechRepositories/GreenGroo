@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function BumperBountyModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function BumperBountyModal() {
             </div>
             <div className="p-2 px-3 flex items-center justify-between">
               <div className="w-28 h-20 flex items-center justify-center overflow-hidden">
-                <img 
+                <OptimizedImg 
                   src="/bumper_potato.jpg" 
                   alt="New Potato in wooden crate" 
                   className="w-full h-full object-cover rounded-md"
@@ -115,7 +116,7 @@ export default function BumperBountyModal() {
             </div>
             <div className="p-2 px-3 flex items-center justify-between">
               <div className="w-28 h-20 flex items-center justify-center overflow-hidden">
-                <img 
+                <OptimizedImg 
                   src="/bumper_banana.jpg" 
                   alt="Banana Golden in wooden crate" 
                   className="w-full h-full object-cover rounded-md"

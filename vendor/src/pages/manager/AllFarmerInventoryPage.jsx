@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useLive } from "../../realtime/useLive";
 import { RefreshCw } from "lucide-react";
 import { vendorApi } from "../../api/vendorApi";
 import { CopyButton } from "../../components/ui/CopyId";
 import EmptyState from "../../components/ui/EmptyState";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_INPUT } from "../../utils/excelStyles";
-
-const REFRESH_MS = 30000;
 
 const TH =
   "border border-[#E5E7EB] bg-[#F3F4F6] px-1 py-1.5 text-left text-[9px] font-semibold text-[#374151] sm:px-2.5 sm:py-2.5 sm:text-[11px]";
@@ -78,13 +77,7 @@ export default function AllFarmerInventoryPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") load({ silent: true });
-    }, REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+  useLive(({ initial }) => load({ silent: !initial }), [load]);
 
   const counts = useMemo(() => {
     const c = { all: items.length, in: 0, low: 0, out: 0 };

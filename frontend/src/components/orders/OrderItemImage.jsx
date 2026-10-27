@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import OptimizedImg from "../common/OptimizedImg";
 
 function OrderItemImage({ image, fallbackImage, alt, className = "h-full w-full object-contain p-1" }) {
   const [src, setSrc] = useState(image || fallbackImage || "");
@@ -14,7 +15,7 @@ function OrderItemImage({ image, fallbackImage, alt, className = "h-full w-full 
   }
 
   return (
-    <img
+    <OptimizedImg
       src={src}
       alt={alt}
       className={className}

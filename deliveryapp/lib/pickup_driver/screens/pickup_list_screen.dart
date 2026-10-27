@@ -114,7 +114,7 @@ class _PickupTabState extends State<_PickupTab>
   bool _loading = true;
   String _busyId = '';
   String _error = '';
-  Timer? _timer;
+  StreamSubscription<void>? _watch;
 
   @override
   bool get wantKeepAlive => true;
@@ -123,13 +123,13 @@ class _PickupTabState extends State<_PickupTab>
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _load());
+    _watch = PickupDriverService.instance.watchPickups(widget.mode.filter).listen((_) => _load());
     PickupPushService.instance.refreshTick.addListener(_load);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _watch?.cancel();
     PickupPushService.instance.refreshTick.removeListener(_load);
     super.dispose();
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import OptimizedImg from "../../../components/common/OptimizedImg";
 
 /** Rotating shop banner; `banners` come from admin → Banners (see ShopTopSlidingBanners). */
 export function GreenGroccShopBanner({
@@ -83,7 +84,7 @@ export function GreenGroccShopBanner({
           return (
             <div key={banner.id} className="w-full shrink-0">
               <Link to={targetLink} className="block w-full">
-                <img
+                <OptimizedImg
                   src={banner.image}
                   alt={banner.alt}
                   className={`block w-full rounded-2xl object-cover transition-opacity hover:opacity-95 ${

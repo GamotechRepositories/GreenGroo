@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
+import OptimizedImg from "../common/OptimizedImg";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -173,7 +174,7 @@ export default function ReturnOrderSection({
 
           {imagePreview ? (
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              <img
+              <OptimizedImg
                 src={imagePreview}
                 alt="Product for return"
                 className="mx-auto max-h-48 object-contain"

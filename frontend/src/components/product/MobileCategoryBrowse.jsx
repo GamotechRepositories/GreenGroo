@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Search } from "lucide-react";
 import { useCart } from "../../context/CartContext";
@@ -6,6 +6,7 @@ import { SHOP_BY_CATEGORY_ITEMS } from "../home/ShopByCategory";
 import { buildStoreProductUrl, sectionToStoreKey, storeToSection } from "../../utils/storeSection";
 import { groupBaseProducts, productImage } from "../../utils/baseProducts";
 import { useInfiniteProductsQuery } from "../../hooks/queries/useProductsQuery";
+import OptimizedImg from "../common/OptimizedImg";
 
 function productSubtitle(product) {
   const sale = product?.discountedPrice ?? product?.price;
@@ -46,9 +47,26 @@ function MobileCategoryBrowse({ categories = [], categoryName, products = [], lo
     fetchNextPage: fetchAllNext,
   } = useInfiniteProductsQuery(allParams, { enabled: showAll });
 
+  // Search filters loaded products on the device, so it needs every page.
+  const searching = query.trim().length > 0;
   useEffect(() => {
-    if (showAll && allHasNext && !allFetching) fetchAllNext();
-  }, [showAll, allHasNext, allFetching, fetchAllNext]);
+    if (showAll && searching && allHasNext && !allFetching) fetchAllNext();
+  }, [showAll, searching, allHasNext, allFetching, fetchAllNext]);
+
+  const loadMoreRef = useRef(null);
+  const canLoadMore = showAll && allHasNext && !allFetching;
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!canLoadMore || !node) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) fetchAllNext();
+      },
+      { rootMargin: "800px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canLoadMore, fetchAllNext]);
 
   useEffect(() => {
     setShowAll(false);
@@ -179,7 +197,7 @@ function MobileCategoryBrowse({ categories = [], categoryName, products = [], lo
 
       <div className="px-3 pt-2">
         <div className="relative overflow-hidden rounded-[22px] bg-[#f3ecdc]">
-          <img src={bannerImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover" />
+          <OptimizedImg src={bannerImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover" />
           <div className="absolute inset-y-0 right-0 w-[58%] bg-gradient-to-r from-[#f3ecdc] via-[#f3ecdc]/35 to-transparent" />
           <div className="relative z-10 max-w-[62%] px-4 py-5">
             <h2 className="whitespace-pre-line font-serif text-[26px] font-semibold leading-[1.05] text-[#163528]">
@@ -239,7 +257,7 @@ function MobileCategoryBrowse({ categories = [], categoryName, products = [], lo
             >
               <div className="relative bg-white px-2 pt-2">
                 {card.image ? (
-                  <img src={card.image} alt="" className="aspect-[5/4] w-full object-contain" />
+                  <OptimizedImg src={card.image} alt="" loading="lazy" className="aspect-[5/4] w-full object-contain" />
                 ) : (
                   <div className="aspect-[5/4] w-full bg-slate-50" />
                 )}
@@ -260,6 +278,7 @@ function MobileCategoryBrowse({ categories = [], categoryName, products = [], lo
           ))}
         </div>
       )}
+      {showAll && allHasNext ? <div ref={loadMoreRef} className="h-px" aria-hidden="true" /> : null}
     </div>
   );
 }

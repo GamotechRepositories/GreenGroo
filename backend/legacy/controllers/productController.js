@@ -15,6 +15,10 @@ import {
   syncProductToStores,
 } from "../../delivery-service/src/services/catalogStoreInventory.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
+import { DynamicPricingRule } from "../../admin-ops-service/src/models.js";
+import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
+import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
+import { createMemoryCache } from "../../shared/cache/memoryCache.js";
 import { buildDepartmentId, normalizeDeptToken } from "../utils/departmentHelpers.js";
 import {
   cropCodeFromName,
@@ -661,6 +665,46 @@ export async function getPurchaseCountsByProductIds(productIds = []) {
   );
 }
 
+const LOCATION_QUERY_KEYS = new Set([
+  "lat", "lng", "latitude", "longitude", "city", "area", "pincode", "address", "fullAddress", "fulfillment",
+]);
+const PRODUCTS_COLLECTION = Product.collection.collectionName.toLowerCase();
+const INVENTORY_COLLECTION = StoreInventory.collection.collectionName.toLowerCase();
+const STORE_WIDE_COLLECTIONS = new Set([
+  PRODUCTS_COLLECTION,
+  DeliveryManager.collection.collectionName.toLowerCase(),
+  DynamicPricingRule.collection.collectionName.toLowerCase(),
+]);
+
+/**
+ * Customer product lists, keyed by dark store + filters. A stock change clears
+ * only that store's lists; purchase counts may lag by up to the TTL.
+ */
+const productListCache = createMemoryCache({
+  name: "customer-product-lists",
+  ttlMs: 60_000,
+  maxEntries: 500,
+  maxBytes: 8_000_000,
+  maxTotalBytes: 150_000_000,
+  invalidateOn: ({ coll, doc }) => {
+    if (STORE_WIDE_COLLECTIONS.has(coll)) return true;
+    if (coll !== INVENTORY_COLLECTION) return false;
+    if (!doc?.managerId) return true;
+    const prefix = `${String(doc.managerId)}|`;
+    return (key) => key.startsWith(prefix);
+  },
+});
+
+function productListCacheKey(catalog, query) {
+  const store = catalog.manager?._id ? String(catalog.manager._id) : `none-${catalog.needsLocation ? 1 : 0}`;
+  const filters = Object.keys(query)
+    .filter((key) => !LOCATION_QUERY_KEYS.has(key))
+    .sort()
+    .map((key) => `${key}=${query[key]}`)
+    .join("&");
+  return `${store}|${filters}`;
+}
+
 export const getProducts = async (req, res) => {
   try {
     const catalog = await loadNearestStoreCatalog(req.query);
@@ -806,19 +850,9 @@ export const getProducts = async (req, res) => {
       req.query.page !== null &&
       String(req.query.page).trim() !== "";
 
-    if (usePagination) {
-      const { page, limit: requestedLimit, skip } = getPaginationParams(req.query, 50);
-      const limit = Math.min(requestedLimit, 50);
-
-      const [total, products] = await Promise.all([
-        Product.countDocuments(filter),
-        Product.find(filter).sort(sort).skip(skip).limit(limit),
-      ]);
-
-      const purchaseCounts = await getPurchaseCountsByProductIds(
-        products.map((item) => item._id)
-      );
-      const data = await attachQuantityDiscounts(
+    const decorate = async (products) => {
+      const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
+      return attachQuantityDiscounts(
         attachStoreAvailability(
           products.map((item) => ({
             ...transformProductResponse(item),
@@ -827,33 +861,28 @@ export const getProducts = async (req, res) => {
           catalog
         )
       );
+    };
 
-      return res.status(200).json({
-        ...buildPaginatedResponse(data, total, page, limit),
-        store: catalog.store,
-      });
-    }
+    const payload = await productListCache.get(productListCacheKey(catalog, req.query), async () => {
+      if (usePagination) {
+        const { page, limit: requestedLimit, skip } = getPaginationParams(req.query, 50);
+        const limit = Math.min(requestedLimit, 50);
+        const [total, products] = await Promise.all([
+          Product.countDocuments(filter),
+          Product.find(filter).sort(sort).skip(skip).limit(limit),
+        ]);
+        return buildPaginatedResponse(await decorate(products), total, page, limit);
+      }
 
-    let query = Product.find(filter).sort(sort);
+      let query = Product.find(filter).sort(sort);
+      if (req.query.limit) {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 15, 50);
+        query = query.limit(limit);
+      }
+      return { success: true, data: await decorate(await query) };
+    });
 
-    if (req.query.limit) {
-      const limit = Math.min(parseInt(req.query.limit, 10) || 15, 50);
-      query = query.limit(limit);
-    }
-
-    const products = await query;
-    const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
-    const data = await attachQuantityDiscounts(
-      attachStoreAvailability(
-        products.map((item) => ({
-          ...transformProductResponse(item),
-          purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-        })),
-        catalog
-      )
-    );
-
-    res.status(200).json({ success: true, data, store: catalog.store });
+    res.status(200).json({ ...payload, store: catalog.store });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -4,6 +4,7 @@ import { LOGO_URL } from "../layout/Header";
 import { useCart } from "../../context/CartContext";
 import MobileSearchBar from "./MobileSearchBar";
 import ShopCategoryPicker from "./ShopCategoryPicker";
+import OptimizedImg from "../common/OptimizedImg";
 
 function MobileHeader() {
   const { cartCount, openCartSidebar } = useCart();
@@ -38,7 +39,7 @@ function MobileHeader() {
           ) : (
             <>
               <Link to="/" className="shrink-0 transition-transform active:scale-95">
-                <img
+                <OptimizedImg
                   src={LOGO_URL}
                   alt="GreenGrocc"
                   className="h-10 w-auto object-contain sm:h-12"

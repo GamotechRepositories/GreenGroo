@@ -1,4 +1,5 @@
 import React from "react";
+import OptimizedImg from "../../../components/common/OptimizedImg";
 
 export function Ready2CookCategoryCard({ cat, onClick, isSelected }) {
   return (
@@ -18,7 +19,7 @@ export function Ready2CookCategoryCard({ cat, onClick, isSelected }) {
       </div>
 
       <div className="absolute right-1 bottom-1 sm:right-2 sm:bottom-2 h-12 w-12 sm:h-18 sm:w-18 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-        <img src={cat.image} alt={cat.name} className="h-full w-full object-cover rounded-xl shadow-2xs" />
+        <OptimizedImg src={cat.image} alt={cat.name} className="h-full w-full object-cover rounded-xl shadow-2xs" />
       </div>
     </div>
   );

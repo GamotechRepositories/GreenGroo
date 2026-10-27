@@ -933,7 +933,7 @@ export const PosRegisterShift =
 
 const inventoryBatchSchema = new mongoose.Schema(
   {
-    batchNumber: { type: String, required: true, trim: true, index: true },
+    batchNumber: { type: String, required: true, trim: true, unique: true },
     sku: { type: String, required: true, trim: true, index: true },
     productName: { type: String, required: true, trim: true },
     category: { type: String, default: "General", trim: true },

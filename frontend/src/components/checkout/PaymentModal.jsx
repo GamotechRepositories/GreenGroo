@@ -10,6 +10,7 @@ import {
   openUpiAppChooser,
   pickEnabledMerchantUpiAccounts,
 } from "../../utils/upiPayment";
+import OptimizedImg from "../common/OptimizedImg";
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 
@@ -257,7 +258,7 @@ function PaymentModal({
 
               {hasUpiId ? (
                 <div className="mt-1.5 rounded-md border border-border-light bg-white p-1">
-                  <img
+                  <OptimizedImg
                     src={qrUrl}
                     alt="UPI payment QR code"
                     className="h-24 w-24 object-contain sm:h-28 sm:w-28"
@@ -280,7 +281,7 @@ function PaymentModal({
                     onClick={openUpiChooser}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
                   >
-                    <img
+                    <OptimizedImg
                       src="/assets/payment/upi.svg"
                       alt=""
                       width={20}
@@ -308,7 +309,7 @@ function PaymentModal({
 
               {screenshotPreview ? (
                 <div className="mt-1.5">
-                  <img
+                  <OptimizedImg
                     src={screenshotPreview}
                     alt="Payment screenshot preview"
                     className="max-h-16 w-full rounded-md border border-border-light object-contain bg-white"

@@ -28,7 +28,7 @@ class _PickupBatchScreenState extends State<PickupBatchScreen> {
   Map<String, dynamic>? _data;
   String _error = '';
   bool _busy = false;
-  Timer? _timer;
+  StreamSubscription<void>? _watch;
 
   @override
   void initState() {
@@ -37,14 +37,14 @@ class _PickupBatchScreenState extends State<PickupBatchScreen> {
       _data = {'batchId': widget.batchId, 'pickups': widget.seedPickups};
     }
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _watch = _svc.watchBatch(widget.batchId).listen((_) {
       if (!_busy) _load();
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _watch?.cancel();
     super.dispose();
   }
 

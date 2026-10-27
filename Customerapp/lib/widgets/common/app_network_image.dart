@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/utils/optimized_image_url.dart';
+
 /// Clean brand placeholder for missing or loading images:
 /// Shows the GreenGrocc brand asset with the cart icon above and logo below (no background color).
 class AppImagePlaceholder extends StatelessWidget {
@@ -136,7 +138,7 @@ class AppNetworkImage extends StatelessWidget {
     final memH = _memDim(context, height, cacheHeight);
 
     return CachedNetworkImage(
-      imageUrl: imageUrl.trim(),
+      imageUrl: optimizedImageUrl(imageUrl, widthPx: memW, heightPx: memH),
       fit: fit,
       alignment: alignment,
       width: width,

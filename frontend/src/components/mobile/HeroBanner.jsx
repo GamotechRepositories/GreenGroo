@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getHeroBanners } from "../../api/api";
+import OptimizedImg from "../common/OptimizedImg";
 
 const AUTO_PLAY_MS = 5000;
 const DESKTOP_BREAKPOINT = 1024;
@@ -99,7 +100,7 @@ function HeroBanner() {
     >
       <div className={bannerShellClass}>
         {slides.map((slide, index) => (
-          <img
+          <OptimizedImg
             key={slide.id}
             src={slide.src}
             alt={slide.alt}

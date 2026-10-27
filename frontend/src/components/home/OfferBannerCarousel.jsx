@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import OptimizedImg from "../common/OptimizedImg";
 
 export function LeafMark({ className = "h-4 w-4" }) {
   return (
@@ -45,7 +46,7 @@ export default function OfferBannerCarousel({
         to={banner.link}
         className={`relative block ${aspectClass} w-full overflow-hidden rounded-xl sm:rounded-2xl`}
       >
-        <img
+        <OptimizedImg
           src={banner.image}
           alt={banner.alt || ""}
           loading="lazy"

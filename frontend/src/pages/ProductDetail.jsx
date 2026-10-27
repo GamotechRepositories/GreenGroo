@@ -46,6 +46,7 @@ import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { getProductDisplayDetails } from "../utils/productLocalization";
 import { catalogUrls } from "../components/product/CatalogFlow";
 import { baseGroupKey } from "../utils/baseProducts";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -337,7 +338,7 @@ function MediaThumbnailCarousel({ items, activeIndex, onSelect }) {
                 </svg>
               </div>
             ) : (
-              <img
+              <OptimizedImg
                 src={item.url}
                 alt=""
                 className="h-full w-full object-contain p-1"
@@ -471,7 +472,7 @@ function FarmerDetailsCard({ product }) {
         <div className={`mt-4 grid gap-3 ${farmerImage && farmImage ? "grid-cols-2" : "grid-cols-1"}`}>
           {farmerImage ? (
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-50">
-              <img
+              <OptimizedImg
                 src={farmerImage}
                 alt={name || "Farmer"}
                 className="h-full w-full object-cover"
@@ -486,7 +487,7 @@ function FarmerDetailsCard({ product }) {
           ) : null}
           {farmImage ? (
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-50">
-              <img
+              <OptimizedImg
                 src={farmImage}
                 alt="Farm land"
                 className="h-full w-full object-cover"
@@ -541,7 +542,7 @@ function FarmerQuickCard({ product }) {
     <div className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
       <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-emerald-100 ring-2 ring-white">
         {farmerImage ? (
-          <img
+          <OptimizedImg
             src={farmerImage}
             alt={name || "Farmer"}
             className="h-full w-full object-cover"
@@ -602,7 +603,7 @@ function QuantityOptionCard({ label, salePrice, originalPrice, selected, image, 
       }`}
     >
       {image ? (
-        <img src={image} alt="" className="block h-[84px] w-full object-cover object-center" />
+        <OptimizedImg src={image} alt="" className="block h-[84px] w-full object-cover object-center" />
       ) : (
         <div className="h-[84px] w-full bg-white" />
       )}

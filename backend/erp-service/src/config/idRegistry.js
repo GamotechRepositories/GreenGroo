@@ -268,6 +268,7 @@ export const ID_PREFIX_ORDER = [
   { prefix: "GRN-", module: "GRN", entity: "goodsReceipt" },
   { prefix: "PO-", module: "PO", entity: "purchaseOrder" },
   { prefix: "ORD-", module: "ORD", entity: "order" },
+  { prefix: "PKP-", module: "ORD", entity: "order" },
   { prefix: "GGC", module: "COM", entity: "company" },
 ];
 

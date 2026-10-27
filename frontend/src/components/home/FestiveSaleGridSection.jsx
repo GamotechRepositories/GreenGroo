@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useStoreSettingsQuery } from "../../hooks/queries/useStoreSettingsQuery";
 import { mergeStoreSettings } from "../../utils/orderSettings";
+import OptimizedImg from "../common/OptimizedImg";
 
 const GRID_CARDS = [
   {
@@ -75,7 +76,7 @@ export default function FestiveSaleGridSection() {
             </h3>
             
             <div className="my-1.5 sm:my-2 h-28 sm:h-44 w-full overflow-hidden rounded-xl flex items-center justify-center bg-sky-50 relative">
-              <img
+              <OptimizedImg
                 src="https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=400&h=400&q=80"
                 alt="Festive Specials"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -104,7 +105,7 @@ export default function FestiveSaleGridSection() {
                   </h4>
 
                   <div className="my-0.5 sm:my-1 h-9 sm:h-13 w-9 sm:w-13 overflow-hidden rounded-xl bg-slate-50 flex items-center justify-center">
-                    <img
+                    <OptimizedImg
                       src={card.image}
                       alt={card.title}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"

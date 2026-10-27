@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/catalog_cache.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/utils/department_utils.dart';
@@ -57,7 +58,7 @@ final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
   ref.watch(deliveryLocationKeyProvider);
   final params = {..._queryParams(query), 'limit': 50};
-  final products = await ref.read(apiServiceProvider).fetchProducts(params);
+  final products = await ref.read(apiServiceProvider).fetchProducts(params, ref);
   if (query.section != null && query.section!.isNotEmpty) {
     final activeDept = departmentForSection(query.section!);
     return products.where((product) => product.isActive && product.department == activeDept).toList();
@@ -116,8 +117,25 @@ class PagedProductsNotifier extends Notifier<PagedProducts> {
     _page = 0;
     _busy = false;
     _generation++;
+    final sync = CatalogCache.instance.productEvents.listen(_applyProductEvent);
+    ref.onDispose(sync.cancel);
     Future.microtask(loadMore);
     return const PagedProducts();
+  }
+
+  /// Catalog push for one product: patch it in place, no refetch.
+  void _applyProductEvent(Map<String, dynamic> event) {
+    final id = event['id']?.toString() ?? '';
+    final index = state.items.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    final data = event['data'];
+    final items = List<Product>.from(state.items);
+    if (event['action'] == 'deleted' || data is! Map || data['isActive'] == false) {
+      items.removeAt(index);
+    } else {
+      items[index] = Product.fromJson(Map<String, dynamic>.from(data));
+    }
+    state = state.copyWith(items: items);
   }
 
   Future<void> loadMore() async {
@@ -178,7 +196,7 @@ final pagedProductsProvider = NotifierProvider.autoDispose
 final productDetailProvider =
     FutureProvider.family<Product, String>((ref, id) async {
   ref.watch(deliveryLocationKeyProvider);
-  return ref.read(apiServiceProvider).fetchProductById(id);
+  return ref.read(apiServiceProvider).fetchProductById(id, live: ref);
 });
 
 final similarProductsProvider =

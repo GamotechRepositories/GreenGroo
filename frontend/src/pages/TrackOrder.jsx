@@ -42,6 +42,7 @@ import {
   showsLiveMap,
   withStatus,
 } from "../utils/orderTracking";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 const GREEN = "#0C831F";
 const SUPPORT_WHATSAPP_URL = "https://wa.me/917400222233?text=Hi%20GreenGrocc%2C%20I%20need%20help%20with%20my%20order";
@@ -333,7 +334,7 @@ function ItemsCard({ items }) {
             return (
               <li key={item._id || `${item.name}-${index}`} className="flex items-center gap-3 px-3.5 py-2.5">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-100">
-                  {image ? <img src={image} alt="" className="h-full w-full object-contain p-0.5" /> : <Package className="h-4 w-4 text-slate-300" />}
+                  {image ? <OptimizedImg src={image} alt="" className="h-full w-full object-contain p-0.5" /> : <Package className="h-4 w-4 text-slate-300" />}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] text-slate-800">
                   <span className="font-semibold">{item.quantity}×</span> {item.name}

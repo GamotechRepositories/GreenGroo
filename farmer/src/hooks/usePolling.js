@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { createLiveTask } from "../realtime/liveClient";
 
-// Polling results are usually identical; keeping the previous reference lets React skip re-rendering.
+// Re-runs often return identical data; keeping the previous reference lets React skip re-rendering.
 export function keepIfSame(prev, next) {
   if (prev === next) return prev;
   try {
@@ -10,26 +11,28 @@ export function keepIfSame(prev, next) {
   }
 }
 
+const SAFETY_RERUN_MS = 60000;
+
+/**
+ * Run `fn` now, then again whenever the server pushes a change to data it read
+ * (see useLive). Pushed re-runs are served from the local live cache, so they
+ * cost no request. The slow interval only matters for endpoints that are not
+ * live; for live ones it is also answered from the cache.
+ */
 export function usePolling(fn, deps = [], intervalMs = 5000) {
   const fnRef = useRef(fn);
-  fnRef.current = fn;
+  useLayoutEffect(() => {
+    fnRef.current = fn;
+  });
   useEffect(() => {
-    let stopped = false;
-    const tick = () => {
-      if (!stopped) fnRef.current();
-    };
-    tick();
+    const task = createLiveTask(() => fnRef.current());
+    task.run();
     const id = setInterval(() => {
-      if (!document.hidden) tick();
-    }, intervalMs);
-    const onVisible = () => {
-      if (!document.hidden) tick();
-    };
-    document.addEventListener("visibilitychange", onVisible);
+      if (!document.hidden) task.run();
+    }, Math.max(intervalMs, SAFETY_RERUN_MS));
     return () => {
-      stopped = true;
       clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
+      task.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

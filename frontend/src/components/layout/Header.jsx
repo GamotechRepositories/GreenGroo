@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { buildProductSearchUrl } from "../../utils/productSearch";
+import OptimizedImg from "../common/OptimizedImg";
 
 export const LOGO_URL = "/assets/payment/logo.png";
 
@@ -113,7 +114,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
         {/* Mobile: logo + menu */}
         <div className="flex md:hidden items-center justify-between gap-3 min-w-0">
           <Link to="/" className="flex items-center shrink-0 min-w-0 max-w-[75%]">
-            <img
+            <OptimizedImg
               src={LOGO_URL}
               alt="GreenGrocc.in - Smart Choice, Best Price"
               className="h-16 sm:h-20 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
@@ -141,7 +142,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
         {/* Desktop: logo | search | utilities */}
         <div className="hidden md:grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 lg:gap-8">
           <Link to="/" className="flex items-center shrink-0">
-            <img
+            <OptimizedImg
               src={LOGO_URL}
               alt="GreenGrocc.in - Smart Choice, Best Price"
               className="h-16 lg:h-20 w-auto object-contain object-left hover:opacity-90 transition"

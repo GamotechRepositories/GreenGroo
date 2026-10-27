@@ -12,7 +12,6 @@ import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
-import 'home_load_gate.dart';
 import 'home_providers.dart';
 import 'widgets/category_pills_section.dart';
 import 'widgets/home_all_category_products.dart';
@@ -39,7 +38,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _verticalScrolling = ValueNotifier<bool>(false);
 
-  bool _scrollGateTriggered = false;
   bool _scrollActivityAttached = false;
 
   @override
@@ -51,12 +49,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.home, _scrollController);
       _attachVerticalScrollActivityListener();
-      unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 260), () {
-          if (!mounted) return;
-          ref.read(homeLoadGateProvider.notifier).enableBrands();
-        }),
-      );
       unawaited(_promptLocationIfMissing());
     });
   }
@@ -91,11 +83,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onScroll() {
     _attachVerticalScrollActivityListener();
-
-    if (_scrollGateTriggered) return;
-    if (_scrollController.offset < 48) return;
-    _scrollGateTriggered = true;
-    ref.read(homeLoadGateProvider.notifier).enableScrolled();
   }
 
   @override
@@ -152,70 +139,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 const SliverToBoxAdapter(child: CategoryPillsSection()),
 
-                if (isMain) ...[
-                  const SliverToBoxAdapter(child: StoriesDualBanners(section: 'preorder')),
-                  const SliverToBoxAdapter(
-                    child: GatedHomeSection(
-                      minPhase: HomeLoadPhase.scrolled,
-                      placeholderHeight: 260,
-                      child: RepaintBoundary(child: HotSellingSection()),
+                // SliverList children are built — and their products fetched —
+                // only within the screen plus [AppScrollConfig.cacheExtent].
+                SliverList.list(
+                  children: [
+                    if (isMain) ...[
+                      const StoriesDualBanners(section: 'preorder'),
+                      const RepaintBoundary(child: HotSellingSection()),
+                      const RepaintBoundary(child: JustArrivedSection()),
+                      const RepaintBoundary(child: MostViewedSection()),
+                      const RepaintBoundary(child: PreviouslyBoughtSection()),
+                    ],
+                    SiteBannerCarousel(
+                      key: ValueKey('mid-$bannerSection'),
+                      slot: (section: bannerSection, placement: 'mid'),
+                      padding: kHomeSectionPadding,
+                      radius: 12,
+                      interval: const Duration(seconds: 4),
+                      fallbackAspect: 16 / 7,
                     ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: GatedHomeSection(
-                      minPhase: HomeLoadPhase.scrolled,
-                      placeholderHeight: 260,
-                      child: RepaintBoundary(child: JustArrivedSection()),
+                    RepaintBoundary(
+                      child: isMain
+                          ? const SuggestedForYouSection()
+                          : DepartmentSuggestedSection(section: bannerSection),
                     ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: GatedHomeSection(
-                      minPhase: HomeLoadPhase.scrolled,
-                      placeholderHeight: 260,
-                      child: RepaintBoundary(child: MostViewedSection()),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: RepaintBoundary(child: PreviouslyBoughtSection()),
-                  ),
-                ],
-
-                SliverToBoxAdapter(
-                  child: SiteBannerCarousel(
-                    key: ValueKey('mid-$bannerSection'),
-                    slot: (section: bannerSection, placement: 'mid'),
-                    padding: kHomeSectionPadding,
-                    radius: 12,
-                    interval: const Duration(seconds: 4),
-                    fallbackAspect: 16 / 7,
-                  ),
+                    TopOffersSection(section: bannerSection),
+                  ],
                 ),
-
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(
-                    child: isMain
-                        ? const SuggestedForYouSection()
-                        : DepartmentSuggestedSection(section: bannerSection),
-                  ),
-                ),
-
-                SliverToBoxAdapter(child: TopOffersSection(section: bannerSection)),
 
                 const HomeAllCategoryProducts(),
 
-                if (isMain) ...[
-                  const SliverToBoxAdapter(child: FarmerTestimonials()),
-                  const SliverToBoxAdapter(child: FarmerGrowthBanner()),
-                  const SliverToBoxAdapter(child: WhatMakesUsDifferent()),
-                ],
-
-                const SliverToBoxAdapter(child: MaharashtraPrideBanner()),
-                const SliverToBoxAdapter(child: HomeFooter()),
-                SliverToBoxAdapter(
-                  child: ColoredBox(
-                    color: footerGreen,
-                    child: SizedBox(height: bottomContentSpacer),
-                  ),
+                SliverList.list(
+                  children: [
+                    if (isMain) ...[
+                      const FarmerTestimonials(),
+                      const FarmerGrowthBanner(),
+                      const WhatMakesUsDifferent(),
+                    ],
+                    const MaharashtraPrideBanner(),
+                    const HomeFooter(),
+                    ColoredBox(
+                      color: footerGreen,
+                      child: SizedBox(height: bottomContentSpacer),
+                    ),
+                  ],
                 ),
               ],
             ),

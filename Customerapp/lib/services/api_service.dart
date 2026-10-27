@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/exceptions/api_exception.dart';
 import '../core/network/api_client.dart';
+import '../core/network/catalog_cache.dart';
 import '../core/network/api_isolate_parsers.dart';
 import '../core/network/api_response_parser.dart';
 import '../core/utils/upload_folders.dart';
@@ -30,6 +32,16 @@ class ApiService {
   final ApiClient _client;
 
   Dio get _dio => _client.dio;
+
+  /// Catalog GET through [CatalogCache]: instant from memory / this device,
+  /// revalidated in the background; [live] is rebuilt only if it changed.
+  Future<dynamic> _catalogGet(String path, Map<String, dynamic>? params, Ref? live) {
+    return CatalogCache.instance.get(
+      _client.cacheKey(path, params),
+      () async => (await _dio.get(path, queryParameters: params)).data,
+      ref: live,
+    );
+  }
 
   Future<Response<dynamic>> getHeroBanners({String device = 'mobile'}) =>
       _dio.get('/api/herobanners', queryParameters: {'device': device});
@@ -377,12 +389,10 @@ class ApiService {
   Future<List<SiteBanner>> fetchSiteBanners({
     required String section,
     required String placement,
+    Ref? live,
   }) async {
-    final response = await _dio.get(
-      '/api/banners',
-      queryParameters: {'section': section, 'placement': placement},
-    );
-    final raw = ApiResponseParser.getData(response.data);
+    final body = await _catalogGet('/api/banners', {'section': section, 'placement': placement}, live);
+    final raw = ApiResponseParser.getData(body);
     if (raw is! List) return const [];
     final banners = raw
         .whereType<Map>()
@@ -403,9 +413,13 @@ class ApiService {
     return parseOnBackground(parseOfferBannersResponse, response.data);
   }
 
-  Future<List<Category>> fetchCategories({String? section}) async {
-    final response = await getCategories(section != null && section.isNotEmpty ? {'section': section} : null);
-    return parseOnBackground(parseCategoriesResponse, response.data);
+  Future<List<Category>> fetchCategories({String? section, Ref? live}) async {
+    final body = await _catalogGet(
+      '/api/categories',
+      section != null && section.isNotEmpty ? {'section': section} : null,
+      live,
+    );
+    return parseOnBackground(parseCategoriesResponse, body);
   }
 
   Future<NearestStoreResult> fetchNearestStore([Map<String, dynamic>? params]) async {
@@ -424,10 +438,9 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchSections([Map<String, dynamic>? params]) async {
+  Future<List<Map<String, dynamic>>> fetchSections([Map<String, dynamic>? params, Ref? live]) async {
     try {
-      final response = await getSections(params);
-      final data = ApiResponseParser.getData(response.data);
+      final data = ApiResponseParser.getData(await _catalogGet('/api/sections', params, live));
       if (data is List) {
         return data.whereType<Map<String, dynamic>>().toList();
       }
@@ -447,14 +460,14 @@ class ApiService {
     return parseOnBackground(parseTestimonialsResponse, response.data);
   }
 
-  Future<StoreSettings> fetchStoreSettings() async {
-    final response = await getStoreSettings();
-    return parseOnBackground(parseStoreSettingsResponse, response.data);
+  Future<StoreSettings> fetchStoreSettings({Ref? live}) async {
+    final body = await _catalogGet('/api/settings', null, live);
+    return parseOnBackground(parseStoreSettingsResponse, body);
   }
 
-  Future<List<Product>> fetchProducts([Map<String, dynamic>? params]) async {
-    final response = await getProducts(params);
-    return parseOnBackground(parseProductsResponse, response.data);
+  Future<List<Product>> fetchProducts([Map<String, dynamic>? params, Ref? live]) async {
+    final body = await _catalogGet('/api/products', params, live);
+    return parseOnBackground(parseProductsResponse, body);
   }
 
   /// One page of `/api/products`; `hasMore` comes from the server's pagination block.
@@ -474,9 +487,9 @@ class ApiService {
     return (items: items, hasMore: hasMore);
   }
 
-  Future<Product> fetchProductById(String id) async {
-    final response = await getProductById(id);
-    return parseOnBackground(parseProductResponse, response.data);
+  Future<Product> fetchProductById(String id, {Ref? live}) async {
+    final body = await _catalogGet('/api/products/$id', null, live);
+    return parseOnBackground(parseProductResponse, body);
   }
 
   Future<List<Product>> fetchSimilarProducts(String id, {int? limit}) async {

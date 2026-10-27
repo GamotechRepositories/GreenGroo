@@ -6,6 +6,7 @@ import {
   hasDismissedAppDownloadPrompt,
   shouldOfferAppDownload,
 } from "../../utils/appDownload";
+import OptimizedImg from "../common/OptimizedImg";
 
 const SWIPE_DISMISS_PX = 72;
 
@@ -97,7 +98,7 @@ function AppDownloadPrompt() {
       >
         <div className="flex items-center gap-3 rounded-xl border border-border-light bg-white px-3 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/5 p-1.5">
-            <img src={LOGO_URL} alt="" className="h-full w-full object-contain" />
+            <OptimizedImg src={LOGO_URL} alt="" className="h-full w-full object-contain" />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -144,7 +145,7 @@ function AppDownloadPrompt() {
       >
         <div className="flex items-center gap-3 rounded-xl border border-border-light bg-white px-3 py-3 shadow-[0_8px_24px_rgba(0,0,0,0.14)]">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/10 bg-primary/5 p-1.5">
-            <img src={LOGO_URL} alt="" className="h-full w-full object-contain" />
+            <OptimizedImg src={LOGO_URL} alt="" className="h-full w-full object-contain" />
           </div>
 
           <div className="min-w-0 flex-1">

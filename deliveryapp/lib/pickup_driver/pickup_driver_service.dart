@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/api_config.dart';
+import '../live/live_cache.dart';
 
 /// Error from the vendor pickup-driver API (farmer → collection centre).
 class PickupDriverException implements Exception {
@@ -33,8 +34,17 @@ class PickupListResult {
 /// Kept separate from [AuthService] (dark-store delivery boys): different
 /// backend (`/api/vendor/...`), different token and different storage keys.
 class PickupDriverService {
-  PickupDriverService._();
+  PickupDriverService._() {
+    _live.configure(
+      baseUrl: () => ApiConfig.baseUrl,
+      token: () => _token,
+      fetch: _get,
+    );
+  }
   static final PickupDriverService instance = PickupDriverService._();
+
+  /// Pickup lists/details cached on the device and patched by server pushes.
+  final LiveCache _live = LiveCache();
 
   static const _tokenKey = 'pickup_driver_token';
   static const _driverKey = 'pickup_driver';
@@ -95,6 +105,7 @@ class PickupDriverService {
     _driver = null;
     _loaded = true;
     await _persist();
+    await _live.onAuthChanged();
   }
 
   /// Login with the mobile + password the vendor created for this driver.
@@ -116,6 +127,7 @@ class PickupDriverService {
     _driver = driver is Map ? Map<String, dynamic>.from(driver) : {};
     _loaded = true;
     await _persist();
+    await _live.onAuthChanged();
     return _driver!;
   }
 
@@ -130,8 +142,7 @@ class PickupDriverService {
 
   /// [filter] is one of `assigned`, `progress`, `completed`, `history`, `all`.
   Future<PickupListResult> listPickups(String filter) async {
-    final data =
-        await _get('$_deskBase/pickups?filter=${Uri.encodeQueryComponent(filter)}');
+    final data = await _getLive(_pickupsPath(filter));
     final stats = data['stats'];
     return PickupListResult(
       stats: stats is Map ? Map<String, dynamic>.from(stats) : const {},
@@ -139,11 +150,35 @@ class PickupDriverService {
     );
   }
 
-  Future<Map<String, dynamic>> getPickup(String id) =>
-      _get('$_deskBase/pickups/${Uri.encodeComponent(id)}');
+  Future<Map<String, dynamic>> getPickup(String id) => _getLive(_pickupPath(id));
 
-  Future<Map<String, dynamic>> getBatch(String batchId) =>
-      _get('$_deskBase/batches/${Uri.encodeComponent(batchId)}');
+  Future<Map<String, dynamic>> getBatch(String batchId) => _getLive(_batchPath(batchId));
+
+  /// Emits whenever the server pushes a change to that list / pickup / batch;
+  /// re-read it with [listPickups] / [getPickup] / [getBatch] (served from memory).
+  Stream<void> watchPickups(String filter) => _watch(_pickupsPath(filter));
+  Stream<void> watchPickup(String id) => _watch(_pickupPath(id));
+  Stream<void> watchBatch(String batchId) => _watch(_batchPath(batchId));
+
+  static String _pickupsPath(String filter) =>
+      '$_deskBase/pickups?filter=${Uri.encodeQueryComponent(filter)}';
+  static String _pickupPath(String id) => '$_deskBase/pickups/${Uri.encodeComponent(id)}';
+  static String _batchPath(String batchId) => '$_deskBase/batches/${Uri.encodeComponent(batchId)}';
+
+  /// Skips the first value (the screen's own initial load) and errors (the
+  /// screen's next load reports them).
+  Stream<void> _watch(String path) {
+    var first = true;
+    return _live
+        .watch(path)
+        .handleError((_) {})
+        .where((_) {
+          if (!first) return true;
+          first = false;
+          return false;
+        })
+        .map((_) {});
+  }
 
   Future<Map<String, dynamic>> accept(String id) => _step(id, 'accept');
 
@@ -269,6 +304,21 @@ class PickupDriverService {
       timeout: const Duration(seconds: 20),
     );
     return _decodeMap(res);
+  }
+
+  Future<Map<String, dynamic>> _getLive(String path) async {
+    final dynamic body;
+    try {
+      body = await _live.get(path);
+    } on LiveCacheException catch (e) {
+      throw PickupDriverException(
+        e.status == 401 ? 'Session expired' : 'Request failed (${e.status})',
+        statusCode: e.status,
+      );
+    }
+    if (body is Map) return Map<String, dynamic>.from(body);
+    if (body is List) return {'data': body};
+    return {};
   }
 
   Map<String, dynamic> _decodeMap(http.Response res) {

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ChevronRight, ChevronLeft } from "lucide-react";
 import { sectionToStoreKey, buildStoreProductUrl } from "../../utils/storeSection";
 import { addCategoryVisit } from "../../utils/categoryVisits";
+import OptimizedImg from "../common/OptimizedImg";
 
 export const SHOP_BY_CATEGORY_ITEMS = [
   {
@@ -121,7 +122,7 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
             >
               {/* Fullsize image container */}
               <div className="w-full aspect-[4/3] rounded-xl bg-white flex items-center justify-center overflow-hidden">
-                <img
+                <OptimizedImg
                   src={item.image}
                   alt={item.name}
                   loading="lazy"
@@ -163,7 +164,7 @@ export default function ShopByCategory({ items = SHOP_BY_CATEGORY_ITEMS }) {
             >
               {/* Fullsize Image Container: edge-to-edge aspect-[4/3] for 3:2 photos */}
               <div className="w-full aspect-[4/3] rounded-xl bg-white flex items-center justify-center overflow-hidden">
-                <img
+                <OptimizedImg
                   src={item.image}
                   alt={item.name}
                   loading="lazy"

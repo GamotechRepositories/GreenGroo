@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/utils/optimized_image_url.dart';
 import '../../../models/site_banner.dart';
 import '../../../routes/route_paths.dart';
 import '../home_providers.dart';
@@ -55,7 +56,7 @@ class _NaturalAspectState extends State<_NaturalAspect> {
   void initState() {
     super.initState();
     if (_cache.containsKey(widget.imageUrl)) return;
-    _stream = CachedNetworkImageProvider(widget.imageUrl).resolve(ImageConfiguration.empty);
+    _stream = CachedNetworkImageProvider(optimizedImageUrl(widget.imageUrl)).resolve(ImageConfiguration.empty);
     _listener = ImageStreamListener(
       (info, _) {
         final w = info.image.width.toDouble();
@@ -167,7 +168,7 @@ class _SiteBannerCarouselState extends ConsumerState<SiteBannerCarousel> {
                       itemBuilder: (context, i) => GestureDetector(
                         onTap: () => openSiteBanner(context, banners[i]),
                         child: CachedNetworkImage(
-                          imageUrl: banners[i].imageUrl,
+                          imageUrl: optimizedImageUrl(banners[i].imageUrl),
                           fit: BoxFit.cover,
                           width: double.infinity,
                           fadeInDuration: const Duration(milliseconds: 150),
@@ -305,7 +306,7 @@ class _RotatingTileState extends State<_RotatingTile> {
                 duration: const Duration(milliseconds: 400),
                 child: CachedNetworkImage(
                   key: ValueKey(banner.id),
-                  imageUrl: banner.imageUrl,
+                  imageUrl: optimizedImageUrl(banner.imageUrl),
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: 128,
@@ -569,7 +570,7 @@ class _OfferSlide extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             CachedNetworkImage(
-              imageUrl: banner.imageUrl,
+              imageUrl: optimizedImageUrl(banner.imageUrl),
               fit: BoxFit.cover,
               errorWidget: (_, _, _) => const ColoredBox(color: Color(0xFFF1F5F9)),
             ),

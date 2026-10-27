@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getOfferBanners } from "../../api/api";
+import OptimizedImg from "../common/OptimizedImg";
 
 const AUTO_PLAY_MS = 5000;
 const DESKTOP_BREAKPOINT = 1024;
@@ -38,7 +39,7 @@ function OfferBannerSlide({ banner }) {
 
   const content = (
     <>
-      <img
+      <OptimizedImg
         src={banner.imageUrl}
         alt={banner.alt}
         className="h-[200px] w-full object-cover object-center sm:h-[240px] md:h-[300px] lg:h-[340px]"

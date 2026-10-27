@@ -21,7 +21,7 @@ import '../home/widgets/home_header_category_strip.dart';
 
 /// Admin → Sections (name, badge, colour, description) keyed by slug.
 final sectionsMetaProvider = FutureProvider<Map<String, Map<String, dynamic>>>((ref) async {
-  final sections = await ref.read(apiServiceProvider).fetchSections();
+  final sections = await ref.read(apiServiceProvider).fetchSections(null, ref);
   return {
     for (final s in sections)
       (s['slug'] ?? s['storeType'] ?? '').toString().toLowerCase(): s,

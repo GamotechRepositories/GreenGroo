@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { X, Sparkles } from "lucide-react";
 import { useSectionBanners } from "../../hooks/queries/useSectionBanners";
+import OptimizedImg from "../common/OptimizedImg";
 
 const TILE_CLASS =
   "relative block h-32 sm:h-44 md:h-52 lg:h-56 xl:h-60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-[#cde8d5] bg-[#f3f9f4]";
@@ -9,7 +10,7 @@ const TILE_CLASS =
 function TileImage({ banner }) {
   return (
     <>
-      <img
+      <OptimizedImg
         src={banner.image}
         alt={banner.alt}
         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"

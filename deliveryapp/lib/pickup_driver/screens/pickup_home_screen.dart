@@ -26,20 +26,20 @@ class _PickupHomeScreenState extends State<PickupHomeScreen> {
   PickupListResult _data = PickupListResult.empty;
   List<Map<String, dynamic>> _announcements = [];
   bool _loading = true;
-  Timer? _timer;
+  StreamSubscription<void>? _watch;
 
   @override
   void initState() {
     super.initState();
     _load();
     _loadAnnouncements();
-    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _load());
+    _watch = _svc.watchPickups('all').listen((_) => _load());
     PickupPushService.instance.refreshTick.addListener(_load);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _watch?.cancel();
     PickupPushService.instance.refreshTick.removeListener(_load);
     super.dispose();
   }

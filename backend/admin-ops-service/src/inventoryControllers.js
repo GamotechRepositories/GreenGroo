@@ -7,6 +7,12 @@ import {
   GoodsReceiptNote,
   StockAdjustmentLog,
 } from "./models.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { serialId } from "../../shared/ids.js";
+
+function nextAdjustmentNumber() {
+  return serialId("ADJ", { scope: String(new Date().getFullYear()), width: 6 });
+}
 
 // Helper for GreenGrocc Product
 function getProductModel() {
@@ -172,60 +178,6 @@ export async function getBatchExpiryTracking(req, res) {
   try {
     const { storeId, status, search } = req.query;
 
-    let batchCount = await InventoryBatch.countDocuments();
-
-    // Auto-seed initial batches from real StoreInventory if empty
-    if (batchCount === 0) {
-      const storeItems = await StoreInventory.find({ isActive: true, stockCount: { $gt: 0 } })
-        .populate("managerId", "name area city storeName")
-        .limit(20)
-        .lean();
-
-      const seedBatches = [];
-      const now = Date.now();
-      const suppliers = [
-        "Fresh Valley Farms Pune",
-        "Shivaji Nagar Organic Co-op",
-        "Alibag Agro Producer Co.",
-        "Sahyadri Farmer Network",
-        "GreenGroo Direct Collection Centre",
-      ];
-
-      for (let i = 0; i < storeItems.length; i++) {
-        const item = storeItems[i];
-        const storeObj = item.managerId || {};
-        const storeName = storeObj.storeName || storeObj.name || (storeObj.area ? `${storeObj.area} Store` : "Main Store");
-        
-        // Stagger expiry dates: some near expiry (3-6 days), some fresh (20-45 days), some expired (-2 days)
-        let daysAhead = (i % 5 === 0) ? -2 : (i % 3 === 0) ? 4 : (i % 2 === 0) ? 12 : 30;
-        const expiryDate = new Date(now + daysAhead * 24 * 60 * 60 * 1000);
-        const mfgDate = new Date(now - (30 - daysAhead) * 24 * 60 * 60 * 1000);
-
-        seedBatches.push({
-          batchNumber: `BAT-2026-${String(1001 + i)}`,
-          sku: item.sku,
-          productName: item.name,
-          category: item.category || "General",
-          storeId: item.managerId?._id || new mongoose.Types.ObjectId(),
-          storeName,
-          mfgDate,
-          expiryDate,
-          initialQty: item.stockCount + 10,
-          currentQty: item.stockCount,
-          unit: item.unit || "kg",
-          unitCost: Math.round((item.price || 60) * 0.7),
-          mrp: item.price || 60,
-          supplierName: suppliers[i % suppliers.length],
-          grnNumber: `GRN-2026-00${(i % 4) + 1}`,
-          status: daysAhead < 0 ? "expired" : daysAhead <= 7 ? "near_expiry" : "active",
-        });
-      }
-
-      if (seedBatches.length > 0) {
-        await InventoryBatch.insertMany(seedBatches);
-      }
-    }
-
     const filter = {
       isDeleted: { $ne: true },
       deleted: { $ne: true },
@@ -350,7 +302,7 @@ export async function quarantineBatch(req, res) {
 
         // Create adjustment audit log
         await StockAdjustmentLog.create({
-          adjustmentNumber: `ADJ-${Date.now().toString().slice(-6)}`,
+          adjustmentNumber: await nextAdjustmentNumber(),
           storeId: batch.storeId,
           storeName: batch.storeName,
           sku: batch.sku,
@@ -494,65 +446,6 @@ export async function getGrnList(req, res) {
   try {
     const { storeId, search } = req.query;
 
-    const count = await GoodsReceiptNote.countDocuments();
-
-    // Auto-seed sample GRN if empty
-    if (count === 0) {
-      const store = await DeliveryManager.findOne({ isActive: true }).lean();
-      const storeIdToUse = store?._id || new mongoose.Types.ObjectId();
-      const storeNameToUse = store?.storeName || store?.name || (store?.area ? `${store.area} Store` : "Hadapsar Dark Store");
-
-      await GoodsReceiptNote.create({
-        grnNumber: "GRN-2026-00101",
-        poNumber: "PO-2026-042",
-        supplierType: "vendor",
-        supplierName: "Shivaji Nagar Organic Aggregator",
-        storeId: storeIdToUse,
-        storeName: storeNameToUse,
-        invoiceNumber: "INV-SHIV-8921",
-        receivedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        items: [
-          {
-            sku: "PR-TOM-0CB7F2",
-            name: "Farm Fresh Tomato Hybrid",
-            category: "Vegetables",
-            orderedQty: 50,
-            receivedQty: 50,
-            acceptedQty: 48,
-            rejectedQty: 2,
-            unit: "kg",
-            unitCost: 28,
-            totalCost: 1344,
-            batchNumber: "BAT-2026-1001",
-            mfgDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-            expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-            rejectionReason: "Soft & bruised skin",
-          },
-          {
-            sku: "PR-POT-6B9A1C",
-            name: "Baby Potato",
-            category: "Vegetables",
-            orderedQty: 40,
-            receivedQty: 40,
-            acceptedQty: 40,
-            rejectedQty: 0,
-            unit: "kg",
-            unitCost: 22,
-            totalCost: 880,
-            batchNumber: "BAT-2026-1002",
-            mfgDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-            expiryDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
-          },
-        ],
-        totalItems: 2,
-        totalAmount: 2224,
-        status: "verified",
-        receivedBy: "Mahesh Patil (Store Mgr)",
-        verifiedBy: "Sanjay Shinde (QC Inspector)",
-        notes: "Inbound delivery on schedule. 2 kg tomatoes rejected due to moisture damage in transport.",
-      });
-    }
-
     const query = {
       isDeleted: { $ne: true },
       deleted: { $ne: true },
@@ -631,7 +524,22 @@ export async function createGrn(req, res) {
     const store = await DeliveryManager.findById(storeId).lean();
     const storeName = store?.storeName || store?.name || (store?.area ? `${store.area} Store` : "Dark Store");
 
-    const grnNumber = `GRN-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+    const suppliedBatchNumbers = items.map((it) => String(it.batchNumber || "").trim()).filter(Boolean);
+    if (new Set(suppliedBatchNumbers).size !== suppliedBatchNumbers.length) {
+      return res.status(400).json({ success: false, message: "Each GRN item needs a different batch number." });
+    }
+    if (suppliedBatchNumbers.length) {
+      const taken = await InventoryBatch.findOne({ batchNumber: { $in: suppliedBatchNumbers } }).select("batchNumber").lean();
+      if (taken) {
+        return res.status(409).json({ success: false, message: `Batch number ${taken.batchNumber} already exists.` });
+      }
+    }
+
+    const grnNumber = await generateId({ module: "GRN" });
+    const batchNumbers = [];
+    for (const it of items) {
+      batchNumbers.push(String(it.batchNumber || "").trim() || (await generateId({ module: "BAT" })));
+    }
     let totalAmount = 0;
 
     const validatedItems = items.map((it, idx) => {
@@ -641,7 +549,7 @@ export async function createGrn(req, res) {
       const itemTotal = accepted * cost;
       totalAmount += itemTotal;
 
-      const batchNumber = it.batchNumber || `BAT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}${idx + 1}`;
+      const batchNumber = batchNumbers[idx];
       const mfgDate = it.mfgDate ? new Date(it.mfgDate) : new Date();
       const expiryDate = it.expiryDate
         ? new Date(it.expiryDate)
@@ -667,7 +575,7 @@ export async function createGrn(req, res) {
 
     const newGrn = await GoodsReceiptNote.create({
       grnNumber,
-      poNumber: poNumber || `PO-${Date.now().toString().slice(-4)}`,
+      poNumber: poNumber || "",
       supplierType,
       supplierName,
       storeId,
@@ -740,7 +648,7 @@ export async function createGrn(req, res) {
 
         // 3. Create Stock Adjustment Log for inbound GRN
         await StockAdjustmentLog.create({
-          adjustmentNumber: `ADJ-${Date.now().toString().slice(-6)}`,
+          adjustmentNumber: await nextAdjustmentNumber(),
           storeId,
           storeName,
           sku: it.sku,
@@ -870,52 +778,6 @@ export async function getStockAdjustmentLogs(req, res) {
   try {
     const { storeId, reason, search } = req.query;
 
-    const count = await StockAdjustmentLog.countDocuments();
-
-    // Auto-seed sample adjustments if empty
-    if (count === 0) {
-      const store = await DeliveryManager.findOne({ isActive: true }).lean();
-      const storeIdToUse = store?._id || new mongoose.Types.ObjectId();
-      const storeNameToUse = store?.storeName || store?.name || (store?.area ? `${store.area} Store` : "Main Dark Store");
-
-      await StockAdjustmentLog.create([
-        {
-          adjustmentNumber: "ADJ-2026-0001",
-          storeId: storeIdToUse,
-          storeName: storeNameToUse,
-          sku: "PR-TOM-0CB7F2",
-          productName: "Farm Fresh Tomato Hybrid",
-          unit: "kg",
-          previousStock: 45,
-          adjustedQty: -3,
-          newStock: 42,
-          reason: "damage_spoilage",
-          unitCost: 28,
-          financialImpact: -84,
-          batchNumber: "BAT-2026-1001",
-          adjustedBy: "Rahul Sharma (Supervisor)",
-          notes: "3 kg squashed during daily crate handling inspection",
-        },
-        {
-          adjustmentNumber: "ADJ-2026-0002",
-          storeId: storeIdToUse,
-          storeName: storeNameToUse,
-          sku: "PR-POT-6B9A1C",
-          productName: "Baby Potato",
-          unit: "kg",
-          previousStock: 68,
-          adjustedQty: 2,
-          newStock: 70,
-          reason: "cycle_count",
-          unitCost: 22,
-          financialImpact: 44,
-          batchNumber: "BAT-2026-1002",
-          adjustedBy: "Pooja Desai (Auditor)",
-          notes: "Bi-weekly shelf audit physical count reconciliation (+2 kg surplus found)",
-        },
-      ]);
-    }
-
     const query = {
       isDeleted: { $ne: true },
       deleted: { $ne: true },
@@ -1002,7 +864,7 @@ export async function createStockAdjustment(req, res) {
     const unitCost = Math.round((inv.price || 50) * 0.7);
     const financialImpact = actualAdjustment * unitCost;
 
-    const adjustmentNumber = `ADJ-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+    const adjustmentNumber = await nextAdjustmentNumber();
 
     const log = await StockAdjustmentLog.create({
       adjustmentNumber,

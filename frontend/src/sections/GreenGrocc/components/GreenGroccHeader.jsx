@@ -2,13 +2,14 @@ import React from "react";
 import { Link } from "react-router-dom";
 import SearchBar from "../../../components/common/SearchBar";
 import { Gift } from "lucide-react";
+import OptimizedImg from "../../../components/common/OptimizedImg";
 
 export function GreenGroccHeader() {
   return (
     <header className="bg-gradient-to-b from-[#064E3B] via-[#047857] to-[#059669] px-4 py-3 text-white shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
         <Link to="/greengrocc" className="flex items-center gap-2 shrink-0">
-          <img src="/greengrocc-logo.png" alt="GreenGrocc" className="h-9 w-auto object-contain" />
+          <OptimizedImg src="/greengrocc-logo.png" alt="GreenGrocc" className="h-9 w-auto object-contain" />
           <span className="text-lg font-black tracking-tight hidden xs:inline">GreenGrocc</span>
         </Link>
         <SearchBar placeholder='Search "Farm Fresh Vegetables", "Fruits"...' className="hidden sm:flex flex-1 max-w-md" />

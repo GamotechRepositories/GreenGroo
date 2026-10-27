@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { addCategoryVisit } from "../../utils/categoryVisits";
 import { buildStoreProductUrl } from "../../utils/storeSection";
+import OptimizedImg from "../common/OptimizedImg";
 
 function CategoryCard({ cat, size = "default", store = "" }) {
   // Prefer display name for routing — API `slug` can drift from `categoryName`
@@ -35,7 +36,7 @@ function CategoryCard({ cat, size = "default", store = "" }) {
 
       {/* Image at Bottom Right */}
       {image ? (
-        <img
+        <OptimizedImg
           src={image}
           alt={name}
           className="absolute right-0 bottom-0 w-[80%] h-[80%] object-contain object-right-bottom transition-transform duration-300 group-hover:scale-105 origin-bottom-right drop-shadow-md"

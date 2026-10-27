@@ -10,12 +10,19 @@ import { identityFromToken, extractToken } from "./identity.js";
  * only the per-entity differences. The browser never polls or re-GETs.
  *
  * Identical subscriptions (same token + URL) share one computation.
+ *
+ * Every response version has a `hash`. A client that kept a copy (memory or
+ * device storage) subscribes with that hash and gets back `unchanged`, only
+ * the ops from its version (when that version is still in `snapshots`), or
+ * the full data as a last resort.
  */
 
 const DEBOUNCE_MS = 120;
 const MAX_CONCURRENT = 6;
 const BURST_WINDOW_MS = 10000;
 const BURST_LIMIT = 12;
+const SNAPSHOT_MAX_ENTRIES = 500;
+const SNAPSHOT_MAX_BYTES = 64_000_000;
 
 let routes = [];
 let baseUrl = "";
@@ -24,6 +31,44 @@ const queue = [];
 let active = 0;
 
 const sha = (value) => crypto.createHash("sha1").update(String(value)).digest("hex").slice(0, 16);
+
+/** Recent past versions of views, keyed `${viewId}#${hash}`, bounded by count and size. */
+const snapshots = new Map();
+let snapshotBytes = 0;
+
+function setViewData(view, data) {
+  const json = JSON.stringify(data) ?? "null";
+  if (view.data !== undefined && view.hash) rememberSnapshot(view.id, view.hash, view.data, view.bytes);
+  view.data = data;
+  view.hash = sha(json);
+  view.bytes = json.length;
+}
+
+function rememberSnapshot(viewId, hash, data, bytes = 0) {
+  const key = `${viewId}#${hash}`;
+  const existing = snapshots.get(key);
+  if (existing) {
+    snapshots.delete(key);
+    snapshotBytes -= existing.bytes;
+  }
+  if (bytes > SNAPSHOT_MAX_BYTES / 8) return;
+  snapshots.set(key, { data, bytes });
+  snapshotBytes += bytes;
+  while (snapshots.size > SNAPSHOT_MAX_ENTRIES || snapshotBytes > SNAPSHOT_MAX_BYTES) {
+    const [oldestKey, oldest] = snapshots.entries().next().value;
+    snapshots.delete(oldestKey);
+    snapshotBytes -= oldest.bytes;
+  }
+}
+
+/** What to send a subscriber who already holds the version `clientHash`. */
+function catchUpReply(view, clientHash) {
+  const base = { ok: true, rev: view.rev, hash: view.hash };
+  if (clientHash && clientHash === view.hash) return { ...base, unchanged: true };
+  const known = clientHash ? snapshots.get(`${view.id}#${clientHash}`) : null;
+  if (known) return { ...base, ops: diff(known.data, view.data, { entity: view.route.entity }) };
+  return { ...base, data: view.data };
+}
 
 function pathOf(url) {
   const q = url.indexOf("?");
@@ -76,6 +121,7 @@ const enqueue = (job) =>
 function dropView(view) {
   clearTimeout(view.timer);
   views.delete(view.id);
+  if (view.data !== undefined && view.hash) rememberSnapshot(view.id, view.hash, view.data, view.bytes);
 }
 
 async function recompute(view) {
@@ -102,9 +148,10 @@ async function recompute(view) {
     if (!result.ok) return;
     const ops = diff(view.data, result.body, { entity: view.route.entity });
     if (!ops.length) return;
-    view.data = result.body;
+    const baseHash = view.hash;
+    setViewData(view, result.body);
     view.rev += 1;
-    sendToSubscribers(view, "live:patch", (key) => ({ key, rev: view.rev, ops }));
+    sendToSubscribers(view, "live:patch", (key) => ({ key, rev: view.rev, ops, baseHash, hash: view.hash }));
   } catch (err) {
     console.warn(`[realtime] live view ${view.url} failed:`, err.message);
   } finally {
@@ -179,6 +226,8 @@ async function subscribe(socket, payload, ack) {
       route,
       subscribers: new Map(),
       data: undefined,
+      hash: "",
+      bytes: 0,
       rev: 0,
       runs: [],
       lastRunAt: 0,
@@ -200,7 +249,7 @@ async function subscribe(socket, payload, ack) {
         view.ready ||
         enqueue(() => fetchView(view)).then((result) => {
           if (result.ok) {
-            view.data = result.body;
+            setViewData(view, result.body);
             view.lastRunAt = Date.now();
             if (view.changedDuringLoad) schedule(view);
           }
@@ -214,7 +263,7 @@ async function subscribe(socket, payload, ack) {
         return reply({ ok: false, reason: "http_error", status: result.status });
       }
     }
-    return reply({ ok: true, rev: view.rev, data: view.data });
+    return reply(catchUpReply(view, String(payload?.hash || "")));
   } catch (err) {
     unsubscribe(socket, key);
     return reply({ ok: false, reason: "error", message: err.message });

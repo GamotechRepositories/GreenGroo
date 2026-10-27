@@ -6,6 +6,8 @@ import { changeFeed } from "../realtime/changeFeed.js";
  * Entries are dropped when any listed collection changes (MongoDB change feed,
  * or the wildcard "*" event the feed emits in fallback mode), when the owning
  * controller calls invalidate() after a write, or when the TTL runs out.
+ * `invalidateOn(change)` narrows that: return a predicate over cache keys to
+ * drop only some entries, `true` to drop everything, or `false` to ignore.
  * Concurrent misses for one key share a single loader call. A loader that was
  * started before an invalidation never stores its (possibly stale) result.
  *
@@ -32,8 +34,10 @@ export function createMemoryCache({
   name,
   ttlMs,
   collections = [],
+  invalidateOn = null,
   maxEntries = 100,
   maxBytes = 2_000_000,
+  maxTotalBytes = 50_000_000,
 }) {
   const ttl = IS_PRODUCTION ? ttlMs : Math.min(ttlMs, DEV_TTL_CAP_MS);
   const watched = new Set(collections.map((c) => String(c).toLowerCase()));
@@ -41,18 +45,31 @@ export function createMemoryCache({
   const inflight = new Map();
   const stats = { hits: 0, coalesced: 0, misses: 0, sets: 0, skipped: 0, invalidations: 0, errors: 0 };
   let generation = 0;
+  let totalBytes = 0;
+
+  function drop(key) {
+    const entry = entries.get(key);
+    if (!entry) return;
+    totalBytes -= entry.bytes;
+    entries.delete(key);
+  }
 
   function store(key, value) {
-    if (approxBytes(value) > maxBytes) {
+    const bytes = approxBytes(value);
+    if (bytes > maxBytes) {
       stats.skipped += 1;
       return;
     }
     const now = Date.now();
     for (const [k, entry] of entries) {
-      if (entry.expiresAt <= now) entries.delete(k);
+      if (entry.expiresAt <= now) drop(k);
     }
-    while (entries.size >= maxEntries) entries.delete(entries.keys().next().value);
-    entries.set(key, { value, expiresAt: now + ttl });
+    drop(key);
+    while (entries.size && (entries.size >= maxEntries || totalBytes + bytes > maxTotalBytes)) {
+      drop(entries.keys().next().value);
+    }
+    entries.set(key, { value, bytes, expiresAt: now + ttl, generation });
+    totalBytes += bytes;
     stats.sets += 1;
   }
 
@@ -67,7 +84,7 @@ export function createMemoryCache({
       const pending = inflight.get(key);
       if (pending) {
         stats.coalesced += 1;
-        return pending;
+        return pending.promise;
       }
     } catch (err) {
       stats.errors += 1;
@@ -76,9 +93,9 @@ export function createMemoryCache({
     }
 
     stats.misses += 1;
-    const startedAt = generation;
-    const promise = loader().then((value) => {
-      if (startedAt === generation) {
+    const job = { startedAt: generation, stale: false, promise: null };
+    job.promise = loader().then((value) => {
+      if (job.startedAt === generation && !job.stale) {
         try {
           store(key, value);
         } catch (err) {
@@ -88,27 +105,49 @@ export function createMemoryCache({
       }
       return value;
     });
-    inflight.set(key, promise);
-    promise
+    inflight.set(key, job);
+    job.promise
       .finally(() => {
-        if (inflight.get(key) === promise) inflight.delete(key);
+        if (inflight.get(key) === job) inflight.delete(key);
       })
       .catch(() => {});
-    return promise;
+    return job.promise;
   }
 
   function invalidate() {
     generation += 1;
     entries.clear();
     inflight.clear();
+    totalBytes = 0;
     stats.invalidations += 1;
     if (DEBUG) console.log(`[cache:${name}] invalidated`);
   }
 
-  if (watched.size) {
+  /** Drop only the entries (and in-flight loads) whose key matches. */
+  function invalidateWhere(matches) {
+    for (const key of [...entries.keys()]) {
+      if (matches(key)) drop(key);
+    }
+    for (const [key, job] of inflight) {
+      if (matches(key)) {
+        job.stale = true;
+        inflight.delete(key);
+      }
+    }
+    stats.invalidations += 1;
+  }
+
+  if (watched.size || invalidateOn) {
     changeFeed.on("change", (change) => {
       const coll = String(change?.coll || "").toLowerCase();
-      if (coll === "*" || watched.has(coll)) invalidate();
+      if (coll === "*") return invalidate();
+      if (invalidateOn) {
+        const result = invalidateOn({ ...change, coll });
+        if (result === true) return invalidate();
+        if (typeof result === "function") return invalidateWhere(result);
+        if (result === false) return;
+      }
+      if (watched.has(coll)) invalidate();
     });
   }
 
@@ -116,7 +155,8 @@ export function createMemoryCache({
     name,
     get,
     invalidate,
-    stats: () => ({ ...stats, entries: entries.size, ttlMs: ttl, disabled: DISABLED }),
+    invalidateWhere,
+    stats: () => ({ ...stats, entries: entries.size, bytes: totalBytes, ttlMs: ttl, disabled: DISABLED }),
   };
   registry.set(name, cache);
   return cache;

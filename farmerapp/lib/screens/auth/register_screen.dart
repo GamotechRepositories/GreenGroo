@@ -702,25 +702,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
         registeredProfile = FarmerProfile.fromJson(fData);
       }
     } catch (e) {
-      // If offline or network issue, create clean local record
-      final fallbackId =
-          'GGC-FR-MH-${_districtController.text.trim().takeThree().toUpperCase()}-${_talukaController.text.trim().takeThree().toUpperCase()}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-
-      registeredProfile = FarmerProfile(
-        id: fallbackId,
-        fullName: _nameController.text.trim(),
-        mobile: _mobileController.text.trim(),
-        village: _villageController.text.trim(),
-        taluka: _talukaController.text.trim(),
-        district: _districtController.text.trim(),
-        state: _state?.en ?? '',
-        pincode: _pincodeController.text.trim(),
-        profilePhoto: _profileImage,
-        kycStatus: 'PENDING',
-        bankVerificationStatus: 'PENDING',
-        farmName: '',
-        totalAcres: 0,
-      );
+      // Farmer IDs come only from the server; a locally invented ID would never match admin traceability.
+      if (mounted) {
+        final reason = e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLanguage().tr(
+              mr: 'नोंदणी पूर्ण झाली नाही. इंटरनेट तपासून पुन्हा प्रयत्न करा. ($reason)',
+              en: 'Registration failed. Check your internet and try again. ($reason)',
+            )),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1358,12 +1352,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
         borderSide: const BorderSide(color: AppColors.error),
       ),
     );
-  }
-}
-
-extension on String {
-  String takeThree() {
-    final s = trim();
-    return s.length >= 3 ? s.substring(0, 3) : (s.isNotEmpty ? s : 'LOC');
   }
 }

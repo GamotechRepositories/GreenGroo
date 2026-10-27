@@ -9,6 +9,7 @@ import { getProductListPriceInfo, isMultiVariant } from "../../utils/productPric
 import { useCart } from "../../context/CartContext";
 import WishlistButton from "./WishlistButton";
 import QuickCommerceProductCard from "./QuickCommerceProductCard";
+import OptimizedImg from "../common/OptimizedImg";
 
 export function catalogUrls({ categoryName = "", baseId = "", store = "" } = {}) {
   const categoryUrl = buildStoreProductUrl({ categoryName, store });
@@ -119,7 +120,7 @@ function ProductRow({ product, quantity, onAdd, onDecrease }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-white p-2.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
       <Link to={`/product/${product._id}`} className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-xl bg-slate-50">
-        {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : null}
+        {image ? <OptimizedImg src={image} alt="" className="h-full w-full object-cover" /> : null}
         {organic ? (
           <span className="absolute bottom-1 left-1 rounded-full bg-[#1f8a3b] px-1.5 py-0.5 text-[8px] font-semibold leading-none text-white">
             100% Organic
@@ -269,7 +270,7 @@ function CatalogFlow({
     return (
       <div className="min-h-screen bg-[#f4f6f3] pb-8 lg:pt-4">
         <div className={`relative mx-auto h-[230px] w-full overflow-hidden bg-slate-200 sm:h-[280px] lg:h-[340px] lg:rounded-3xl ${PAGE_WIDTH}`}>
-          {heroImage ? <img src={heroImage} alt="" className="h-full w-full object-cover" /> : null}
+          {heroImage ? <OptimizedImg src={heroImage} alt="" className="h-full w-full object-cover" /> : null}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-black/25" />
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-3 py-3 text-white">
             <button
@@ -419,7 +420,7 @@ function CatalogFlow({
       <div className={`mx-auto w-full px-3 pt-2 sm:px-5 lg:px-8 ${PAGE_WIDTH}`}>
         <div className="relative overflow-hidden rounded-[22px] bg-[#f3ecdc] lg:rounded-3xl">
           {categoryImage ? (
-            <img src={categoryImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover lg:w-[45%]" />
+            <OptimizedImg src={categoryImage} alt="" className="absolute inset-y-0 right-0 h-full w-[58%] object-cover lg:w-[45%]" />
           ) : null}
           <div className="absolute inset-y-0 right-0 w-[58%] bg-gradient-to-r from-[#f3ecdc] via-[#f3ecdc]/35 to-transparent lg:w-[45%]" />
           <div className="relative z-10 max-w-[62%] px-4 py-5 sm:px-6 sm:py-8 lg:max-w-[55%] lg:px-10 lg:py-12">
@@ -461,7 +462,7 @@ function CatalogFlow({
             >
               <div className="relative aspect-square w-full overflow-hidden bg-slate-50">
                 {card.image ? (
-                  <img
+                  <OptimizedImg
                     src={card.image}
                     alt={card.title}
                     loading="lazy"

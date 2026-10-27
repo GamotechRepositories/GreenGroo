@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api, { sendOtpLogin, resendOtpLogin, verifyOtpLogin, completeOtpSignup } from "../api/api";
 import toast from "react-hot-toast";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -263,7 +264,7 @@ export default function Signup() {
         <div className="flex flex-col items-center text-center">
           {/* Brand Logo */}
           <Link to="/" onClick={handleClose} className="inline-block transition-transform active:scale-98">
-            <img
+            <OptimizedImg
               src="/assets/payment/logo.png"
               alt="GreenGrocc Logo"
               className="h-10 sm:h-11 w-auto object-contain mx-auto"

@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/config/cached_get.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
@@ -65,40 +64,11 @@ class _WalletScreenState extends State<WalletScreen> {
       _error = null;
     });
     try {
-      final res = await apiGet(
+      await cachedApiGet(
         ApiConfig.walletSummary,
         headers: AuthService.instance.authHeaders,
+        onData: _apply,
       );
-      if (res.statusCode != 200) throw Exception('Failed');
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _total = (body['totalEarnings'] as num?)?.toInt() ?? 0;
-        _today = (body['todayEarnings'] as num?)?.toInt() ?? 0;
-        _todayDeliveries = (body['todayDeliveries'] as num?)?.toInt() ?? 0;
-        _totalDeliveries = (body['totalDeliveries'] as num?)?.toInt() ?? 0;
-        _weekTotal = (body['weekTotalEarnings'] as num?)?.toInt() ?? 0;
-        _verifiedAt = DateTime.tryParse(body['verificationDate']?.toString() ?? '');
-        _weekDays = (body['weekDays'] as List<dynamic>? ?? [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-        _history = (body['dailyHistory'] as List<dynamic>? ?? [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-        _withdrawNote = body['withdrawNote']?.toString() ??
-            'Withdraw stays inactive until Admin activates it for your account.';
-        _canWithdraw = body['canWithdraw'] == true;
-        _withdrawEnabled = body['withdrawEnabled'] == true;
-        _fullTime = body['fullTime'] is Map
-            ? Map<String, dynamic>.from(body['fullTime'] as Map)
-            : null;
-        _salary = body['salary'] is Map
-            ? Map<String, dynamic>.from(body['salary'] as Map)
-            : null;
-      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -106,6 +76,37 @@ class _WalletScreenState extends State<WalletScreen> {
         _error = 'Could not load wallet. Pull to retry.';
       });
     }
+  }
+
+  void _apply(Map<String, dynamic> body) {
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _total = (body['totalEarnings'] as num?)?.toInt() ?? 0;
+      _today = (body['todayEarnings'] as num?)?.toInt() ?? 0;
+      _todayDeliveries = (body['todayDeliveries'] as num?)?.toInt() ?? 0;
+      _totalDeliveries = (body['totalDeliveries'] as num?)?.toInt() ?? 0;
+      _weekTotal = (body['weekTotalEarnings'] as num?)?.toInt() ?? 0;
+      _verifiedAt = DateTime.tryParse(body['verificationDate']?.toString() ?? '');
+      _weekDays = (body['weekDays'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      _history = (body['dailyHistory'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      _withdrawNote = body['withdrawNote']?.toString() ??
+          'Withdraw stays inactive until Admin activates it for your account.';
+      _canWithdraw = body['canWithdraw'] == true;
+      _withdrawEnabled = body['withdrawEnabled'] == true;
+      _fullTime = body['fullTime'] is Map
+          ? Map<String, dynamic>.from(body['fullTime'] as Map)
+          : null;
+      _salary = body['salary'] is Map
+          ? Map<String, dynamic>.from(body['salary'] as Map)
+          : null;
+    });
   }
 
   String _rupee(num n) => rupeeAmount(n);

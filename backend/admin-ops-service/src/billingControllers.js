@@ -8,6 +8,7 @@ import StoreInventory from "../../delivery-service/src/models/StoreInventory.js"
 import { Vendor, VendorProduct } from "../../farmer-manager-service/src/models.js";
 import { OmniInvoice, PosRegisterShift } from "./models.js";
 import { notifyWriteRequest } from "../../shared/realtime/changeFeed.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
 
 function slugify(val) {
   return String(val || "")
@@ -575,9 +576,7 @@ export async function createBillingInvoice(req, res) {
       return res.status(400).json({ success: false, message: "Cart cannot be empty" });
     }
 
-    // Generate unique invoice number
-    const serial = Math.floor(1000 + Math.random() * 9000);
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${serial}`;
+    const invoiceNumber = await generateId({ module: "INVCE" });
 
     // Format items & deduct inventory
     const invoiceItems = [];

@@ -9,6 +9,7 @@ import { useScrollDirection } from "../../hooks/useScrollDirection";
 import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 import DesktopSearchBar from "./DesktopSearchBar";
 import CategoryNavbar from "../layout/CategoryNavbar";
+import OptimizedImg from "../common/OptimizedImg";
 
 export const UPPER_BAR_H = 56;
 export const MAIN_BAR_H = 46;
@@ -142,7 +143,7 @@ function TopNav() {
             {/* Left corner: Logo + User Address next to Logo */}
             <div className="relative z-10 flex shrink-0 items-center gap-3">
               <Link to="/" className="flex shrink-0 items-center hover:opacity-90 transition-opacity">
-                <img
+                <OptimizedImg
                   src={LOGO_URL}
                   alt="GreenGrocc"
                   className="h-8 xl:h-9 max-h-9 w-auto object-contain"

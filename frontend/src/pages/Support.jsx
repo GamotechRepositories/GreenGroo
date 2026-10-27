@@ -5,6 +5,7 @@ import { submitSupportMessage, uploadImageFile } from "../api/api";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders";
 import { SUPPORT_ISSUE_OPTIONS } from "../utils/supportConstants";
 import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, CONTACT_WHATSAPP_URL } from "../config/contact";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 1000;
@@ -531,7 +532,7 @@ function Support() {
                       </label>
                     ) : (
                       <div className="flex items-center gap-3">
-                        <img
+                        <OptimizedImg
                           src={attachmentPreview}
                           alt="Attachment preview"
                           className="h-16 w-16 rounded-lg border border-border-light object-cover"

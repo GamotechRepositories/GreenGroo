@@ -40,6 +40,7 @@ import CatalogProduct from "../../legacy/models/Product.js";
 import { createCentreForVendor, createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { checkPhoneConflict } from "../../shared/utils/phoneCheck.js";
+import { randomIdSuffix, serialId, timestampId } from "../../shared/ids.js";
 import {
   sendCommonOtp,
   verifyOtp,
@@ -757,11 +758,11 @@ export async function createVendorAdmin(req, res, next) {
     } catch (docError) {
       return fail(res, docError.status || 400, docError.message);
     }
-    const id = `vendor-${Date.now()}`;
+    const id = timestampId("vendor");
     const hashedPassword = await bcrypt.hash(String(req.body.password || "vendor123"), 10);
     const vendor = await Vendor.create({
       id,
-      vendorCode: `VND-${Math.floor(1000 + Math.random() * 9000)}`,
+      vendorCode: await serialId("VND"),
       vendorName: String(req.body.vendorName || ownerName).trim(),
       ownerName,
       mobile,
@@ -1618,7 +1619,7 @@ export async function createHrStaff(req, res, next) {
       delete payload.password;
     } else if (role === "pickup_driver") {
       const created = await PickupDriver.create({
-        id: `drv-${Date.now()}`,
+        id: timestampId("drv"),
         vendorId: String(req.body.vendorId || "vendor-1").trim() || "vendor-1",
         name,
         mobile: phone,
@@ -2267,7 +2268,7 @@ export async function runHrPayroll(req, res, next) {
     if (!payable.length) return fail(res, 400, "Set monthly salaries before generating payroll");
     const existing = await HrPayroll.find({ month }).lean();
     const seen = new Set(existing.map((row) => `${row.employeeType}:${row.employeeId}`));
-    const payrunId = `PR-${month}-${Date.now().toString().slice(-6)}`;
+    const payrunId = `PR-${month}-${Date.now().toString().slice(-6)}-${randomIdSuffix(2).toUpperCase()}`;
     const created = [];
     for (const person of payable) {
       const key = `${person.employeeType}:${person.id}`;

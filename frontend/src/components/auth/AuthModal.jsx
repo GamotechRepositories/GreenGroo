@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import OptimizedImg from "../common/OptimizedImg";
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -190,7 +191,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
 
         {/* Header Branding (No image) */}
         <div className="pt-6 pb-2 px-6 text-center flex-shrink-0">
-          <img
+          <OptimizedImg
             src="/assets/payment/logo.png"
             alt="GreenGrocc Logo"
             className="h-10 w-auto object-contain mx-auto"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import OptimizedImg from "../common/OptimizedImg";
 
 const SLIDING_BANNERS = [
   { id: 1, image: "/assets/payment/hero2.png", link: "/product" },
@@ -56,7 +57,7 @@ export default function HomeSlidingBanners() {
           {SLIDING_BANNERS.map((banner) => (
             <div key={banner.id} className="w-full shrink-0">
               <Link to={banner.link} className="block w-full">
-                <img
+                <OptimizedImg
                   src={banner.image}
                   alt={`Hero Banner ${banner.id}`}
                   className="w-full h-auto object-cover cursor-pointer block rounded-none"

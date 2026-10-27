@@ -28,6 +28,7 @@ import {
 import { buildRiderActivityHistory } from "../services/activityHistoryService.js";
 import { revenueTotals } from "./managerRevenueController.js";
 import { areaMatches, placesEqual } from "../utils/matchPlace.js";
+import { randomIdSuffix } from "../../../shared/ids.js";
 import {
   BATCHING_WAIT_MS,
   buildSuggestionPayload,
@@ -813,7 +814,7 @@ export const createDemoStoreOrder = async (req, res, next) => {
       });
     }
 
-    const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
+    const orderNum = `ORD-${Date.now().toString().slice(-6)}-${randomIdSuffix(2).toUpperCase()}`;
     const demoAddress =
       req.body.customerAddress ||
       "In front of Balewadi Stadium Gate, Mahalunge Road, Pune";

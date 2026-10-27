@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function TrustFeatureBanners() {
   const [showQrModal, setShowQrModal] = useState(false);
@@ -56,7 +57,7 @@ export default function TrustFeatureBanners() {
 
                 {/* Fresh Produce Banner (Compact) */}
                 <div className="relative w-full h-20 sm:h-22 rounded-xl overflow-hidden border border-emerald-100 shadow-2xs my-1.5 bg-slate-50">
-                  <img
+                  <OptimizedImg
                     src="/assets/features/organic_fresh_produce.jpg"
                     alt="100% Certified Organic Fresh Produce"
                     className="w-full h-full object-cover"
@@ -150,7 +151,7 @@ export default function TrustFeatureBanners() {
                 {/* Clamshell Produce Box (Compact) */}
                 <div className="flex items-center gap-2 p-1.5 sm:p-2 rounded-xl bg-emerald-50/40 border border-emerald-100/80 my-1.5">
                   <div className="relative w-12 h-12 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-2xs border border-emerald-100 overflow-hidden">
-                    <img
+                    <OptimizedImg
                       src="/assets/features/clamshell_qr_produce.jpg"
                       alt="Fresh produce with QR code"
                       className="w-full h-full object-contain"

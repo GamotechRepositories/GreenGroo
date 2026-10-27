@@ -10,6 +10,7 @@ import {
   storeToSection,
   buildStoreProductUrl,
 } from "../../utils/storeSection";
+import OptimizedImg from "../common/OptimizedImg";
 
 export { sectionToStoreKey, storeToSection, buildStoreProductUrl };
 
@@ -145,7 +146,7 @@ export function HomeDeliveryBar() {
     <div className={`${theme.deliveryBg} px-4 pb-0 pt-1.5 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-2">
         <Link to="/" className="min-w-0 shrink py-0.5 leading-none">
-          <img
+          <OptimizedImg
             src={LOGO_URL}
             alt="GreenGroo"
             className="h-8 w-auto max-w-[130px] object-contain object-left sm:h-9 sm:max-w-[150px]"

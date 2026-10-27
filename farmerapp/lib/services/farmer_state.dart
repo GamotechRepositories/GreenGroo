@@ -5,6 +5,7 @@ import 'sound_service.dart';
 import 'package:flutter/material.dart';
 import '../models/farmer_models.dart';
 import '../core/constants/farmer_constants.dart';
+import '../live/live_cache.dart';
 import 'api_service.dart';
 import 'farmer_socket_service.dart';
 import 'push_notification_service.dart';
@@ -133,6 +134,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     _syncDebounce?.cancel();
     _syncQueued = false;
     _syncDeferred = false;
+    _stopLiveWatches();
     ApiService().setToken(null);
     profile = FarmerProfile.empty();
     documents = [];
@@ -254,6 +256,59 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     FarmerSocketService.instance.connect(profile.id);
     PushNotificationService.instance.syncToken();
     notifyListeners();
+  }
+
+  final List<StreamSubscription<dynamic>> _liveWatches = [];
+  String? _watchedFarmerId;
+  final Map<String, Timer> _liveSectionTimers = {};
+
+  /// Keeps each section's endpoint subscribed in [LiveCache]: the server pushes
+  /// only the changed items, and just that section is re-parsed and rebuilt.
+  void _startLiveWatches() {
+    _stopLiveWatches();
+    final fid = profile.id.trim();
+    _watchedFarmerId = fid;
+    final sections = <String, Future<void> Function()>{
+      '/api/farmers/me': refreshProfile,
+      '/api/farmer/products': refreshProducts,
+      '/api/farmer/orders': refreshOrders,
+      '/api/farmer/crops': refreshCrops,
+      '/api/farmer/notifications': refreshNotifications,
+      '/api/admin-ops/govt-schemes/live': refreshSchemes,
+      if (fid.isNotEmpty) '/api/farmers/$fid/documents': refreshDocuments,
+      if (fid.isNotEmpty) '/api/admin-ops/govt-schemes/applications/mine?farmerId=$fid': refreshSchemes,
+    };
+    sections.forEach((path, refresh) {
+      var first = true;
+      _liveWatches.add(LiveCache.instance.watch(path).listen((_) {
+        // The first value is what the initial sync loads anyway.
+        if (first) {
+          first = false;
+          return;
+        }
+        _liveSectionTimers[path]?.cancel();
+        _liveSectionTimers[path] = Timer(const Duration(milliseconds: 150), () {
+          _liveSectionTimers.remove(path);
+          if (_syncing) {
+            _syncQueued = true;
+          } else {
+            refresh();
+          }
+        });
+      }, onError: (_) {}));
+    });
+  }
+
+  void _stopLiveWatches() {
+    for (final sub in _liveWatches) {
+      sub.cancel();
+    }
+    _liveWatches.clear();
+    for (final timer in _liveSectionTimers.values) {
+      timer.cancel();
+    }
+    _liveSectionTimers.clear();
+    _watchedFarmerId = null;
   }
 
   Timer? _syncDebounce;
@@ -410,6 +465,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _syncing = false;
       isLoadingFromBackend = false;
+      if (isLoggedIn && _watchedFarmerId != profile.id.trim()) _startLiveWatches();
       if (firstLoad || wasConnected != isConnectedToBackend) notifyListeners();
       if (_syncQueued) {
         _syncQueued = false;

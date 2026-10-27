@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useMemo } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
+import OptimizedImg from "../common/OptimizedImg";
 
 function DesktopCategorySidebar() {
   const { data: apiCategories = [] } = useCategoriesQuery();
@@ -30,7 +31,7 @@ function DesktopCategorySidebar() {
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-light text-[#07875f]">
                 {cat.image ? (
-                  <img src={cat.image} alt="" className="h-full w-full object-cover" />
+                  <OptimizedImg src={cat.image} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <CategoryIcon name={cat.name} index={index} className="h-5 w-5" />
                 )}

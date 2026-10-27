@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
+import OptimizedImg from "../common/OptimizedImg";
 
 const MOBILE_ITEMS_PER_SLIDE = 6;
 const DESKTOP_ITEMS_PER_SLIDE = 12;
@@ -160,7 +161,7 @@ function CategoryImage({ src, name, icon, className = "h-10 w-10" }) {
   }
 
   return (
-    <img
+    <OptimizedImg
       src={src}
       alt={name}
       className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-110"

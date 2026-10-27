@@ -12,6 +12,7 @@ import couponRoutes from "../../legacy/routes/couponRoutes.js";
 import s3UploadRoutes from "./routes/uploadRoutes.js";
 import legacyUploadRoutes from "../../legacy/routes/uploadRoutes.js";
 import proxyRoutes from "../../legacy/routes/proxyRoutes.js";
+import imageRoutes from "./routes/imageRoutes.js";
 import express from "express";
 
 // POST /api/upload → multi-file S3 (admin Products/media)
@@ -34,4 +35,5 @@ export default [
   { path: "/api/coupons", router: couponRoutes },
   { path: "/api/upload", router: uploadRouter },
   { path: "/api/proxy", router: proxyRoutes },
+  { path: "/api/img", router: imageRoutes },
 ];

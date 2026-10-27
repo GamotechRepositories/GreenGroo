@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/config/api_config.dart';
+import '../../../core/config/cached_get.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
@@ -41,31 +40,31 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
       _loading = true;
       _error = null;
     });
+    final range = _range;
     try {
-      final res = await apiGet(
-        ApiConfig.activityHistory(range: _range),
+      await cachedApiGet(
+        ApiConfig.activityHistory(range: range),
         headers: AuthService.instance.authHeaders,
+        onData: (body) {
+          if (body['success'] != true || body['data'] is! Map) {
+            throw Exception('Invalid response');
+          }
+          final data = Map<String, dynamic>.from(body['data'] as Map);
+          final daysRaw = (data['days'] as List?) ?? const [];
+          final totalsRaw = (data['totals'] as Map?)?.cast<String, dynamic>() ?? {};
+          if (!mounted || range != _range) return;
+          setState(() {
+            _days = daysRaw
+                .whereType<Map>()
+                .map((e) => _DayBox.fromJson(Map<String, dynamic>.from(e)))
+                .toList();
+            _totals = _HistoryTotals.fromJson(totalsRaw);
+            _loading = false;
+          });
+        },
       );
-      if (res.statusCode != 200) {
-        throw Exception('Failed (${res.statusCode})');
-      }
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      if (body['success'] != true || body['data'] == null) {
-        throw Exception('Invalid response');
-      }
-      final data = body['data'] as Map<String, dynamic>;
-      final daysRaw = (data['days'] as List?) ?? const [];
-      final totalsRaw = (data['totals'] as Map?)?.cast<String, dynamic>() ?? {};
-      if (!mounted) return;
-      setState(() {
-        _days = daysRaw
-            .whereType<Map>()
-            .map((e) => _DayBox.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        _totals = _HistoryTotals.fromJson(totalsRaw);
-        _loading = false;
-      });
     } catch (e) {
+      if (range != _range) return;
       if (!mounted) return;
       setState(() {
         _loading = false;

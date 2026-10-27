@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getHeroBanners } from "../../api/api";
+import OptimizedImg from "../common/OptimizedImg";
 
 const AUTO_PLAY_MS = 4000;
 
@@ -70,7 +71,7 @@ function Hero() {
     >
       <div className="relative w-full">
         {slides.map((slide, index) => (
-          <img
+          <OptimizedImg
             key={slide.id}
             src={slide.src}
             alt={slide.alt}

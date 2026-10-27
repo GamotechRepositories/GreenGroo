@@ -37,7 +37,7 @@ class _PickupDetailScreenState extends State<PickupDetailScreen> {
   Map<String, dynamic>? _pickup;
   String _error = '';
   bool _busy = false;
-  Timer? _timer;
+  StreamSubscription<void>? _watch;
 
   @override
   void initState() {
@@ -46,9 +46,7 @@ class _PickupDetailScreenState extends State<PickupDetailScreen> {
       final qr = widget.initialQr?.trim() ?? '';
       if (qr.isNotEmpty && mounted && _pickup != null) _verifyQr(qr);
     });
-    _timer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!_busy) _load(silent: true);
-    });
+    _watch = _svc.watchPickup(widget.pickupId).listen((_) => _onPush());
     PickupPushService.instance.refreshTick.addListener(_onPush);
   }
 
@@ -58,7 +56,7 @@ class _PickupDetailScreenState extends State<PickupDetailScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _watch?.cancel();
     PickupPushService.instance.refreshTick.removeListener(_onPush);
     _qrController.dispose();
     super.dispose();

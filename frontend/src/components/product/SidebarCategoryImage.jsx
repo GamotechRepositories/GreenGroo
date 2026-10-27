@@ -1,4 +1,5 @@
 import { useState } from "react";
+import OptimizedImg from "../common/OptimizedImg";
 
 function GridIcon({ className = "h-5 w-5" }) {
   return (
@@ -50,7 +51,7 @@ function SidebarCategoryImage({ image, name, showGrid = false, size = "md", acti
     <div
       className={`${box} shrink-0 overflow-hidden rounded-xl bg-white transition-all duration-200 ${ring}`}
     >
-      <img
+      <OptimizedImg
         src={image}
         alt={name || ""}
         className="h-full w-full object-cover"

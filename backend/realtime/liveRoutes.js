@@ -34,6 +34,8 @@ const FARM_COLLECTIONS = [
   "farmercropplans",
   "collectioncentres",
   "vendors",
+  "farmernotifications",
+  "pickupdrivernotifications",
 ];
 
 const CATALOG_COLLECTIONS = ["greengroccproducts", "greengrocccategories", "greengroccsections"];
@@ -85,6 +87,12 @@ export const LIVE_ROUTES = [
     exact: true,
     deps: ["adminfarmerschemeapplications", "admingovernmentschemes"],
   },
+  {
+    path: "/api/admin-ops/govt-schemes/applications/mine",
+    exact: true,
+    deps: ["adminfarmerschemeapplications", "admingovernmentschemes"],
+  },
+  { path: "/api/admin-ops/govt-schemes/live", exact: true, deps: ["admingovernmentschemes"] },
   {
     path: "/api/admin/dark-stores",
     deps: ["deliverymanagers", "storeinventories", "storeorders"],

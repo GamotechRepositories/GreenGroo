@@ -23,6 +23,7 @@ import ProductReviews from "./ProductReviews";
 import { formatProduceDate, isProduceDate } from "../../utils/produceDates";
 import ProductDescriptionContent from "./ProductDescriptionContent";
 import { getProductDisplayDetails } from "../../utils/productLocalization";
+import OptimizedImg from "../common/OptimizedImg";
 
 function getOrderTraceStatus(status) {
   const s = String(status || "").toLowerCase().trim();
@@ -386,12 +387,12 @@ export default function ProductFarmerTraceabilitySection({
 
           <div className="relative z-10 flex min-w-0 flex-col gap-3 @[20rem]:flex-row @[20rem]:items-center @[20rem]:gap-4 @[36rem]:gap-6">
             <div className="aspect-[16/10] w-full shrink-0 overflow-hidden rounded-2xl border border-emerald-100/80 bg-emerald-50 shadow-xs @[20rem]:aspect-[5/3] @[20rem]:w-[44%] @[20rem]:max-w-[17rem] @[36rem]:w-1/2 @[36rem]:max-w-[24rem]">
-              <img
+              <OptimizedImg
                 src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
                 alt=""
                 className="h-full w-full object-cover @[20rem]:hidden"
               />
-              <img
+              <OptimizedImg
                 src={farmerPhoto || "/assets/farmer/desktop_farmer_photo.png"}
                 alt={farmerName}
                 className="hidden h-full w-full object-cover @[20rem]:block"
@@ -462,7 +463,7 @@ export default function ProductFarmerTraceabilitySection({
                   className="w-[68px] sm:w-[76px] h-[68px] sm:h-[76px] rounded-xl border border-emerald-200 p-1 bg-white shadow-xs shrink-0 flex items-center justify-center cursor-pointer hover:border-emerald-400 transition"
                   title="Click to view real order traceability"
                 >
-                  <img
+                  <OptimizedImg
                     src="/assets/farmer/traceability_qr_code.png"
                     alt="Product Traceability QR Code"
                     className="w-full h-full object-contain"
@@ -509,7 +510,7 @@ export default function ProductFarmerTraceabilitySection({
                 onClick={() => setShowTraceModal(true)}
                 className="hidden md:block shrink-0 h-14 lg:h-16 max-w-[240px] opacity-90 select-none cursor-pointer hover:opacity-100 transition"
               >
-                <img
+                <OptimizedImg
                   src="/assets/farmer/traceability_journey_map.png"
                   alt="Farm to Home Traceability Journey"
                   className="h-full w-auto object-contain"
@@ -721,7 +722,7 @@ export default function ProductFarmerTraceabilitySection({
               </button>
               <div className="flex items-center gap-3">
                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-emerald-50 shrink-0">
-                  <img
+                  <OptimizedImg
                     src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
                     alt={farmerName}
                     className="w-full h-full object-cover"
@@ -836,7 +837,7 @@ export default function ProductFarmerTraceabilitySection({
               <div className="flex items-center gap-3 min-w-0">
                 {product?.image ? (
                   <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 p-0.5 shrink-0 overflow-hidden">
-                    <img src={product.image} alt={productNameDisplay} className="w-full h-full object-cover rounded-lg" />
+                    <OptimizedImg src={product.image} alt={productNameDisplay} className="w-full h-full object-cover rounded-lg" />
                   </div>
                 ) : (
                   <div className="w-12 h-12 rounded-xl bg-emerald-100 text-[#0a6c38] flex items-center justify-center text-xl shrink-0">

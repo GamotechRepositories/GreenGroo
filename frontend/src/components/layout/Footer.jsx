@@ -8,6 +8,7 @@ import {
   CONTACT_PHONE_TEL,
 } from "../../config/contact";
 import MaharashtraPrideBanner from "../home/MaharashtraPrideBanner";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function Footer() {
   const [menuOpen, setMenuOpen] = React.useState(true);
@@ -44,7 +45,7 @@ export default function Footer() {
                   (Positioned on the left side, head rising unclipped above the green curved wave)
                  ======================================================== */}
               <div className="shrink-0 w-full max-w-[290px] sm:max-w-[340px] lg:max-w-[420px] xl:max-w-[460px] flex justify-center lg:justify-start -mb-4 lg:-mb-8 z-20">
-                <img
+                <OptimizedImg
                   src="/assets/payment/compressed-kapil with Fresh Vegetable Crate.webp"
                   alt="GreenGrocc Farmer with Fresh Vegetable Crate"
                   className="w-full h-auto max-h-[380px] sm:max-h-[460px] lg:max-h-[520px] xl:max-h-[580px] object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.35)] mt-2 lg:-mt-24 xl:-mt-36 transition-transform hover:scale-[1.02] duration-300 pointer-events-auto"
@@ -64,7 +65,7 @@ export default function Footer() {
                       to="/"
                       className="inline-flex items-center justify-center bg-white px-5 py-3 rounded-full shadow-lg hover:scale-105 transition-transform duration-200 border border-white/60"
                     >
-                      <img
+                      <OptimizedImg
                         src={LOGO_URL}
                         alt="GreenGrocc"
                         className="h-8 sm:h-9 w-auto object-contain"
@@ -300,7 +301,7 @@ export default function Footer() {
 
           {/* Farmer Image: Sits naturally in z-10 in front of the green arch */}
           <div className="relative z-10 flex justify-center px-4">
-            <img
+            <OptimizedImg
               src="/assets/payment/compressed-kapil with Fresh Vegetable Crate.webp"
               alt="GreenGrocc Farmer"
               className="w-[270px] sm:w-[310px] h-auto object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.32)] pointer-events-none"
@@ -313,7 +314,7 @@ export default function Footer() {
               to="/"
               className="inline-flex items-center justify-center bg-white px-8 py-3 rounded-full shadow-xl border border-white/70 active:scale-95 transition-transform translate-x-2.5"
             >
-              <img
+              <OptimizedImg
                 src={LOGO_URL}
                 alt="GreenGrocc"
                 className="h-8 sm:h-9 w-auto object-contain"

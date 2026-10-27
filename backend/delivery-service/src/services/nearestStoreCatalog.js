@@ -1,5 +1,7 @@
 import StoreInventory from "../models/StoreInventory.js";
+import DeliveryManager from "../models/DeliveryManager.js";
 import Product from "../../../legacy/models/Product.js";
+import { createMemoryCache } from "../../../shared/cache/memoryCache.js";
 import { resolveDarkStoreForOrder } from "./darkStoreResolver.js";
 import { inventorySkuForProduct } from "./catalogStoreInventory.js";
 import { sectionToDepartment } from "../../../legacy/utils/departmentHelpers.js";
@@ -23,6 +25,14 @@ const CATEGORY_ALIASES = {
   beverages: ["beverages"],
   snacks: ["snacks"],
 };
+
+/** Active stock rows of one dark store (cached; treat the result as read-only). */
+export function loadStoreInventory(storeId) {
+  const key = String(storeId);
+  return storeInventoryCache.get(key, () =>
+    StoreInventory.find({ managerId: storeId, isActive: true }).lean()
+  );
+}
 
 export function addressFromQuery(query = {}) {
   const lat = toNumber(query.lat ?? query.latitude);
@@ -181,11 +191,47 @@ export function attachStoreAvailability(products, catalog) {
   });
 }
 
-export async function loadNearestStoreCatalog(query = {}) {
-  const address = addressFromQuery(query);
-  const needsLocation = !hasLocationHint(address);
-  const pickup = String(query.fulfillment || "").trim().toLowerCase() === "pickup";
+const MANAGERS = DeliveryManager.collection.collectionName.toLowerCase();
+const INVENTORY = StoreInventory.collection.collectionName.toLowerCase();
 
+/** Address → resolved dark store. Any dark-store edit can move coverage, so it clears everything. */
+const storeResolutionCache = createMemoryCache({
+  name: "nearest-store-resolution",
+  ttlMs: 5 * 60_000,
+  maxEntries: 2000,
+  invalidateOn: ({ coll }) => coll === MANAGERS,
+});
+
+/** Dark store → its stock rows. Only the store whose stock changed is cleared. */
+const storeInventoryCache = createMemoryCache({
+  name: "dark-store-inventory",
+  ttlMs: 60_000,
+  maxEntries: 200,
+  maxBytes: 10_000_000,
+  invalidateOn: ({ coll, doc }) => {
+    if (coll !== INVENTORY) return false;
+    if (!doc?.managerId) return true;
+    const storeId = String(doc.managerId);
+    return (key) => key === storeId;
+  },
+});
+
+const roundCoord = (value) => (value == null ? "" : Number(value).toFixed(4));
+
+function resolutionKey(address, department, pickup) {
+  return [
+    department,
+    pickup ? "pickup" : "delivery",
+    roundCoord(address.lat),
+    roundCoord(address.lng),
+    address.pincode,
+    address.city.toLowerCase(),
+    address.area.toLowerCase(),
+    address.fullAddress.toLowerCase(),
+  ].join("|");
+}
+
+async function resolveStore(address, department, pickup, needsLocation) {
   if (pickup && !needsLocation && address.lat == null) {
     const text = [address.fullAddress, address.area, address.city, address.pincode]
       .filter(Boolean)
@@ -197,12 +243,23 @@ export async function loadNearestStoreCatalog(query = {}) {
       address.location = coords;
     }
   }
-
-  const department = sectionToDepartment(query.section, query.storeType);
   const resolved = await resolveDarkStoreForOrder(address, {
     allowPincodeFallback: department === "preorder",
     anyDistance: pickup,
   });
+  const manager = resolved.manager?.toObject ? resolved.manager.toObject() : resolved.manager || null;
+  return { manager, distanceKm: resolved.distanceKm, reason: resolved.reason };
+}
+
+export async function loadNearestStoreCatalog(query = {}) {
+  const address = addressFromQuery(query);
+  const needsLocation = !hasLocationHint(address);
+  const pickup = String(query.fulfillment || "").trim().toLowerCase() === "pickup";
+  const department = sectionToDepartment(query.section, query.storeType);
+
+  const resolved = await storeResolutionCache.get(resolutionKey(address, department, pickup), () =>
+    resolveStore(address, department, pickup, needsLocation)
+  );
   const manager = resolved.manager;
   if (!manager) {
     return {
@@ -217,10 +274,7 @@ export async function loadNearestStoreCatalog(query = {}) {
     };
   }
 
-  const inventory = await StoreInventory.find({
-    managerId: manager._id,
-    isActive: true,
-  }).lean();
+  const inventory = await loadStoreInventory(manager._id);
 
   const inStockItems = inventory.filter((item) => Number(item.stockCount) > 0);
 

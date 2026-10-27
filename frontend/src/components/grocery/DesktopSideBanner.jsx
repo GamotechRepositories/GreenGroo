@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import OptimizedImg from "../common/OptimizedImg";
 
 /** Desktop-only left promo (~25%). Hidden on mobile. */
 function DesktopSideBanner() {
@@ -7,7 +8,7 @@ function DesktopSideBanner() {
       to="/product?categoryName=Fruits"
       className="group relative hidden h-full min-h-[220px] min-w-0 flex-1 overflow-hidden rounded-3xl bg-[#e8f5e9] shadow-lg shadow-primary/10 lg:block xl:min-h-[240px]"
     >
-      <img
+      <OptimizedImg
         src="/onboarding-hero.png"
         alt="Fresh produce deals"
         className="absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-105"

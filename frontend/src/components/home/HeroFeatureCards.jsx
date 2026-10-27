@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, QrCode, CheckCircle2, ShieldCheck, X, Users, MapPin, Calendar, Sparkles } from "lucide-react";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function HeroFeatureCards({ className = "" }) {
   const [showQrModal, setShowQrModal] = useState(false);
@@ -72,7 +73,7 @@ export default function HeroFeatureCards({ className = "" }) {
               <div className="group relative flex items-stretch bg-[#f4faf6] border border-[#d2ead7] hover:border-[#0a6c38]/60 hover:bg-[#eef8f1] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer shadow-[0_2px_6px_rgba(10,108,56,0.04)] hover:shadow-md active:scale-[0.99] h-full">
                 {/* Left Side: Full-bleed Photo (No side padding) */}
                 <div className="relative w-28 sm:w-36 md:w-36 lg:w-40 xl:w-44 shrink-0 overflow-hidden bg-gray-100 self-stretch">
-                  <img
+                  <OptimizedImg
                     src={card.image}
                     alt={card.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
@@ -173,7 +174,7 @@ export default function HeroFeatureCards({ className = "" }) {
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
               {/* Farmer 1 */}
               <div className="flex items-center gap-3.5 p-3 rounded-xl bg-[#f7fbf8] border border-[#dceddf]">
-                <img
+                <OptimizedImg
                   src="/assets/features/farmer_portrait_pro.jpg"
                   alt="Tukaram Shinde"
                   className="w-14 h-14 rounded-full object-cover border-2 border-[#0a6c38]/40 shrink-0"
@@ -193,7 +194,7 @@ export default function HeroFeatureCards({ className = "" }) {
 
               {/* Farmer 2 */}
               <div className="flex items-center gap-3.5 p-3 rounded-xl bg-[#f7fbf8] border border-[#dceddf]">
-                <img
+                <OptimizedImg
                   src="/assets/features/farmer_stories_video_banner.jpg"
                   alt="Ramesh Patil"
                   className="w-14 h-14 rounded-full object-cover border-2 border-[#0a6c38]/40 shrink-0"

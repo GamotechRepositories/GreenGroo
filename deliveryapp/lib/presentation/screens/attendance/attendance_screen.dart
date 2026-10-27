@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/config/cached_get.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
@@ -41,28 +40,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _error = null;
     });
     try {
-      final res = await apiGet(
+      await cachedApiGet(
         ApiConfig.attendanceToday,
         headers: AuthService.instance.authHeaders,
+        onData: (body) {
+          final daysRaw = (body['calendarDays'] as List?) ?? const [];
+          if (!mounted) return;
+          setState(() {
+            _loading = false;
+            _todayDate = body['date']?.toString() ?? '';
+            _online = body['totalOnlineFormatted']?.toString() ?? '0h 0m';
+            _trips = (body['totalTrips'] as num?)?.toInt() ?? 0;
+            _shiftsBooked = (body['shiftsBooked'] as num?)?.toInt() ?? 0;
+            _shiftsCompleted = (body['shiftsCompleted'] as num?)?.toInt() ?? 0;
+            _days = daysRaw
+                .whereType<Map>()
+                .map((e) => _DayBox.fromJson(Map<String, dynamic>.from(e)))
+                .toList();
+          });
+        },
       );
-      if (res.statusCode != 200) {
-        throw Exception('Failed to load attendance');
-      }
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final daysRaw = (body['calendarDays'] as List?) ?? const [];
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _todayDate = body['date']?.toString() ?? '';
-        _online = body['totalOnlineFormatted']?.toString() ?? '0h 0m';
-        _trips = (body['totalTrips'] as num?)?.toInt() ?? 0;
-        _shiftsBooked = (body['shiftsBooked'] as num?)?.toInt() ?? 0;
-        _shiftsCompleted = (body['shiftsCompleted'] as num?)?.toInt() ?? 0;
-        _days = daysRaw
-            .whereType<Map>()
-            .map((e) => _DayBox.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-      });
     } catch (_) {
       if (!mounted) return;
       setState(() {

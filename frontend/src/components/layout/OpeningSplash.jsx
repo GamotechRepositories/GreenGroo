@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LOGO_URL } from "./Header";
+import OptimizedImg from "../common/OptimizedImg";
 
 const SESSION_KEY = "bmm_opening_splash_shown";
 const MIN_DISPLAY_MS = 900;
@@ -74,7 +75,7 @@ function OpeningSplash() {
     >
       <div className="opening-splash__content">
         <div className="opening-splash__logo-wrap">
-          <img src={LOGO_URL} alt="" className="opening-splash__logo" decoding="async" />
+          <OptimizedImg src={LOGO_URL} alt="" className="opening-splash__logo" decoding="async" />
         </div>
         <h1 className="opening-splash__title">GreenGrocc</h1>
         <p className="opening-splash__tagline">Your Trusted Wholesale Partner</p>

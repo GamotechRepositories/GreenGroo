@@ -11,6 +11,7 @@ import {
   inventorySkuForProduct,
   linkRowsToProduct,
 } from "../services/catalogStoreInventory.js";
+import { randomIdSuffix } from "../../../shared/ids.js";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -22,7 +23,7 @@ const SECTION_ALIASES = {
 
 function generateSku(manager) {
   const store = String(manager._id).slice(-4).toUpperCase();
-  return `DM${store}-${Date.now().toString().slice(-7)}`;
+  return `DM${store}-${Date.now().toString().slice(-7)}${randomIdSuffix(2).toUpperCase()}`;
 }
 
 /**

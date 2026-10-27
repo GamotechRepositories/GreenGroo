@@ -13,6 +13,11 @@ import {
   consumeVerifiedPhone,
 } from "@greengrocc/shared";
 import { isS3Configured, presignUpload } from "../../legacy/utils/s3Upload.js";
+import { randomIdSuffix, serialId, timestampId } from "../../shared/ids.js";
+
+function farmerSku(farmerId) {
+  return `FRM-${String(farmerId).slice(-4)}-${randomIdSuffix(4).toUpperCase()}`;
+}
 import {
   Vendor,
   Farmer,
@@ -2781,7 +2786,7 @@ export async function createMyProduct(req, res) {
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId,
-      sku: `FRM-${farmerId.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sku: farmerSku(farmerId),
       status,
     });
     applyProductFields(product, parsed, farmer, crop);
@@ -2833,7 +2838,7 @@ export async function createManagedFarmerProduct(req, res) {
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId: farmer.id,
-      sku: `FRM-${String(farmer.id).slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sku: farmerSku(farmer.id),
       status: "Draft",
     });
     applyProductFields(product, parsed, farmer, crop);
@@ -4277,7 +4282,7 @@ export async function createFarmerProduct(req, res) {
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId,
-      sku: payload.sku || `FRM-${farmerId.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      sku: payload.sku || farmerSku(farmerId),
       name: payload.name,
       category: payload.category || "Vegetables",
       subCategory: payload.subCategory || "Fresh Produce",
@@ -6357,12 +6362,12 @@ export async function createVendor(req, res) {
       });
     }
     consumeVerifiedPhone(cleanMobile);
-    const id = `vendor-${Date.now()}`;
+    const id = timestampId("vendor");
     const rawPassword = payload.password || "vendor123";
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
     const vendor = new Vendor({
       id,
-      vendorCode: `VND-${Math.floor(1000 + Math.random() * 9000)}`,
+      vendorCode: await serialId("VND"),
       ...payload,
       mobile: cleanMobile,
       password: hashedPassword,
@@ -7312,7 +7317,7 @@ export async function createHarvestOrder(req, res) {
       });
     }
 
-    const id = `ho-${Date.now()}`;
+    const id = timestampId("ho");
     const order = new FarmerHarvestOrder({
       id,
       vendorId: assignedVendorId,

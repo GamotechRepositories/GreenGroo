@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSectionBanners } from "../../hooks/queries/useSectionBanners";
+import OptimizedImg from "../common/OptimizedImg";
 
 /** Slides come from admin → Banners → <section> → Suggested for You banner (section from `?store=`). */
 export default function HomeMidBannerSlider() {
@@ -88,7 +89,7 @@ function MidSlider({ banners }) {
           {banners.map((banner, index) => (
             <div key={banner.id} className="w-full shrink-0">
               <Link to={banner.link} className="block w-full">
-                <img
+                <OptimizedImg
                   src={banner.image}
                   alt={banner.alt}
                   loading={index === 0 ? "eager" : "lazy"}

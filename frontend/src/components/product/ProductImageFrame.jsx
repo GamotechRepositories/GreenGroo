@@ -1,4 +1,5 @@
 import { useState } from "react";
+import OptimizedImg from "../common/OptimizedImg";
 
 function ProductImagePlaceholder({ className = "" }) {
   return (
@@ -40,7 +41,7 @@ function ProductImageFrame({ src, alt = "", className = "", fit = "cover", fallb
 
   return (
     <div className={`product-image ${fitClass} ${className}`}>
-      <img
+      <OptimizedImg
         src={currentSrc}
         alt={alt}
         loading="lazy"

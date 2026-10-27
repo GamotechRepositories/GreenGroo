@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/theme.dart';
+import 'core/providers/live_providers.dart';
 import 'features/auth/auth_host.dart';
 import 'features/notifications/notification_bootstrap.dart';
 import 'routes/app_router.dart';
@@ -16,6 +17,7 @@ class GreenGroccApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    ref.watch(catalogSyncProvider);
 
     return DeepLinkListener(
       child: NotificationBootstrap(

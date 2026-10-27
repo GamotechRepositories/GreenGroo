@@ -1,11 +1,12 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import SectionHeader from "../mobile/SectionHeader";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
-import { getProducts } from "../../api/api";
+import { useProductsQuery } from "../../hooks/queries/useProductsQuery";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
-import { useDeliveryLocationKey, useLocation } from "../../context/LocationContext";
+import LazySection from "../common/LazySection";
+import { useLocation } from "../../context/LocationContext";
 import { useNearestStore } from "../../hooks/useNearestStore";
 import { getMostVisitedCategories } from "../../utils/categoryVisits";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
@@ -22,28 +23,9 @@ const MOBILE_GRID_LIMIT = 6;
 function CategoryProductSection({ categoryName, limit = 20, section = null, banners }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
-  const locationKey = useDeliveryLocationKey();
-  const [products, setProducts] = useState([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const params = { categoryName, limit };
-    if (section) params.section = section;
-    getProducts(params)
-      .then((res) => {
-        if (!isMounted) return;
-        const list = res.data?.data || res.data?.products || res.data || [];
-        if (Array.isArray(list)) {
-          setProducts(list.slice(0, limit));
-        }
-      })
-      .catch(() => {
-        if (isMounted) setProducts([]);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [categoryName, limit, locationKey, section]);
+  const params = section ? { categoryName, limit, section } : { categoryName, limit };
+  const { data } = useProductsQuery(params);
+  const products = useMemo(() => (Array.isArray(data) ? data.slice(0, limit) : []), [data, limit]);
 
   const cardProps = (product) => ({
     product,
@@ -109,7 +91,6 @@ function rankHomeCategories(availableNames) {
 function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
   const { hasLocation } = useLocation();
   const { data: nearest } = useNearestStore();
-  const storeName = nearest?.store?.storeName;
   const needsLocation = nearest?.needsLocation || !hasLocation;
   const noStore =
     hasLocation && !nearest?.store && nearest?.reason && nearest.reason !== "no_store";
@@ -162,18 +143,24 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
 
       {categories.map((category) => (
         <div key={category} className="space-y-4">
-          <CategoryProductSection
-            categoryName={category}
-            limit={limitPerCategory}
-            section={targetSection}
-            banners={categoryBanners}
-          />
+          <LazySection minHeight={320} rootMargin="600px 0px">
+            <CategoryProductSection
+              categoryName={category}
+              limit={limitPerCategory}
+              section={targetSection}
+              banners={categoryBanners}
+            />
+          </LazySection>
         </div>
       ))}
 
-      <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
+      <LazySection>
+        <FarmerTestimonials className="my-3 sm:my-4 lg:my-6" />
+      </LazySection>
 
-      <FarmerGrowthBanner />
+      <LazySection minHeight={160}>
+        <FarmerGrowthBanner />
+      </LazySection>
     </div>
   );
 }

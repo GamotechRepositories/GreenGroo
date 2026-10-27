@@ -22,6 +22,7 @@ import {
   RefreshCw,
   ShoppingBag,
 } from "lucide-react";
+import OptimizedImg from "../components/common/OptimizedImg";
 
 function getStepperConfig(status) {
   const s = String(status || "").toLowerCase();
@@ -233,7 +234,7 @@ export default function FarmerProfile() {
           <div className="hidden md:flex items-center gap-6 lg:gap-8 relative z-10">
             {/* Wide Panoramic Photo */}
             <div className="w-[320px] lg:w-[360px] h-[170px] lg:h-[185px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100 shadow-xs">
-              <img
+              <OptimizedImg
                 src="/assets/farmer/desktop_farmer_photo.png"
                 alt={farmerName}
                 className="w-full h-full object-cover"
@@ -263,7 +264,7 @@ export default function FarmerProfile() {
           <div className="flex md:hidden items-center gap-3.5 relative z-10">
             {/* Square Photo */}
             <div className="w-[105px] h-[115px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100 shadow-xs">
-              <img
+              <OptimizedImg
                 src="/assets/farmer/mobile_farmer_photo.png"
                 alt={farmerName}
                 className="w-full h-full object-cover"
@@ -425,13 +426,13 @@ export default function FarmerProfile() {
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                  <img src="/assets/farmer/desktop_farmer_photo.png" alt="Farm crop" className="w-full h-full object-cover" />
+                  <OptimizedImg src="/assets/farmer/desktop_farmer_photo.png" alt="Farm crop" className="w-full h-full object-cover" />
                 </div>
                 <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                  <img src="/assets/features/farm_fresh_slide_2.png" alt="Farmer with fresh produce" className="w-full h-full object-cover" />
+                  <OptimizedImg src="/assets/features/farm_fresh_slide_2.png" alt="Farmer with fresh produce" className="w-full h-full object-cover" />
                 </div>
                 <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 col-span-2 sm:col-span-1">
-                  <img src="/assets/payment/maharashtra_farm_sunrise.jpg" alt="Sunrise farm" className="w-full h-full object-cover" />
+                  <OptimizedImg src="/assets/payment/maharashtra_farm_sunrise.jpg" alt="Sunrise farm" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
@@ -743,7 +744,7 @@ export default function FarmerProfile() {
                                 title={item.name}
                               >
                                 {item.image ? (
-                                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                  <OptimizedImg src={item.image} alt={item.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-[11px] bg-emerald-50 text-emerald-800">
                                     🥬

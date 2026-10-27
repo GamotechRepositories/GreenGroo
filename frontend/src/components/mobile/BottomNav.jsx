@@ -5,6 +5,7 @@ import { useScrollDirection } from "../../hooks/useScrollDirection";
 import { useCart } from "../../context/CartContext";
 import { BOTTOM_NAV_HEIGHT_PX, FLOATING_CART_BAR_HEIGHT_PX } from "../grocery/FloatingCartBar";
 import { showsFloatingCartBar } from "../../utils/floatingCartBar";
+import OptimizedImg from "../common/OptimizedImg";
 
 // Preload home assets in memory once so touch is 100% instant with 0ms network latency
 let cachedHomeBlob = null;
@@ -157,7 +158,7 @@ export function BottomNav() {
       icon: (active) => (
         <div className="relative flex h-6 w-6 items-center justify-center">
           {/* Base static icon: ALWAYS in DOM, never flickers, never reloads, never blanks */}
-          <img
+          <OptimizedImg
             src="/assets/payment/home-static.webp"
             alt="Home"
             className={`h-6 w-6 object-contain transition-all duration-200 ${
@@ -166,7 +167,7 @@ export function BottomNav() {
           />
           {/* Animated overlay: in-memory blob URL, runs full cycle without cut or reload */}
           {animSrc && (
-            <img
+            <OptimizedImg
               src={animSrc}
               alt=""
               aria-hidden="true"
@@ -183,7 +184,7 @@ export function BottomNav() {
       label: "Order Again",
       isActive: isOrderActive,
       icon: (active) => (
-        <img
+        <OptimizedImg
           src="/categoryIcons/orderAgainIcon.png"
           alt="Order Again"
           className={`h-6 w-6 object-contain ${!active ? "opacity-60 grayscale" : ""}`}
@@ -195,7 +196,7 @@ export function BottomNav() {
       label: "Categories",
       isActive: isCategoriesActive,
       icon: (active) => (
-        <img
+        <OptimizedImg
           src="/categoryIcons/categoriesIcon.png"
           alt="Categories"
           className={`h-[22px] w-[22px] object-contain ${!active ? "opacity-60 grayscale" : ""}`}
@@ -207,7 +208,7 @@ export function BottomNav() {
       label: "Shop",
       isActive: isShopActive,
       icon: (active) => (
-        <img
+        <OptimizedImg
           src="/categoryIcons/cartIcon.png"
           alt="Shop"
           className={`h-7 w-7 object-contain ${!active ? "opacity-60 grayscale" : ""}`}
@@ -219,7 +220,7 @@ export function BottomNav() {
       label: "Account",
       isActive: isAccountActive,
       icon: (active) => (
-        <img
+        <OptimizedImg
           src="/categoryIcons/profileIcon.png"
           alt="Account"
           className={`h-6 w-6 object-contain ${!active ? "opacity-60 grayscale" : ""}`}
@@ -255,7 +256,7 @@ export function BottomNav() {
           : "translate3d(0, 0, 0)",
       }}
     >
-      <img
+      <OptimizedImg
         src="/assets/support-agent.png?v=3"
         alt=""
         aria-hidden="true"

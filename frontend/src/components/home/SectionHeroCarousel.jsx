@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useSectionBanners } from "../../hooks/queries/useSectionBanners";
+import OptimizedImg from "../common/OptimizedImg";
 
 const DESKTOP_PLACEHOLDER = "aspect-[16/5]";
 const MOBILE_PLACEHOLDER = "aspect-[3/2]";
@@ -88,7 +89,7 @@ function HeroSlides({ slides, loading, placeholder }) {
         {slides.map((banner, index) => (
           <div key={banner.id} className="w-full shrink-0">
             <Link to={banner.link} className="block w-full">
-              <img
+              <OptimizedImg
                 src={banner.image}
                 alt={banner.alt}
                 loading={index === 0 ? "eager" : "lazy"}

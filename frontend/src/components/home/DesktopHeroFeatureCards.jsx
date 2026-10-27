@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, QrCode, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function DesktopHeroFeatureCards() {
   const [showQrModal, setShowQrModal] = useState(false);
@@ -74,7 +75,7 @@ export default function DesktopHeroFeatureCards() {
               <div className="relative flex items-stretch bg-white border border-gray-200/90 hover:border-emerald-600 rounded-xl overflow-hidden transition-all duration-150 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-sm active:scale-[0.99] h-full">
                 {/* Left Side: Full-bleed Photo (No side padding) */}
                 <div className="relative w-28 sm:w-36 md:w-36 lg:w-40 xl:w-44 shrink-0 overflow-hidden bg-gray-50 self-stretch">
-                  <img
+                  <OptimizedImg
                     src={card.image}
                     alt={card.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"

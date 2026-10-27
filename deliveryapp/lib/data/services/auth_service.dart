@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/api_config.dart';
 import '../../core/l10n/locale_controller.dart';
 import '../../core/routes/app_routes.dart';
+import '../../live/live_storage.dart';
 import 'rider_live_service.dart';
 import 'live_tracking_service.dart';
 import 'location_service.dart';
@@ -318,6 +319,7 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_boyKey);
     await prefs.remove(_lastRouteKey);
+    await LiveStorage.clear();
   }
 
   Future<AuthResult> register({

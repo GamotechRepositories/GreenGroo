@@ -1,5 +1,6 @@
 import React from "react";
 import { User, Leaf } from "lucide-react";
+import OptimizedImg from "../common/OptimizedImg";
 
 export default function FarmerTestimonials({ className = "" }) {
   const testimonials = [
@@ -82,7 +83,7 @@ export default function FarmerTestimonials({ className = "" }) {
           >
             {/* Farmer Photo */}
             <div className="w-[105px] sm:w-[120px] lg:w-[125px] shrink-0 rounded-xl overflow-hidden bg-emerald-50/50">
-              <img
+              <OptimizedImg
                 src={item.image}
                 alt={item.name}
                 className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"

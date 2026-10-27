@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import OptimizedImg from "../common/OptimizedImg";
 
 const AUTH_IMAGES = {
   login: {
@@ -24,7 +25,7 @@ export default function AuthSplitLayout({ mode = "login", children, wide = false
     <div className="h-screen overflow-hidden bg-white text-gray-900">
       <div className="grid h-full lg:grid-cols-2">
         <aside className="relative hidden h-screen overflow-hidden bg-emerald-950 lg:sticky lg:top-0 lg:flex lg:flex-col">
-          <img
+          <OptimizedImg
             src={visual.src}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
@@ -37,7 +38,7 @@ export default function AuthSplitLayout({ mode = "login", children, wide = false
 
           <div className="relative z-10 flex h-full flex-col justify-between p-10 xl:p-14">
             <Link to="/" className="inline-flex items-center gap-2.5 self-start">
-              <img
+              <OptimizedImg
                 src="/greengrocc-logo.png"
                 alt="GreenGroo"
                 className="h-10 w-auto rounded-lg bg-white/95 p-1 shadow-sm"
@@ -62,7 +63,7 @@ export default function AuthSplitLayout({ mode = "login", children, wide = false
         <main className="relative flex h-screen flex-col overflow-y-auto overscroll-contain bg-white">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3.5 lg:hidden">
             <Link to="/" className="inline-flex items-center gap-2">
-              <img src="/greengrocc-logo.png" alt="GreenGroo" className="h-8 w-auto" />
+              <OptimizedImg src="/greengrocc-logo.png" alt="GreenGroo" className="h-8 w-auto" />
               <span className="text-base font-bold text-gray-900">GreenGroo</span>
             </Link>
             <Link to="/" className="text-sm font-medium text-primary hover:underline">
