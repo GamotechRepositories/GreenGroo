@@ -10,10 +10,11 @@ const HOME_PRODUCT_LIMIT = 12;
 export const MOST_VIEWED_LIMIT = 16;
 export const PRODUCTS_PAGE_SIZE = 50;
 
-async function fetchProductsByIds(ids, limit = HOME_PRODUCT_LIMIT) {
+async function fetchProductsByIds(ids, limit = HOME_PRODUCT_LIMIT, params = {}) {
   if (!ids.length) return [];
 
   const { data } = await getProducts({
+    ...params,
     ids: ids.join(","),
     limit,
   });
@@ -91,13 +92,15 @@ export function useProductsQuery(params, options = {}) {
   });
 }
 
-export function useHotSellingProductsQuery(options = {}) {
+/** `section` limits the list to one storefront section (e.g. "greengrocc", "supermall"). */
+export function useHotSellingProductsQuery(options = {}, section = null) {
   const locationKey = useDeliveryLocationKey();
 
   return useQuery({
-    queryKey: [...queryKeys.products.hotSelling, locationKey],
+    queryKey: [...queryKeys.products.hotSelling, locationKey, section || "all"],
     queryFn: async () => {
       const { data } = await getProducts({
+        ...(section ? { section } : {}),
         hotSelling: true,
         limit: HOME_PRODUCT_LIMIT,
       });
@@ -119,16 +122,17 @@ export function useRecentlyViewedProductsQuery(options = {}) {
   });
 }
 
-export function useMostViewedProductsQuery(options = {}) {
+export function useMostViewedProductsQuery(options = {}, section = null) {
   const ids = getMostViewedIds(MOST_VIEWED_LIMIT);
   const locationKey = useDeliveryLocationKey();
+  const scope = section ? { section } : {};
 
   return useQuery({
-    queryKey: [...queryKeys.products.mostViewed(ids), locationKey],
+    queryKey: [...queryKeys.products.mostViewed(ids), locationKey, section || "all"],
     queryFn: async () => {
-      const viewed = await fetchProductsByIds(ids, MOST_VIEWED_LIMIT);
-      const withPopular = await fillWithNewest(viewed, MOST_VIEWED_LIMIT, { hotSelling: true });
-      return fillWithNewest(withPopular, MOST_VIEWED_LIMIT);
+      const viewed = await fetchProductsByIds(ids, MOST_VIEWED_LIMIT, scope);
+      const withPopular = await fillWithNewest(viewed, MOST_VIEWED_LIMIT, { ...scope, hotSelling: true });
+      return fillWithNewest(withPopular, MOST_VIEWED_LIMIT, scope);
     },
     ...options,
   });

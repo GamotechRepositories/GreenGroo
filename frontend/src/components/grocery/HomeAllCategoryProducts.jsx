@@ -10,7 +10,7 @@ import { useLocation } from "../../context/LocationContext";
 import { useNearestStore } from "../../hooks/useNearestStore";
 import { getMostVisitedCategories } from "../../utils/categoryVisits";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
-import { storeToSection } from "../../utils/storeSection";
+import { buildStoreProductUrl, sectionToStoreKey, storeToSection } from "../../utils/storeSection";
 import FarmerGrowthBanner from "../home/FarmerGrowthBanner";
 import FarmerTestimonials from "../home/FarmerTestimonials";
 import OfferBannerCarousel from "../home/OfferBannerCarousel";
@@ -52,7 +52,7 @@ function CategoryProductSection({ categoryName, limit = 20, section = null, bann
       ) : null}
       <SectionHeader
         title={categoryName}
-        viewAllTo={`/product?categoryName=${encodeURIComponent(categoryName)}`}
+        viewAllTo={buildStoreProductUrl({ categoryName, store: sectionToStoreKey(section) })}
         className="mb-3 lg:mb-4"
       />
       <div className="lg:hidden">

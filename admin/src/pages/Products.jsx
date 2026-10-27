@@ -127,17 +127,36 @@ const CATEGORY_SECTION_BY_NAME = {
   'supermall beverages & cold drinks': 'instantorder',
 };
 
-const categoryCardsForSection = (sectionSlug, categories) => {
+/**
+ * A section's own categories, plus categories owned by another section whose
+ * products are also sold in this one (same rule as the storefront category list).
+ */
+const categoryCardsForSection = (sectionSlug, categories, products = []) => {
   const slug = canonicalSectionSlug(sectionSlug);
+  const usedHere = new Set(
+    products
+      .filter((p) => canonicalSectionSlug(p.section) === slug)
+      .flatMap((p) => (Array.isArray(p.categories) ? p.categories : [p.category]))
+      .map((name) => String(name || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
   return categories
-    .filter((c) => sectionMatches(resolveCategorySection(c), slug))
+    .filter(
+      (c) =>
+        sectionMatches(resolveCategorySection(c), slug) ||
+        usedHere.has(String(c.categoryName || '').trim().toLowerCase())
+    )
     .sort((a, b) => String(a.categoryName || '').localeCompare(String(b.categoryName || '')))
-    .map((linked) => ({
-      key: linked._id || linked.categoryName,
-      label: linked.categoryName,
-      matchName: linked.categoryName,
-      linked,
-    }));
+    .map((linked) => {
+      const owner = resolveCategorySection(linked);
+      return {
+        key: linked._id || linked.categoryName,
+        label: linked.categoryName,
+        matchName: linked.categoryName,
+        linked,
+        sharedFrom: sectionMatches(owner, slug) ? '' : owner,
+      };
+    });
 };
 
 const canonicalSectionSlug = (value) => {
@@ -168,6 +187,31 @@ const getSectionTheme = (slug, name) => {
     dot: 'bg-slate-500',
     bg: 'bg-slate-50 text-slate-700 ring-slate-200',
   };
+};
+
+const SECTION_GROUP_ORDER = ['preorder', 'ready2cook', 'instantorder'];
+const SECTION_GROUP_ALIAS = { greengrocc: 'preorder', supermall: 'instantorder' };
+
+/** Products bucketed by store section in storefront order; unknown sections go last. */
+const groupProductsBySection = (list) => {
+  const groups = new Map();
+  for (const p of list) {
+    const raw = String(p.section || '').trim().toLowerCase();
+    const slug = SECTION_GROUP_ALIAS[raw] || raw || 'other';
+    if (!groups.has(slug)) groups.set(slug, []);
+    groups.get(slug).push(p);
+  }
+  const rank = (slug) => {
+    const i = SECTION_GROUP_ORDER.indexOf(slug);
+    return i === -1 ? SECTION_GROUP_ORDER.length : i;
+  };
+  return [...groups.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(([slug, items]) => ({
+      slug,
+      theme: getSectionTheme(slug, slug === 'other' ? 'No section' : undefined),
+      items,
+    }));
 };
 
 export const RETAIL_FORM_STEPS = [
@@ -667,6 +711,7 @@ export default function Products() {
   const [selectedCategory, setSelectedCategory] = useState(null); // null | name
   const [selectedSubcategory, setSelectedSubcategory] = useState(null); // null | name
   const [stockFilter, setStockFilter] = useState('all'); // all, in_stock, out_of_stock
+  const [sectionTab, setSectionTab] = useState('preorder');
   const [viewMode, setViewMode] = useState('table'); // table or grid
 
   // Direct products table view by default
@@ -817,8 +862,21 @@ export default function Products() {
 
       // Fetch products, categories, sections in parallel
       // Use /products/all for true catalog stock (not dark-store overlay)
+      const fetchAllProductPages = async () => {
+        const first = await apiClient.get('/products/all', { params: { limit: 100, page: 1 } });
+        const totalPages = Number(first.data?.pagination?.totalPages) || 1;
+        if (totalPages <= 1 || !Array.isArray(first.data?.data)) return first;
+        const rest = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) =>
+            apiClient.get('/products/all', { params: { limit: 100, page: i + 2 } })
+          )
+        );
+        const all = [first, ...rest].flatMap((res) => (Array.isArray(res.data?.data) ? res.data.data : []));
+        return { ...first, data: { ...first.data, data: all } };
+      };
+
       const [prodRes, catRes, secRes] = await Promise.allSettled([
-        apiClient.get('/products/all', { params: { limit: 500 } }),
+        fetchAllProductPages(),
         apiClient.get('/categories/all', { params: { limit: 200 } }),
         apiClient.get('/sections'),
       ]);
@@ -2029,6 +2087,24 @@ export default function Products() {
     stockFilter,
     listAudience,
   ]);
+
+  const sectionGroups = useMemo(() => {
+    const groups = groupProductsBySection(filteredProducts);
+    const missing = SECTION_GROUP_ORDER.filter((slug) => !groups.some((g) => g.slug === slug)).map((slug) => ({
+      slug,
+      theme: getSectionTheme(slug),
+      items: [],
+    }));
+    const rank = (slug) => {
+      const i = SECTION_GROUP_ORDER.indexOf(slug);
+      return i === -1 ? SECTION_GROUP_ORDER.length : i;
+    };
+    return [...groups, ...missing].sort((a, b) => rank(a.slug) - rank(b.slug));
+  }, [filteredProducts]);
+
+  const activeSectionGroup =
+    sectionGroups.find((g) => g.slug === sectionTab) || sectionGroups[0] || { slug: sectionTab, items: [] };
+  const sectionProducts = activeSectionGroup.items;
 
   const audienceProducts = useMemo(() => {
     if (listAudience === 'bulk') return products.filter((p) => p.enableBulkGrades);
@@ -5033,7 +5109,7 @@ export default function Products() {
               const activeSec =
                 sections.find((sec) => sectionMatches(sectionSlug, sec.slug) || sectionMatches(sec.slug, sectionSlug)) ||
                 sections[0];
-              const cats = categoryCardsForSection(activeSec.slug, categories);
+              const cats = categoryCardsForSection(activeSec.slug, categories, products);
               return cats.length === 0 ? (
                 <div className={`${PANEL} px-6 py-12 text-center`}>
                   <p className="text-sm text-slate-500">No categories in {activeSec.sectionName} yet.</p>
@@ -5050,6 +5126,7 @@ export default function Products() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {cats.map((card) => {
                     const count = products.filter((p) => {
+                      if (canonicalSectionSlug(p.section) !== canonicalSectionSlug(activeSec.slug)) return false;
                       const names = Array.isArray(p.categories) ? p.categories : [p.category];
                       return names.some(
                         (name) => String(name || '').toLowerCase() === String(card.matchName || '').toLowerCase()
@@ -5057,6 +5134,7 @@ export default function Products() {
                     }).length;
                     const linked = card.linked;
                     const canDelete =
+                      !card.sharedFrom &&
                       linked?._id &&
                       String(linked.categoryName || '').trim().toLowerCase() === String(card.label || '').trim().toLowerCase();
                     return (
@@ -5096,6 +5174,11 @@ export default function Products() {
                             <p className="mt-1 text-xs text-slate-500">
                               {count} product{count === 1 ? '' : 's'}
                             </p>
+                            {card.sharedFrom ? (
+                              <p className="mt-1 text-[11px] font-medium text-slate-400">
+                                Shared with {getSectionTheme(card.sharedFrom).name}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -5122,7 +5205,8 @@ export default function Products() {
                   ) : null}
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Showing {filteredProducts.length} product{filteredProducts.length === 1 ? '' : 's'} in catalog
+                  Showing {sectionProducts.length} product{sectionProducts.length === 1 ? '' : 's'} in{' '}
+                  {activeSectionGroup.theme?.name || 'catalog'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -5162,7 +5246,9 @@ export default function Products() {
               <select
                 value={selectedDepartment || 'all'}
                 onChange={(e) => {
-                  setSelectedDepartment(e.target.value === 'all' ? null : e.target.value);
+                  const dept = e.target.value === 'all' ? null : e.target.value;
+                  setSelectedDepartment(dept);
+                  if (dept) setSectionTab(SECTION_GROUP_ALIAS[dept] || dept);
                   setSelectedCategory(null);
                   setSelectedSubcategory(null);
                 }}
@@ -5251,15 +5337,41 @@ export default function Products() {
             </div>
           </div>
 
+      <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+        {sectionGroups.map((group) => {
+          const active = group.slug === activeSectionGroup.slug;
+          return (
+            <button
+              key={group.slug}
+              type="button"
+              onClick={() => setSectionTab(group.slug)}
+              className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                active ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : group.theme.dot}`} />
+              {group.theme.name}
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                  active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {group.items.length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <div className={`${PANEL} flex justify-center py-20 text-slate-400`}>
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
-      ) : filteredProducts.length === 0 ? (
+      ) : sectionProducts.length === 0 ? (
         <div className={`${PANEL} px-6 py-16 text-center`}>
           <Package className="mx-auto h-10 w-10 text-emerald-600/30" />
           <p className="mt-3 text-base font-semibold text-slate-800">
-            No products found {selectedCategory ? `in ${selectedCategory}` : ''}
+            No {activeSectionGroup.theme?.name || ''} products found {selectedCategory ? `in ${selectedCategory}` : ''}
           </p>
           <p className="mt-1 text-sm text-slate-400">
             {searchQuery || stockFilter !== 'all' || selectedSubcategory
@@ -5288,7 +5400,7 @@ export default function Products() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((p) => {
+                {sectionProducts.map((p) => {
                   const img = Array.isArray(p.productImages) && p.productImages[0] ? p.productImages[0] : '';
                   const dept = getSectionTheme(p.section);
                   const primaryCat = Array.isArray(p.categories) ? p.categories[0] : p.category;
@@ -5448,7 +5560,7 @@ export default function Products() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredProducts.map((p) => {
+          {sectionProducts.map((p) => {
             const img = Array.isArray(p.productImages) && p.productImages[0] ? p.productImages[0] : '';
             const dept = getSectionTheme(p.section);
             const primaryCat = Array.isArray(p.categories) ? p.categories[0] : p.category;

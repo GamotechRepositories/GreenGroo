@@ -4,7 +4,6 @@ import {
   ArrowUpDown,
   BadgeCheck,
   Bell,
-  Boxes,
   Briefcase,
   CalendarClock,
   ChevronDown,
@@ -84,18 +83,6 @@ const navSections = [
     id: 'catalog',
     title: 'Catalog & Products',
     items: [
-      {
-        id: 'catalog',
-        label: 'Catalog',
-        icon: Boxes,
-        children: [
-          { to: '/vendor/catalog', label: 'Catalog Products', end: true },
-          { to: '/vendor/catalog/new', label: 'Add Product' },
-          { to: '/vendor/catalog/categories', label: 'Categories' },
-          { to: '/vendor/catalog/sections', label: 'Sections' },
-          { to: '/vendor/catalog-requests', label: 'Approval Requests' },
-        ],
-      },
       {
         id: 'supply-products',
         label: 'Supply Products',

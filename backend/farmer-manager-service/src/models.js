@@ -1018,6 +1018,8 @@ const vendorProductSchema = new mongoose.Schema(
     customDescription: { type: String, default: "", trim: true },
     customUnit: { type: String, default: "", trim: true },
     customInStock: { type: Boolean, default: null },
+    // Full product-editor values (name, media, variants, farmer traceability…) for this vendor only.
+    overrides: { type: mongoose.Schema.Types.Mixed, default: null },
     pricingUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true }

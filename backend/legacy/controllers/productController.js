@@ -992,7 +992,7 @@ export const getAllProducts = async (req, res) => {
     const [total, products, allCount, activeCount, inactiveCount, outOfStockCount, lowStockCount] =
       await Promise.all([
         Product.countDocuments(filter),
-        Product.find(filter).sort({ [sortField]: sortOrder }).skip(skip).limit(limit),
+        Product.find(filter).sort({ [sortField]: sortOrder, _id: sortOrder }).skip(skip).limit(limit),
         Product.countDocuments(baseFilter),
         Product.countDocuments(mergeProductFilters(baseFilter, getStatusExtraFilter("active"))),
         Product.countDocuments(mergeProductFilters(baseFilter, getStatusExtraFilter("inactive"))),

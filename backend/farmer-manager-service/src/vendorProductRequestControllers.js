@@ -71,6 +71,32 @@ const CUSTOM_KEYS = [
   "customInStock",
 ];
 
+// Section, category, subcategory, base product, store, visibility and IDs stay admin-controlled even in a vendor's own copy.
+const OVERRIDE_BLOCKED_KEYS = new Set([
+  "_id", "id", "productId", "section", "storeType", "isActive", "ownerManagerId", "ownerVendorId", "departmentId",
+  "categories", "category", "subcategory", "subcategories", "baseProductId", "baseProductName", "baseProductImage",
+]);
+const OVERRIDE_MAX_BYTES = 200 * 1024;
+
+function sanitizeOverrides(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { error: "Product details are missing" };
+  const clean = Object.fromEntries(Object.entries(raw).filter(([key]) => !OVERRIDE_BLOCKED_KEYS.has(key)));
+  if (!String(clean.name || "").trim()) return { error: "Product name is required" };
+  if (Buffer.byteLength(JSON.stringify(clean)) > OVERRIDE_MAX_BYTES) return { error: "Product details are too large" };
+  return { value: clean };
+}
+
+function summaryFromOverrides(o) {
+  if (!o) return {};
+  const out = {};
+  if (o.name) out.name = String(o.name);
+  if (o.sku) out.sku = String(o.sku);
+  if (Array.isArray(o.productImages) && o.productImages[0]) out.image = o.productImages[0];
+  if ("brandName" in o) out.brandName = String(o.brandName || "");
+  if ("varietyName" in o) out.varietyName = String(o.varietyName || "");
+  return out;
+}
+
 /**
  * VendorProduct rows merged with live catalog data; `catalogMissing` marks products admin removed or disabled.
  * Every editable field is this vendor's own value when set, otherwise the catalog's; `catalog` holds the
@@ -112,13 +138,14 @@ export async function vendorProductsWithCatalog(vendorId) {
     return {
       ...row,
       ...base,
+      ...summaryFromOverrides(row.overrides),
       ...effective,
       catalog,
       catalogPrice: catalog.price,
       catalogDiscountedPrice: catalog.discountedPrice,
       catalogStock: catalog.stock,
       catalogUnit: catalog.unit,
-      customPricing: CUSTOM_KEYS.some((key) => hasOverride(row[key]) && row[key] !== ""),
+      customPricing: Boolean(row.overrides) || CUSTOM_KEYS.some((key) => hasOverride(row[key]) && row[key] !== ""),
       catalogMissing: !live || !live.isActive,
     };
   });
@@ -145,6 +172,20 @@ export async function updateVendorMyProduct(req, res) {
       for (const { key } of VENDOR_TEXT_FIELDS) update[key] = "";
       update.customUnit = "";
       update.customInStock = null;
+      update.overrides = null;
+    } else if ("overrides" in body) {
+      const parsed = sanitizeOverrides(body.overrides);
+      if (parsed.error) return res.status(400).json({ message: parsed.error });
+      const o = parsed.value;
+      for (const field of VENDOR_PRICING_FIELDS) {
+        const amount = parseOptionalAmount(o[field], field);
+        if (amount.error) return res.status(400).json({ message: amount.error });
+        update[field] = field === "stock" && amount.value !== null ? Math.floor(amount.value) : amount.value;
+      }
+      update.customDescription = String(o.description || "").trim().slice(0, 1000);
+      update.customUnit = String(o.unit || "").trim();
+      update.customInStock = typeof o.inStock === "boolean" ? o.inStock : null;
+      update.overrides = o;
     } else {
       for (const { field, key, label, max } of VENDOR_TEXT_FIELDS) {
         if (!(field in body)) continue;
@@ -185,6 +226,30 @@ export async function updateVendorMyProduct(req, res) {
     res.json(products.find((p) => p.productId === productId) || null);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update product" });
+  }
+}
+
+/** Full catalog product with this vendor's edits applied, for the product editor. */
+export async function getVendorMyProductFull(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const productId = String(req.params.productId || "").trim();
+    const row = await VendorProduct.findOne({ vendorId, productId }).lean();
+    if (!row) return res.status(404).json({ message: "This product is not in your products" });
+    const catalog = mongoose.Types.ObjectId.isValid(productId) ? await Product.findById(productId).lean() : null;
+    if (!catalog && !row.overrides) return res.status(404).json({ message: "This product is no longer in the admin catalog" });
+
+    const product = { ...(catalog || {}), ...(row.overrides || {}) };
+    if (catalog) for (const key of OVERRIDE_BLOCKED_KEYS) if (key in catalog) product[key] = catalog[key];
+    for (const field of VENDOR_PRICING_FIELDS) if (hasOverride(row[field])) product[field] = row[field];
+    if (row.customDescription) product.description = row.customDescription;
+    if (row.customUnit) product.unit = row.customUnit;
+    if (hasOverride(row.customInStock)) product.inStock = row.customInStock;
+    product._id = productId;
+    product.section = catalog?.section || product.section || "";
+    res.json({ product, hasOverrides: Boolean(row.overrides) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load product" });
   }
 }
 

@@ -4,13 +4,13 @@ import {
 } from "../../hooks/queries/useProductsQuery";
 import HomeProductRow from "./HomeProductRow";
 
-function MostViewedProducts() {
-  const { data: products = [], isLoading: loading } = useMostViewedProductsQuery();
+function MostViewedProducts({ section = null, viewAllTo = "/product" }) {
+  const { data: products = [], isLoading: loading } = useMostViewedProductsQuery({}, section);
 
   return (
     <HomeProductRow
       title="Most viewed"
-      viewAllTo="/product"
+      viewAllTo={viewAllTo}
       products={products}
       loading={loading}
       maxItems={MOST_VIEWED_LIMIT}

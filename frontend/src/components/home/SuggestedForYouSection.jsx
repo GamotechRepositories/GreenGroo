@@ -11,6 +11,7 @@ export default function SuggestedForYouSection({
   subtitle = "Handpicked fresh items just for you",
   customProducts = null,
   section = null,
+  viewAllTo = "/product",
 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
@@ -55,7 +56,7 @@ export default function SuggestedForYouSection({
       <SectionHeader
         title={title}
         subtitle={subtitle}
-        viewAllTo="/product"
+        viewAllTo={viewAllTo}
         className="mb-3 lg:mb-4"
       />
 

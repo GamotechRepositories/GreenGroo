@@ -53,7 +53,7 @@ const READY2COOK_PROMOS = [
 
 const INSTANT_PROMOS = [
   {
-    to: "/product?store=mall&categoryName=SuperMall%20Packaged%20Grocery",
+    to: "/product?store=mall&categoryName=Grains",
     eyebrow: "10-MIN EXPRESS",
     title: "Instant Grocery Essentials",
     subtitle: "Pantry staples and daily necessities delivered in minutes",
@@ -64,7 +64,7 @@ const INSTANT_PROMOS = [
     buttonText: "Shop Essentials",
   },
   {
-    to: "/product?store=mall&categoryName=SuperMall%20Snacks%20%26%20Munchies",
+    to: "/product?store=mall&categoryName=Beverages",
     eyebrow: "QUICK CRAVINGS",
     title: "Snacks, Munchies & Drinks",
     subtitle: "Ready-to-eat treats and beverages delivered fresh",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Package,
   Plus,
@@ -49,6 +49,7 @@ import {
   Copy,
 } from 'lucide-react';
 import apiClient, { API_ORIGIN as API_BASE, categoryApi, sectionApi, baseProductApi } from '../../api/vendorCatalogClient';
+import { vendorApi } from '../../api/vendorApi';
 import { useLive } from '../../realtime/useLive';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 
@@ -644,7 +645,10 @@ const getGlowBgStyle = (raw, alpha = '0D') => {
 
 export default function Products() {
   const navigate = useNavigate();
-  const { catalogView, sectionSlug } = useParams();
+  const { catalogView, sectionSlug, editMineProductId } = useParams();
+  const [searchParams] = useSearchParams();
+  // Product id from My Supply Products: edits save to this vendor's own copy, not the admin catalog.
+  const editMineId = editMineProductId || searchParams.get('editMine') || '';
   const catalogPage =
     catalogView === 'categories' || catalogView === 'sections' || catalogView === 'new'
       ? catalogView
@@ -781,10 +785,12 @@ export default function Products() {
   const [uploadProgressText, setUploadProgressText] = useState('');
   const imageInputRef = useRef(null);
   const addRouteOpened = useRef(false);
+  const editMineOpened = useRef('');
 
   const closeProductEditor = () => {
     setIsEditorOpen(false);
-    if (catalogPage === 'new') navigate('/vendor/catalog');
+    if (editMineId) navigate('/vendor/my-products');
+    else if (catalogPage === 'new') navigate('/vendor/catalog');
   };
 
   const [videoMode, setVideoMode] = useState('upload'); // upload or url
@@ -1056,6 +1062,15 @@ export default function Products() {
     addRouteOpened.current = true;
     handleOpenCreate();
   }, [catalogPage, loading]);
+
+  useEffect(() => {
+    if (!editMineId || loading || editMineOpened.current === editMineId) return;
+    editMineOpened.current = editMineId;
+    vendorApi
+      .getMyProductFull(editMineId)
+      .then((res) => handleOpenEdit(res.data.product))
+      .catch((err) => setError(err.response?.data?.message || 'Failed to load this product'));
+  }, [editMineId, loading]);
 
   /** Clone product as a new variety — keeps category/media/farmer, new SKU & editable pricing */
   const handleAddVariety = (product) => {
@@ -1919,6 +1934,14 @@ export default function Products() {
         },
       };
 
+      if (editMineId && editingProduct) {
+        await vendorApi.updateMyProduct(editMineId, { overrides: payload });
+        setIsEditorOpen(false);
+        navigate('/vendor/my-products', {
+          state: { message: `"${formData.name}" updated for your centre` },
+        });
+        return;
+      }
       if (editingProduct) {
         await apiClient.put(`/products/${editingProduct._id}`, payload);
         setSuccessMsg(`Changes to "${formData.name}" sent to admin for approval. They go live once approved.`);
@@ -2428,6 +2451,25 @@ export default function Products() {
     }
   };
 
+  if (editMineId && !isEditorOpen) {
+    return (
+      <div className="space-y-5 pb-12">
+        <button type="button" onClick={() => navigate('/vendor/my-products')} className={BTN}>
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
+          Back to My Supply Products
+        </button>
+        {error ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : (
+          <div className={`${PANEL} p-8 text-center text-sm text-slate-500`}>Loading product…</div>
+        )}
+      </div>
+    );
+  }
+
   // -------------------------------------------------------------
   // RENDER: FULL-PAGE PRODUCT EDITOR
   // -------------------------------------------------------------
@@ -2455,12 +2497,21 @@ export default function Products() {
           className={BTN}
         >
           <ArrowLeft className="mr-1.5 h-4 w-4" />
-          {formStep === 0
-            ? 'Back to products'
-            : !editingProduct
-              ? 'Change catalog type'
-              : 'Back to products'}
+          {editMineId
+            ? 'Back to My Supply Products'
+            : formStep === 0
+              ? 'Back to products'
+              : !editingProduct
+                ? 'Change catalog type'
+                : 'Back to products'}
         </button>
+
+        {editMineId && editingProduct && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+            Editing your centre's copy. Changes apply only to your collection centre — the admin catalog and other
+            vendors are not affected. Section is set by admin.
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
@@ -2606,6 +2657,12 @@ export default function Products() {
                   </span>
                 </div>
 
+                <fieldset disabled={Boolean(editMineId)} className="min-w-0 space-y-4 disabled:opacity-60">
+                {editMineId ? (
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    Section, category, subcategory and base product are set by admin and cannot be changed.
+                  </p>
+                ) : null}
                 {/* 1. Section */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -2810,6 +2867,7 @@ export default function Products() {
                     </p>
                   )}
                 </div>
+                </fieldset>
 
                 {/* 4. Product */}
                 <div>

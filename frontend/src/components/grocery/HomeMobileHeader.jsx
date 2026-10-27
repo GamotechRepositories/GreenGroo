@@ -25,7 +25,7 @@ function SearchIcon({ className = "h-4 w-4" }) {
 const STORE_ACCENT = {
   main: { text: "text-[#0C831F]", ring: "ring-emerald-600/15" },
   festive: { text: "text-[#B45309]", ring: "ring-amber-600/20" },
-  mall: { text: "text-[#2563EB]", ring: "ring-blue-600/15" },
+  mall: { text: "text-[#0C831F]", ring: "ring-emerald-600/15" },
 };
 
 function StoreIcon({ storeKey, className = "h-4 w-4" }) {
@@ -262,22 +262,8 @@ const STORE_PROMO_DATA = {
     },
     badges: ["100% Pre-washed", "Zero Preservatives", "Farm Fresh Daily"],
   },
-  mall: {
-    card1: {
-      icon: "⚡",
-      iconBg: "bg-blue-100 text-blue-900",
-      title: "INSTANT",
-      subtitle: "Delivered in minutes",
-    },
-    card2: {
-      icon: "🛒",
-      iconBg: "bg-sky-100 text-sky-900",
-      title: "ESSENTIALS",
-      subtitle: "Pantry & snacks",
-    },
-    badges: ["Fast delivery", "Everyday prices", "Trusted brands"],
-  },
 };
+STORE_PROMO_DATA.mall = STORE_PROMO_DATA.main;
 
 export function ZeptoPromoSection() {
   const [searchParams] = useSearchParams();

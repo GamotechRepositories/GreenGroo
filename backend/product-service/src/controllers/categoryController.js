@@ -129,17 +129,27 @@ function resolvedCategorySection(doc) {
   return stored || "preorder";
 }
 
-/** Active categories saved by admin for this department, including ones with no products yet. */
+/**
+ * Active categories saved by admin for this department, including ones with no products yet,
+ * plus categories owned by another department whose products are also sold here
+ * (e.g. Instant Order selling Fruits).
+ */
 async function listCategoriesForSection(section, storeType, includeInactive = false) {
   const requested = canonicalSection(section || storeType);
   if (!requested) return null;
-  const docs = await Category.find(includeInactive ? {} : { isActive: true }).sort({
-    order: 1,
-    categoryName: 1,
-  });
-  return docs
-    .filter((doc) => resolvedCategorySection(doc) === requested)
-    .map((doc) => (typeof doc.toObject === "function" ? doc.toObject() : doc));
+  const [docs, primaryCategories] = await Promise.all([
+    Category.find(includeInactive ? {} : { isActive: true }).sort({ order: 1, categoryName: 1 }),
+    Product.aggregate([
+      { $match: { isActive: true, ...(productSectionClause(section, storeType) || {}) } },
+      { $group: { _id: { $arrayElemAt: ["$categories", 0] } } },
+    ]),
+  ]);
+  const stocked = new Set(primaryCategories.map((row) => nameKey(row._id)).filter(Boolean));
+  const owned = docs.filter((doc) => resolvedCategorySection(doc) === requested);
+  const borrowed = docs.filter(
+    (doc) => resolvedCategorySection(doc) !== requested && stocked.has(nameKey(doc.categoryName))
+  );
+  return [...owned, ...borrowed].map((doc) => (typeof doc.toObject === "function" ? doc.toObject() : doc));
 }
 
 /**

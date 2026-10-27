@@ -50,7 +50,7 @@ const PLACEMENTS = [
     name: 'Farmer Stories banners',
     where: 'Home page, the two tiles under Shop by Category. Each tile rotates through its own banners; add a video to make a banner play it.',
     size: { desktop: [1200, 480], mobile: [1080, 360] },
-    sections: ['preorder'],
+    sections: ['preorder', 'instantorder'],
     hasVideo: true,
     groups: [
       {
@@ -83,7 +83,7 @@ const PLACEMENTS = [
     name: 'Category banners',
     where: 'Above each category row on the home page; the text is drawn on top of the image.',
     size: { desktop: [1024, 342], mobile: [1024, 540] },
-    sections: ['preorder'],
+    sections: ['preorder', 'instantorder'],
     hasText: true,
     groups: [
       // Keys must match `categoryBannerKey` in frontend/src/components/home/categoryBanners.js.

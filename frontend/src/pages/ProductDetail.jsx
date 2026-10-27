@@ -45,6 +45,7 @@ import { onCatalogEvent } from "../realtime/useCatalogSync";
 import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { getProductDisplayDetails } from "../utils/productLocalization";
 import { catalogUrls } from "../components/product/CatalogFlow";
+import { buildStoreProductUrl, sectionToStoreKey } from "../utils/storeSection";
 import { baseGroupKey } from "../utils/baseProducts";
 import OptimizedImg from "../components/common/OptimizedImg";
 
@@ -1328,16 +1329,17 @@ function ProductDetail() {
       navigate(-1);
       return;
     }
+    const store = sectionToStoreKey(product?.storeType || product?.section);
     const baseKey = baseGroupKey(product);
     if (category && baseKey && !baseKey.startsWith("product:")) {
-      navigate(catalogUrls({ categoryName: category, baseId: baseKey }).productsUrl, { replace: true });
+      navigate(catalogUrls({ categoryName: category, baseId: baseKey, store }).productsUrl, { replace: true });
       return;
     }
     if (category && category !== "Products") {
-      navigate(`/product?categoryName=${encodeURIComponent(category)}`, { replace: true });
+      navigate(buildStoreProductUrl({ categoryName: category, store }), { replace: true });
       return;
     }
-    navigate("/product", { replace: true });
+    navigate(buildStoreProductUrl({ store }), { replace: true });
   };
 
   return (

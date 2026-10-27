@@ -6,19 +6,21 @@ import { fillWithNewest } from "../../hooks/queries/useProductsQuery";
 
 const HOME_PRODUCT_LIMIT = 16;
 
-function JustArrived() {
+function JustArrived({ section = null, viewAllTo = "/just-arrived" }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const locationKey = useDeliveryLocationKey();
 
   useEffect(() => {
+    const scope = section ? { section } : {};
     const fetchProducts = async () => {
       try {
         const { data } = await getProducts({
+          ...scope,
           justArrived: true,
           limit: HOME_PRODUCT_LIMIT,
         });
-        setProducts(await fillWithNewest(data.data || [], HOME_PRODUCT_LIMIT));
+        setProducts(await fillWithNewest(data.data || [], HOME_PRODUCT_LIMIT, scope));
       } catch {
         setProducts([]);
       } finally {
@@ -27,12 +29,12 @@ function JustArrived() {
     };
 
     fetchProducts();
-  }, [locationKey]);
+  }, [locationKey, section]);
 
   return (
     <HomeProductRow
       title="Just Arrived"
-      viewAllTo="/just-arrived"
+      viewAllTo={viewAllTo}
       products={products}
       loading={loading}
       maxItems={HOME_PRODUCT_LIMIT}

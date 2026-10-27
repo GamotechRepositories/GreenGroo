@@ -371,7 +371,7 @@ function CatalogFlow({
                 navigate(-1);
                 return;
               }
-              navigate("/");
+              navigate(store === "main" ? "/" : `/?store=${store}`, { replace: true });
             }}
             className="flex h-9 w-9 items-center justify-center rounded-full text-slate-800"
             aria-label="Back"

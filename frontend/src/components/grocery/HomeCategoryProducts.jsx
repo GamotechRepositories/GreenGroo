@@ -6,7 +6,7 @@ import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 import { useDeliveryLocationKey } from "../../context/LocationContext";
 import { addCategoryVisit } from "../../utils/categoryVisits";
 
-function HomeCategoryProducts({ categoryName }) {
+function HomeCategoryProducts({ categoryName, section = null }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
@@ -21,7 +21,7 @@ function HomeCategoryProducts({ categoryName }) {
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    getProducts({ categoryName })
+    getProducts({ categoryName, ...(section ? { section } : {}) })
       .then((res) => {
         if (!isMounted) return;
         const list = res.data?.data || res.data?.products || res.data || [];
@@ -36,7 +36,7 @@ function HomeCategoryProducts({ categoryName }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryName, locationKey]);
+  }, [categoryName, locationKey, section]);
 
   const cardProps = (product) => ({
     product,

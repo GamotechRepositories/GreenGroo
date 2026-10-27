@@ -137,6 +137,7 @@ function App() {
                 <Route path="/vendor/products/:productKey/farmers" element={<VendorProductFarmersPage />} />
                 <Route path="/vendor/products" element={<VendorProductRequestPage />} />
                 <Route path="/vendor/my-products" element={<VendorMyProductsPage />} />
+                <Route path="/vendor/my-products/:editMineProductId/edit" element={<VendorCatalogPage />} />
                 <Route path="/vendor/catalog-requests" element={<VendorCatalogRequestsPage />} />
                 <Route path="/vendor/catalog/:catalogView?/:sectionSlug?" element={<VendorCatalogPage />} />
                 <Route path="/vendor/farmer-products" element={<VendorProductsPage />} />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { storeToSection } from "../utils/storeSection";
 import { getProducts } from "../api/api";
 import { useProductCartActions } from "../hooks/useProductCartActions";
 import { useDeliveryLocationKey } from "../context/LocationContext";
@@ -72,6 +73,8 @@ function FeaturedProductsPage({
   const [sortBy, setSortBy] = useState("newest");
   const [showSort, setShowSort] = useState(false);
   const locationKey = useDeliveryLocationKey();
+  const [searchParams] = useSearchParams();
+  const section = storeToSection(searchParams.get("store"));
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
 
@@ -81,13 +84,15 @@ function FeaturedProductsPage({
       try {
         const fetchParams =
           filterType === "justArrived"
-            ? { justArrived: true }
-            : { hotSelling: true };
+            ? { section, justArrived: true }
+            : { section, hotSelling: true };
 
         const productsRes = await getProducts(fetchParams);
         const list = productsRes?.data?.data || [];
         setProducts(
-          filterType === "justArrived" ? await fillWithNewest(list, JUST_ARRIVED_PAGE_LIMIT) : list
+          filterType === "justArrived"
+            ? await fillWithNewest(list, JUST_ARRIVED_PAGE_LIMIT, { section })
+            : list
         );
       } catch {
         setProducts([]);
@@ -97,7 +102,7 @@ function FeaturedProductsPage({
     };
 
     fetchData();
-  }, [filterType, locationKey]);
+  }, [filterType, locationKey, section]);
 
   const sortedProducts = useMemo(() => {
     const list = [...products];

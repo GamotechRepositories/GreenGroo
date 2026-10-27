@@ -181,6 +181,7 @@ import {
   listVendorCatalogProducts,
   listVendorMyProducts,
   updateVendorMyProduct,
+  getVendorMyProductFull,
   deleteVendorMyProduct,
   createVendorProductRequest,
   cancelVendorProductRequest,
@@ -588,6 +589,7 @@ vendorRouter.post("/preorders/:orderId/farmer-request", requireVendor, createPre
 vendorRouter.post("/preorders/:orderId/reject", requireVendor, rejectVendorPreOrder);
 vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
 vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
+vendorRouter.get("/my-products/:productId/full", requireVendor, getVendorMyProductFull);
 vendorRouter.patch("/my-products/:productId", requireVendor, updateVendorMyProduct);
 vendorRouter.delete("/my-products/:productId", requireVendor, deleteVendorMyProduct);
 vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);

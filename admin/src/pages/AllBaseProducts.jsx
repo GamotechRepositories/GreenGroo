@@ -8,7 +8,7 @@ import sectionApi from '../api/sectionApi';
 import { apiErrorMessage, groupRealProductsByBase } from '../utils/baseProducts';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
-function BaseProductCard({ item, products, onEdit, onDelete }) {
+function BaseProductCard({ item, products, sharedSectionName = '', onEdit, onDelete }) {
   return (
     <div className={`${PANEL} relative p-4`}>
       <div className="absolute right-2 top-2 flex gap-0.5">
@@ -20,14 +20,16 @@ function BaseProductCard({ item, products, onEdit, onDelete }) {
         >
           <Edit2 className="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          title="Delete base product"
-          onClick={onDelete}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {item.sharedFrom ? null : (
+          <button
+            type="button"
+            title="Delete base product"
+            onClick={onDelete}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="flex items-start gap-3 pr-14">
@@ -43,6 +45,11 @@ function BaseProductCard({ item, products, onEdit, onDelete }) {
           <p className="mt-1 text-xs text-slate-500">
             {products.length} product{products.length === 1 ? '' : 's'}
           </p>
+          {item.sharedFrom ? (
+            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+              Shared with {sharedSectionName || item.sharedFrom}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -80,6 +87,37 @@ function BaseProductCard({ item, products, onEdit, onDelete }) {
   );
 }
 
+const SECTION_ALIASES = {
+  greengrocc: 'preorder',
+  main: 'preorder',
+  'pre-order': 'preorder',
+  festive: 'ready2cook',
+  'ready-2-cook': 'ready2cook',
+  supermall: 'instantorder',
+  mall: 'instantorder',
+  instant: 'instantorder',
+  instantorders: 'instantorder',
+};
+
+const canonicalSection = (value) => {
+  const key = String(value || '').trim().toLowerCase();
+  return SECTION_ALIASES[key] || key || 'preorder';
+};
+
+/** `/products/all` returns at most 100 rows per page. */
+async function fetchAllProducts() {
+  const pageOf = async (page) => {
+    const { data } = await apiClient.get('/products/all', { params: { limit: 100, page } });
+    return data;
+  };
+  const first = await pageOf(1);
+  const totalPages = Number(first?.pagination?.totalPages) || 1;
+  const rest = totalPages > 1
+    ? await Promise.all(Array.from({ length: totalPages - 1 }, (_, i) => pageOf(i + 2)))
+    : [];
+  return [first, ...rest].flatMap((data) => (Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []));
+}
+
 /** Base products by section, grouped under each category — mirrors the Category page. */
 export default function AllBaseProducts() {
   const navigate = useNavigate();
@@ -102,13 +140,12 @@ export default function AllBaseProducts() {
         sectionApi.getActiveSections(),
         categoryApi.getAllCategories({ limit: 500 }),
         baseProductApi.list(),
-        apiClient.get('/products/all', { params: { limit: 1000 } }),
+        fetchAllProducts(),
       ]);
       setSections(secRes.data || []);
       setCategories(catRes.data || []);
       setItems(baseRes.data || []);
-      const pData = productRes.data;
-      setProducts(Array.isArray(pData?.data) ? pData.data : Array.isArray(pData) ? pData : []);
+      setProducts(productRes);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not load base products.'));
     } finally {
@@ -125,11 +162,25 @@ export default function AllBaseProducts() {
     [sections, sectionSlug]
   );
 
-  const productsByBase = useMemo(() => groupRealProductsByBase(products), [products]);
+  const activeSlug = activeSection ? canonicalSection(activeSection.slug) : '';
 
+  const productsByBase = useMemo(
+    () => groupRealProductsByBase(products.filter((product) => canonicalSection(product.section) === activeSlug)),
+    [products, activeSlug]
+  );
+
+  /** This section's own base products, plus ones owned elsewhere whose products are also sold here. */
   const sectionItems = useMemo(
-    () => (activeSection ? items.filter((item) => item.section === activeSection.slug) : []),
-    [items, activeSection]
+    () =>
+      activeSection
+        ? items
+            .filter((item) => canonicalSection(item.section) === activeSlug || productsByBase.has(item.key))
+            .map((item) => {
+              const owner = canonicalSection(item.section);
+              return owner === activeSlug ? item : { ...item, sharedFrom: owner };
+            })
+        : [],
+    [items, activeSection, activeSlug, productsByBase]
   );
 
   const emptyCount = useMemo(
@@ -151,7 +202,7 @@ export default function AllBaseProducts() {
     });
 
     const categoryNames = categories
-      .filter((cat) => String(cat.section || 'preorder').toLowerCase() === activeSection.slug)
+      .filter((cat) => canonicalSection(cat.section) === activeSlug)
       .map((cat) => cat.categoryName);
     const byCategory = new Map(categoryNames.map((name) => [name.toLowerCase(), { name, items: [] }]));
     visible.forEach((item) => {
@@ -164,7 +215,7 @@ export default function AllBaseProducts() {
       .filter((group) => group.items.length)
       .map((group) => ({ ...group, items: group.items.sort((a, b) => a.name.localeCompare(b.name)) }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeSection, sectionItems, productsByBase, categories, search, showEmpty]);
+  }, [activeSection, activeSlug, sectionItems, productsByBase, categories, search, showEmpty]);
 
   const totals = useMemo(
     () =>
@@ -303,6 +354,11 @@ export default function AllBaseProducts() {
                     key={item._id}
                     item={item}
                     products={productsByBase.get(item.key) || []}
+                    sharedSectionName={
+                      item.sharedFrom
+                        ? sections.find((sec) => canonicalSection(sec.slug) === item.sharedFrom)?.sectionName
+                        : ''
+                    }
                     onEdit={() => navigate(`/products/base-products/add?id=${item._id}`)}
                     onDelete={() => handleDelete(item)}
                   />

@@ -49,31 +49,10 @@ export const STORE_THEMES = {
     categoryIndicator: "bg-[#CA8A04]",
     accent: "#EAB308",
   },
-  /** Instant — light blue */
-  mall: {
-    key: "mall",
-    time: "10 minutes",
-    label: "Instant",
-    deliveryBg: "bg-[#E8F1FF]",
-    searchBg: "bg-[#E8F1FF]",
-    categoryBg: "bg-[#E8F1FF]",
-    bannerBg: "bg-white",
-    contentBg: "bg-[#E8F1FF]",
-    textColor: "text-blue-950",
-    subTextColor: "text-blue-900/70",
-    profileClass: "bg-[#2563EB] text-white border border-blue-700/20",
-    activeTabBg: "bg-[#2563EB]",
-    activeTabBorder: "border-blue-300",
-    inactiveTabClass: "bg-white text-slate-900 shadow-xs border border-slate-200/90",
-    searchBorder: "border-transparent",
-    placeholder: 'Search "Snacks", "Dairy", "Essentials"...',
-    categoryBorder: "border-blue-900/10",
-    categoryText: "text-[#1E3A8A]",
-    categoryInactive: "text-[#1D4ED8]/70",
-    categoryIndicator: "bg-[#2563EB]",
-    accent: "#3B82F6",
-  },
 };
+
+/** Instant Order uses the Pre-order look. */
+STORE_THEMES.mall = { ...STORE_THEMES.main, key: "mall", label: "Instant" };
 
 export function resolveStoreTheme(storeKey) {
   return STORE_THEMES[storeKey] || STORE_THEMES.main;

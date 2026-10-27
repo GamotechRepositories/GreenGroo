@@ -6,12 +6,13 @@ import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
+import { buildStoreProductUrl } from "../../utils/storeSection";
 const LIMIT_PER_CATEGORY = 12;
 const MAX_CATEGORIES = 3;
 /** Two full rows of the 3-column mobile grid. */
 const MOBILE_GRID_LIMIT = 6;
 
-function VisitedCategorySection({ categoryName, products }) {
+function VisitedCategorySection({ categoryName, products, store }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
@@ -29,7 +30,7 @@ function VisitedCategorySection({ categoryName, products }) {
     <section className="bg-white px-4 py-4 lg:rounded-2xl lg:px-5 lg:py-5 lg:shadow-sm">
       <SectionHeader
         title={`More from ${categoryName}`}
-        viewAllTo={`/product?categoryName=${encodeURIComponent(categoryName)}`}
+        viewAllTo={buildStoreProductUrl({ categoryName, store })}
         className="mb-3 lg:mb-4"
       />
       <div className="lg:hidden">
@@ -52,7 +53,7 @@ function VisitedCategorySection({ categoryName, products }) {
   );
 }
 
-function MostVisitedCategoryProducts() {
+function MostVisitedCategoryProducts({ section = null, store = "" }) {
   const locationKey = useDeliveryLocationKey();
   const [categories, setCategories] = useState(() => {
     const list = getMostVisitedCategories(MAX_CATEGORIES);
@@ -77,6 +78,7 @@ function MostVisitedCategoryProducts() {
       categories.map(async (categoryName) => {
         try {
           const res = await getProducts({
+            ...(section ? { section } : {}),
             categoryName,
             limit: LIMIT_PER_CATEGORY,
           });
@@ -94,7 +96,7 @@ function MostVisitedCategoryProducts() {
     return () => {
       isMounted = false;
     };
-  }, [categories, locationKey]);
+  }, [categories, locationKey, section]);
 
   if (!categories.length) return null;
 
@@ -107,6 +109,7 @@ function MostVisitedCategoryProducts() {
         <VisitedCategorySection
           key={categoryName}
           categoryName={categoryName}
+          store={store}
           products={byCategory[categoryName] || []}
         />
       ))}

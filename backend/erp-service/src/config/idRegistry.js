@@ -99,6 +99,8 @@ export const CROP_CODE_BY_NAME = {
   broccoli: "BRO",
   "bell pepper": "CAP",
   pepper: "CAP",
+  "black pepper": "PEP",
+  "kali mirch": "PEP",
   "dragon fruit": "DRA",
   kiwi: "KIW",
   mosambi: "MOS",

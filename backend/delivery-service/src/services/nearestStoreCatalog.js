@@ -244,7 +244,7 @@ async function resolveStore(address, department, pickup, needsLocation) {
     }
   }
   const resolved = await resolveDarkStoreForOrder(address, {
-    allowPincodeFallback: department === "preorder",
+    allowPincodeFallback: department === "preorder" || department === "instant",
     anyDistance: pickup,
   });
   const manager = resolved.manager?.toObject ? resolved.manager.toObject() : resolved.manager || null;

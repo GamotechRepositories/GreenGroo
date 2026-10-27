@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import CopyId from "../../components/ui/CopyId";
 import VendorProductEditModal from "./VendorProductEditModal";
@@ -62,6 +62,16 @@ export default function VendorMyProductsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const message = location.state?.message;
+    if (!message) return;
+    setNotice(message);
+    navigate(location.pathname, { replace: true, state: null });
+    window.setTimeout(() => setNotice(""), 3000);
+  }, [location.state, location.pathname, navigate]);
 
   const cancelRequest = async (request) => {
     if (!window.confirm(`Cancel the request for "${request.productName}"?`)) return;
@@ -265,13 +275,21 @@ export default function VendorMyProductsPage() {
                         <td className="px-4 py-2 text-right">
                           <div className="flex items-center justify-end gap-3">
                             {!p.catalogMissing && (
-                              <button
-                                type="button"
-                                onClick={() => setEditing(p)}
-                                className="text-[11px] font-semibold text-[#217346] hover:underline"
-                              >
-                                Edit
-                              </button>
+                              <>
+                                <Link
+                                  to={`/vendor/my-products/${encodeURIComponent(p.productId)}/edit`}
+                                  className="text-[11px] font-semibold text-[#217346] hover:underline"
+                                >
+                                  Edit
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing(p)}
+                                  className="text-[11px] font-semibold text-gray-600 hover:underline"
+                                >
+                                  Price &amp; stock
+                                </button>
+                              </>
                             )}
                             <button
                               type="button"

@@ -99,9 +99,9 @@ function StoryTiles({ banners, onPlay }) {
   );
 }
 
-/** Tiles come from admin → Banners → Preorder → Farmer Stories banners (left / right tile). */
-export default function FarmProduceDualBanners({ className = "" }) {
-  const banners = useSectionBanners("preorder", "stories");
+/** Tiles come from admin → Banners → {section} → Farmer Stories banners (left / right tile). */
+export default function FarmProduceDualBanners({ className = "", section = "preorder" }) {
+  const banners = useSectionBanners(section, "stories");
   const [playing, setPlaying] = useState(null);
 
   if (!banners.desktop.length && !banners.mobile.length) return null;

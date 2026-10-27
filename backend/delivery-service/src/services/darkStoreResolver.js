@@ -293,6 +293,20 @@ export async function resolveDarkStoreForOrder(
         };
       }
     }
+
+    const cityKey = city.toLowerCase();
+    const sameCity = cityKey
+      ? active.filter((m) => String(m.city || "").trim().toLowerCase() === cityKey)
+      : [];
+    if (sameCity.length) {
+      const picked = pickNearest(sameCity.map((manager) => withDistance(manager, coords)));
+      return {
+        manager: picked?.manager || sameCity[0],
+        reason: "same_city",
+        city,
+        distanceKm: picked?.distanceKm ?? null,
+      };
+    }
   }
 
   // Fall back to city matching so an explicitly chosen city is served by a dark store in that city

@@ -23,13 +23,15 @@ import InstantOrderHeroCarousel from "../components/home/InstantOrderHeroCarouse
 import WhatMakesUsDifferent from "../components/home/WhatMakesUsDifferent";
 import HomeMidBannerSlider from "../components/home/HomeMidBannerSlider";
 import LazySection from "../components/common/LazySection";
+import { buildStoreProductUrl, storeToSection } from "../utils/storeSection";
+import { bannerSectionFor } from "../hooks/queries/useSectionBanners";
 
 function StoreContent() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const store = sectionToStoreKey(searchParams.get("store"));
 
-  if (store === "festive" || store === "mall") {
+  if (store === "festive") {
     return <FestiveStoreSection />;
   }
 
@@ -38,28 +40,39 @@ function StoreContent() {
   }
 
   if (categoryName) {
-    return <HomeCategoryProducts categoryName={categoryName} />;
+    return <HomeCategoryProducts categoryName={categoryName} section={storeToSection(store)} />;
   }
+
+  // Pre-order and Instant Order share one layout; every row only lists its own section's products.
+  const isInstant = store === "mall";
+  const section = storeToSection(store);
+  const storeUrl = buildStoreProductUrl({ store });
 
   return (
     <>
-      <ZeptoFestiveHeroSection />
-      <HeroFeatureCards />
+      {isInstant ? (
+        <section className="w-full px-0 pt-0 pb-0 lg:hidden">
+          <InstantOrderHeroCarousel isMobile={true} />
+        </section>
+      ) : (
+        <ZeptoFestiveHeroSection />
+      )}
+      {isInstant ? null : <HeroFeatureCards />}
       <ShopByCategory />
-      <FarmProduceDualBanners />
-      <HotSelling />
+      <FarmProduceDualBanners section={bannerSectionFor(store)} />
+      <HotSelling section={section} viewAllTo={isInstant ? "/hot-selling?store=mall" : "/hot-selling"} />
       {/* Below the first screens: each section mounts (and fetches) only as it nears the viewport. */}
       <LazySection>
-        <JustArrived />
+        <JustArrived section={section} viewAllTo={isInstant ? "/just-arrived?store=mall" : "/just-arrived"} />
       </LazySection>
       <LazySection>
-        <MostViewedProducts />
+        <MostViewedProducts section={section} viewAllTo={storeUrl} />
       </LazySection>
       <LazySection>
         <BestDeals title="Previously bought" viewAllTo="/orders" />
       </LazySection>
       <LazySection>
-        <MostVisitedCategoryProducts />
+        <MostVisitedCategoryProducts section={section} store={store} />
       </LazySection>
 
       <LazySection minHeight={180}>
@@ -67,13 +80,13 @@ function StoreContent() {
       </LazySection>
 
       <LazySection>
-        <SuggestedForYouSection />
+        <SuggestedForYouSection section={section} viewAllTo={storeUrl} />
       </LazySection>
       <LazySection minHeight={160}>
         <TopPaymentOffersSection />
       </LazySection>
       <LazySection>
-        <HomeAllCategoryProducts limitPerCategory={20} />
+        <HomeAllCategoryProducts limitPerCategory={20} section={section} />
       </LazySection>
       {/* Mobile view of WhatMakesUsDifferent */}
       <div className="lg:hidden">
