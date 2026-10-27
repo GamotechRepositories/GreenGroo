@@ -12,6 +12,7 @@ import {
   isPhoneOtpVerified,
   consumeVerifiedPhone,
 } from "@greengrocc/shared";
+import { isS3Configured, presignUpload } from "../../legacy/utils/s3Upload.js";
 import {
   Vendor,
   Farmer,
@@ -5451,6 +5452,49 @@ export async function getFarmerDocuments(req, res) {
     res.json(docs.filter(isRealFarmerDocument));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch documents" });
+  }
+}
+
+const KYC_VIDEO_MIME_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+
+function farmerDocumentAccessError(req, farmer) {
+  const role = req.user?.role;
+  if (role === "VENDOR") {
+    const vId = req.user.vendorId || req.user.id || "";
+    if (!vId || farmer.vendorId !== vId) return "Forbidden — not your farmer";
+  } else if (role === "FARMER_MANAGER") {
+    const mgrId = req.user.managerId || req.user.id || "";
+    const vId = req.user.vendorId || "";
+    if (!mgrId || !vId || farmer.managerId !== mgrId || farmer.vendorId !== vId) return "Forbidden — not your farmer";
+  } else if (role === "FARMER") {
+    const myId = req.user.farmerId || req.user.id || "";
+    if (!myId || (farmer.id !== myId && farmer.farmerId !== myId)) return "Forbidden — not your account";
+  } else {
+    return "Login required";
+  }
+  return "";
+}
+
+// Videos are too large to go through the API (proxy body limits), so the client PUTs them straight to S3.
+export async function createFarmerDocumentUploadUrl(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const mimeType = String(req.body?.mimeType || "").toLowerCase();
+    if (!KYC_VIDEO_MIME_TYPES.has(mimeType)) {
+      return res.status(400).json({ message: "Only MP4, MOV or WEBM videos can be uploaded" });
+    }
+    if (!isS3Configured()) {
+      return res.status(503).json({ message: "File storage is not configured on the server" });
+    }
+    const farmer = await resolveFarmerRecord(farmerId);
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const accessError = farmerDocumentAccessError(req, farmer);
+    if (accessError) return res.status(accessError === "Login required" ? 401 : 403).json({ message: accessError });
+
+    const result = await presignUpload({ mimeType, folder: "farmer-kyc", expiresIn: 600 });
+    res.json({ uploadUrl: result.uploadUrl, fileUrl: result.cloudFrontUrl, key: result.key, expiresIn: result.expiresIn });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create upload URL" });
   }
 }
 

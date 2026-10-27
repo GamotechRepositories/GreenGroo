@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _pincodeController = TextEditingController();
   final _referralController = TextEditingController();
 
-  String _selectedGender = 'Male';
+  String _selectedGender = '';
   String _profileImage = '';
   DateTime? _selectedDateOfBirth;
   bool _obscurePassword = true;
@@ -646,6 +646,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (_selectedGender.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLanguage().tr(mr: 'कृपया लिंग निवडा', en: 'Please select gender')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (_profileImage.isEmpty) {
       setState(() => _imageError = AppLanguage().tr(mr: 'शेतकरी फोटो आवश्यक आहे', en: 'Farmer photo is required'));
       ScaffoldMessenger.of(context).showSnackBar(
@@ -708,7 +718,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         profilePhoto: _profileImage,
         kycStatus: 'PENDING',
         bankVerificationStatus: 'PENDING',
-        farmName: '${_nameController.text.trim()} Krushi Farm',
+        farmName: '',
         totalAcres: 0,
       );
     } finally {
@@ -848,7 +858,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 isExpanded: true,
-                                value: _selectedGender,
+                                value: _selectedGender.isEmpty ? null : _selectedGender,
+                                hint: Text(AppLanguage().tr(mr: 'लिंग निवडा', en: 'Select gender'), style: const TextStyle(fontSize: 12.5)),
                                 style: const TextStyle(fontSize: 13, color: AppColors.primaryDark),
                                 items: _genderOptions.map((g) {
                                   final marathi = g == 'Male'

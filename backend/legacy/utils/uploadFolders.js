@@ -9,6 +9,7 @@ export const UPLOAD_FOLDERS = {
   SUPPORT: "support",
   RETURNS: "returns",
   SHIPMENT_EVIDENCE: "shipment-evidence",
+  FARMER_KYC: "farmer-kyc",
 };
 
 /** @deprecated Use UPLOAD_FOLDERS.PAYMENT_PROOFS */

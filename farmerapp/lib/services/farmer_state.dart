@@ -1666,7 +1666,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       throw Exception(AppLanguage().tr(mr: 'कागदपत्र प्रकार सापडला नाही', en: 'Document type not found'));
     }
     final doc = documents[idx];
-    final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
+    var updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
     if (updatedUrl.isEmpty || _isDummyFileUrl(updatedUrl)) {
       throw Exception(AppLanguage().tr(mr: 'खरी कागदपत्र फाईल निवडा', en: 'Choose a real document file'));
     }
@@ -1676,6 +1676,15 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     final targetFarmerId = profile.id.trim();
     if (targetFarmerId.isEmpty) {
       throw Exception(AppLanguage().tr(mr: 'शेतकरी लॉगिन आवश्यक आहे', en: 'Farmer login required'));
+    }
+
+    final videoData = RegExp(r'^data:(video/[\w.+-]+);base64,', caseSensitive: false).firstMatch(updatedUrl);
+    if (videoData != null) {
+      updatedUrl = await ApiService().uploadDocumentFile(
+        targetFarmerId,
+        base64Decode(updatedUrl.substring(videoData.end)),
+        mimeType: videoData.group(1)!.toLowerCase(),
+      );
     }
 
     final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');

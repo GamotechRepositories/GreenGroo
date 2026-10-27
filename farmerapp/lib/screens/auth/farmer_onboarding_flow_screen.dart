@@ -51,7 +51,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
   late TextEditingController _confirmAccountNoController;
   late TextEditingController _bankIfscController;
   late TextEditingController _bankBranchController;
-  String _bankAccountType = 'Savings (बचत खाते)';
+  String _bankAccountType = '';
   late TextEditingController _aadhaarController;
   late TextEditingController _panCardController;
   late TextEditingController _upiIdController;
@@ -63,11 +63,11 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
   String _totalAreaUnit = 'Acre';
   late TextEditingController _cultivatedAreaController;
   String _cultivatedAreaUnit = 'Acre';
-  String _soilType = 'Black Soil (काळी माती)';
-  String _irrigationType = 'Drip (ठिबक)';
-  String _waterSource = 'Borewell (बोअरवेल)';
-  String _farmingMethod = 'Organic (सेंद्रिय)';
-  String _farmingType = 'Individual (स्वतःची)';
+  String _soilType = '';
+  String _irrigationType = '';
+  String _waterSource = '';
+  String _farmingMethod = '';
+  String _farmingType = '';
   late TextEditingController _mainCropsController;
 
   // Step 6: Farm Location Controllers & State
@@ -100,32 +100,28 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     final p = FarmerState().profile;
 
     // Step 2 Controllers
-    _bankHolderController = TextEditingController(text: p.bankAccountHolder.isNotEmpty ? p.bankAccountHolder : p.fullName);
+    _bankHolderController = TextEditingController(text: p.bankAccountHolder);
     _bankNameController = TextEditingController(text: p.bankName);
     _bankAccountNoController = TextEditingController(text: p.bankAccountNumber);
     _confirmAccountNoController = TextEditingController(text: p.bankAccountNumber);
     _bankIfscController = TextEditingController(text: p.bankIfsc);
     _bankBranchController = TextEditingController(text: p.bankBranch);
-    _bankAccountType = p.bankAccountType.isNotEmpty ? p.bankAccountType : 'Savings (बचत खाते)';
+    _bankAccountType = p.bankAccountType;
     _aadhaarController = TextEditingController();
     _panCardController = TextEditingController();
     _upiIdController = TextEditingController(text: p.bankUpiId);
 
     // Step 5 Controllers
-    _farmNameController = TextEditingController(
-      text: p.farmName.isNotEmpty ? p.farmName : (p.fullName.isNotEmpty ? '${p.fullName} Krushi Farm' : 'Krushi Farm'),
-    );
-    _totalAreaController = TextEditingController(text: p.totalAcres > 0 ? p.totalAcres.toStringAsFixed(1) : '3.0');
+    _farmNameController = TextEditingController(text: _isAutoFarmName(p.farmName, p.fullName) ? '' : p.farmName);
+    _totalAreaController = TextEditingController(text: p.totalAcres > 0 ? p.totalAcres.toStringAsFixed(1) : '');
     _totalAreaUnit = p.totalFarmAreaUnit.isNotEmpty ? p.totalFarmAreaUnit : 'Acre';
-    _cultivatedAreaController = TextEditingController(
-      text: p.cultivatedArea > 0 ? p.cultivatedArea.toStringAsFixed(1) : (p.totalAcres > 0 ? p.totalAcres.toStringAsFixed(1) : '2.5'),
-    );
+    _cultivatedAreaController = TextEditingController(text: p.cultivatedArea > 0 ? p.cultivatedArea.toStringAsFixed(1) : '');
     _cultivatedAreaUnit = p.cultivatedAreaUnit.isNotEmpty ? p.cultivatedAreaUnit : 'Acre';
-    _soilType = p.soilType.isNotEmpty ? p.soilType : 'Black Soil (काळी माती)';
-    _irrigationType = p.irrigationType.isNotEmpty ? p.irrigationType : 'Drip (ठिबक)';
-    _waterSource = p.waterSource.isNotEmpty ? p.waterSource : 'Borewell (बोअरवेल)';
-    _farmingMethod = p.farmingMethod.isNotEmpty ? p.farmingMethod : 'Organic (सेंद्रिय)';
-    _farmingType = p.farmingType.isNotEmpty ? p.farmingType : 'Individual (स्वतःची)';
+    _soilType = p.soilType;
+    _irrigationType = p.irrigationType;
+    _waterSource = p.waterSource;
+    _farmingMethod = p.farmingMethod;
+    _farmingType = p.farmingType;
     _mainCropsController = TextEditingController(text: p.mainCrops);
 
     // Step 6 Controllers
@@ -134,13 +130,19 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     _locDistrictController = TextEditingController(text: p.district);
     _locPincodeController = TextEditingController(text: p.pincode);
     _locPincodeController.addListener(_onPincodeAutoEnrich);
-    _farmAddressController = TextEditingController(text: p.farmAddress.isNotEmpty ? p.farmAddress : '${p.village}, Taluka: ${p.taluka}');
+    _farmAddressController = TextEditingController(text: p.farmAddress);
     _latitude = p.latitude ?? 0;
     _longitude = p.longitude ?? 0;
     _locationConfirmed = p.locationConfirmed;
 
     _activeStep = widget.initialStep.clamp(2, 6);
     _loadStoredDetails();
+  }
+
+  // Older registrations stored a generated "<name> Krushi Farm" placeholder.
+  static bool _isAutoFarmName(String farmName, String fullName) {
+    final name = farmName.trim();
+    return name.isEmpty || name == 'Krushi Farm' || name == '${fullName.trim()} Krushi Farm';
   }
 
   void _onPincodeAutoEnrich() async {
@@ -199,7 +201,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
           : (prefix != null ? (prefs.getString('${prefix}bank_branch') ?? '') : '');
       final accType = p.bankAccountType.isNotEmpty
           ? p.bankAccountType
-          : (prefix != null ? (prefs.getString('${prefix}bank_acc_type') ?? 'Savings (बचत खाते)') : 'Savings (बचत खाते)');
+          : (prefix != null ? (prefs.getString('${prefix}bank_acc_type') ?? '') : '');
       final aadhaar = p.aadhaarNumber.isNotEmpty
           ? p.aadhaarNumber
           : (prefix != null ? (prefs.getString('${prefix}aadhaar') ?? '') : '');
@@ -220,7 +222,7 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
 
       if (mounted) {
         setState(() {
-          _bankHolderController.text = holder.isNotEmpty ? holder : p.fullName;
+          _bankHolderController.text = holder;
           _bankNameController.text = name;
           if (accNo.isNotEmpty) {
             _bankAccountNoController.text = accNo;
@@ -2662,13 +2664,17 @@ class _FarmerOnboardingFlowScreenState extends State<FarmerOnboardingFlowScreen>
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
-    final effectiveValue = items.contains(value) ? value : items.first;
+    final effectiveValue = items.contains(value) ? value : null;
 
     return DropdownButtonFormField<String>(
+      // initialValue is only read once; re-key so values loaded later still show.
+      key: ValueKey('$label|$effectiveValue'),
       initialValue: effectiveValue,
       isExpanded: true,
+      hint: Text(AppLanguage().tr(mr: 'निवडा', en: 'Select'), style: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8))),
       items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E293B))))).toList(),
       onChanged: onChanged,
+      validator: (v) => (v == null || v.isEmpty) ? AppLanguage().tr(mr: 'कृपया निवडा', en: 'Please select') : null,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),

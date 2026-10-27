@@ -71,6 +71,7 @@ import {
   getFarmerEarnings,
   getFarmerDocuments,
   uploadFarmerDocument,
+  createFarmerDocumentUploadUrl,
   updateFarmerDocumentStatus,
   updateVendorFarmerDocumentStatus,
   deleteFarmerDocument,
@@ -399,6 +400,7 @@ farmerRouter.delete("/harvest-orders/:id", deleteHarvestOrder);
 // Documents
 farmerRouter.get("/:farmerId/documents", getFarmerDocuments);
 farmerRouter.post("/:farmerId/documents", uploadFarmerDocument);
+farmerRouter.post("/:farmerId/documents/upload-url", createFarmerDocumentUploadUrl);
 farmerRouter.post("/:farmerId/kyc/submit", submitFarmerKyc);
 farmerRouter.patch("/:farmerId/documents/:documentId/status", updateFarmerDocumentStatus);
 farmerRouter.delete("/:farmerId/documents/:documentId", deleteFarmerDocument);

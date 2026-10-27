@@ -460,6 +460,23 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Uploads a document file straight to storage and returns its public URL.
+  Future<String> uploadDocumentFile(String farmerId, List<int> bytes, {String mimeType = 'video/mp4'}) async {
+    final signed = await post('/api/farmers/$farmerId/documents/upload-url', {'mimeType': mimeType});
+    final uploadUrl = signed is Map ? signed['uploadUrl']?.toString() ?? '' : '';
+    final fileUrl = signed is Map ? signed['fileUrl']?.toString() ?? '' : '';
+    if (uploadUrl.isEmpty || fileUrl.isEmpty) {
+      throw ApiHttpException(500, 'Upload URL not available');
+    }
+    final response = await _client
+        .put(Uri.parse(uploadUrl), headers: {'Content-Type': mimeType}, body: bytes)
+        .timeout(const Duration(seconds: 120));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiHttpException(response.statusCode, 'File upload failed (${response.statusCode})');
+    }
+    return fileUrl;
+  }
+
   Future<dynamic> createProduct(String farmerId, Map<String, dynamic> body) async {
     return post('/api/farmers/$farmerId/products', body);
   }
