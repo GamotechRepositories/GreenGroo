@@ -413,13 +413,9 @@ export default function ProductFarmerTraceabilitySection({
     : `श्री. ${rawFarmerName}`;
 
   const farmerLocation = String(
-<<<<<<< Updated upstream
     product?.farmerDetails?.location ||
       product?.farmerLocation ||
-      (showFarmerTraceability ? "निफाड, नाशिक, महाराष्ट्र" : "")
-=======
-    product?.farmerDetails?.location || product?.farmerLocation || "Shirur, Pune, Maharashtra"
->>>>>>> Stashed changes
+      (showFarmerTraceability ? "Shirur, Pune, Maharashtra" : "")
   ).trim();
 
   const farmerLand = String(
