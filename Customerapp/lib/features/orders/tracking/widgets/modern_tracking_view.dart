@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../config/theme.dart';
 import '../../../../models/order.dart';
+import '../../widgets/delivery_otp_resend_button.dart';
 import '../live_tracking_map.dart';
 import '../order_tracking_models.dart';
 import 'courier_avatar_badge.dart';
@@ -192,7 +193,8 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
     final driverRating = driver?.rating ?? 4.8;
     final driverDeliveries = driver?.totalDeliveries ?? 256;
 
-    final hasOtp = order.deliveryOtp.trim().isNotEmpty && !tracking.isClosed;
+    final outForDelivery = order.status == 'shipping' || tracking.status == 'out_for_delivery';
+    final hasOtp = order.deliveryOtp.trim().isNotEmpty && outForDelivery && !tracking.isClosed;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8F6),
@@ -648,33 +650,53 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: AppColors.primaryLight, width: 1.5),
                           ),
-                          child: Row(
+                          child: Column(
                             children: [
-                              const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 17),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Row(
                                 children: [
-                                  const Text(
-                                    'Delivery OTP',
-                                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                  const Icon(Icons.lock_outline_rounded, color: AppColors.primary, size: 17),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Delivery OTP',
+                                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                      ),
+                                      Text(
+                                        order.deliveryOtp,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.primary,
+                                          letterSpacing: 2,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    order.deliveryOtp,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.primary,
-                                      letterSpacing: 2,
-                                    ),
+                                  const Spacer(),
+                                  TextButton.icon(
+                                    onPressed: () => _copyOtp(order.deliveryOtp),
+                                    icon: const Icon(Icons.copy_rounded, size: 13.5, color: AppColors.primary),
+                                    label: const Text('Copy OTP', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11.5)),
                                   ),
                                 ],
                               ),
-                              const Spacer(),
-                              TextButton.icon(
-                                onPressed: () => _copyOtp(order.deliveryOtp),
-                                icon: const Icon(Icons.copy_rounded, size: 13.5, color: AppColors.primary),
-                                label: const Text('Copy OTP', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 11.5)),
+                              const Divider(height: 10, color: Color(0xFFE2E8F0)),
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Sent to your phone by SMS · share only with your delivery partner',
+                                      style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                  DeliveryOtpResendButton(
+                                    orderId: order.id,
+                                    color: AppColors.primary,
+                                    fontSize: 11.5,
+                                  ),
+                                ],
                               ),
                             ],
                           ),

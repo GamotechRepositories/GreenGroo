@@ -41,7 +41,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Address? _editingAddress;
   bool _savingAddress = false;
   String? _formError;
-  bool _isAddressesExpanded = false;
+  bool _isAddressesExpanded = true;
 
   @override
   void initState() {
@@ -279,30 +279,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildScrollView(BuildContext context, List<Widget> children) {
+  Widget _buildScrollView(
+    BuildContext context, {
+    required Widget header,
+    required List<Widget> children,
+  }) {
     final topInset = MediaQuery.paddingOf(context).top;
     return ColoredBox(
-      color: Colors.white,
-      child: RefreshIndicator(
-        onRefresh: _refreshProfile,
-        color: _brandGreen,
-        child: ListView(
-          controller: _scrollController,
-          physics: AppScrollConfig.listPhysics,
-          cacheExtent: AppScrollConfig.cacheExtent,
-          padding: ShellBottomInsets.listPadding(
-            context,
-            left: 16,
-            top: topInset + 16,
-            right: 16,
+      color: _pageBg,
+      child: Column(
+        children: [
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: _borderGray)),
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 12),
+              child: header,
+            ),
           ),
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) const SizedBox(height: 16),
-              children[i],
-            ],
-          ],
-        ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshProfile,
+              color: _brandGreen,
+              child: ListView(
+                controller: _scrollController,
+                physics: AppScrollConfig.listPhysics,
+                cacheExtent: AppScrollConfig.cacheExtent,
+                padding: ShellBottomInsets.listPadding(
+                  context,
+                  left: 16,
+                  top: 16,
+                  right: 16,
+                ),
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    children[i],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -316,16 +336,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref.watch(addressControllerProvider.select((s) => s.loading));
 
     if (!isLoggedIn) {
-      return _buildScrollView(context, [
-        const Text(
-          'My Account',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: _slate900,
-            letterSpacing: -0.3,
+      return _buildScrollView(context,
+          header: const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'My Account',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _slate900,
+                letterSpacing: -0.3,
+              ),
+            ),
           ),
-        ),
+          children: [
         _WelcomeCard(
           onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(
                 AuthModalMode.login,
@@ -353,8 +377,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
 
-    return _buildScrollView(context, [
-      _GreetingHeader(user: user, onLogout: _handleLogout),
+    return _buildScrollView(context,
+        header: _GreetingHeader(user: user, onLogout: _handleLogout),
+        children: [
       _ProfileInfoCard(
         user: user,
         onEditName: () => _editProfileField(
@@ -418,6 +443,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
+const _pageBg = Colors.white;
 const _brandGreen = Color(0xFF0C831F);
 const _green500 = Color(0xFF22C55E);
 const _green600 = Color(0xFF16A34A);

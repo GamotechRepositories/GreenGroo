@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -267,6 +266,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
     await context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
     if (mounted) await _loadPaymentMode();
+  }
+
+  Future<void> _choosePaymentMode(double total, bool pickup) async {
+    final mode = await showModalBottomSheet<PaymentModeOption>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _PaymentOptionsSheet(
+        selected: _paymentMode,
+        pickup: pickup,
+        total: total,
+      ),
+    );
+    if (mode == null || !mounted) return;
+    setState(() => _paymentMode = mode);
+    await saveLastPaymentMode(mode);
   }
 
   String _checkoutAttemptKey(List<CartItem> items) =>
@@ -734,12 +752,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ? null
           : _PayBar(
               mode: _paymentMode,
+              pickup: isPickup,
               total: summary.total,
               feeKnown: feeKnown,
               blocker: blocker,
               minimumOrderMet: minimumOrderMet,
-              onChange: blocker == null ? () => _openPayment() : null,
-              onSlid: () => _openPayment(autoPay: true),
+              onChange: () => _choosePaymentMode(summary.total, isPickup),
+              onSlid: () => _paymentMode == null
+                  ? _choosePaymentMode(summary.total, isPickup)
+                  : _openPayment(autoPay: true),
             ),
     );
   }
@@ -1422,9 +1443,142 @@ class _CancellationNote extends StatelessWidget {
   }
 }
 
+class _PaymentOptionsSheet extends StatelessWidget {
+  const _PaymentOptionsSheet({
+    required this.selected,
+    required this.pickup,
+    required this.total,
+  });
+
+  final PaymentModeOption? selected;
+  final bool pickup;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = [
+      (
+        mode: PaymentModeOption.cod,
+        subtitle: pickup
+            ? 'Cash or UPI when you collect your order'
+            : 'Cash or UPI when your order arrives',
+      ),
+      (
+        mode: PaymentModeOption.online,
+        subtitle: '${formatInr(total, withDecimals: true)} by UPI or card',
+      ),
+    ];
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Payment Options', style: _font(size: 17, weight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            for (final option in options) ...[
+              _PaymentOptionTile(
+                mode: option.mode,
+                title: option.mode.title(pickup: pickup),
+                subtitle: option.subtitle,
+                selected: selected == option.mode,
+                onTap: () => Navigator.pop(context, option.mode),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentOptionTile extends StatelessWidget {
+  const _PaymentOptionTile({
+    required this.mode,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PaymentModeOption mode;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFFF0FDF4) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: selected ? _accent : const Color(0xFFE2E8F0)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xFFD1FAE5) : _slate100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(mode.icon, size: 20, color: selected ? _accent : const Color(0xFF475569)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: _font(size: 14, weight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: _font(size: 12, weight: FontWeight.w500, color: _muted)),
+                  ],
+                ),
+              ),
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? _accent : Colors.transparent,
+                  border: Border.all(color: selected ? _accent : _slate300, width: 2),
+                ),
+                child: selected
+                    ? Center(
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PayBar extends StatelessWidget {
   const _PayBar({
     required this.mode,
+    required this.pickup,
     required this.total,
     required this.feeKnown,
     required this.blocker,
@@ -1434,6 +1588,7 @@ class _PayBar extends StatelessWidget {
   });
 
   final PaymentModeOption? mode;
+  final bool pickup;
   final double total;
   final bool feeKnown;
   final String? blocker;
@@ -1445,7 +1600,6 @@ class _PayBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = mode;
     final ready = blocker == null && feeKnown;
-    final asset = current?.asset;
 
     return Container(
       padding: EdgeInsets.fromLTRB(14, 10, 14, MediaQuery.paddingOf(context).bottom + 10),
@@ -1490,14 +1644,12 @@ class _PayBar extends StatelessWidget {
                     Row(
                       children: [
                         if (current != null) ...[
-                          asset != null
-                              ? SvgPicture.asset(asset, width: 18, height: 18)
-                              : Icon(current.icon, size: 16, color: _accent),
+                          Icon(current.icon, size: 16, color: _accent),
                           const SizedBox(width: 6),
                         ],
                         Flexible(
                           child: Text(
-                            current?.label ?? 'Choose payment method',
+                            current?.label(pickup: pickup) ?? 'Choose payment method',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: _font(size: 14, weight: FontWeight.w800),
@@ -1528,7 +1680,11 @@ class _PayBar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _SlideToPay(
-            label: current == null ? 'Slide to choose payment' : 'Slide to Pay',
+            label: current == null
+                ? 'Slide to choose payment'
+                : current == PaymentModeOption.cod
+                    ? 'Slide to Place Order'
+                    : 'Slide to Pay',
             amount: feeKnown ? formatInr(total) : '…',
             enabled: ready,
             onSlid: onSlid,

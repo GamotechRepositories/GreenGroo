@@ -302,14 +302,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         shortDescription: shortDescription,
       ),
       _buildPriceCard(
-        product: product,
-        cartKey: cartKey,
-        activeVariantName: activeVariantName,
-        selectionColor: selectionColor,
         displayUnit: displayUnit,
-        inStock: inStock,
-        minOrderQuantity: minOrderQuantity,
-        maxQuantity: maxQuantity,
         currentPrice: currentPrice,
         mrpPrice: mrpPrice,
         hasDiscount: hasDiscount,
@@ -558,14 +551,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildPriceCard({
-    required Product product,
-    required ProductDetailCartKey cartKey,
-    required String activeVariantName,
-    required String selectionColor,
     required String displayUnit,
-    required bool inStock,
-    required int minOrderQuantity,
-    required int maxQuantity,
     required double currentPrice,
     required double mrpPrice,
     required bool hasDiscount,
@@ -638,42 +624,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Consumer(
-            builder: (context, ref, _) {
-              final cartLineQuantity =
-                  ref.watch(productDetailCartQuantityProvider(cartKey));
-              if (cartLineQuantity != null) {
-                return _CartActionQuantity(
-                  quantity: cartLineQuantity,
-                  min: minOrderQuantity,
-                  max: maxQuantity,
-                  disabled: !inStock,
-                  onDecrease: () => _handleQuantityDecrease(
-                    product,
-                    activeVariantName,
-                    selectionColor,
-                  ),
-                  onIncrease: () => _handleQuantityIncrease(
-                    product,
-                    activeVariantName,
-                    selectionColor,
-                  ),
-                );
-              }
-              return Builder(
-                builder: (buttonContext) => _AddToCartButton(
-                  inStock: inStock,
-                  onPressed: () => _addToCart(
-                    product,
-                    activeVariantName,
-                    selectionColor,
-                    buttonContext,
-                  ),
-                ),
-              );
-            },
           ),
         ],
       ),
@@ -2082,7 +2032,7 @@ class _AddToCartButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 130, minHeight: 48),
+      constraints: const BoxConstraints(minWidth: 104, minHeight: 38),
       child: ElevatedButton(
         onPressed: inStock ? onPressed : null,
         style: ElevatedButton.styleFrom(
@@ -2091,17 +2041,18 @@ class _AddToCartButton extends StatelessWidget {
           disabledBackgroundColor: _kEmerald700.withValues(alpha: 0.5),
           disabledForegroundColor: Colors.white,
           elevation: 0,
-          minimumSize: const Size(130, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          minimumSize: const Size(104, 38),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         child: Text(
           inStock ? 'Add to cart' : 'Out of Stock',
           style: const TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 14,
+            fontSize: 13,
           ),
         ),
       ),
@@ -2472,12 +2423,12 @@ class _CartActionQuantity extends StatelessWidget {
   Widget build(BuildContext context) {
     final canIncrease = !disabled && quantity < max;
     return Container(
-      width: 140,
-      height: 48,
+      width: 108,
+      height: 38,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kStepperGreen, width: 2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kStepperGreen, width: 1.5),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2485,13 +2436,13 @@ class _CartActionQuantity extends StatelessWidget {
           InkWell(
             onTap: disabled ? null : onDecrease,
             borderRadius:
-                const BorderRadius.horizontal(left: Radius.circular(10)),
+                const BorderRadius.horizontal(left: Radius.circular(8)),
             child: SizedBox(
-              width: 44,
-              height: 44,
+              width: 34,
+              height: 35,
               child: Icon(
                 Icons.remove_rounded,
-                size: 20,
+                size: 18,
                 color: disabled
                     ? _kStepperGreen.withValues(alpha: 0.4)
                     : const Color(0xFF16A34A),
@@ -2503,19 +2454,19 @@ class _CartActionQuantity extends StatelessWidget {
             style: const TextStyle(
               color: _kInk,
               fontWeight: FontWeight.w700,
-              fontSize: 15,
+              fontSize: 14,
             ),
           ),
           InkWell(
             onTap: canIncrease ? onIncrease : null,
             borderRadius:
-                const BorderRadius.horizontal(right: Radius.circular(10)),
+                const BorderRadius.horizontal(right: Radius.circular(8)),
             child: SizedBox(
-              width: 44,
-              height: 44,
+              width: 34,
+              height: 35,
               child: Icon(
                 Icons.add_rounded,
-                size: 20,
+                size: 18,
                 color: canIncrease
                     ? const Color(0xFF16A34A)
                     : _kStepperGreen.withValues(alpha: 0.4),

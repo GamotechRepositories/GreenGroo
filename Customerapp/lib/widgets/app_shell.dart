@@ -181,7 +181,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
 
     final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final hideBottomNav = isKeyboardOpen;
+    // Like the website, the cart page has its own checkout bar and no bottom nav.
+    final hideBottomNav = isKeyboardOpen || widget.location.startsWith(RoutePaths.cart);
     final visualIndex = _visualIndex(widget.navigationShell.currentIndex);
     final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
     // The cart screen has its own checkout bar.

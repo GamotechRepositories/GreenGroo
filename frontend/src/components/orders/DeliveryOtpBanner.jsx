@@ -1,57 +1,42 @@
-import React, { useState } from "react";
-import { resendCustomerDeliveryOtp } from "../../api/api";
+import { useResendDeliveryOtp } from "../../hooks/useResendDeliveryOtp";
 
-const ACTIVE_STATUSES = new Set(["confirm", "processing", "shipping"]);
+const PICKUP_ACTIVE_STATUSES = new Set(["confirm", "processing", "shipping"]);
 
 /**
- * Shows the 4-digit delivery OTP the customer must share with the rider
- * to complete delivery, with option to send/resend via MSG91 SMS.
+ * Delivery OTP the customer shares with the rider at the door. It is SMSed to
+ * the customer when the order goes out for delivery, and can be resent here.
  */
 export default function DeliveryOtpBanner({ order }) {
-  const [sending, setSending] = useState(false);
-  const [msg, setMsg] = useState("");
+  const { resend, sending, cooldown } = useResendDeliveryOtp(order?._id);
 
   const otp = String(order?.deliveryOtp || order?.otpCode || "").trim();
-  if (!otp || !ACTIVE_STATUSES.has(order?.status)) return null;
-
-  const handleResendSms = async () => {
-    if (!order?._id || sending) return;
-    setSending(true);
-    setMsg("");
-    try {
-      await resendCustomerDeliveryOtp(order._id);
-      setMsg("SMS पाठवला आहे (Sent via SMS)");
-    } catch (err) {
-      setMsg(err?.response?.data?.message || "SMS पाठवण्यात त्रुटी");
-    } finally {
-      setSending(false);
-    }
-  };
+  const pickup = order?.fulfillmentType === "pickup";
+  const visible = pickup ? PICKUP_ACTIVE_STATUSES.has(order?.status) : order?.status === "shipping";
+  if (!otp || !visible) return null;
 
   return (
     <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">
-          Delivery OTP
+          {pickup ? "Pickup OTP" : "Delivery OTP"}
         </p>
-        <button
-          type="button"
-          onClick={handleResendSms}
-          disabled={sending}
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline disabled:opacity-60 cursor-pointer"
-        >
-          {sending ? "पाठवत आहे..." : "SMS वर पाठवा"}
-        </button>
+        {!pickup && (
+          <button
+            type="button"
+            onClick={resend}
+            disabled={sending || cooldown > 0}
+            className="text-xs font-semibold text-emerald-700 underline hover:text-emerald-800 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-60 cursor-pointer"
+          >
+            {sending ? "Sending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend SMS"}
+          </button>
+        )}
       </div>
       <p className="mt-1 text-sm text-emerald-900/80">
-        Share this code with the delivery partner to confirm your order is received.
+        {pickup
+          ? "Show this code at the store counter to collect your order."
+          : "Your order is out for delivery. We've sent this code to your phone by SMS — share it with the delivery partner to receive your items."}
       </p>
-      <div className="flex items-baseline justify-between mt-2.5">
-        <p className="font-mono text-3xl font-black tracking-[0.35em] text-emerald-900">
-          {otp}
-        </p>
-        {msg && <span className="text-xs font-medium text-emerald-700">{msg}</span>}
-      </div>
+      <p className="mt-2.5 font-mono text-3xl font-black tracking-[0.35em] text-emerald-900">{otp}</p>
     </div>
   );
 }

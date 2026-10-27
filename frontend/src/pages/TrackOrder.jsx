@@ -43,6 +43,7 @@ import {
   withStatus,
 } from "../utils/orderTracking";
 import OptimizedImg from "../components/common/OptimizedImg";
+import { useResendDeliveryOtp } from "../hooks/useResendDeliveryOtp";
 
 const GREEN = "#0C831F";
 const SUPPORT_WHATSAPP_URL = "https://wa.me/917400222233?text=Hi%20GreenGrocc%2C%20I%20need%20help%20with%20my%20order";
@@ -357,6 +358,7 @@ function TrackOrder() {
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const [order, setOrder] = useState(null);
   const [tracking, setTracking] = useState(null);
+  const otpSms = useResendDeliveryOtp(order?._id || id);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [driver, setDriver] = useState(null);
@@ -558,6 +560,7 @@ function TrackOrder() {
   const etaMeters = tracking?.eta?.distanceMeters || roadEta?.distanceMeters || 0;
   const closed = tracking ? isTrackingClosed(tracking) : false;
   const otp = String(order?.deliveryOtp || "").trim();
+  const outForDelivery = order?.status === "shipping" || tracking?.status === "out_for_delivery";
   const showMap = liveMap && Boolean(destination || tracking?.storeLocation || driver);
   const orderCode = order ? getOrderDisplayCode(order) : tracking?.orderNumber || "";
 
@@ -659,20 +662,33 @@ function TrackOrder() {
             <OtherPartNote key={part.storeOrderId || index} part={part} />
           ))}
 
-          {otp && !closed ? (
-            <Card className="flex items-center gap-3 px-3.5 py-3 ring-emerald-300">
-              <Lock className="h-5 w-5 shrink-0 text-[#0C831F]" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold text-slate-500">Delivery OTP · share only with your delivery partner</p>
-                <p className="text-[18px] font-extrabold tracking-[0.2em] text-[#0C831F]">{otp}</p>
+          {otp && outForDelivery && !closed ? (
+            <Card className="px-3.5 py-3 ring-emerald-300">
+              <div className="flex items-center gap-3">
+                <Lock className="h-5 w-5 shrink-0 text-[#0C831F]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-slate-500">Delivery OTP · share only with your delivery partner</p>
+                  <p className="text-[18px] font-extrabold tracking-[0.2em] text-[#0C831F]">{otp}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyOtp(otp)}
+                  className="flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-bold text-[#0C831F] ring-1 ring-emerald-200 transition hover:bg-emerald-50"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => copyOtp(otp)}
-                className="flex h-9 items-center gap-1.5 rounded-full px-3 text-[12px] font-bold text-[#0C831F] ring-1 ring-emerald-200 transition hover:bg-emerald-50"
-              >
-                <Copy className="h-3.5 w-3.5" /> Copy
-              </button>
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-emerald-100 pt-2">
+                <p className="text-[11.5px] text-slate-500">Sent to your phone by SMS</p>
+                <button
+                  type="button"
+                  onClick={otpSms.resend}
+                  disabled={otpSms.sending || otpSms.cooldown > 0}
+                  className="text-[12px] font-bold text-[#0C831F] disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {otpSms.sending ? "Sending…" : otpSms.cooldown > 0 ? `Resend in ${otpSms.cooldown}s` : "Resend SMS"}
+                </button>
+              </div>
             </Card>
           ) : null}
 

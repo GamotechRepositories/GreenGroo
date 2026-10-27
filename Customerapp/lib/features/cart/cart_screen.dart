@@ -5,28 +5,23 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
-import '../../core/network/api_response_parser.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
-import '../../core/providers/location_provider.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/department_utils.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
-import '../../features/checkout/checkout_fulfillment_widgets.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../features/wishlist/wishlist_controller.dart';
-import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/address/select_delivery_location_sheet.dart';
-import '../../widgets/cart/important_message_cards.dart';
+import '../../models/store_settings.dart';
 import '../../widgets/common/app_network_image.dart';
+import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
@@ -104,8 +99,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   AppliedCoupon? _appliedCoupon;
   bool _applyingCoupon = false;
   String _couponError = '';
-  String _fulfillment = FulfillmentType.delivery;
-  String? _preOrderSlot;
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
 
@@ -274,279 +267,187 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
     final items = ref.watch(cartControllerProvider.select((s) => s.items));
     final loading = ref.watch(cartControllerProvider.select((s) => s.loading));
-
-    if (loading && items.isEmpty) {
-      return const ColoredBox(
-        color: _pageBg,
-        child: SkeletonCartPage(),
-      );
-    }
+    final topInset = MediaQuery.paddingOf(context).top;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    void goBack() => context.canPop() ? context.pop() : context.go(RoutePaths.home);
 
     if (items.isEmpty) {
       return ColoredBox(
         color: _pageBg,
-        child: RefreshableBody(
-          onRefresh: _loadCart,
-          child: isLoggedIn
-              ? _EmptyCart(onBrowse: () => context.go(RoutePaths.product))
-              : _LoginPrompt(
-                  onLogin: () => ref.read(authControllerProvider.notifier).openAuthModal(),
-                ),
+        child: Column(
+          children: [
+            _CartTopAppBar(
+              topInset: topInset,
+              itemCount: 0,
+              savings: 0,
+              onBack: goBack,
+              onClear: null,
+            ),
+            Expanded(
+              child: loading
+                  ? const SkeletonCartPage()
+                  : RefreshableBody(
+                      onRefresh: _loadCart,
+                      child: isLoggedIn
+                          ? _EmptyCart(onBrowse: () => context.go(RoutePaths.product))
+                          : _LoginPrompt(
+                              onLogin: () =>
+                                  ref.read(authControllerProvider.notifier).openAuthModal(),
+                            ),
+                    ),
+            ),
+          ],
         ),
       );
     }
 
-    final isPickup = _fulfillment == FulfillmentType.pickup;
     final storeSettings = ref.watch(storeSettingsProvider).value;
-    final summary = applyStorePickup(
-      calculateCartSummary(items, settings: storeSettings),
-      pickup: isPickup,
-    );
-    final addresses = ref.watch(addressControllerProvider.select((s) => s.addresses));
-    final activeAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
+    final summary = calculateCartSummary(items, settings: storeSettings);
+    final couponDiscount = _appliedCoupon != null
+        ? _appliedCoupon!.discountAmount.clamp(0.0, summary.subtotal).toDouble()
+        : 0.0;
+    final toPay = applyCouponDiscount(summary, couponDiscount).total;
+    final displaySavings = summary.savings + couponDiscount;
+    final minimumOrderValue = storeSettings?.minimumOrderValue ?? 0;
+    final canCheckout = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
 
-    final groups = groupCartByDepartment(items);
-    final hasPreOrder = groups.containsKey(Department.preorder);
-    final hasNowItems = groups.keys.any((dept) => dept != Department.preorder);
-    final slots = storeSettings?.activePreOrderSlots ?? const [];
-    final slotChosen = _preOrderSlot != null && slots.any((s) => s.label == _preOrderSlot);
-    final storeAsync = ref.watch(checkoutStoreProvider(checkoutStoreQuery(
-      hasNowItems: hasNowItems,
-      fulfillment: _fulfillment,
-      address: activeAddress,
-    )));
-    final darkStore = storeAsync.value?.store;
-
-    void proceedToPayment() {
+    void proceedToCheckout() {
       if (!isLoggedIn) {
         ref.read(authControllerProvider.notifier).openAuthModal();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please log in or register to select payment method and proceed to checkout'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
         return;
       }
-      String? problem;
-      if (hasPreOrder && !slotChosen) {
-        problem = 'Choose a pre-order delivery slot first';
-      } else if (isPickup && darkStore == null) {
-        problem = 'No dark store serves this location for pickup';
-      } else if (activeAddress == null) {
-        problem = 'Add your address to continue';
-      }
-      if (problem != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(problem), behavior: SnackBarBehavior.floating),
-        );
-        return;
-      }
-      final query = <String, String>{
-        'addressId': activeAddress!.id,
-        'fulfillment': _fulfillment,
-        if (hasPreOrder && _preOrderSlot != null) 'slot': _preOrderSlot!,
-        if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
-      };
-      context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+      if (!canCheckout) return;
+      final code = _appliedCoupon?.code;
+      context.push(
+        code == null
+            ? RoutePaths.checkout
+            : Uri(path: RoutePaths.checkout, queryParameters: {'coupon': code}).toString(),
+      );
     }
-
-    final couponDiscount = _appliedCoupon != null
-        ? _appliedCoupon!.discountAmount.clamp(0.0, summary.subtotal)
-        : 0.0;
-    final productSavings = items.fold<double>(0, (sum, item) {
-      final original = item.price > 0 ? item.price : item.discountedPrice;
-      return sum + (original - item.discountedPrice).clamp(0.0, double.infinity) * item.quantity;
-    });
-    final displaySavings = productSavings + couponDiscount;
-    final toPay = (summary.subtotal - couponDiscount).clamp(0.0, double.infinity) + 5;
-    final lastGroup = groups.keys.isEmpty ? null : groups.keys.last;
-
-    Widget itemsCard(List<CartItem> groupItems, {bool showAddMore = false}) => _CartItemsCard(
-          items: groupItems,
-          onAddMore: showAddMore ? () => context.go(RoutePaths.product) : null,
-          onRemove: _confirmRemoveItem,
-          onMoveToWishlist: _moveToWishlist,
-          onDecrease: (item) async {
-            final nextQty = getDecreasedCartQuantityForCartItem(item);
-            if (nextQty <= 0) {
-              await _confirmRemoveItem(item);
-            } else {
-              await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-                    productId: item.id,
-                    quantity: nextQty,
-                    variantName: item.variantName,
-                    colorName: item.colorName,
-                  );
-            }
-          },
-          onIncrease: (item) => ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-                productId: item.id,
-                quantity: item.quantity + item.quantityStep,
-                variantName: item.variantName,
-                colorName: item.colorName,
-              ),
-          onTapItem: (item) => context.push('/product/${item.id}'),
-        );
 
     return Scaffold(
       backgroundColor: _pageBg,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
-        child: _CartTopAppBar(
-          itemCount: summary.itemCount,
-          savings: displaySavings,
-          onClear: _clearing || loading ? null : _clearCart,
-        ),
-      ),
-      body: Stack(
+      body: Column(
         children: [
-          RefreshIndicator(
-            color: _brand,
-            onRefresh: _loadCart,
-            child: ListView(
-              controller: _scrollController,
-              physics: AppScrollConfig.listPhysics,
-              padding: EdgeInsets.only(
-                left: 12,
-                right: 12,
-                top: 12,
-                bottom: ShellBottomInsets.of(context) + 150, // Space for sticky bottom bar
-              ),
+          _CartTopAppBar(
+            topInset: topInset,
+            itemCount: summary.itemCount,
+            savings: displaySavings,
+            onBack: goBack,
+            onClear: _clearing || loading ? null : _clearCart,
+          ),
+          Expanded(
+            child: Stack(
               children: [
-                if (displaySavings > 0) ...[
-                  _SavingsBanner(savings: displaySavings),
-                  const SizedBox(height: 12),
-                ],
-
-                _DeliverySpeedHeaderCard(
-                  itemCount: summary.itemCount,
-                  title: isPickup
-                      ? 'Store pickup · no delivery fee'
-                      : hasNowItems
-                          ? 'Delivery in 10–20 minutes'
-                          : 'Pre-order · delivered tomorrow',
-                  note: hasPreOrder && hasNowItems
-                      ? 'Split order: pre-order items at your slot, the rest right away'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-
-                // Cart items, grouped by department
-                for (final entry in groups.entries) ...[
-                  DepartmentGroupHeader(
-                    department: entry.key,
-                    itemCount: entry.value.length,
-                    etaText: departmentEtaText(
-                      entry.key,
-                      pickup: isPickup,
-                      preOrderSlot: slotChosen ? _preOrderSlot : null,
+                RefreshIndicator(
+                  color: _brand,
+                  onRefresh: _loadCart,
+                  child: ListView(
+                    controller: _scrollController,
+                    physics: AppScrollConfig.listPhysics,
+                    padding: EdgeInsets.only(
+                      left: 12,
+                      right: 12,
+                      top: 12,
+                      bottom: bottomInset + 100,
                     ),
-                  ),
-                  itemsCard(entry.value, showAddMore: entry.key == lastGroup),
-                  const SizedBox(height: 12),
-                ],
-
-                // Delivery or store pickup + dark store contact
-                _CartSection(
-                  title: 'How do you want your order?',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      FulfillmentChoice(
-                        value: _fulfillment,
-                        onChanged: (value) => setState(() => _fulfillment = value),
-                      ),
-                      if (isPickup) ...[
+                      if (displaySavings > 0) ...[
+                        _SavingsBanner(savings: displaySavings),
                         const SizedBox(height: 12),
-                        DarkStoreContactCard(
-                          store: darkStore,
-                          pickup: true,
-                          loading: storeAsync.isLoading && darkStore == null,
+                      ],
+                      if (storeSettings != null) ...[
+                        _DeliveryNudge(subtotal: summary.subtotal, settings: storeSettings),
+                        const SizedBox(height: 12),
+                      ],
+                      _CartItemsCard(
+                        items: items,
+                        onAddMore: () => context.go(RoutePaths.product),
+                        onRemove: _confirmRemoveItem,
+                        onMoveToWishlist: _moveToWishlist,
+                        onDecrease: (item) async {
+                          final nextQty = getDecreasedCartQuantityForCartItem(item);
+                          if (nextQty <= 0) {
+                            await _confirmRemoveItem(item);
+                          } else {
+                            await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+                                  productId: item.id,
+                                  quantity: nextQty,
+                                  variantName: item.variantName,
+                                  colorName: item.colorName,
+                                );
+                          }
+                        },
+                        onIncrease: (item) =>
+                            ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+                                  productId: item.id,
+                                  quantity: item.quantity + item.quantityStep,
+                                  variantName: item.variantName,
+                                  colorName: item.colorName,
+                                ),
+                        onTapItem: (item) => context.push('/product/${item.id}'),
+                      ),
+                      const SizedBox(height: 16),
+                      const _SectionLabel('Offers & benefits'),
+                      _ApplyCouponCard(
+                        controller: _couponController,
+                        appliedCoupon: _appliedCoupon,
+                        isApplying: _applyingCoupon,
+                        errorMessage: _couponError,
+                        onApply: _applyCoupon,
+                        onRemove: _removeCoupon,
+                        onViewAll: () async {
+                          final code = await context.push<String>(RoutePaths.coupons);
+                          if (code != null && code.isNotEmpty && mounted) {
+                            _applyCoupon(code);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const _SectionLabel('Bill details'),
+                      _BillDetailsCard(
+                        summary: summary,
+                        settingsReady: storeSettings != null,
+                        appliedCoupon: _appliedCoupon,
+                        couponDiscount: couponDiscount,
+                        toPay: toPay,
+                      ),
+                      if (!canCheckout) ...[
+                        const SizedBox(height: 12),
+                        MinimumOrderWarning(
+                          subtotal: summary.subtotal,
+                          minimumOrderValue: minimumOrderValue,
+                          compact: true,
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          'Review your order before checkout. Prices and availability are confirmed at the next step.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            height: 1.5,
+                            color: _muted,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // Pre-order slot (required when the cart has pre-order items)
-                if (hasPreOrder) ...[
-                  _CartSection(
-                    title: isPickup ? 'Pre-order pickup slot (tomorrow)' : 'Pre-order delivery slot (tomorrow)',
-                    child: PreOrderSlotPicker(
-                      slots: slots,
-                      selected: _preOrderSlot,
-                      onSelected: (label) => setState(() => _preOrderSlot = label),
-                    ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _CartCheckoutBar(
+                    total: toPay,
+                    savings: displaySavings,
+                    enabled: canCheckout,
+                    buttonText: isLoggedIn ? 'Proceed to checkout' : 'Login to continue',
+                    onProceed: proceedToCheckout,
                   ),
-                  const SizedBox(height: 12),
-                ],
-
-                const _GiftingCard(),
-                const SizedBox(height: 12),
-
-                // Important Store Notices
-                if (storeSettings != null) ...[
-                  ImportantMessageCards(settings: storeSettings),
-                  const SizedBox(height: 12),
-                ],
-
-                const _SectionLabel('Offers & benefits'),
-                _ApplyCouponCard(
-                  controller: _couponController,
-                  appliedCoupon: _appliedCoupon,
-                  isApplying: _applyingCoupon,
-                  errorMessage: _couponError,
-                  onApply: _applyCoupon,
-                  onRemove: _removeCoupon,
-                  onViewAll: () async {
-                    final code = await context.push<String>(RoutePaths.coupons);
-                    if (code != null && code.isNotEmpty && mounted) {
-                      _applyCoupon(code);
-                    }
-                  },
                 ),
-                const SizedBox(height: 12),
-
-                const _SectionLabel('Bill details'),
-                _BlinkitBillDetailsCard(
-                  summary: summary,
-                  items: items,
-                  pickup: isPickup,
-                  appliedCoupon: _appliedCoupon,
-                  couponDiscount: couponDiscount,
-                ),
-                const SizedBox(height: 12),
-
-                const _AddGstinCard(),
-                const SizedBox(height: 12),
               ],
-            ),
-          ),
-
-          // Sticky bottom bar: address, total and checkout button
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _BlinkitStickyBottomBar(
-              addressLabel: activeAddress != null
-                  ? (activeAddress.shopName.isNotEmpty
-                      ? activeAddress.shopName
-                      : (activeAddress.fullName.isNotEmpty ? activeAddress.fullName : 'Work'))
-                  : 'Work',
-              addressText: activeAddress != null
-                  ? activeAddress.fullAddress
-                  : 'Add or choose a delivery address',
-              addressPrefix: isPickup
-                  ? 'Pickup from ${darkStore?.storeName ?? 'dark store'} ·'
-                  : 'Delivering to',
-              onChangeAddress: () => showSelectDeliveryLocationBottomSheet(context, ref),
-              onProceed: proceedToPayment,
-              buttonText: hasPreOrder && !slotChosen ? 'Choose a pre-order slot' : 'Proceed to checkout',
-              total: toPay,
-              savings: displaySavings,
             ),
           ),
         ],
@@ -558,32 +459,35 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 // --- Top App Bar ---
 class _CartTopAppBar extends StatelessWidget {
   const _CartTopAppBar({
+    required this.topInset,
     required this.itemCount,
     required this.savings,
+    required this.onBack,
     required this.onClear,
   });
 
+  final double topInset;
   final int itemCount;
   final double savings;
+  final VoidCallback onBack;
   final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
-    final canPop = Navigator.canPop(context);
     return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        border: const Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      height: 56 + topInset,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      padding: EdgeInsets.only(left: canPop ? 4 : 16, right: 4),
+      padding: EdgeInsets.only(left: 4, right: 4, top: topInset),
       child: Row(
         children: [
-          if (canPop)
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded, color: _ink, size: 28),
-              onPressed: () => Navigator.pop(context),
-            ),
+          IconButton(
+            tooltip: 'Go back',
+            icon: const Icon(Icons.chevron_left_rounded, color: _ink, size: 28),
+            onPressed: onBack,
+          ),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -598,31 +502,29 @@ class _CartTopAppBar extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(text: '$itemCount ${itemCount == 1 ? 'item' : 'items'}'),
-                      if (savings > 0) ...[
-                        const TextSpan(text: ' · '),
-                        TextSpan(
-                          text: 'Saving ${formatInr(savings)}',
-                          style: const TextStyle(color: _brand, fontWeight: FontWeight.w600),
-                        ),
+                if (itemCount > 0)
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '$itemCount ${itemCount == 1 ? 'item' : 'items'}'),
+                        if (savings > 0) ...[
+                          const TextSpan(text: ' · '),
+                          TextSpan(
+                            text: 'Saving ${formatInr(savings)}',
+                            style: const TextStyle(color: _brand, fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
-                ),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.search_rounded, color: _ink, size: 22),
-            onPressed: () => context.push(RoutePaths.product),
-          ),
-          TextButton(
+          if (itemCount > 0)
+            TextButton(
             onPressed: onClear,
             style: TextButton.styleFrom(
               foregroundColor: _muted,
@@ -635,6 +537,303 @@ class _CartTopAppBar extends StatelessWidget {
             child: Text(
               'Clear all',
               style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryNudge extends StatelessWidget {
+  const _DeliveryNudge({required this.subtotal, required this.settings});
+
+  final double subtotal;
+  final StoreSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final slab = nextCheaperShippingSlab(subtotal, settings);
+    final textStyle = GoogleFonts.plusJakartaSans(fontSize: 12.5, color: const Color(0xFF334155));
+
+    if (slab == null) {
+      if (shippingChargeFor(subtotal, settings) > 0) return const SizedBox.shrink();
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFD1FAE5)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.local_shipping_outlined, color: _brand, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Yay! You get FREE delivery on this order',
+                style: textStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF064E3B),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final remaining = (slab.orderAmount - subtotal).clamp(0.0, double.infinity);
+    final progress = slab.orderAmount <= 0 ? 1.0 : (subtotal / slab.orderAmount).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_shipping_outlined, color: _brand, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: 'Add '),
+                      TextSpan(
+                        text: formatInr(remaining),
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: _ink),
+                      ),
+                      const TextSpan(text: ' more for '),
+                      TextSpan(
+                        text: slab.shippingCharge <= 0
+                            ? 'FREE delivery'
+                            : '${formatInr(slab.shippingCharge)} delivery',
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: _brand),
+                      ),
+                    ],
+                  ),
+                  style: textStyle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: const Color(0xFFF1F5F9),
+              color: _brand,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BillDetailsCard extends StatelessWidget {
+  const _BillDetailsCard({
+    required this.summary,
+    required this.settingsReady,
+    required this.appliedCoupon,
+    required this.couponDiscount,
+    required this.toPay,
+  });
+
+  final CartSummary summary;
+  final bool settingsReady;
+  final AppliedCoupon? appliedCoupon;
+  final double couponDiscount;
+  final double toPay;
+
+  @override
+  Widget build(BuildContext context) {
+    final itemCount = summary.itemCount;
+    final mrpTotal = summary.subtotal + summary.savings;
+    final rowStyle = GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF334155));
+    final valueStyle = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: _ink,
+    );
+    final greenStyle = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      color: _brand,
+    );
+
+    Widget billRow(String label, List<Widget> values, {TextStyle? labelStyle}) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: labelStyle ?? rowStyle)),
+              ...values,
+            ],
+          ),
+        );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          billRow(
+            'Item total ($itemCount ${itemCount == 1 ? 'item' : 'items'})',
+            [
+              if (mrpTotal > summary.subtotal) ...[
+                Text(
+                  formatInr(mrpTotal),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: const Color(0xFF94A3B8),
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(formatInr(summary.subtotal), style: valueStyle),
+            ],
+          ),
+          if (couponDiscount > 0 && appliedCoupon != null)
+            billRow(
+              'Coupon (${appliedCoupon!.code})',
+              [Text('-${formatInr(couponDiscount)}', style: greenStyle)],
+              labelStyle: greenStyle.copyWith(fontWeight: FontWeight.w600),
+            ),
+          billRow('Delivery fee', [
+            if (!settingsReady)
+              Text('Calculating…', style: rowStyle.copyWith(color: const Color(0xFF94A3B8)))
+            else if (summary.shippingFree)
+              Text('FREE', style: greenStyle)
+            else
+              Text(formatInr(summary.shipping), style: valueStyle),
+          ]),
+          billRow(
+            'Taxes & charges',
+            [Text('Included', style: rowStyle.copyWith(color: _muted))],
+            labelStyle: rowStyle.copyWith(color: _muted),
+          ),
+          const _DashedDivider(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'To pay',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _ink,
+                  ),
+                ),
+              ),
+              Text(
+                formatInr(toPay),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartCheckoutBar extends StatelessWidget {
+  const _CartCheckoutBar({
+    required this.total,
+    required this.savings,
+    required this.enabled,
+    required this.buttonText,
+    required this.onProceed,
+  });
+
+  final double total;
+  final double savings;
+  final bool enabled;
+  final String buttonText;
+  final VoidCallback onProceed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, 10, 12, MediaQuery.paddingOf(context).bottom + 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0F0F172A),
+            blurRadius: 20,
+            offset: Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatInr(total),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                savings > 0 ? 'Saved ${formatInr(savings)}' : 'Total to pay',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: savings > 0 ? _brand : _muted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: FilledButton(
+                onPressed: enabled ? onProceed : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _brand,
+                  disabledBackgroundColor: const Color(0xFFCBD5E1),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        buttonText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -677,95 +876,6 @@ class _SavingsBanner extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 1. Delivery Speed Header Card ---
-class _DeliverySpeedHeaderCard extends StatelessWidget {
-  const _DeliverySpeedHeaderCard({
-    required this.itemCount,
-    required this.title,
-    this.note,
-  });
-
-  final int itemCount;
-  final String title;
-  final String? note;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFFECFDF5),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.bolt_rounded, color: _brand, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  note ?? 'Shipment of $itemCount item${itemCount > 1 ? 's' : ''}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CartSection extends StatelessWidget {
-  const _CartSection({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: _ink,
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
         ],
       ),
     );
@@ -1036,313 +1146,6 @@ class _BlinkitCartItemRow extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 3. Make this a Gift Banner ---
-class _GiftingCard extends StatelessWidget {
-  const _GiftingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFEF3C7),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.card_giftcard_rounded,
-              color: Color(0xFFD97706),
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Make this a gift!',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Get your items in a special gift bag for just ₹30',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    color: _muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: _brand,
-              side: const BorderSide(color: _brand),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-            ),
-            child: Text(
-              'Select',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 12.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 5. Bill Details Card (Accurate Calculations) ---
-class _BlinkitBillDetailsCard extends StatelessWidget {
-  const _BlinkitBillDetailsCard({
-    required this.summary,
-    required this.items,
-    this.pickup = false,
-    this.appliedCoupon,
-    this.couponDiscount = 0.0,
-  });
-
-  final CartSummary summary;
-  final List<CartItem> items;
-  final bool pickup;
-  final AppliedCoupon? appliedCoupon;
-  final double couponDiscount;
-
-  @override
-  Widget build(BuildContext context) {
-    final originalTotalMRP = items.fold<double>(
-      0,
-      (sum, item) =>
-          sum +
-          (item.price > 0 ? item.price : item.discountedPrice) * item.quantity,
-    );
-    final productDiscount = items.fold<double>(
-      0,
-      (sum, item) {
-        final original = item.price > 0 ? item.price : item.discountedPrice;
-        final diff =
-            (original - item.discountedPrice).clamp(0.0, double.infinity);
-        return sum + diff * item.quantity;
-      },
-    );
-    final totalSavings =
-        productDiscount + (summary.shippingFree ? 30 : 0) + couponDiscount;
-    final grandTotal =
-        (summary.subtotal - couponDiscount).clamp(0.0, double.infinity) + 5;
-
-    final itemCount = summary.itemCount;
-    final rowStyle = GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF334155));
-    final valueStyle = GoogleFonts.plusJakartaSans(
-      fontSize: 13,
-      fontWeight: FontWeight.w600,
-      color: _ink,
-    );
-    final strikeStyle = GoogleFonts.plusJakartaSans(
-      fontSize: 12,
-      color: const Color(0xFF94A3B8),
-      decoration: TextDecoration.lineThrough,
-    );
-    final greenStyle = GoogleFonts.plusJakartaSans(
-      fontSize: 13,
-      fontWeight: FontWeight.w700,
-      color: _brand,
-    );
-
-    Widget billRow(String label, List<Widget> values, {TextStyle? labelStyle}) => Row(
-          children: [
-            Expanded(child: Text(label, style: labelStyle ?? rowStyle)),
-            ...values,
-          ],
-        );
-
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                billRow(
-                  'Item total ($itemCount ${itemCount == 1 ? 'item' : 'items'})',
-                  [
-                    if (originalTotalMRP > summary.subtotal) ...[
-                      Text(formatInr(originalTotalMRP), style: strikeStyle),
-                      const SizedBox(width: 6),
-                    ],
-                    Text(formatInr(summary.subtotal), style: valueStyle),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                billRow(
-                  pickup ? 'Store pickup' : 'Delivery fee',
-                  [
-                    Text('₹30', style: strikeStyle),
-                    const SizedBox(width: 6),
-                    Text('FREE', style: greenStyle),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                billRow('Handling charge', [Text('₹5', style: valueStyle)]),
-                if (couponDiscount > 0 && appliedCoupon != null) ...[
-                  const SizedBox(height: 10),
-                  billRow(
-                    'Coupon (${appliedCoupon!.code})',
-                    [Text('-${formatInr(couponDiscount)}', style: greenStyle)],
-                    labelStyle: greenStyle.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                const _DashedDivider(),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'To pay',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: _ink,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      formatInr(grandTotal),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: _ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: const Color(0xFFECFDF5),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your total savings',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF065F46),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        couponDiscount > 0
-                            ? 'Includes ₹${couponDiscount.toStringAsFixed(0)} coupon discount & ₹30 free delivery'
-                            : 'Includes ₹30 savings through free delivery',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: const Color(0xFF047857),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '₹${totalSavings.toStringAsFixed(0)}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: _brand,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 6. Add GSTIN Card ---
-class _AddGstinCard extends StatelessWidget {
-  const _AddGstinCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF6FF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.receipt_long_rounded,
-              color: Color(0xFF2563EB),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Add GSTIN',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Claim GST input credit up to 18% on your order',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    color: _muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
         ],
       ),
     );
@@ -1641,523 +1444,6 @@ class _ApplyCouponCard extends StatelessWidget {
             ],
           ],
         ],
-      ),
-    );
-  }
-}
-
-// --- Sticky Bottom Bar ---
-class _BlinkitStickyBottomBar extends StatelessWidget {
-  const _BlinkitStickyBottomBar({
-    required this.addressLabel,
-    required this.addressText,
-    required this.onChangeAddress,
-    required this.onProceed,
-    required this.buttonText,
-    required this.total,
-    required this.savings,
-    this.addressPrefix = 'Delivering to',
-  });
-
-  final String addressPrefix;
-  final String addressLabel;
-  final String addressText;
-  final VoidCallback onChangeAddress;
-  final VoidCallback onProceed;
-  final String buttonText;
-  final double total;
-  final double savings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: ShellBottomInsets.of(context) + 10,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x0F0F172A),
-            blurRadius: 20,
-            offset: Offset(0, -6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: onChangeAddress,
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on_outlined, color: _brand, size: 16),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '$addressPrefix $addressLabel',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: _ink),
-                          ),
-                          TextSpan(text: ' · $addressText'),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: _muted),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Change',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _brand,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    formatInr(total),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: _ink,
-                      height: 1.2,
-                    ),
-                  ),
-                  Text(
-                    savings > 0 ? 'Saved ${formatInr(savings)}' : 'Total to pay',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: savings > 0 ? _brand : _muted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: onProceed,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _brand,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            buttonText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =========================================================
-// Select Payment Method Sheet / Modal
-// =========================================================
-class _SelectPaymentMethodSheet extends ConsumerStatefulWidget {
-  const _SelectPaymentMethodSheet({
-    required this.summary,
-    required this.activeAddress,
-    required this.cartItems,
-  });
-
-  final CartSummary summary;
-  final Address? activeAddress;
-  final List<CartItem> cartItems;
-
-  @override
-  ConsumerState<_SelectPaymentMethodSheet> createState() =>
-      __SelectPaymentMethodSheetState();
-}
-
-class __SelectPaymentMethodSheetState
-    extends ConsumerState<_SelectPaymentMethodSheet> {
-  String _selectedPaymentMode = 'cod'; // 'cod' or 'online' or 'upi'
-  bool _placingOrder = false;
-  String _error = '';
-
-  Future<void> _handlePlaceOrder() async {
-    final address = widget.activeAddress;
-    if (address == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a delivery address first.')),
-      );
-      return;
-    }
-
-    if (_selectedPaymentMode != 'cod') {
-      Navigator.pop(context);
-      context.push(
-        '${RoutePaths.payment}?addressId=${address.id}',
-      );
-      return;
-    }
-
-    setState(() {
-      _placingOrder = true;
-      _error = '';
-    });
-
-    try {
-      final itemsPayload = widget.cartItems
-          .map(
-            (item) => {
-              'productId': item.id,
-              'quantity': item.quantity,
-              'variantName': item.variantName,
-              'colorName': item.colorName,
-              'name': item.name,
-              'price': item.price,
-              'discountedPrice': item.discountedPrice,
-              'brandName': item.brandName,
-              'image': item.productImages.isNotEmpty ? item.productImages.first : '',
-            },
-          )
-          .toList();
-
-      final api = ref.read(apiServiceProvider);
-      final response = await api.placeOrder({
-        'addressId': address.id,
-        'paymentMethod': 'cod',
-        'checkoutItems': itemsPayload,
-        'checkoutMode': 'cart',
-      });
-
-      final body = ApiResponseParser.getData(response.data);
-      if (body is! Map<String, dynamic>) {
-        throw ApiException(
-          ApiResponseParser.getMessage(response.data) ??
-              'Failed to create order. Try again.',
-        );
-      }
-
-      await ref.read(cartControllerProvider.notifier).clearCart();
-      if (!mounted) return;
-
-      Navigator.pop(context); // Close sheet
-
-      // Show Order Placed Success Modal
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFDCFCE7),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 54),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Order Placed Successfully! 🎉',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your fresh items are being prepared for express delivery.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.go(RoutePaths.orders);
-                  },
-                  child: const Text('View My Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _placingOrder = false;
-        _error = apiErrorMessage(e, fallback: 'Failed to place order.');
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final grandTotal = widget.summary.subtotal + 5;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.paddingOf(context).bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row: Back button (←) + Bill Total Amount
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 24),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bill Total: ${formatInr(grandTotal)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    'Includes all taxes & handling charges',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-
-          Text(
-            'Select Payment Method',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Option 1: UPI Payment
-          _PaymentOptionTile(
-            icon: Icons.qr_code_scanner_rounded,
-            title: 'UPI Payment',
-            subtitle: 'Google Pay, PhonePe, Paytm, BHIM UPI',
-            isSelected: _selectedPaymentMode == 'upi',
-            onTap: () => setState(() => _selectedPaymentMode = 'upi'),
-          ),
-          const SizedBox(height: 10),
-
-          // Option 2: Cash on Delivery (COD)
-          _PaymentOptionTile(
-            icon: Icons.payments_outlined,
-            title: 'Cash on Delivery (COD)',
-            subtitle: 'Pay cash or UPI upon delivery at your door',
-            isSelected: _selectedPaymentMode == 'cod',
-            onTap: () => setState(() => _selectedPaymentMode = 'cod'),
-          ),
-          const SizedBox(height: 10),
-
-          // Option 3: Online Payment / Cards
-          _PaymentOptionTile(
-            icon: Icons.credit_card_rounded,
-            title: 'Cards / NetBanking / Razorpay',
-            subtitle: 'Credit Card, Debit Card, NetBanking',
-            isSelected: _selectedPaymentMode == 'online',
-            onTap: () => setState(() => _selectedPaymentMode = 'online'),
-          ),
-
-          if (_error.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(_error, style: const TextStyle(color: Colors.red, fontSize: 13)),
-          ],
-
-          const SizedBox(height: 20),
-
-          // CTA Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              onPressed: _placingOrder ? null : _handlePlaceOrder,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _placingOrder
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      'Choose Payment & Place Order · ${formatInr(grandTotal)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentOptionTile extends StatelessWidget {
-  const _PaymentOptionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFFDF5) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? const Color(0xFF16A34A) : const Color(0xFF64748B),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
-              size: 20,
-            ),
-          ],
-        ),
       ),
     );
   }

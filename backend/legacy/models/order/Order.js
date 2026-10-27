@@ -236,6 +236,8 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       maxlength: 8,
     },
+    /** Last time the delivery OTP was SMSed to the customer (resend cooldown). */
+    deliveryOtpSmsSentAt: { type: Date, default: null },
     preOrderSlot: {
       type: String,
       default: "",

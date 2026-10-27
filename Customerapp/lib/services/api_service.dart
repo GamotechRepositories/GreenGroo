@@ -296,6 +296,10 @@ class ApiService {
   Future<Response<dynamic>> cancelOrder(String id) =>
       _dio.patch('/api/orders/$id/cancel');
 
+  /// SMS the delivery OTP (MSG91 delivery-verify template) to the customer again.
+  Future<Response<dynamic>> resendDeliveryOtp(String id) =>
+      _dio.post('/api/orders/$id/resend-delivery-otp');
+
   Future<Response<dynamic>> reschedulePreOrder(String id, String slot) =>
       _dio.patch('/api/orders/$id/preorder-slot', data: {'slot': slot});
 

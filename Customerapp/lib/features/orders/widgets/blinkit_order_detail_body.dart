@@ -16,6 +16,7 @@ import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
 import '../feedback/order_feedback_sheet.dart';
 import '../tracking/order_tracking_panel.dart';
+import 'delivery_otp_resend_button.dart';
 import 'preorder_manage_card.dart';
 
 const _themeGreen = Color(0xFF2E7D32);
@@ -41,16 +42,22 @@ String getOrderDisplayCode(Order order) {
   return getOrderNumber(order);
 }
 
+/// Home deliveries show the OTP once out for delivery (when it is SMSed);
+/// store pickups show it while the order is active.
 bool _shouldShowDeliveryOtp(Order order) {
   final otp = order.deliveryOtp.trim();
   if (otp.isEmpty) return false;
-  return const {'confirm', 'processing', 'shipping'}.contains(order.status);
+  if (order.isPickup) {
+    return const {'confirm', 'processing', 'shipping'}.contains(order.status);
+  }
+  return order.status == 'shipping';
 }
 
 class _DeliveryOtpBanner extends StatelessWidget {
-  const _DeliveryOtpBanner({required this.otp, this.pickup = false});
+  const _DeliveryOtpBanner({required this.otp, required this.orderId, this.pickup = false});
 
   final String otp;
+  final String orderId;
   final bool pickup;
 
   @override
@@ -81,7 +88,8 @@ class _DeliveryOtpBanner extends StatelessWidget {
             Text(
               pickup
                   ? 'Show this code at the dark store counter to collect your order.'
-                  : 'Share this code with the delivery partner to complete your order.',
+                  : 'Your order is out for delivery. We sent this code to your phone by SMS — '
+                      'share it with the delivery partner to receive your items.',
               style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF047857),
@@ -99,19 +107,25 @@ class _DeliveryOtpBanner extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            TextButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: otp));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Delivery OTP copied')),
-                );
-              },
-              icon: const Icon(Icons.copy_rounded, size: 16),
-              label: const Text('Copy OTP'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF065F46),
-                padding: EdgeInsets.zero,
-              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: otp));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Delivery OTP copied')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: const Text('Copy OTP'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF065F46),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                const Spacer(),
+                if (!pickup) DeliveryOtpResendButton(orderId: orderId),
+              ],
             ),
           ],
         ),
@@ -353,7 +367,11 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                     onRateNow: () => showOrderFeedbackSheet(context, ref, order.id),
                   ),
                 if (_shouldShowDeliveryOtp(order))
-                  _DeliveryOtpBanner(otp: order.deliveryOtp, pickup: order.isPickup),
+                  _DeliveryOtpBanner(
+                    otp: order.deliveryOtp,
+                    orderId: order.id,
+                    pickup: order.isPickup,
+                  ),
                 if (order.darkStore != null || order.storeParts.length > 1)
                   _FulfillmentInfo(order: order),
                 if (PreOrderManageCard.appliesTo(order))

@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -60,7 +59,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   late final Razorpay _razorpay;
 
-  PaymentModeOption _selectedMode = PaymentModeOption.gpay;
+  PaymentModeOption _selectedMode = PaymentModeOption.cod;
   final String _paymentPlan = PaymentPlan.full;
   bool _placingOrder = false;
   bool _orderPlaced = false;
@@ -315,15 +314,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           'email': user.email,
           'name': user.name,
         },
-        'config': {
-          'display': {
-            'blocks': {
-              'chosen': _razorpayBlockForSelection(),
-            },
-            'sequence': ['block.chosen'],
-            'preferences': {'show_default_blocks': true},
-          },
-        },
+        'theme': {'color': '#047857'},
       };
 
       _razorpay.open(options);
@@ -334,28 +325,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _errorMessage = msg;
       });
     }
-  }
-
-  Map<String, dynamic> _razorpayBlockForSelection() {
-    if (_selectedMode == PaymentModeOption.card) {
-      return {
-        'name': 'Credit & Debit Cards',
-        'instruments': [
-          {'method': 'card'},
-        ],
-      };
-    }
-    final app = upiAppIds[_selectedMode];
-    return {
-      'name': 'Pay by UPI',
-      'instruments': [
-        {
-          'method': 'upi',
-          if (app != null) 'flows': ['intent'],
-          if (app != null) 'apps': [app],
-        },
-      ],
-    };
   }
 
   Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
@@ -623,74 +592,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   textColor: const Color(0xFFB91C1C),
                 ),
 
-              const _SectionTitle('Preferred Payment'),
-              _MethodGroup(
-                children: [
-                  _methodTile(
-                    mode: PaymentModeOption.gpay,
-                    title: 'Google Pay',
-                    leading: SvgPicture.asset('assets/images/payment/gpay.svg', width: 24, height: 24),
-                    payLabel: 'Pay via GooglePay',
-                    address: effectiveAddress,
-                  ),
-                ],
-              ),
-
-              _SectionTitle(_isPickup ? 'Pay at Store' : 'Pay on Delivery'),
+              const _SectionTitle('Payment Options'),
               _MethodGroup(
                 children: [
                   _methodTile(
                     mode: PaymentModeOption.cod,
-                    title: _isPickup ? 'Cash/Pay at Store' : 'Cash/Pay on Delivery',
+                    title: PaymentModeOption.cod.title(pickup: _isPickup),
                     subtitle: _isPickup
-                        ? 'Pay cash or UPI when you collect your order.'
-                        : 'Pay cash at the time of delivery.',
+                        ? 'Cash or UPI when you collect your order'
+                        : 'Cash or UPI when your order arrives',
                     leading: const Icon(Icons.payments_outlined, color: _accent, size: 22),
                     payLabel: 'Place Order',
                     address: effectiveAddress,
                   ),
-                ],
-              ),
-
-              _SectionTitle(
-                'Pay by any UPI App',
-                leading: SvgPicture.asset('assets/images/payment/upi.svg', height: 14),
-              ),
-              _MethodGroup(
-                children: [
                   _methodTile(
-                    mode: PaymentModeOption.phonepe,
-                    title: 'PhonePe UPI',
-                    leading: SvgPicture.asset('assets/images/payment/phonepe.svg', width: 24, height: 24),
-                    payLabel: 'Pay via PhonePe',
-                    address: effectiveAddress,
-                  ),
-                  _methodTile(
-                    mode: PaymentModeOption.paytm,
-                    title: 'Paytm UPI',
-                    leading: SvgPicture.asset('assets/images/payment/paytm.svg', width: 24, height: 24),
-                    payLabel: 'Pay via Paytm',
-                    address: effectiveAddress,
-                  ),
-                  _methodTile(
-                    mode: PaymentModeOption.anyUpi,
-                    title: 'Other UPI apps',
-                    subtitle: 'BHIM, bank apps or UPI ID',
-                    leading: SvgPicture.asset('assets/images/payment/bhim.svg', width: 24, height: 24),
-                    payLabel: 'Pay $amountText via UPI',
-                    address: effectiveAddress,
-                  ),
-                ],
-              ),
-
-              const _SectionTitle('Credit & Debit Cards'),
-              _MethodGroup(
-                children: [
-                  _methodTile(
-                    mode: PaymentModeOption.card,
-                    title: 'Add credit or debit card',
-                    subtitle: 'Visa, Mastercard, RuPay & more',
-                    leading: const Icon(Icons.credit_card_rounded, color: Color(0xFF334155), size: 22),
+                    mode: PaymentModeOption.online,
+                    title: PaymentModeOption.online.title(),
+                    subtitle: '$amountText by UPI or card',
+                    leading: const Icon(Icons.credit_card_rounded, color: _accent, size: 22),
                     payLabel: 'Pay $amountText',
                     address: effectiveAddress,
                   ),
@@ -1014,32 +933,24 @@ class _NoticeBanner extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title, {this.leading});
+  const _SectionTitle(this.title);
 
   final String title;
-  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 8)],
-          Flexible(
-            child: Text(
-              title.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.4,
-                color: _muted,
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        title.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
+          color: _muted,
+        ),
       ),
     );
   }

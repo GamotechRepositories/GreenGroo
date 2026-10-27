@@ -3,6 +3,7 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import { completeDelivery } from "./DeliveryCompletionService.js";
 import { restoreOrderStock } from "./storeStockService.js";
 import { syncCustomerOrderFromStore } from "./syncCustomerOrderFromStore.js";
+import { sendDeliveryOtpSmsOnDispatch } from "./deliveryOtpSmsService.js";
 import { getIO } from "../../../socket.js";
 
 const ASSIGNMENT_BY_STATUS = {
@@ -293,6 +294,7 @@ export async function applyStoreOrderStatus({
   if (status === "out_for_delivery") order.customerAddressUnlocked = true;
   await order.save();
   await syncCustomerOrderFromStore(order, status);
+  if (status === "out_for_delivery") sendDeliveryOtpSmsOnDispatch(order);
   emitStoreStatus(order);
   return { success: true, message: "Order status updated", order };
 }

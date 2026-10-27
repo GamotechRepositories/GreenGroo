@@ -1,50 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Same two plans as the website checkout: cash on delivery, or pay now
+/// through Razorpay (UPI, card, netbanking, wallets).
 enum PaymentModeOption {
-  gpay,
-  phonepe,
-  paytm,
-  anyUpi,
-  card,
   cod,
+  online,
 }
 
-/// Razorpay UPI-intent app id for each app option.
-const upiAppIds = {
-  PaymentModeOption.gpay: 'google_pay',
-  PaymentModeOption.phonepe: 'phonepe',
-  PaymentModeOption.paytm: 'paytm',
-};
-
 extension PaymentModeOptionX on PaymentModeOption {
-  String get label => switch (this) {
-        PaymentModeOption.gpay => 'Google Pay',
-        PaymentModeOption.phonepe => 'PhonePe',
-        PaymentModeOption.paytm => 'Paytm UPI',
-        PaymentModeOption.anyUpi => 'UPI',
-        PaymentModeOption.card => 'Credit / Debit Card',
-        PaymentModeOption.cod => 'Cash on Delivery',
+  String label({bool pickup = false}) => switch (this) {
+        PaymentModeOption.cod => pickup ? 'Pay at store' : 'Cash on Delivery',
+        PaymentModeOption.online => 'Pay now · UPI / Card',
       };
 
-  /// SVG under assets/images/payment, or null when [icon] should be used.
-  String? get asset => switch (this) {
-        PaymentModeOption.gpay => 'assets/images/payment/gpay.svg',
-        PaymentModeOption.phonepe => 'assets/images/payment/phonepe.svg',
-        PaymentModeOption.paytm => 'assets/images/payment/paytm.svg',
-        PaymentModeOption.anyUpi => 'assets/images/payment/bhim.svg',
-        PaymentModeOption.card || PaymentModeOption.cod => null,
+  String title({bool pickup = false}) => switch (this) {
+        PaymentModeOption.cod => pickup ? 'Pay at store' : 'Cash on Delivery',
+        PaymentModeOption.online => 'Pay now',
       };
 
   IconData get icon => switch (this) {
-        PaymentModeOption.card => Icons.credit_card_rounded,
         PaymentModeOption.cod => Icons.payments_outlined,
-        _ => Icons.account_balance_wallet_outlined,
+        PaymentModeOption.online => Icons.credit_card_rounded,
       };
 }
 
+const _legacyOnlineModes = {'gpay', 'phonepe', 'paytm', 'anyUpi', 'card'};
+
 PaymentModeOption? paymentModeFromName(String? name) {
   if (name == null || name.isEmpty) return null;
+  if (_legacyOnlineModes.contains(name)) return PaymentModeOption.online;
   for (final mode in PaymentModeOption.values) {
     if (mode.name == name) return mode;
   }

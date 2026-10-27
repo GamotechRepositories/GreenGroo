@@ -42,6 +42,19 @@ export async function sendDeliveryOtpSms(order) {
   );
   order.otpCode = otpCode;
 
+  // The app/website shows Order.deliveryOtp — keep it the same code the SMS carried.
+  if (order.sourceOrderId) {
+    try {
+      const { default: EcommerceOrder } = await import("../../../legacy/models/order/Order.js");
+      await EcommerceOrder.updateOne(
+        { _id: order.sourceOrderId },
+        { $set: { deliveryOtp: otpCode, deliveryOtpSmsSentAt: new Date() } }
+      );
+    } catch (err) {
+      console.warn("[deliveryOtpSms] could not sync OTP to customer order:", err.message);
+    }
+  }
+
   return { success: true, customerPhone, devMock: result.devMock };
 }
 

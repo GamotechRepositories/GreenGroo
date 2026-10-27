@@ -2180,6 +2180,8 @@ export const deleteOrder = async (req, res) => {
   }
 };
 
+const DELIVERY_OTP_RESEND_COOLDOWN_MS = 30 * 1000;
+
 export const resendCustomerDeliveryOtp = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id).populate("user", "phone").lean();
@@ -2187,20 +2189,62 @@ export const resendCustomerDeliveryOtp = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const customerPhone = order.deliveryAddress?.phone || order.user?.phone;
-    if (!customerPhone) {
+    const isAdmin = req.user?.role === "admin";
+    const ownerId = String(order.user?._id || order.user || "");
+    if (!isAdmin && ownerId !== String(req.user?._id || "")) {
+      return res.status(403).json({ success: false, message: "Not your order" });
+    }
+    if (!isAdmin && order.status !== "shipping") {
+      return res.status(400).json({
+        success: false,
+        message: "The delivery OTP is sent once your order is out for delivery",
+      });
+    }
+
+    const lastSentAt = order.deliveryOtpSmsSentAt ? new Date(order.deliveryOtpSmsSentAt).getTime() : 0;
+    const waitMs = lastSentAt + DELIVERY_OTP_RESEND_COOLDOWN_MS - Date.now();
+    if (waitMs > 0) {
+      const retryAfter = Math.ceil(waitMs / 1000);
+      return res.status(429).json({
+        success: false,
+        retryAfter,
+        message: `Please wait ${retryAfter}s before requesting the OTP again`,
+      });
+    }
+
+    const customerPhone = String(
+      order.deliveryAddress?.number || order.deliveryAddress?.phone || order.user?.phone || ""
+    )
+      .replace(/\D/g, "")
+      .slice(-10);
+    if (customerPhone.length !== 10) {
       return res.status(400).json({ success: false, message: "No customer phone number found on order" });
     }
 
-    const otpCode = String(order.deliveryOtp || Math.floor(1000 + Math.random() * 9000)).trim();
-    if (!order.deliveryOtp) {
-      await Order.findByIdAndUpdate(order._id, { deliveryOtp: otpCode });
-    }
+    // The rider verifies against the store order's code, so resend that exact one.
+    const StoreOrder = await loadStoreOrderModel();
+    const storePart = await StoreOrder.findOne(
+      { sourceOrderId: order._id, otpCode: { $nin: ["", null] } },
+      { otpCode: 1 }
+    ).lean();
+    const otpCode = String(
+      storePart?.otpCode || order.deliveryOtp || Math.floor(1000 + Math.random() * 9000)
+    ).trim();
 
     const result = await sendDeliveryVerificationOtp(customerPhone, otpCode);
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { deliveryOtp: otpCode, deliveryOtpSmsSentAt: new Date() } }
+    );
+    if (!storePart) {
+      await StoreOrder.updateMany({ sourceOrderId: order._id }, { $set: { otpCode } });
+    }
+
     return res.json({
       success: true,
-      message: "Delivery verification OTP sent to customer via SMS",
+      message: `Delivery OTP sent by SMS to ******${customerPhone.slice(-4)}`,
+      phoneLast4: customerPhone.slice(-4),
+      retryAfter: Math.ceil(DELIVERY_OTP_RESEND_COOLDOWN_MS / 1000),
       devMock: result.devMock,
     });
   } catch (error) {
