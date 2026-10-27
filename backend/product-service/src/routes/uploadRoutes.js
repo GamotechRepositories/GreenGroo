@@ -1,28 +1,9 @@
 import express from "express";
 import multer from "multer";
-import { randomBytes } from "crypto";
 import path from "path";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { assertS3Configured, getS3Client, uploadBufferToS3 } from "../services/s3Upload.js";
 
 const router = express.Router();
-
-const getS3Client = () => {
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error("AWS credentials are not configured. Check AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in backend/.env");
-  }
-  return new S3Client({
-    region: process.env.AWS_REGION || "ap-south-1",
-    credentials: { accessKeyId, secretAccessKey },
-  });
-};
-
-const BUCKET_NAME = () => process.env.AWS_BUCKET_NAME || "";
-const REGION = () => process.env.AWS_REGION || "ap-south-1";
-const CLOUDFRONT_URL = () => (process.env.CLOUDFRONT_URL || "").replace(/\/$/, "");
-// Keys are unique per upload and never overwritten, so objects can be cached indefinitely.
-const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -39,12 +20,6 @@ const upload = multer({
     }
   },
 });
-
-const buildPublicUrl = (s3Key) => {
-  const cdn = CLOUDFRONT_URL();
-  if (cdn) return `${cdn}/${s3Key}`;
-  return `https://${BUCKET_NAME()}.s3.${REGION()}.amazonaws.com/${s3Key}`;
-};
 
 const normalizeFolder = (raw) => {
   const cleaned = String(raw || "uploads")
@@ -63,17 +38,10 @@ const normalizeFolder = (raw) => {
  */
 router.post("/", upload.any(), async (req, res) => {
   try {
-    if (!BUCKET_NAME()) {
-      return res.status(500).json({
-        success: false,
-        message: "AWS_BUCKET_NAME is not configured in backend/.env",
-      });
-    }
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      return res.status(500).json({
-        success: false,
-        message: "AWS credentials are not configured in backend/.env",
-      });
+    try {
+      assertS3Configured();
+    } catch (configError) {
+      return res.status(500).json({ success: false, message: configError.message });
     }
 
     const files = req.files || (req.file ? [req.file] : []);
@@ -82,29 +50,24 @@ router.post("/", upload.any(), async (req, res) => {
     }
 
     const folder = normalizeFolder(req.body?.folder);
-    const s3 = getS3Client();
+    const client = getS3Client();
 
     const uploadedResults = await Promise.all(
       files.map(async (file) => {
         const ext =
           path.extname(file.originalname).toLowerCase() ||
           (file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
-        const randomName = randomBytes(16).toString("hex");
-        const s3Key = `${folder}/${Date.now()}-${randomName}${ext}`;
-
-        await s3.send(
-          new PutObjectCommand({
-            Bucket: BUCKET_NAME(),
-            Key: s3Key,
-            Body: file.buffer,
-            ContentType: file.mimetype,
-            CacheControl: IMMUTABLE_CACHE_CONTROL,
-          })
-        );
+        const { url, key } = await uploadBufferToS3({
+          buffer: file.buffer,
+          folder,
+          ext,
+          contentType: file.mimetype,
+          client,
+        });
 
         return {
-          url: buildPublicUrl(s3Key),
-          key: s3Key,
+          url,
+          key,
           originalName: file.originalname,
           mimetype: file.mimetype,
           isVideo: file.mimetype.startsWith("video/"),

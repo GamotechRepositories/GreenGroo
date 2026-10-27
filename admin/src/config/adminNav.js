@@ -50,6 +50,9 @@ import {
   FolderTree,
   CalendarClock,
   Database,
+  GalleryHorizontal,
+  Monitor,
+  Smartphone,
 } from 'lucide-react';
 
 /**
@@ -191,6 +194,29 @@ export const NAV_GROUPS = [
             icon: Layers,
             implemented: true,
             description: 'Add and manage store sections such as GreenGrocc and Ready2Cook.',
+          },
+        ],
+      },
+      {
+        name: 'Banners',
+        href: '/banners/desktop',
+        icon: GalleryHorizontal,
+        implemented: true,
+        description: 'Storefront banners for each section, with separate desktop and mobile images.',
+        children: [
+          {
+            name: 'Desktop View',
+            href: '/banners/desktop',
+            icon: Monitor,
+            implemented: true,
+            description: 'Banners shown on laptops and large screens.',
+          },
+          {
+            name: 'Mobile View',
+            href: '/banners/mobile',
+            icon: Smartphone,
+            implemented: true,
+            description: 'Banners shown on phones and small screens.',
           },
         ],
       },

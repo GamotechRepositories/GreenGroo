@@ -8,6 +8,10 @@ export const queryKeys = {
   brands: {
     all: ["brands"],
   },
+  banners: {
+    all: ["banners"],
+    list: (section, placement) => ["banners", section, placement],
+  },
   storeSettings: ["store-settings"],
   availableCoupons: (subtotal, userId) => ["coupons", "available", subtotal, userId || "guest"],
   products: {

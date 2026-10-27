@@ -61,6 +61,8 @@ export const getHeroBanners = (device = "desktop") =>
 export const getOfferBanners = (device = "desktop") =>
   api.get("/api/offerbanners", { params: { device } });
 
+export const getBanners = (params) => api.get("/api/banners", { params });
+
 export const getCategories = (params) => api.get("/api/categories", { params });
 export const getCategoryById = (id) => api.get(`/api/categories/${id}`);
 export const getSections = (params) => api.get("/api/sections", { params });

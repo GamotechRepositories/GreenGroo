@@ -1,42 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-export const GREENGROCC_SHOP_BANNERS = [
-  {
-    id: "gg-banner-18",
-    image: "/assets/payment/category_banner_1.png",
-    alt: "Featured Special Banner 1",
-    link: "/product",
-  },
-  {
-    id: "gg-banner-14",
-    image: "/assets/payment/category_banner_2.png",
-    alt: "Featured Special Banner 2",
-    link: "/product",
-  },
-  {
-    id: "gg-banner-15",
-    image: "/assets/payment/category_banner_3.png",
-    alt: "Featured Special Banner 3",
-    link: "/product",
-  },
-  {
-    id: "gg-banner-16",
-    image: "/assets/payment/category_banner_4.png",
-    alt: "Featured Special Banner 4",
-    link: "/product",
-  },
-  {
-    id: "gg-banner-17",
-    image: "/assets/payment/category_banner_5.png",
-    alt: "Featured Special Banner 5",
-    link: "/product",
-  },
-];
-
+/** Rotating shop banner; `banners` come from admin → Banners (see ShopTopSlidingBanners). */
 export function GreenGroccShopBanner({
   matchOfferSizeOnMobile = false,
-  banners = GREENGROCC_SHOP_BANNERS,
+  banners = [],
 } = {}) {
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store");
@@ -49,7 +17,7 @@ export function GreenGroccShopBanner({
 
   // Auto rotate banners every 4 seconds when not hovered
   useEffect(() => {
-    if (isHovered) return undefined;
+    if (isHovered || banners.length < 2) return undefined;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
     }, 4000);
@@ -92,6 +60,9 @@ export function GreenGroccShopBanner({
     touchEndX.current = 0;
   };
 
+  if (!banners.length) return null;
+  const activeIndex = currentIndex % banners.length;
+
   return (
     <div
       className="group relative mb-3.5 w-full overflow-hidden rounded-2xl shadow-xs border border-emerald-900/10 bg-[#fbf9f4] select-none"
@@ -104,10 +75,11 @@ export function GreenGroccShopBanner({
       {/* Sliding Track */}
       <div
         className="flex w-full transition-transform duration-500 ease-in-out"
-        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
       >
         {banners.map((banner, index) => {
-          const targetLink = currentStore ? `/product${storeQuery}` : banner.link;
+          const isDefaultLink = !banner.link || banner.link === "/product";
+          const targetLink = currentStore && isDefaultLink ? `/product${storeQuery}` : banner.link;
           return (
             <div key={banner.id} className="w-full shrink-0">
               <Link to={targetLink} className="block w-full">
@@ -163,7 +135,7 @@ export function GreenGroccShopBanner({
             }}
             aria-label={`Go to slide ${index + 1}`}
             className={`transition-all duration-300 rounded-full cursor-pointer ${
-              currentIndex === index
+              activeIndex === index
                 ? "w-6 h-1.5 bg-emerald-600 shadow-xs"
                 : "w-1.5 h-1.5 bg-white/70 hover:bg-white shadow-xs"
             }`}

@@ -27,6 +27,7 @@ const PUBLIC_ENTITIES = {
   greengroccsections: "section",
   herobanners: "hero_banner",
   offerbanners: "offer_banner",
+  greengroccbanners: "banner",
 };
 
 const FLUSH_MS = 200;

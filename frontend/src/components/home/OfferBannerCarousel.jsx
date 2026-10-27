@@ -46,21 +46,34 @@ export default function OfferBannerCarousel({
       >
         <img
           src={banner.image}
-          alt=""
+          alt={banner.alt || ""}
           loading="lazy"
           className={`absolute inset-0 h-full w-full object-cover ${banner.position || "object-center"}`}
         />
-        <div className={`absolute inset-y-0 left-0 w-[68%] bg-gradient-to-r to-transparent ${banner.fade || DEFAULT_FADE}`} />
+        {banner.bgColor ? (
+          <div
+            className="absolute inset-y-0 left-0 w-[68%]"
+            style={{ background: `linear-gradient(to right, ${banner.bgColor}, ${banner.bgColor}cc, transparent)` }}
+          />
+        ) : (
+          <div className={`absolute inset-y-0 left-0 w-[68%] bg-gradient-to-r to-transparent ${banner.fade || DEFAULT_FADE}`} />
+        )}
         <div className="relative z-10 flex h-full max-w-[68%] flex-col justify-center px-3 py-3 sm:max-w-[58%] sm:px-7">
-          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#1f8a3b] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white sm:px-2.5 sm:py-1 sm:text-[10px]">
-            <LeafMark className="h-3 w-3" />
-            {banner.tag}
-          </span>
-          <h3 className="mt-1 whitespace-pre-line text-[16px] font-extrabold leading-[1.05] text-[#145c32] sm:mt-2 sm:text-[30px] lg:text-[36px]">
-            {banner.title}
-          </h3>
-          <p className="mt-0.5 text-[10px] font-medium text-slate-700 sm:mt-1 sm:text-[15px]">{banner.subtitle}</p>
-          <p className="text-[12px] font-extrabold text-slate-900 sm:text-[18px]">{banner.offer}</p>
+          {banner.tag ? (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#1f8a3b] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white sm:px-2.5 sm:py-1 sm:text-[10px]">
+              <LeafMark className="h-3 w-3" />
+              {banner.tag}
+            </span>
+          ) : null}
+          {banner.title ? (
+            <h3 className="mt-1 whitespace-pre-line text-[16px] font-extrabold leading-[1.05] text-[#145c32] sm:mt-2 sm:text-[30px] lg:text-[36px]">
+              {banner.title}
+            </h3>
+          ) : null}
+          {banner.subtitle ? (
+            <p className="mt-0.5 text-[10px] font-medium text-slate-700 sm:mt-1 sm:text-[15px]">{banner.subtitle}</p>
+          ) : null}
+          {banner.offer ? <p className="text-[12px] font-extrabold text-slate-900 sm:text-[18px]">{banner.offer}</p> : null}
           <div className="mt-2 hidden flex-wrap gap-2 sm:flex">
             {trustPoints.map((point) => (
               <span

@@ -14,6 +14,7 @@ import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
 import BaseProducts from './pages/BaseProducts';
 import AllBaseProducts from './pages/AllBaseProducts';
+import Banners from './pages/Banners';
 import Analytics from './pages/Analytics';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
 import PreOrderSlots from './pages/PreOrderSlots';
@@ -113,6 +114,9 @@ export default function App() {
               <Route path="erp/:resource" element={<ErpListPage />} />
               <Route path="products/base-products/add" element={<BaseProducts />} />
               <Route path="products/base-products/:sectionSlug?" element={<AllBaseProducts />} />
+              <Route path="products/banners/*" element={<Navigate to="/banners/desktop" replace />} />
+              <Route path="banners" element={<Navigate to="/banners/desktop" replace />} />
+              <Route path="banners/:device/:sectionSlug?" element={<Banners />} />
               <Route path="products/:catalogView?/:sectionSlug?" element={<Products />} />
               <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="pre-order-slots" element={<PreOrderSlots />} />

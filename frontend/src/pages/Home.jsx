@@ -80,21 +80,21 @@ function Home() {
       {/* Full-width PreOrder Hero Banner Carousel for Desktop — touches subnavbar directly, edge-to-edge, no curved edges */}
       {store === "main" && (
         <section className="hidden lg:block w-full bg-white">
-          <PreorderHeroCarousel />
+          <PreorderHeroCarousel isMobile={false} />
         </section>
       )}
 
       {/* Full-width Ready2Cook Hero Banner Carousel for Desktop */}
       {store === "festive" && (
         <section className="hidden lg:block w-full bg-white">
-          <Ready2CookHeroCarousel />
+          <Ready2CookHeroCarousel isMobile={false} />
         </section>
       )}
 
       {/* Full-width InstantOrder Hero Banner Carousel for Desktop */}
       {store === "mall" && (
         <section className="hidden lg:block w-full bg-white">
-          <InstantOrderHeroCarousel />
+          <InstantOrderHeroCarousel isMobile={false} />
         </section>
       )}
 

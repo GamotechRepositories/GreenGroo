@@ -1,5 +1,7 @@
 import { ChevronRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import OfferBannerCarousel, { LeafMark } from "./OfferBannerCarousel";
+import { useSectionBanners } from "../../hooks/queries/useSectionBanners";
 
 function SbiLogo() {
   return (
@@ -88,30 +90,10 @@ const PAYMENT_OFFERS = [
   },
 ];
 
-const BANNERS = [
-  {
-    id: "summer",
-    image: "/offers/summer.jpg",
-    position: "object-[70%_center]",
-    tag: "Farm Fresh",
-    title: "Gentle Summer\nOrganic Care",
-    subtitle: "Farm Fresh Vegetables & Fruits",
-    offer: "Up to 30% Off",
-    link: "/product?categoryName=Vegetables",
-  },
-  {
-    id: "harvest",
-    image: "/offers/harvest.jpg",
-    position: "object-center",
-    tag: "Direct Farm",
-    title: "Nashik Co-op\nDirect Harvest",
-    subtitle: "Fresh vegetable combos from the farm",
-    offer: "Flat 40% Off",
-    link: "/product?categoryName=Vegetables",
-  },
-];
-
 export default function TopPaymentOffersSection() {
+  const [searchParams] = useSearchParams();
+  const banners = useSectionBanners(searchParams.get("store"), "offer");
+
   return (
     <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
       <div className="flex items-start justify-between gap-3">
@@ -139,7 +121,8 @@ export default function TopPaymentOffersSection() {
         ))}
       </div>
 
-      <OfferBannerCarousel banners={BANNERS} className="mt-4" />
+      <OfferBannerCarousel banners={banners.desktop} className="mt-4 hidden lg:block" />
+      <OfferBannerCarousel banners={banners.mobile} className="mt-4 lg:hidden" />
     </section>
   );
 }

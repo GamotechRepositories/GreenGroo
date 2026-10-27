@@ -70,6 +70,8 @@ function handleCatalogEvent(queryClient, event) {
       const next = patchList(data, event, mergeDoc);
       return next === data ? data : normalizeSections(next);
     });
+  } else if (event.entity === "banner") {
+    queryClient.invalidateQueries({ queryKey: queryKeys.banners.all });
   }
   catalogListeners.forEach((listener) => listener(event));
 }
@@ -94,6 +96,7 @@ export function useCatalogSync() {
         queryClient.invalidateQueries({ queryKey: ["products"] });
         queryClient.invalidateQueries({ queryKey: queryKeys.categories.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.banners.all });
       }
     });
 

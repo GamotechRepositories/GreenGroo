@@ -1350,7 +1350,7 @@ export async function registerFarmer(req, res) {
       mobileVerified: false,
       role: "FARMER",
       bank: {
-        accountHolder: name,
+        accountHolder: "",
         bankName: "",
         accountNumber: "",
         ifsc: "",

@@ -13,12 +13,13 @@ import { storeToSection } from "../../utils/storeSection";
 import FarmerGrowthBanner from "../home/FarmerGrowthBanner";
 import FarmerTestimonials from "../home/FarmerTestimonials";
 import OfferBannerCarousel from "../home/OfferBannerCarousel";
-import { getCategoryBanners } from "../home/categoryBanners";
+import { categoryBannerKey } from "../home/categoryBanners";
+import { useSectionBanners } from "../../hooks/queries/useSectionBanners";
 
 /** Two full rows of the 3-column mobile grid. */
 const MOBILE_GRID_LIMIT = 6;
 
-function CategoryProductSection({ categoryName, limit = 20, section = null }) {
+function CategoryProductSection({ categoryName, limit = 20, section = null, banners }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
   const locationKey = useDeliveryLocationKey();
@@ -54,12 +55,18 @@ function CategoryProductSection({ categoryName, limit = 20, section = null }) {
 
   if (products.length === 0) return null;
 
-  const banners = getCategoryBanners(categoryName);
+  const key = categoryBannerKey(categoryName);
+  const forCategory = (list) => (key ? list.filter((banner) => banner.category === key) : []);
+  const desktopBanners = forCategory(banners.desktop);
+  const mobileBanners = forCategory(banners.mobile);
 
   return (
     <section className="px-2 py-2 sm:px-3 lg:px-0 lg:py-4">
-      {banners.length ? (
-        <OfferBannerCarousel banners={banners} className="mb-4 lg:mb-5" />
+      {desktopBanners.length ? (
+        <OfferBannerCarousel banners={desktopBanners} className="mb-4 hidden lg:mb-5 lg:block" />
+      ) : null}
+      {mobileBanners.length ? (
+        <OfferBannerCarousel banners={mobileBanners} className="mb-4 lg:hidden" />
       ) : null}
       <SectionHeader
         title={categoryName}
@@ -111,6 +118,7 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
   const { data: apiCategories = [] } = useCategoriesQuery({
     section: targetSection,
   });
+  const categoryBanners = useSectionBanners(targetSection, "category");
 
   const categories = useMemo(() => {
     const names = (apiCategories || [])
@@ -158,6 +166,7 @@ function HomeAllCategoryProducts({ limitPerCategory = 20, section = null }) {
             categoryName={category}
             limit={limitPerCategory}
             section={targetSection}
+            banners={categoryBanners}
           />
         </div>
       ))}

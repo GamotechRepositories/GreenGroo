@@ -11,6 +11,7 @@ import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import InstantOrderHeroCarousel from "./InstantOrderHeroCarousel";
 import Ready2CookHeroCarousel from "./Ready2CookHeroCarousel";
+import HomeMidBannerSlider from "./HomeMidBannerSlider";
 import {
   sectionToStoreKey,
   storeToSection,
@@ -172,6 +173,8 @@ function FestiveStoreSection() {
           </div>
         )}
       </section>
+
+      <HomeMidBannerSlider />
 
       <SuggestedForYouSection
         title={isInstant ? "Instant bestsellers" : "Suggested for you"}

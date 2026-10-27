@@ -2,6 +2,7 @@ import productRoutes from "../../legacy/routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import sectionRoutes from "./routes/sectionRoutes.js";
 import baseProductRoutes from "./routes/baseProductRoutes.js";
+import bannerRoutes from "./routes/bannerRoutes.js";
 import brandRoutes from "../../legacy/routes/brandRoutes.js";
 import heroBannerRoutes from "../../legacy/routes/heroBannerRoutes.js";
 import offerBannerRoutes from "../../legacy/routes/offerBannerRoutes.js";
@@ -24,6 +25,7 @@ export default [
   { path: "/api/categories", router: categoryRoutes },
   { path: "/api/sections", router: sectionRoutes },
   { path: "/api/base-products", router: baseProductRoutes },
+  { path: "/api/banners", router: bannerRoutes },
   { path: "/api/brands", router: brandRoutes },
   { path: "/api/herobanners", router: heroBannerRoutes },
   { path: "/api/offerbanners", router: offerBannerRoutes },

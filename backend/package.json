@@ -15,7 +15,8 @@
     "dev:legacy": "npm run dev -w legacy",
     "fake:driver": "node scripts/fakeDriverLocation.mjs",
     "sync:catalog-stores": "node delivery-service/src/scripts/syncCatalogToStores.js",
-    "seed:manager-store": "node delivery-service/src/delivery-manager/scripts/seedAllManagerStores.js"
+    "seed:manager-store": "node delivery-service/src/delivery-manager/scripts/seedAllManagerStores.js",
+    "seed:banners": "node product-service/src/scripts/importDefaultBanners.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1067.0",

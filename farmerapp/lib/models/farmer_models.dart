@@ -55,7 +55,7 @@ class FarmerProfile {
   bool get locationConfirmed => _locationConfirmed ?? false;
   String get kycStatus => _kycStatus ?? 'PENDING';
   String get bankVerificationStatus => _bankVerificationStatus ?? 'PENDING';
-  String get bankAccountHolder => (_bankAccountHolder != null && _bankAccountHolder.isNotEmpty) ? _bankAccountHolder : fullName;
+  String get bankAccountHolder => _bankAccountHolder ?? '';
   String get bankName => _bankName ?? '';
   String get bankAccountNumber => _bankAccountNumber ?? '';
   String get bankIfsc => _bankIfsc ?? '';

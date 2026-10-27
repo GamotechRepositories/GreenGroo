@@ -145,41 +145,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await prefs.remove('farmer_pan');
       await prefs.remove('farmer_upi_id');
 
+      // Bank & identity come only from the server profile: farmer IDs can be
+      // reissued, so device-cached values may belong to a previous account.
       final p = FarmerState().profile;
-      final fid = p.id.trim();
-      final prefix = fid.isNotEmpty ? 'farmer_${fid}_' : null;
-
-      final holder = p.bankAccountHolder.isNotEmpty
-          ? p.bankAccountHolder
-          : (prefix != null ? (prefs.getString('${prefix}bank_holder') ?? '') : '');
-      final name = p.bankName.isNotEmpty
-          ? p.bankName
-          : (prefix != null ? (prefs.getString('${prefix}bank_name') ?? '') : '');
-      final accNo = p.bankAccountNumber.isNotEmpty
-          ? p.bankAccountNumber
-          : (prefix != null ? (prefs.getString('${prefix}bank_acc_no') ?? '') : '');
-      final ifsc = p.bankIfsc.isNotEmpty
-          ? p.bankIfsc
-          : (prefix != null ? (prefs.getString('${prefix}bank_ifsc') ?? '') : '');
-      final branch = p.bankBranch.isNotEmpty
-          ? p.bankBranch
-          : (prefix != null ? (prefs.getString('${prefix}bank_branch') ?? '') : '');
-      final accType = p.bankAccountType.isNotEmpty
-          ? p.bankAccountType
-          : (prefix != null ? (prefs.getString('${prefix}bank_acc_type') ?? 'Savings (बचत खाते)') : 'Savings (बचत खाते)');
-      final aadhaar = p.aadhaarNumber.isNotEmpty
-          ? p.aadhaarNumber
-          : (prefix != null ? (prefs.getString('${prefix}aadhaar') ?? '') : '');
-      final pan = p.panNumber.isNotEmpty
-          ? p.panNumber
-          : (prefix != null ? (prefs.getString('${prefix}pan') ?? '') : '');
-      final upi = p.bankUpiId.isNotEmpty
-          ? p.bankUpiId
-          : (prefix != null ? (prefs.getString('${prefix}upi_id') ?? '') : '');
+      final holder = p.bankAccountHolder;
+      final name = p.bankName;
+      final accNo = p.bankAccountNumber;
+      final ifsc = p.bankIfsc;
+      final branch = p.bankBranch;
+      final accType = p.bankAccountType.isNotEmpty ? p.bankAccountType : 'Savings (बचत खाते)';
+      final aadhaar = p.aadhaarNumber;
+      final pan = p.panNumber;
+      final upi = p.bankUpiId;
 
       if (mounted) {
         setState(() {
-          _bankHolderController.text = holder.isNotEmpty ? holder : p.fullName;
+          _bankHolderController.text = holder;
           _bankNameController.text = name;
           _bankAccountNoController.text = accNo;
           _bankIfscController.text = ifsc;

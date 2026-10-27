@@ -199,17 +199,8 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     // Step 2: Bank & Identity check
-    String bankAcc = profile.bankAccountNumber.trim();
-    String bankIfsc = profile.bankIfsc.trim();
-    if (bankAcc.isEmpty || bankIfsc.isEmpty) {
-      if (fid.isNotEmpty) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          bankAcc = prefs.getString('farmer_${fid}_bank_acc_no') ?? '';
-          bankIfsc = prefs.getString('farmer_${fid}_bank_ifsc') ?? '';
-        } catch (_) {}
-      }
-    }
+    final bankAcc = profile.bankAccountNumber.trim();
+    final bankIfsc = profile.bankIfsc.trim();
     if (bankAcc.isEmpty || bankIfsc.isEmpty) {
       currentPendingStep = 2;
       return 2;
@@ -1659,6 +1650,42 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  static const Set<String> _s3DocumentMimeTypes = {
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  };
+
+  /// Base64 images/videos go to S3 so only a short URL is sent to the API.
+  /// Falls back to the inline data URL if S3 upload is unavailable (e.g. older server).
+  Future<String> _moveDataUrlToS3(String farmerId, String value, String docType) async {
+    final match = RegExp(r'^data:([\w/+.-]+);base64,', caseSensitive: false).firstMatch(value);
+    if (match == null) return value;
+    final mimeType = match.group(1)!.toLowerCase();
+    if (!_s3DocumentMimeTypes.contains(mimeType)) return value;
+    final isVideo = mimeType.startsWith('video/');
+    try {
+      final bytes = base64Decode(value.substring(match.end));
+      return await ApiService().uploadDocumentFileToS3(
+        farmerId,
+        bytes,
+        mimeType,
+        fileName: '${docType}_${DateTime.now().millisecondsSinceEpoch}',
+      );
+    } on ApiHttpException catch (e) {
+      // Videos are too big for the inline JSON path, so surface the real error.
+      if (isVideo || e.statusCode != 404) rethrow;
+      return value;
+    } catch (e) {
+      if (isVideo) rethrow;
+      return value;
+    }
+  }
+
   Future<void> uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) async {
     if (documents.isEmpty) _ensureDocumentChecklist();
     final idx = documents.indexWhere((d) => d.id == docId || d.type == docId);
@@ -1670,12 +1697,13 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     if (updatedUrl.isEmpty || _isDummyFileUrl(updatedUrl)) {
       throw Exception(AppLanguage().tr(mr: 'खरी कागदपत्र फाईल निवडा', en: 'Choose a real document file'));
     }
-    if (updatedUrl.length > _maxDocumentPayloadChars) {
-      throw Exception(AppLanguage().tr(mr: 'फाईल खूप मोठी आहे (कमाल 10 MB).', en: 'File too large (max 10 MB).'));
-    }
     final targetFarmerId = profile.id.trim();
     if (targetFarmerId.isEmpty) {
       throw Exception(AppLanguage().tr(mr: 'शेतकरी लॉगिन आवश्यक आहे', en: 'Farmer login required'));
+    }
+    updatedUrl = await _moveDataUrlToS3(targetFarmerId, updatedUrl, doc.type);
+    if (updatedUrl.length > _maxDocumentPayloadChars) {
+      throw Exception(AppLanguage().tr(mr: 'फाईल खूप मोठी आहे (कमाल 10 MB).', en: 'File too large (max 10 MB).'));
     }
 
     final videoData = RegExp(r'^data:(video/[\w.+-]+);base64,', caseSensitive: false).firstMatch(updatedUrl);
