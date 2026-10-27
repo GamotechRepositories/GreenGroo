@@ -12,13 +12,16 @@ import '../features/home/home_screen.dart';
 import '../features/location/location_screen.dart';
 import '../features/product/catalog_flow_screen.dart';
 import '../features/product/featured_products_screen.dart';
+import '../features/product/farmer_profile_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/product/product_list_screen.dart';
+import '../models/farmer_trace.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/wishlist/wishlist_screen.dart';
 import '../features/orders/order_detail_screen.dart';
 import '../features/orders/order_invoice_screen.dart';
+import '../features/orders/order_tracking_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/static/info_page_screen.dart';
 import '../features/static/static_content.dart';
@@ -170,6 +173,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/orders/:id/track',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => OrderTrackingScreen(
+          orderId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
         path: '/orders/:id/invoice',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => OrderInvoiceScreen(
@@ -245,6 +255,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ProductDetailScreen(
           productId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: RoutePaths.farmerProfile,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final extra = state.extra;
+          final farmer = extra is FarmerTrace ? extra : null;
+          return FarmerProfileScreen(farmer: farmer);
+        },
       ),
     ],
   );

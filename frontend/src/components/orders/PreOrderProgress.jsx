@@ -8,8 +8,9 @@ const CLOSED_TEXT = {
 
 /** Vertical stepper for a pre-order: vendor confirmed → at dark store → rider → delivered. */
 export default function PreOrderProgress({ order, className = "" }) {
-  const key = order?.preOrderProgress;
-  if (!order?.preOrderSlot || !key) return null;
+  const isPre = Boolean(order?.isPreOrder || order?.preOrderSlot || order?.preOrderProgress);
+  const key = order?.preOrderProgress || (isPre ? "awaiting_vendor" : "");
+  if (!isPre || !key) return null;
 
   if (CLOSED_TEXT[key]) {
     return (
@@ -25,8 +26,13 @@ export default function PreOrderProgress({ order, className = "" }) {
 
   return (
     <div className={`rounded-xl border border-emerald-100 bg-white p-4 ${className}`}>
-      <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">Pre-order status</p>
-      <ol className="mt-3 space-y-0">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">Pre-order status</p>
+        <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-[#0a6c38] border border-emerald-200">
+          {order.preOrderProgressLabel || steps[current]?.label || "Live Progress"}
+        </span>
+      </div>
+      <ol className="mt-2 space-y-0">
         {steps.map((step, index) => {
           const done = index < current || key === "delivered";
           const active = index === current && key !== "delivered";
@@ -45,16 +51,21 @@ export default function PreOrderProgress({ order, className = "" }) {
                   {done ? "✓" : index + 1}
                 </span>
                 {index < steps.length - 1 ? (
-                  <span className={`my-0.5 w-0.5 flex-1 min-h-[14px] ${done ? "bg-emerald-500" : "bg-slate-200"}`} />
+                  <span className={`my-0.5 w-0.5 flex-1 min-h-[16px] ${done ? "bg-emerald-500" : "bg-slate-200"}`} />
                 ) : null}
               </div>
-              <p
-                className={`pb-3 text-xs ${
-                  active ? "font-bold text-emerald-700" : done ? "font-semibold text-text-primary" : "text-text-muted"
-                }`}
-              >
-                {step.label}
-              </p>
+              <div className="pb-3 text-xs">
+                <p
+                  className={`${
+                    active ? "font-bold text-emerald-700" : done ? "font-semibold text-text-primary" : "text-text-muted"
+                  }`}
+                >
+                  {step.label}
+                </p>
+                {step.subtitle && (active || done) && (
+                  <p className="text-[10.5px] text-slate-400 mt-0.5">{step.subtitle}</p>
+                )}
+              </div>
             </li>
           );
         })}

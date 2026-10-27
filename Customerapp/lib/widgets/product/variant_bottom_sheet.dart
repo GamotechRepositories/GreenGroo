@@ -1,26 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
-import '../../features/auth/auth_controller.dart';
-import '../../features/auth/auth_host.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
-import '../../routes/route_paths.dart';
-import '../cart/floating_cart_bar.dart';
 import '../common/app_network_image.dart';
 
 const _green = Color(0xFF0C831F);
 
-/// Bottom sheet listing a product's varieties, with the offer + cart bar underneath.
+/// Bottom sheet listing a product's varieties.
 Future<void> showVariantBottomSheet(BuildContext context, Product product) {
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (sheetContext) => VariantBottomSheet(product: product),
@@ -48,26 +44,9 @@ class VariantBottomSheet extends ConsumerWidget {
     return colors.isNotEmpty ? colors.first.name : '';
   }
 
-  Future<void> _openCart(BuildContext context, WidgetRef ref) async {
-    if (!ref.read(authControllerProvider).isLoggedIn) {
-      await showAuthModalBottomSheet(
-        context,
-        ref,
-        mode: AuthModalMode.login,
-        redirectRoute: RoutePaths.cart,
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    final router = GoRouter.of(context);
-    Navigator.of(context).pop();
-    router.go(RoutePaths.cart);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cartItems = ref.watch(cartControllerProvider.select((s) => s.items));
-    final cartCount = ref.watch(cartControllerProvider.select((s) => s.cartCount));
     final notifier = ref.read(cartControllerProvider.notifier);
     final variants = product.variants;
     final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.78;
@@ -298,11 +277,7 @@ class VariantBottomSheet extends ConsumerWidget {
                 },
               ),
             ),
-            if (cartCount > 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                child: FloatingCartBar(onOpenCart: () => _openCart(context, ref)),
-              ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

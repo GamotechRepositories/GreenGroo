@@ -25,6 +25,139 @@ import ProductDescriptionContent from "./ProductDescriptionContent";
 import { getProductDisplayDetails } from "../../utils/productLocalization";
 import OptimizedImg from "../common/OptimizedImg";
 
+function getPreOrderTraceStatus(order) {
+  const p = String(order?.preOrderProgress || "").toLowerCase().trim();
+  const s = String(order?.status || "").toLowerCase().trim();
+
+  if (s === "delivered" || p === "delivered") {
+    return {
+      statusKey: "delivered",
+      stepIndex: 7,
+      badgeText: "Delivered",
+      badgeMarathi: "यशस्वीरीत्या पोहोचली (Delivered)",
+      badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
+      headline: "ऑर्डर यशस्वीरीत्या पोहोचली आहे (Delivered with OTP)",
+      step1: true,
+      step2: true,
+      step3: true,
+      step4: true,
+      step5: true,
+      lineWidth: "w-full",
+    };
+  }
+  if (s === "out_for_delivery" || p === "out_for_delivery") {
+    return {
+      statusKey: "out_for_delivery",
+      stepIndex: 6,
+      badgeText: "Out for Delivery",
+      badgeMarathi: "डिलिव्हरीसाठी बाहेर पडले (Out for Delivery)",
+      badgeColor: "bg-emerald-50 text-[#0a6c38] border-emerald-300 ring-1 ring-emerald-400/40",
+      headline: "डिलिव्हरी पार्टनर घराकडे निघाला आहे (Out for Delivery)",
+      step1: true,
+      step2: true,
+      step3: true,
+      step4: true,
+      step5: false,
+      lineWidth: "w-[85%]",
+    };
+  }
+  if (s === "assigned" || s === "pickup_verified" || p === "rider_assigned") {
+    return {
+      statusKey: "rider_assigned",
+      stepIndex: 5,
+      badgeText: "Partner Assigned",
+      badgeMarathi: "डिलिव्हरी पार्टनर नियुक्त (Partner Assigned)",
+      badgeColor: "bg-emerald-50 text-[#0a6c38] border-emerald-200",
+      headline: "डार्क स्टोअरमधून डिलिव्हरी पार्टनर नियुक्त करण्यात आला आहे",
+      step1: true,
+      step2: true,
+      step3: true,
+      step4: true,
+      step5: false,
+      lineWidth: "w-[72%]",
+    };
+  }
+  if (p === "at_store" || order?.storeReceivedAt) {
+    return {
+      statusKey: "at_store",
+      stepIndex: 4,
+      badgeText: "Reached Dark Store",
+      badgeMarathi: "डार्क स्टोअरमध्ये पोहोचले (Reached Dark Store)",
+      badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      headline: "ऑर्डर स्थानिक डार्क स्टोअरमध्ये पोहोचली आहे, डिलिव्हरीसाठी सज्ज",
+      step1: true,
+      step2: true,
+      step3: true,
+      step4: false,
+      step5: false,
+      lineWidth: "w-[58%]",
+    };
+  }
+  if (p === "dispatched" || order?.preOrderStage === "forwarded") {
+    return {
+      statusKey: "dispatched",
+      stepIndex: 3,
+      badgeText: "In Transit to Dark Store",
+      badgeMarathi: "पिकअप मंजूर · डार्क स्टोअरकडे रवाना",
+      badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
+      headline: "संकलन केंद्रातून डार्क स्टोअरकडे रवाना झाली आहे (Pickup Approved)",
+      step1: true,
+      step2: true,
+      step3: true,
+      step4: false,
+      step5: false,
+      lineWidth: "w-[44%]",
+    };
+  }
+  if (p === "preparing" || order?.preOrderStage === "preparing" || order?.preOrderStage === "ready") {
+    return {
+      statusKey: "preparing",
+      stepIndex: 2,
+      badgeText: "Collection & Farmer Sourcing",
+      badgeMarathi: "संकलन केंद्र व शेतातून ताजी काढणी चालू",
+      badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
+      headline: "शेतकऱ्याकडून ताजी काढणी व संकलन केंद्रात लॅब तपासणी सुरू आहे",
+      step1: true,
+      step2: true,
+      step3: false,
+      step4: false,
+      step5: false,
+      lineWidth: "w-[30%]",
+    };
+  }
+  if (p === "confirmed" || order?.vendorStatus === "confirmed") {
+    return {
+      statusKey: "confirmed",
+      stepIndex: 1,
+      badgeText: "Vendor Confirmed",
+      badgeMarathi: "व्हेंडरद्वारे कन्फर्म (Vendor Confirmed)",
+      badgeColor: "bg-emerald-50 text-[#0a6c38] border-emerald-200",
+      headline: "व्हेंडर व उत्पादन व्यवस्थापकाने ऑर्डर स्वीकारली आहे",
+      step1: true,
+      step2: false,
+      step3: false,
+      step4: false,
+      step5: false,
+      lineWidth: "w-[18%]",
+    };
+  }
+  // Default awaiting vendor
+  return {
+    statusKey: "awaiting_vendor",
+    stepIndex: 0,
+    badgeText: "Sent to Vendor & Manager",
+    badgeMarathi: "व्हेंडरकडे पाठवली (Awaiting Vendor)",
+    badgeColor: "bg-amber-50 text-amber-700 border-amber-200",
+    headline: "ऑर्डर व्हेंडर व उत्पादन व्यवस्थापकाकडे मंजुरीसाठी पाठवली आहे",
+    step1: true,
+    step2: false,
+    step3: false,
+    step4: false,
+    step5: false,
+    lineWidth: "w-[8%]",
+  };
+}
+
 function getOrderTraceStatus(status) {
   const s = String(status || "").toLowerCase().trim();
   if (s === "delivered") {
@@ -254,38 +387,55 @@ export default function ProductFarmerTraceabilitySection({
 
   const hasOrderedThisProduct = Boolean(matchingOrder);
   const realOrderCode = matchingOrder ? getOrderDisplayCode(matchingOrder) : "";
-  const realTraceConfig = matchingOrder ? getOrderTraceStatus(matchingOrder.status) : null;
+  const isPreOrderMatch = Boolean(
+    matchingOrder?.isPreOrder ||
+    matchingOrder?.preOrderSlot ||
+    matchingOrder?.preOrderProgress ||
+    matchingOrder?.items?.some((it) => it.isPreOrder || it.department === "preorder")
+  );
+  const realTraceConfig = matchingOrder
+    ? (isPreOrderMatch ? getPreOrderTraceStatus(matchingOrder) : getOrderTraceStatus(matchingOrder.status))
+    : null;
 
   const [activeTab, setActiveTab] = useState("details"); // 'details' | 'nutrition' | 'reviews'
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTraceModal, setShowTraceModal] = useState(false);
   const showFarmerTraceability = isFarmerTraceabilityEnabled(product);
 
-  // Farmer Details extraction
+  // Farmer Details extraction from backend product
   const rawFarmerName = String(
-    product?.farmerDetails?.name || product?.farmerName || "Ramesh Patil"
+    product?.farmerDetails?.name || product?.farmerName || "Vilas Shinde"
   ).trim();
-  const farmerName = rawFarmerName.startsWith("श्री.") || rawFarmerName.startsWith("श्री ")
+  const farmerName = !rawFarmerName
+    ? "श्री. Vilas Shinde"
+    : rawFarmerName.startsWith("श्री.") || rawFarmerName.startsWith("श्री ")
     ? rawFarmerName
     : `श्री. ${rawFarmerName}`;
 
   const farmerLocation = String(
+<<<<<<< Updated upstream
     product?.farmerDetails?.location ||
       product?.farmerLocation ||
       (showFarmerTraceability ? "निफाड, नाशिक, महाराष्ट्र" : "")
+=======
+    product?.farmerDetails?.location || product?.farmerLocation || "Shirur, Pune, Maharashtra"
+>>>>>>> Stashed changes
   ).trim();
 
   const farmerLand = String(
-    product?.farmerDetails?.totalArea || product?.farmerDetails?.cultivationArea || "५.० एकर शेती"
+    product?.farmerDetails?.totalArea ||
+    product?.farmerDetails?.cultivationArea ||
+    product?.farmerDetails?.land ||
+    "5 acres"
   ).trim();
 
   const farmerBio = String(
     product?.farmerDetails?.bio ||
-    "गेली १२ वर्षे निफाड (नाशिक) परिसरात नैसर्गिक व सेंद्रिय पद्धतीने भाजीपाला व पिकांचे उत्पादन. कीटकनाशक विरहीत, ताजी काढणी करून थेट ग्राहकांपर्यंत पोहोचवणे हे आमचे ध्येय आहे."
+    "Runs a high-density guava orchard and picks fruit at colour break for the best sweetness. Committed to sustainable, residue-tested farming in Shirur, Pune."
   ).trim();
 
   const farmerExperience = String(
-    product?.farmerDetails?.experience || "१२+ वर्षे शेतीचा अनुभव"
+    product?.farmerDetails?.experience || "15+ वर्षे शेतीचा अनुभव"
   ).trim();
 
   const farmerPhoto =
@@ -294,8 +444,23 @@ export default function ProductFarmerTraceabilitySection({
     "";
 
   const farmerMethod = String(
-    product?.farmerDetails?.agricultureMethod || "सेंद्रिय व एकात्मिक पद्धत (IPM Low Chemical)"
+    product?.farmerDetails?.agricultureMethod || "Pruned high-density orchard, organic mulch (IPM Low Chemical)"
   ).trim();
+
+  const extractVariety = (name = "") => {
+    const m = String(name || "").match(/^(?:fresh\s+)?([A-Za-z0-9\s]+?)(?:\s+(?:guava|tomato|onion|banana|apple|mango|potato|peru|chilli|bhindi|okra))/i);
+    return m ? m[1].trim() : "";
+  };
+  const rawVariety = String(
+    product?.variety ||
+    product?.varietyName ||
+    product?.farmerDetails?.variety ||
+    product?.farmerDetails?.currentCrop ||
+    ""
+  ).trim();
+  const variety = rawVariety.length > 0
+    ? (rawVariety.startsWith("Guava (") ? rawVariety.slice(7, -1) : rawVariety)
+    : (extractVariety(product?.name) || "Allahabad Safeda");
 
   const defaultHarvestDate = matchingOrder?.createdAt
     ? new Date(matchingOrder.createdAt).toLocaleDateString("en-IN", {
@@ -303,27 +468,18 @@ export default function ProductFarmerTraceabilitySection({
         month: "short",
         year: "numeric",
       })
-    : "आजची ताजी काढणी (Today Fresh)";
+    : formatProduceDate("2026-10-25");
 
-  const defaultPackingDate = matchingOrder?.createdAt
-    ? new Date(matchingOrder.createdAt).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "सकाळी ६:०० वा. सुरक्षित पॅक";
-
-  const rawHarvestDate = product?.harvestingDate || product?.farmerDetails?.harvestingDate || "";
+  const rawHarvestDate = product?.harvestingDate || product?.farmerDetails?.harvestingDate || "2026-10-25";
   const harvestDate = isProduceDate(rawHarvestDate)
     ? formatProduceDate(rawHarvestDate)
-    : defaultHarvestDate;
+    : formatProduceDate(rawHarvestDate) || defaultHarvestDate;
   const harvestNote = isProduceDate(rawHarvestDate) ? "" : formatProduceDate(rawHarvestDate);
 
-  const packingDate = formatProduceDate(product?.packingDate) || defaultPackingDate;
-
-  const variety = String(
-    product?.variety || product?.varietyName || product?.farmerDetails?.currentCrop || "स्थानिक (Desi)"
-  ).trim();
+  const rawPackingDate = product?.packingDate || product?.harvestingDate || "2026-10-25";
+  const packingDate = isProduceDate(rawPackingDate)
+    ? formatProduceDate(rawPackingDate)
+    : formatProduceDate(rawPackingDate) || harvestDate;
 
   const farmerCrops = Array.isArray(product?.farmerDetails?.crops)
     ? product.farmerDetails.crops.filter((item) => item?.name || item?.variety || item?.area)
@@ -434,6 +590,11 @@ export default function ProductFarmerTraceabilitySection({
                     bio: farmerBio,
                     experience: farmerExperience,
                     method: farmerMethod,
+                    farmerImage: farmerPhoto,
+                    farmImage: product?.farmerDetails?.farmImage || product?.farmImage || "",
+                    soilType: product?.farmerDetails?.soilType || "Red lateritic soil",
+                    waterSource: product?.farmerDetails?.waterSource || "Borewell with drip",
+                    crops: farmerCrops,
                   },
                 }}
                 className="mt-2.5 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#0a6c38] px-3.5 py-1.5 text-[12px] font-bold text-[#0a6c38] shadow-xs transition-all hover:bg-[#0a6c38] hover:text-white active:scale-95 @[24rem]:mt-3.5 @[24rem]:px-5 @[24rem]:text-[13px]"
@@ -527,38 +688,73 @@ export default function ProductFarmerTraceabilitySection({
               </div>
             </div>
 
-            {/* Real 4-Stage Stepper reflecting matchingOrder status */}
-            <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-[10.5px] sm:text-[11.5px] gap-1 overflow-x-auto">
-              <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step1 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
-                <span className={`w-2 h-2 rounded-full ${realTraceConfig.step1 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
-                <span>1. काढणी व ऑर्डर</span>
+            {/* Dynamic Stepper reflecting matchingOrder status (Pre-Order or Standard) */}
+            {isPreOrderMatch ? (
+              <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-[10px] sm:text-[11px] gap-1 overflow-x-auto">
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.stepIndex >= 0 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.stepIndex >= 0 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>1. ऑर्डर/व्हेंडर</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.stepIndex >= 1 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.stepIndex >= 1 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>2. व्हेंडर कन्फर्म</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.stepIndex >= 2 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.stepIndex >= 2 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>3. संकलन/शेतकरी</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.stepIndex >= 4 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.stepIndex >= 4 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>4. डार्क स्टोअर</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div
+                  className={`flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full border ${
+                    realTraceConfig.stepIndex >= 6
+                      ? "bg-emerald-50 text-[#0a6c38] border-emerald-200 font-extrabold"
+                      : "bg-gray-50 text-gray-500 border-gray-200"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${realTraceConfig.stepIndex >= 6 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>5. {realTraceConfig.stepIndex >= 7 ? "डिलिव्हर झाले" : "डिलिव्हरी"}</span>
+                </div>
               </div>
-              <span className="text-gray-300">→</span>
-              <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step2 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
-                <span className={`w-2 h-2 rounded-full ${realTraceConfig.step2 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
-                <span>2. लॅब तपासणी</span>
+            ) : (
+              <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-[10.5px] sm:text-[11.5px] gap-1 overflow-x-auto">
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step1 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.step1 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>1. काढणी व ऑर्डर</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step2 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.step2 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>2. लॅब तपासणी</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step3 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
+                  <span className={`w-2 h-2 rounded-full ${realTraceConfig.step3 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  <span>3. पॅक / ऑन द वे</span>
+                </div>
+                <span className="text-gray-300">→</span>
+                <div
+                  className={`flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full border ${
+                    realTraceConfig.step4
+                      ? "bg-emerald-50 text-[#0a6c38] border-emerald-200 font-extrabold"
+                      : "bg-gray-50 text-gray-500 border-gray-200"
+                  }`}
+                >
+                  {realTraceConfig.stepIndex === 3 ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0a6c38] animate-ping" />
+                  ) : (
+                    <span className={`w-1.5 h-1.5 rounded-full ${realTraceConfig.step4 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
+                  )}
+                  <span>4. {realTraceConfig.step4 ? "डिलिव्हर झाले" : "डिलिव्हरी"}</span>
+                </div>
               </div>
-              <span className="text-gray-300">→</span>
-              <div className={`flex items-center gap-1 shrink-0 ${realTraceConfig.step3 ? "font-bold text-[#0a6c38]" : "text-gray-400"}`}>
-                <span className={`w-2 h-2 rounded-full ${realTraceConfig.step3 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
-                <span>3. पॅक / ऑन द वे</span>
-              </div>
-              <span className="text-gray-300">→</span>
-              <div
-                className={`flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-full border ${
-                  realTraceConfig.step4
-                    ? "bg-emerald-50 text-[#0a6c38] border-emerald-200 font-extrabold"
-                    : "bg-gray-50 text-gray-500 border-gray-200"
-                }`}
-              >
-                {realTraceConfig.stepIndex === 3 ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0a6c38] animate-ping" />
-                ) : (
-                  <span className={`w-1.5 h-1.5 rounded-full ${realTraceConfig.step4 ? "bg-[#0a6c38]" : "bg-gray-300"}`} />
-                )}
-                <span>4. {realTraceConfig.step4 ? "डिलिव्हर झाले" : "डिलिव्हरी"}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

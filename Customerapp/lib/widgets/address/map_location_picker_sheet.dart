@@ -4,21 +4,26 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/providers/location_provider.dart';
+import '../../core/utils/detect_current_location.dart';
 
 Future<Map<String, dynamic>?> showMapLocationPickerSheet(
   BuildContext context,
-  WidgetRef ref,
-) {
+  WidgetRef ref, {
+  Map<String, dynamic>? initialLocation,
+}) {
   return showModalBottomSheet<Map<String, dynamic>>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => const MapLocationPickerSheetContent(),
+    builder: (context) => MapLocationPickerSheetContent(initialLocation: initialLocation),
   );
 }
 
 class MapLocationPickerSheetContent extends ConsumerStatefulWidget {
-  const MapLocationPickerSheetContent({super.key});
+  const MapLocationPickerSheetContent({super.key, this.initialLocation});
+
+  final Map<String, dynamic>? initialLocation;
 
   @override
   ConsumerState<MapLocationPickerSheetContent> createState() =>
@@ -31,20 +36,21 @@ class _MapLocationPickerSheetContentState
   String _searchQuery = '';
   List<String> _searchResults = [];
   bool _searching = false;
+  bool _detectingGps = false;
 
-  Map<String, dynamic> _selectedLocation = {
-    'lat': 18.5912,
-    'lng': 73.7389,
-    'city': 'Pune',
-    'state': 'Maharashtra',
-    'area': 'Hinjawadi Phase 2',
-    'pincode': '411057',
-    'address':
-        'Geras Imperium Rise Plaza, Rajiv Gandhi Infotech Park, Hinjawadi Phase 2, Pune, Maharashtra 411057',
-    'landmark': 'Hinjawadi Phase 2',
-  };
+  Map<String, dynamic> _selectedLocation = {};
 
   final List<Map<String, dynamic>> _popularLocations = [
+    {
+      'lat': 18.5756,
+      'lng': 73.7431,
+      'city': 'Pune',
+      'state': 'Maharashtra',
+      'area': 'Mahalunge',
+      'pincode': '411045',
+      'address': 'Mahalunge High Street, Mahalunge, Pune, Maharashtra 411045',
+      'landmark': 'Mahalunge',
+    },
     {
       'lat': 18.5912,
       'lng': 73.7389,
@@ -54,16 +60,6 @@ class _MapLocationPickerSheetContentState
       'pincode': '411057',
       'address': 'Rajiv Gandhi Infotech Park, Hinjawadi Phase 2, Pune',
       'landmark': 'Phase 2 Tech Park',
-    },
-    {
-      'lat': 18.5590,
-      'lng': 73.7868,
-      'city': 'Pune',
-      'state': 'Maharashtra',
-      'area': 'Aundh',
-      'pincode': '411007',
-      'address': 'ITI Road, Parihar Chowk, Aundh, Pune',
-      'landmark': 'Parihar Chowk',
     },
     {
       'lat': 18.5679,
@@ -76,31 +72,94 @@ class _MapLocationPickerSheetContentState
       'landmark': 'Baner High Street',
     },
     {
-      'lat': 19.0760,
-      'lng': 72.8777,
-      'city': 'Mumbai',
+      'lat': 18.5590,
+      'lng': 73.7868,
+      'city': 'Pune',
       'state': 'Maharashtra',
-      'area': 'Bandra West',
-      'pincode': '400050',
-      'address': 'Linking Road, Bandra West, Mumbai',
-      'landmark': 'Linking Road',
+      'area': 'Aundh',
+      'pincode': '411007',
+      'address': 'ITI Road, Parihar Chowk, Aundh, Pune',
+      'landmark': 'Parihar Chowk',
     },
     {
-      'lat': 12.9716,
-      'lng': 77.5946,
-      'city': 'Bengaluru',
-      'state': 'Karnataka',
-      'area': 'Indiranagar',
-      'pincode': '560038',
-      'address': '100 Feet Road, Indiranagar, Bengaluru',
-      'landmark': '100 Feet Road',
+      'lat': 18.5987,
+      'lng': 73.7687,
+      'city': 'Pune',
+      'state': 'Maharashtra',
+      'area': 'Wakad',
+      'pincode': '411057',
+      'address': 'Datta Mandir Road, Wakad, Pune',
+      'landmark': 'Wakad Chowk',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLocation != null && widget.initialLocation!.isNotEmpty) {
+      _selectedLocation = Map<String, dynamic>.from(widget.initialLocation!);
+    } else {
+      final loc = ref.read(deliveryLocationProvider);
+      if (loc != null) {
+        _selectedLocation = {
+          if (loc.latitude != null) 'lat': loc.latitude,
+          if (loc.longitude != null) 'lng': loc.longitude,
+          'city': loc.city ?? '',
+          'state': loc.state ?? '',
+          'area': loc.area ?? '',
+          'pincode': loc.pincode ?? '',
+          'address': loc.address ?? loc.displayAddress,
+          'landmark': loc.area ?? '',
+        };
+      } else {
+        _selectedLocation = Map<String, dynamic>.from(_popularLocations.first);
+      }
+    }
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _detectCurrentGPS() async {
+    setState(() => _detectingGps = true);
+    try {
+      final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
+      if (!mounted) return;
+      setState(() {
+        _selectedLocation = {
+          'lat': detected.latitude,
+          'lng': detected.longitude,
+          'city': detected.city,
+          'state': detected.state,
+          'area': detected.area,
+          'pincode': detected.pincode,
+          'address': detected.address.isNotEmpty ? detected.address : detected.displayLine,
+          'landmark': detected.area,
+        };
+        _detectingGps = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Detected: ${detected.displayLine}'),
+          backgroundColor: const Color(0xFF047857),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } on PhoneLocationException catch (e) {
+      if (!mounted) return;
+      setState(() => _detectingGps = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _detectingGps = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not detect your current location.')),
+      );
+    }
   }
 
   void _onSearchChanged(String val) async {
@@ -141,14 +200,12 @@ class _MapLocationPickerSheetContentState
       if (data != null && mounted) {
         setState(() {
           _selectedLocation = {
-            'lat': 18.5204,
-            'lng': 73.8567,
             'city': data['city'] ?? 'Pune',
             'state': data['state'] ?? 'Maharashtra',
-            'area': _searchQuery.isNotEmpty ? _searchQuery : 'City Center',
+            'area': _searchQuery.isNotEmpty ? _searchQuery : 'Pune',
             'pincode': pincode,
             'address': '${_searchQuery.isNotEmpty ? "$_searchQuery, " : ""}${data['city']}, ${data['state']} $pincode',
-            'landmark': _searchQuery.isNotEmpty ? _searchQuery : 'Main Road',
+            'landmark': _searchQuery.isNotEmpty ? _searchQuery : '',
           };
         });
       }
@@ -159,6 +216,10 @@ class _MapLocationPickerSheetContentState
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final maxSheetHeight = mediaQuery.size.height * 0.85;
+
+    final selectedArea = _selectedLocation['area']?.toString() ?? '';
+    final selectedCity = _selectedLocation['city']?.toString() ?? '';
+    final selectedPin = _selectedLocation['pincode']?.toString() ?? '';
 
     return Stack(
       clipBehavior: Clip.none,
@@ -211,10 +272,10 @@ class _MapLocationPickerSheetContentState
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.map_outlined, color: Color(0xFF2563EB), size: 22),
+                        const Icon(Icons.map_outlined, color: AppColors.primary, size: 22),
                         const SizedBox(width: 8),
                         Text(
-                          'Choose Location on Map',
+                          'Choose Delivery Location',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -226,6 +287,48 @@ class _MapLocationPickerSheetContentState
                   ],
                 ),
               ),
+
+              // Use Current Location GPS button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: InkWell(
+                  onTap: _detectingGps ? null : _detectCurrentGPS,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_detectingGps)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          )
+                        else
+                          const Icon(Icons.my_location_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _detectingGps ? 'Detecting current GPS location...' : 'Use current location (GPS)',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF047857),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -245,7 +348,16 @@ class _MapLocationPickerSheetContentState
                         fontSize: 13.5,
                         color: const Color(0xFF94A3B8),
                       ),
-                      prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 21),
+                      prefixIcon: _searching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              ),
+                            )
+                          : const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 21),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -273,7 +385,7 @@ class _MapLocationPickerSheetContentState
                         (pincode) => ListTile(
                           dense: true,
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.location_on_outlined, color: Color(0xFF2563EB)),
+                          leading: const Icon(Icons.location_on_outlined, color: AppColors.primary),
                           title: Text('Pincode $pincode', style: const TextStyle(fontWeight: FontWeight.w600)),
                           onTap: () => _selectSearchResult(pincode),
                         ),
@@ -282,7 +394,7 @@ class _MapLocationPickerSheetContentState
                     ],
 
                     Text(
-                      'Select Location',
+                      'Common Localities',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -291,20 +403,20 @@ class _MapLocationPickerSheetContentState
                     ),
                     const SizedBox(height: 8),
                     ..._popularLocations.map((loc) {
-                      final isSelected = loc['area'] == _selectedLocation['area'] &&
-                          loc['city'] == _selectedLocation['city'];
+                      final isSelected = loc['area'] == selectedArea &&
+                          loc['pincode'] == selectedPin;
 
                       return InkWell(
-                        onTap: () => setState(() => _selectedLocation = loc),
+                        onTap: () => setState(() => _selectedLocation = Map<String, dynamic>.from(loc)),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                            color: isSelected ? const Color(0xFFECFDF5) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0),
+                              color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
                               width: isSelected ? 1.5 : 1.0,
                             ),
                           ),
@@ -312,7 +424,7 @@ class _MapLocationPickerSheetContentState
                             children: [
                               Icon(
                                 isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                                color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                                color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
                                 size: 20,
                               ),
                               const SizedBox(width: 12),
@@ -321,7 +433,7 @@ class _MapLocationPickerSheetContentState
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${loc['area']}, ${loc['city']}',
+                                      '${loc['area']}, ${loc['city']} (${loc['pincode']})',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
@@ -358,11 +470,13 @@ class _MapLocationPickerSheetContentState
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Color(0xFF2563EB), size: 20),
+                        const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Selected: ${_selectedLocation['area']}, ${_selectedLocation['city']} (${_selectedLocation['pincode']})',
+                            selectedArea.isNotEmpty
+                                ? 'Selected: $selectedArea, $selectedCity ($selectedPin)'
+                                : 'No location selected',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -377,7 +491,9 @@ class _MapLocationPickerSheetContentState
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).pop(_selectedLocation),
+                        onPressed: selectedArea.isNotEmpty
+                            ? () => Navigator.of(context).pop(_selectedLocation)
+                            : null,
                         icon: const Icon(Icons.check_rounded, color: Colors.white),
                         label: Text(
                           'Confirm Location',
@@ -388,7 +504,7 @@ class _MapLocationPickerSheetContentState
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
+                          backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

@@ -31,12 +31,34 @@ class AuthController extends Notifier<AuthState> {
 
   @override
   AuthState build() {
-    Future<void>.delayed(const Duration(milliseconds: 500), _restoreSession);
-    return const AuthState();
+    final storage = ref.read(authStorageProvider);
+    final savedToken = storage.token;
+    final rawSession = storage.session;
+
+    User? cachedUser;
+    if (rawSession != null && rawSession['user'] is Map) {
+      try {
+        cachedUser =
+            User.fromJson(Map<String, dynamic>.from(rawSession['user'] as Map));
+        if (cachedUser.isBlocked) {
+          cachedUser = null;
+          storage.clear();
+        }
+      } catch (_) {}
+    }
+
+    if (savedToken != null && savedToken.isNotEmpty) {
+      // Synchronously restore state on startup frame 0 so the user is never logged out
+      Future.microtask(_restoreSession);
+      return AuthState(user: cachedUser, token: savedToken, loading: false);
+    }
+
+    Future.microtask(_restoreSession);
+    return const AuthState(loading: false);
   }
 
   void _assertCustomerUser(User user) {
-    if (user.isAdmin || user.isBlocked) {
+    if (user.isBlocked) {
       throw ApiException(user.blockedMessage);
     }
   }
@@ -47,7 +69,9 @@ class AuthController extends Notifier<AuthState> {
     final savedToken = storage.token;
 
     if (savedToken == null || savedToken.isEmpty) {
-      state = const AuthState(loading: false);
+      if (state.token != null) {
+        state = const AuthState(loading: false);
+      }
       return;
     }
 
@@ -57,7 +81,7 @@ class AuthController extends Notifier<AuthState> {
       try {
         cachedUser =
             User.fromJson(Map<String, dynamic>.from(rawSession['user'] as Map));
-        if (cachedUser.isAdmin || cachedUser.isBlocked) {
+        if (cachedUser.isBlocked) {
           await storage.clear();
           state = const AuthState(loading: false);
           return;
@@ -65,15 +89,15 @@ class AuthController extends Notifier<AuthState> {
       } catch (_) {}
     }
 
-    // Immediately restore cached session so user stays logged in
-    if (cachedUser != null) {
+    // Immediately reflect cached session so user stays logged in
+    if (cachedUser != null && (state.user == null || state.token != savedToken)) {
       state = AuthState(user: cachedUser, token: savedToken, loading: false);
     }
 
     try {
       final user = await ref.read(apiServiceProvider).fetchMe();
       if (epoch != _sessionEpoch) return;
-      if (user.isAdmin || user.isBlocked) {
+      if (user.isBlocked) {
         await storage.clear();
         state = const AuthState(loading: false);
         return;
@@ -84,18 +108,30 @@ class AuthController extends Notifier<AuthState> {
     } on DioException catch (dioError) {
       if (epoch != _sessionEpoch) return;
       final statusCode = dioError.response?.statusCode;
-      if (statusCode == 401 || statusCode == 403) {
+      if (statusCode == 401) {
+        final data = dioError.response?.data;
+        final msg = (data is Map ? data['message']?.toString() : '') ?? '';
+        final lower = msg.toLowerCase();
+        if (lower.contains('invalid') || lower.contains('expired') || lower.contains('no longer exists')) {
+          await storage.clear();
+          state = const AuthState(loading: false);
+          return;
+        }
+      } else if (statusCode == 403) {
         await storage.clear();
         state = const AuthState(loading: false);
-      } else if (cachedUser != null) {
+        return;
+      }
+
+      // On connection errors / timeouts / transient drops: preserve the session!
+      if (cachedUser != null) {
         state = AuthState(user: cachedUser, token: savedToken, loading: false);
       }
     } catch (_) {
       if (epoch != _sessionEpoch) return;
-      // Keep user logged in if cached session exists
       if (cachedUser != null) {
         state = AuthState(user: cachedUser, token: savedToken, loading: false);
-      } else {
+      } else if (savedToken.isNotEmpty) {
         state = AuthState(token: savedToken, loading: false);
       }
     }

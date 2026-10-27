@@ -154,7 +154,7 @@ const OVERPASS_URLS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
-const NEARBY_PIN_RADIUS_M = 1000;
+const NEARBY_PIN_RADIUS_M = 400;
 
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const toRad = (d) => (d * Math.PI) / 180;
@@ -251,6 +251,10 @@ function withDeadline(promise, ms, fallback) {
 }
 
 async function correctedPincode(lat, lng, parsed, rawAddress) {
+  // If Nominatim already returned a valid 6-digit postal code for the state, preserve it
+  if (parsed.pincodeValid && parsed.pincode) {
+    return parsed.pincode;
+  }
   const [vote, postPin] = await Promise.all([
     withDeadline(nearbyPostcodeVote(lat, lng), 7000, null),
     withDeadline(indiaPostPincodeForArea(rawAddress), 7000, ""),

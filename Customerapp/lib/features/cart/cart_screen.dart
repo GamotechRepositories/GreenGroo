@@ -24,7 +24,6 @@ import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
-import '../../widgets/layout/shell_bottom_insets.dart';
 
 const _pageBg = Color(0xFFF3F5F9);
 const _brand = Color(0xFF0C831F);

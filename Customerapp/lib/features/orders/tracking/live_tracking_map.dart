@@ -227,7 +227,7 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
 
   Set<Marker> _markers() {
     return {
-      if (widget.store != null && _shown == null)
+      if (widget.store != null)
         Marker(
           markerId: const MarkerId('store'),
           position: widget.store!,
@@ -318,32 +318,26 @@ class _LiveTrackingMapState extends State<LiveTrackingMap> with SingleTickerProv
                 },
                 polylines: {
                   if (activeRoute.length > 2) ...[
-                    // Layer 1: Outer glow
+                    // Layer 1: Subtle background guide line
                     Polyline(
-                      polylineId: const PolylineId('route_glow'),
+                      polylineId: const PolylineId('route_base'),
                       points: activeRoute,
-                      color: AppColors.primaryLight.withValues(alpha: 0.25),
-                      width: 14,
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                      width: 5,
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,
                     ),
-                    // Layer 2: Primary dark casing
+                    // Layer 2: Dotted route line
                     Polyline(
-                      polylineId: const PolylineId('route_dark_casing'),
+                      polylineId: const PolylineId('route_dotted'),
                       points: activeRoute,
-                      color: AppColors.primaryDark,
-                      width: 8,
-                      startCap: Cap.roundCap,
-                      endCap: Cap.roundCap,
-                      jointType: JointType.round,
-                    ),
-                    // Layer 3: Primary light road core
-                    Polyline(
-                      polylineId: const PolylineId('route_core'),
-                      points: activeRoute,
-                      color: AppColors.primaryLight,
-                      width: 4,
+                      color: AppColors.primary,
+                      width: 6,
+                      patterns: <PatternItem>[
+                        PatternItem.dot,
+                        PatternItem.gap(10),
+                      ],
                       startCap: Cap.roundCap,
                       endCap: Cap.roundCap,
                       jointType: JointType.round,

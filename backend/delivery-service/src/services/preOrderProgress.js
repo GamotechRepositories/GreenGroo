@@ -5,13 +5,13 @@
  * Keys are stable because the customer apps match on them; "preparing" = packed, "dispatched" = shipped.
  */
 export const PRE_ORDER_PROGRESS_STEPS = [
-  { key: "awaiting_vendor", label: "Awaiting confirmation" },
-  { key: "confirmed", label: "Confirmed" },
-  { key: "preparing", label: "Packed" },
-  { key: "dispatched", label: "Shipped" },
-  { key: "at_store", label: "Reached dark store" },
-  { key: "rider_assigned", label: "Delivery partner assigned" },
-  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "awaiting_vendor", label: "Order Placed · Sent to Vendor & Manager" },
+  { key: "confirmed", label: "Vendor Confirmed" },
+  { key: "preparing", label: "Sourced from Farmer / Collection House" },
+  { key: "dispatched", label: "Pickup Approved · In Transit to Dark Store" },
+  { key: "at_store", label: "Reached Dark Store" },
+  { key: "rider_assigned", label: "Delivery Partner Assigned" },
+  { key: "out_for_delivery", label: "Out for Delivery" },
   { key: "delivered", label: "Delivered" },
 ];
 

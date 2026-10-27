@@ -4,13 +4,13 @@ import '../../../config/theme.dart';
 
 /// Pre-order journey: vendor confirms → packs → ships to dark store → rider → delivered.
 const List<MapEntry<String, String>> kPreOrderProgressSteps = [
-  MapEntry('awaiting_vendor', 'Awaiting confirmation'),
-  MapEntry('confirmed', 'Confirmed'),
-  MapEntry('preparing', 'Packed'),
-  MapEntry('dispatched', 'Shipped'),
-  MapEntry('at_store', 'Reached dark store'),
-  MapEntry('rider_assigned', 'Delivery partner assigned'),
-  MapEntry('out_for_delivery', 'Out for delivery'),
+  MapEntry('awaiting_vendor', 'Order Placed · Sent to Vendor & Manager'),
+  MapEntry('confirmed', 'Vendor Confirmed'),
+  MapEntry('preparing', 'Sourced from Farmer / Collection House'),
+  MapEntry('dispatched', 'Pickup Approved · In Transit to Dark Store'),
+  MapEntry('at_store', 'Reached Dark Store'),
+  MapEntry('rider_assigned', 'Delivery Partner Assigned'),
+  MapEntry('out_for_delivery', 'Out for Delivery'),
   MapEntry('delivered', 'Delivered'),
 ];
 

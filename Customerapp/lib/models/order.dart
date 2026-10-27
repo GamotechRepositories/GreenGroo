@@ -247,6 +247,10 @@ class Order {
   final List<OrderStorePart> storeParts;
 
   bool get isPickup => fulfillmentType == 'pickup';
+  bool get isPreOrder =>
+      preOrderSlot.isNotEmpty ||
+      preOrderProgress.isNotEmpty ||
+      storeParts.any((p) => p.isPreOrder);
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];

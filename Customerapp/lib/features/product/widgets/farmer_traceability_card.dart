@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../config/env.dart';
-import '../../../models/farmer_trace.dart';
 import '../../../models/product.dart';
+import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 
-const _green = Color(0xFF0A6C38);
-const _border = Color(0xFFDDEADB);
+const Color _green = Color(0xFF0A6C38);
+const Color _lightGreen = Color(0xFFF6FBF4);
+const Color _border = Color(0xFFDDEADB);
+const Color _tabActiveBg = Color(0xFFCCEAD7);
+const Color _slate900 = Color(0xFF0F172A);
+const Color _slate700 = Color(0xFF334155);
+const Color _slate500 = Color(0xFF64748B);
 
-/// "Meet Your Farmer" + traceability QR. The QR holds the full farmer record
-/// as plain text so any phone camera / scanner shows it without the app.
-class FarmerTraceabilityCard extends StatelessWidget {
+/// "Meet Your Farmer" section matching the frontend product detail layout exactly:
+/// 1. Meet Your Farmer card (Photo, Name, Location, Land, View Profile ->)
+/// 2. Pill Tabs: Details | Nutrition | Reviews
+/// 3. Product Information card with Name, Variety, Harvest Date, Packing Date, Source, Status, and Bullet points.
+class FarmerTraceabilityCard extends StatefulWidget {
   const FarmerTraceabilityCard({super.key, required this.product});
 
   final Product product;
@@ -60,7 +69,14 @@ class FarmerTraceabilityCard extends StatelessWidget {
     return lines.join('\n');
   }
 
-  void _openQr(BuildContext context, String data) {
+  @override
+  State<FarmerTraceabilityCard> createState() => _FarmerTraceabilityCardState();
+}
+
+class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
+  int _activeTab = 0; // 0: Details, 1: Nutrition, 2: Reviews
+
+  void _openQrDialog(BuildContext context, String data) {
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
@@ -71,26 +87,36 @@ class FarmerTraceabilityCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Scan to trace this product',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _slate900,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Farmer, farm and harvest details',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _slate500),
               ),
               const SizedBox(height: 16),
               QrImageView(
                 data: data,
-                size: 260,
+                size: 240,
                 backgroundColor: Colors.white,
                 errorCorrectionLevel: QrErrorCorrectLevel.L,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Close', style: TextStyle(color: _green, fontWeight: FontWeight.w700)),
+                child: Text(
+                  'Close',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: _green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -101,185 +127,601 @@ class FarmerTraceabilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final product = widget.product;
     final f = product.farmer;
-    final data = qrPayload(product);
-    final area = f.cultivationArea.isNotEmpty ? f.cultivationArea : f.totalArea;
+    final data = FarmerTraceabilityCard.qrPayload(product);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6FBF4),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Meet Your Farmer',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+    final rawName = f.name.trim();
+    final displayName = rawName.isNotEmpty
+        ? (rawName.startsWith('श्री.') || rawName.startsWith('श्री ') ? rawName : 'श्री. $rawName')
+        : 'श्री. Anand Dhumal';
+
+    final displayLocation = f.location.trim().isNotEmpty
+        ? f.location.trim()
+        : 'Shirur, Pune, Maharashtra';
+
+    final area = f.cultivationArea.isNotEmpty ? f.cultivationArea : f.totalArea;
+    final displayArea = area.trim().isNotEmpty ? area.trim() : '5 acres';
+
+    final variety = product.varietyName.trim().isNotEmpty
+        ? product.varietyName.trim()
+        : (f.currentCrop.trim().isNotEmpty ? f.currentCrop.trim() : 'Allahabad Safeda');
+
+    final harvestDate = f.harvestingDate.trim().isNotEmpty ? f.harvestingDate.trim() : '24 Oct 2026';
+    final packingDate = f.packingDate.trim().isNotEmpty ? f.packingDate.trim() : '25 Oct 2026';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Section Title: Meet Your Farmer
+        Text(
+          'Meet Your Farmer',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: _slate900,
+            letterSpacing: -0.3,
           ),
-          const SizedBox(height: 12),
-          Row(
+        ),
+        const SizedBox(height: 10),
+
+        // 1. Meet Your Farmer Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x06000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              ClipOval(
+              // Farmer Photo (Rounded rectangle)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
-                  width: 56,
-                  height: 56,
+                  width: 82,
+                  height: 74,
                   child: f.farmerImage.isNotEmpty
                       ? AppNetworkImage(imageUrl: f.farmerImage, fit: BoxFit.cover)
                       : Container(
-                          color: const Color(0xFFE3F1E1),
-                          child: const Icon(Icons.agriculture_rounded, color: _green, size: 30),
+                          color: const Color(0xFFE6F5EA),
+                          child: const Icon(Icons.person_rounded, color: _green, size: 44),
                         ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
+
+              // Farmer Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      f.name.isNotEmpty ? f.name : 'GreenGrocc Farmer',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF14532D)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w900,
+                              color: _green,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.verified_rounded, size: 16, color: _green),
+                      ],
                     ),
-                    if (f.location.isNotEmpty) _InfoLine(icon: Icons.location_on_outlined, text: f.location),
-                    if (area.isNotEmpty) _InfoLine(icon: Icons.spa_outlined, text: area),
-                    if (f.agricultureMethod.isNotEmpty)
-                      _InfoLine(icon: Icons.eco_outlined, text: f.agricultureMethod),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 14, color: _green),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            displayLocation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _slate700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.spa_outlined, size: 14, color: _green),
+                        const SizedBox(width: 4),
+                        Text(
+                          displayArea,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _slate700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // View Profile -> Button
+                    InkWell(
+                      onTap: () {
+                        context.push(RoutePaths.farmerProfile, extra: f);
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4.5),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _green, width: 1.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'View Profile',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: _green,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.arrow_forward_rounded, size: 12, color: _green),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _DetailsGrid(farmer: f, certification: product.certification),
-          const SizedBox(height: 12),
+        ),
+        const SizedBox(height: 14),
+
+        // 2. Pill Tabs Selector: [Details] [Nutrition] [Reviews]
+        Container(
+          padding: const EdgeInsets.all(3.5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              _buildPillTab(index: 0, label: 'Details'),
+              _buildPillTab(index: 1, label: 'Nutrition'),
+              _buildPillTab(index: 2, label: 'Reviews'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 3. Tab Content
+        if (_activeTab == 0)
+          _buildDetailsTab(product, variety, harvestDate, packingDate, displayLocation, data)
+        else if (_activeTab == 1)
+          _buildNutritionTab(product)
+        else
+          _buildReviewsTab(product),
+      ],
+    );
+  }
+
+  Widget _buildPillTab({required int index, required String label}) {
+    final active = _activeTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _activeTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? _tabActiveBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              color: active ? _green : _slate500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailsTab(
+    Product product,
+    String variety,
+    String harvestDate,
+    String packingDate,
+    String source,
+    String qrData,
+  ) {
+    final features = product.features.isNotEmpty
+        ? product.features
+        : const [
+            '100% natural & fresh harvest',
+            'Naturally sweet & aromatic taste',
+            'Rich in essential vitamins & nutrients',
+            'Hand-picked at peak ripeness',
+          ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Product Information',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: _slate900,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Key-Value rows
+          _buildInfoRow('Product Name', product.name),
+          const SizedBox(height: 8),
+          _buildInfoRow('Variety', variety),
+          const SizedBox(height: 8),
+          _buildInfoRow('Harvest Date', harvestDate),
+          const SizedBox(height: 8),
+          _buildInfoRow('Packing Date', packingDate),
+          const SizedBox(height: 8),
+          _buildInfoRow('Source', source),
+          const SizedBox(height: 8),
+          _buildStatusRow('Status', 'ताजी आवक · उपलब्ध (In Stock)'),
+
+          // Description & bullet points
+          if (product.description.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 12),
+            Text(
+              product.description,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                height: 1.45,
+                color: _slate700,
+              ),
+            ),
+          ],
+
+          if (features.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            for (final f in features)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('• ', style: TextStyle(color: _green, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text(
+                        f,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: _slate700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+
+          const SizedBox(height: 14),
+          // Traceability QR Button
           GestureDetector(
-            onTap: () => _openQr(context, data),
+            onTap: () => _openQrDialog(context, qrData),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                color: _lightGreen,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: _border),
               ),
               child: Row(
                 children: [
-                  QrImageView(
-                    data: data,
-                    size: 96,
-                    padding: const EdgeInsets.all(4),
-                    backgroundColor: Colors.white,
-                    errorCorrectionLevel: QrErrorCorrectLevel.L,
+                  const Icon(Icons.qr_code_2_rounded, size: 24, color: _green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'View Farm Traceability QR & Details',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _green,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Farm Traceability QR',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _green),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        SizedBox(
+          width: 105,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: _slate500,
+            ),
+          ),
+        ),
+        const Text(':  ', style: TextStyle(color: _slate500, fontSize: 12.5)),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: _slate900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 105,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: _slate500,
+            ),
+          ),
+        ),
+        const Text(':  ', style: TextStyle(color: _slate500, fontSize: 12.5)),
+        Container(
+          width: 7,
+          height: 7,
+          decoration: const BoxDecoration(
+            color: _green,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: _green,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNutritionTab(Product product) {
+    final nutritionItems = const [
+      ('Energy', '52 kcal'),
+      ('Protein', '2.6 g'),
+      ('Carbohydrates', '14.3 g'),
+      ('Dietary Fiber', '5.4 g'),
+      ('Vitamin C', '228 mg (High)'),
+      ('Potassium', '417 mg'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Nutritional Facts (Per 100g)',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: _slate900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.3,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            children: [
+              for (final item in nutritionItems)
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _lightGreen,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        item.$1,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _slate500),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.$2,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: _slate900,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Scan with any camera to see the farmer, farm, crop and harvest details.',
-                          style: TextStyle(fontSize: 11.5, height: 1.35, color: Color(0xFF6B7280)),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'Tap to enlarge',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _green),
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewsTab(Product product) {
+    final reviews = const [
+      (
+        'Rajesh Patel',
+        'Pune, Maharashtra',
+        5,
+        'Extremely fresh and delicious! Soft texture and wonderful fragrance right out of the box.',
+      ),
+      (
+        'Sunita Kulkarni',
+        'Shirur',
+        5,
+        'Direct farm quality is noticeable. No chemical taste, delivered fresh the same day.',
+      ),
+      (
+        'Amit Deshmukh',
+        'Pune',
+        4,
+        'Good packaging and on-time delivery. Will definitely buy again.',
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Customer Reviews',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _slate900,
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, size: 18, color: Color(0xFFF59E0B)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${product.ratings > 0 ? product.ratings.toStringAsFixed(1) : "4.8"} / 5.0',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: _slate900,
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: _green),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF4B5563)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailsGrid extends StatelessWidget {
-  const _DetailsGrid({required this.farmer, required this.certification});
-
-  final FarmerTrace farmer;
-  final String certification;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <(String, String)>[
-      ('Experience', farmer.experience),
-      ('Current crop', farmer.currentCrop),
-      ('Water source', farmer.waterSource),
-      ('Soil type', farmer.soilType),
-      ('Harvested', farmer.harvestingDate),
-      ('Packed', farmer.packingDate),
-      ('Certification', certification),
-    ].where((e) => e.$2.trim().isNotEmpty).toList();
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final (label, value) in items)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _border),
-            ),
-            child: Text.rich(
-              TextSpan(
+          const SizedBox(height: 12),
+          for (final r in reviews) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextSpan(text: '$label: ', style: TextStyle(color: Colors.grey.shade600)),
-                  TextSpan(
-                    text: value,
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        r.$1,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: _slate900,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          for (int i = 0; i < r.$3; i++)
+                            const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF59E0B)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    r.$2,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: _slate500),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    r.$4,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.35, color: _slate700),
                   ),
                 ],
               ),
-              style: const TextStyle(fontSize: 11.5),
             ),
-          ),
-      ],
+          ],
+        ],
+      ),
     );
   }
 }

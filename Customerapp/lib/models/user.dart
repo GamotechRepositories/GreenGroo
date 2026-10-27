@@ -34,16 +34,12 @@ class User {
   bool get isAdmin => role.trim().toLowerCase() == 'admin';
 
   bool get isBlocked =>
-      isAdmin ||
       rawBlocked ||
       status.trim().toLowerCase() == 'blocked' ||
       status.trim().toLowerCase() == 'inactive' ||
       !isActive;
 
   String get blockedMessage {
-    if (isAdmin) {
-      return 'Please use the admin panel to sign in.';
-    }
     return 'Your account has been blocked by admin. Please contact support.';
   }
 

@@ -181,7 +181,17 @@ class _AddressFormState extends ConsumerState<AddressForm> {
   }
 
   Future<void> _handleChooseOnMap() async {
-    final result = await showMapLocationPickerSheet(context, ref);
+    final result = await showMapLocationPickerSheet(
+      context,
+      ref,
+      initialLocation: _detectedLocation ?? {
+        if (_controllers['city']!.text.isNotEmpty) 'city': _controllers['city']!.text,
+        if (_controllers['state']!.text.isNotEmpty) 'state': _controllers['state']!.text,
+        if (_controllers['pincode']!.text.isNotEmpty) 'pincode': _controllers['pincode']!.text,
+        if (_controllers['area']!.text.isNotEmpty) 'area': _controllers['area']!.text,
+        if (_controllers['fullAddress']!.text.isNotEmpty) 'address': _controllers['fullAddress']!.text,
+      },
+    );
     if (result == null || !mounted) return;
 
     final city = result['city']?.toString() ?? '';
@@ -199,10 +209,14 @@ class _AddressFormState extends ConsumerState<AddressForm> {
       if (landmark.isNotEmpty) _controllers['landmark']!.text = landmark;
       if (address.isNotEmpty) _controllers['fullAddress']!.text = address;
 
-      _detectedLocation = {
-        'lat': result['lat'] ?? 18.5912,
-        'lng': result['lng'] ?? 73.7389,
-      };
+      final lat = result['lat'] is num ? (result['lat'] as num).toDouble() : double.tryParse('${result['lat']}');
+      final lng = result['lng'] is num ? (result['lng'] as num).toDouble() : double.tryParse('${result['lng']}');
+      if (lat != null && lng != null) {
+        _detectedLocation = {
+          'lat': lat,
+          'lng': lng,
+        };
+      }
       _validationError = null;
     });
 

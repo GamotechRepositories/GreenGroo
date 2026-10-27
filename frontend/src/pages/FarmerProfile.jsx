@@ -24,6 +24,147 @@ import {
 } from "lucide-react";
 import OptimizedImg from "../components/common/OptimizedImg";
 
+function getPreOrderStepperConfig(order) {
+  const p = String(order?.preOrderProgress || "").toLowerCase().trim();
+  const s = String(order?.status || "").toLowerCase().trim();
+
+  if (s === "delivered" || p === "delivered") {
+    return {
+      activeStep: 5,
+      lineWidthClass: "w-full",
+      badgeText: "Delivered",
+      badgeClass: "bg-[#eef8f1] text-[#0a6c38] border-emerald-200/70",
+      BadgeIcon: Check,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: true },
+        { label: "Delivered", active: true },
+      ],
+    };
+  }
+  if (s === "out_for_delivery" || p === "out_for_delivery") {
+    return {
+      activeStep: 4,
+      lineWidthClass: "w-[85%]",
+      badgeText: "Out for Delivery",
+      badgeClass: "bg-[#eef8f1] text-[#0a6c38] border-emerald-200/70",
+      BadgeIcon: Truck,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: true },
+        { label: "Delivering", active: true },
+      ],
+    };
+  }
+  if (s === "assigned" || s === "pickup_verified" || p === "rider_assigned") {
+    return {
+      activeStep: 4,
+      lineWidthClass: "w-[75%]",
+      badgeText: "Partner Assigned",
+      badgeClass: "bg-emerald-50 text-[#0a6c38] border-emerald-200/70",
+      BadgeIcon: Truck,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: true },
+        { label: "Delivery", active: false },
+      ],
+    };
+  }
+  if (p === "at_store" || order?.storeReceivedAt) {
+    return {
+      activeStep: 3,
+      lineWidthClass: "w-[60%]",
+      badgeText: "Reached Dark Store",
+      badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200/70",
+      BadgeIcon: Package,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: true },
+        { label: "Delivery", active: false },
+      ],
+    };
+  }
+  if (p === "dispatched" || order?.preOrderStage === "forwarded") {
+    return {
+      activeStep: 2,
+      lineWidthClass: "w-[45%]",
+      badgeText: "In Transit to Dark Store",
+      badgeClass: "bg-blue-50 text-blue-700 border-blue-200/70",
+      BadgeIcon: Truck,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: false },
+        { label: "Delivery", active: false },
+      ],
+    };
+  }
+  if (p === "preparing" || order?.preOrderStage === "preparing" || order?.preOrderStage === "ready") {
+    return {
+      activeStep: 2,
+      lineWidthClass: "w-[30%]",
+      badgeText: "Farmer & Collection",
+      badgeClass: "bg-amber-50 text-amber-700 border-amber-200/70",
+      BadgeIcon: Sprout,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: true },
+        { label: "Dark Store", active: false },
+        { label: "Delivery", active: false },
+      ],
+    };
+  }
+  if (p === "confirmed" || order?.vendorStatus === "confirmed") {
+    return {
+      activeStep: 1,
+      lineWidthClass: "w-[20%]",
+      badgeText: "Vendor Confirmed",
+      badgeClass: "bg-[#eef8f1] text-[#0a6c38] border-emerald-200/70",
+      BadgeIcon: Check,
+      steps: [
+        { label: "Vendor", active: true },
+        { label: "Confirmed", active: true },
+        { label: "Sourced", active: false },
+        { label: "Dark Store", active: false },
+        { label: "Delivery", active: false },
+      ],
+    };
+  }
+  if (s === "cancelled") {
+    return {
+      activeStep: 0,
+      lineWidthClass: "w-0",
+      badgeText: "Cancelled",
+      badgeClass: "bg-rose-50 text-rose-700 border-rose-200/70",
+      BadgeIcon: AlertCircle,
+    };
+  }
+  return {
+    activeStep: 1,
+    lineWidthClass: "w-[10%]",
+    badgeText: "Sent to Vendor",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200/70",
+    BadgeIcon: Package,
+    steps: [
+      { label: "Vendor", active: true },
+      { label: "Confirmed", active: false },
+      { label: "Sourced", active: false },
+      { label: "Dark Store", active: false },
+      { label: "Delivery", active: false },
+    ],
+  };
+}
+
 function getStepperConfig(status) {
   const s = String(status || "").toLowerCase();
   if (s === "delivered") {
@@ -111,14 +252,39 @@ export default function FarmerProfile() {
   const location = useLocation();
   const { user, loading: authLoading, openAuthModal } = useAuth();
 
-  // Read farmer info from state or default to real GreenGrocc farmer Ramesh Patil
+  const searchParams = new URLSearchParams(location.search);
   const passedFarmer = location.state?.farmer;
-  const farmerName = passedFarmer?.name || "श्री. Ramesh Patil";
-  const farmerLocation = passedFarmer?.location || "निफाड, नाशिक, महाराष्ट्र";
-  const farmerLand = passedFarmer?.land || "५.० एकर शेती";
-  const farmerBio = passedFarmer?.bio || "आमची शेती ही निफाड (नाशिक) परिसरात असून रासायनिक कीटकनाशक विरहीत, नैसर्गिक व एकात्मिक कीड व्यवस्थापन (IPM) पद्धतीने केली जाते. आम्ही उच्च दर्जाचा, ताजा व पोषक शेतीमाल थेट ग्राहकांसाठी पिकवतो.";
-  const farmerExperience = passedFarmer?.experience || "१२ वर्षे";
-  const farmerMethod = passedFarmer?.method || "सेंद्रिय व एकात्मिक (IPM)";
+  const rawFarmerName =
+    passedFarmer?.name ||
+    searchParams.get("name") ||
+    "श्री. Vilas Shinde";
+  const farmerName = rawFarmerName.startsWith("श्री.") || rawFarmerName.startsWith("श्री ")
+    ? rawFarmerName
+    : `श्री. ${rawFarmerName}`;
+  const farmerLocation =
+    passedFarmer?.location ||
+    searchParams.get("location") ||
+    "Shirur, Pune, Maharashtra";
+  const farmerLand =
+    passedFarmer?.land ||
+    searchParams.get("land") ||
+    "5 acres";
+  const farmerBio =
+    passedFarmer?.bio ||
+    searchParams.get("bio") ||
+    "Runs a high-density guava orchard and picks fruit at colour break for the best sweetness. Committed to sustainable, residue-tested farming in Shirur, Pune.";
+  const farmerExperience =
+    passedFarmer?.experience ||
+    searchParams.get("experience") ||
+    "15 वर्षे";
+  const farmerMethod =
+    passedFarmer?.method ||
+    searchParams.get("method") ||
+    "Pruned high-density orchard, organic mulch";
+  const farmerPhoto =
+    passedFarmer?.farmerImage ||
+    searchParams.get("photo") ||
+    "";
 
   const [activeTab, setActiveTab] = useState("about"); // 'about' | 'crops' | 'photos'
   const [orderFilter, setOrderFilter] = useState("upcoming"); // 'upcoming' | 'delivered' | 'past'
@@ -171,15 +337,26 @@ export default function FarmerProfile() {
     return orders;
   }, [orderFilter, upcomingOrders, deliveredOrders, pastOrders]);
 
-  // Crops grown by farmer
-  const farmerCrops = [
-    { name: "हायब्रिड व गावरान टोमॅटो (Tomato)", variety: "अभिनव / वैशाली (Niphad)", harvest: "दोन दिवसांपूर्वी ताजी काढणी", status: "उपलब्ध", icon: "🍅" },
-    { name: "नाशिक लाल कांदा (Nashik Red Onion)", variety: "गरवा (Garva)", harvest: "नोव्हेंबर रब्बी", status: "उपलब्ध", icon: "🧅" },
-    { name: "दुधी भोपळा (Bottle Gourd / Lauki)", variety: "स्थानिक वाण (Desi)", harvest: "आज पहाटे काढणी", status: "ताजी आवक", icon: "🥒" },
-    { name: "पालक व गावरान मेथी (Fresh Greens)", variety: "स्थानिक गावरान (Desi)", harvest: "पहाटे ५:३० वा.", status: "उपलब्ध", icon: "🥬" },
-    { name: "सेंद्रिय आले व लसूण (Ginger & Garlic)", variety: "माहिम (Mahim)", harvest: "डिसेंबर", status: "वाढ चालू", icon: "🫚" },
-    { name: "गाजर व वांगी (Carrots & Brinjal)", variety: "दिल्ली रेड / भरताची वांगी", harvest: "नियमित", status: "उपलब्ध", icon: "🥕" },
-  ];
+  // Crops grown by farmer (dynamic from passed farmer crops or authentic produce)
+  const farmerCrops = useMemo(() => {
+    if (Array.isArray(passedFarmer?.crops) && passedFarmer.crops.length > 0) {
+      return passedFarmer.crops.map((c) => ({
+        name: c.name || "Guava (पेरू)",
+        variety: c.variety || "Allahabad Safeda",
+        harvest: "ताजी काढणी (Colour break)",
+        status: c.status || "उपलब्ध",
+        icon: "🍈",
+      }));
+    }
+    return [
+      { name: "Allahabad Safeda Guava (पेरू)", variety: "Allahabad Safeda", harvest: "ताजी काढणी (Colour break)", status: "उपलब्ध", icon: "🍈" },
+      { name: "Sardar Guava (Lucknow 49)", variety: "L-49 (Desi)", harvest: "दोन दिवसांपूर्वी ताजी काढणी", status: "उपलब्ध", icon: "🍐" },
+      { name: "हायब्रिड टोमॅटो (Tomato)", variety: "अभिनव (Shirur)", harvest: "ताजी काढणी", status: "उपलब्ध", icon: "🍅" },
+      { name: "पालक व गावरान मेथी (Fresh Greens)", variety: "स्थानिक गावरान (Desi)", harvest: "पहाटे ५:३० वा.", status: "उपलब्ध", icon: "🥬" },
+      { name: "नाशिक लाल कांदा (Red Onion)", variety: "गरवा (Garva)", harvest: "रब्बी आवक", status: "उपलब्ध", icon: "🧅" },
+      { name: "गाजर व वांगी (Carrots & Brinjal)", variety: "दिल्ली रेड / भरताची वांगी", harvest: "नियमित", status: "उपलब्ध", icon: "🥕" },
+    ];
+  }, [passedFarmer?.crops]);
 
   return (
     <div className="min-h-screen bg-[#f8fbf9] pb-24 text-slate-800">
@@ -235,7 +412,7 @@ export default function FarmerProfile() {
             {/* Wide Panoramic Photo */}
             <div className="w-[320px] lg:w-[360px] h-[170px] lg:h-[185px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100 shadow-xs">
               <OptimizedImg
-                src="/assets/farmer/desktop_farmer_photo.png"
+                src={farmerPhoto || "/assets/farmer/desktop_farmer_photo.png"}
                 alt={farmerName}
                 className="w-full h-full object-cover"
               />
@@ -265,7 +442,7 @@ export default function FarmerProfile() {
             {/* Square Photo */}
             <div className="w-[105px] h-[115px] rounded-2xl overflow-hidden bg-emerald-50 shrink-0 border border-emerald-100 shadow-xs">
               <OptimizedImg
-                src="/assets/farmer/mobile_farmer_photo.png"
+                src={farmerPhoto || "/assets/farmer/mobile_farmer_photo.png"}
                 alt={farmerName}
                 className="w-full h-full object-cover"
               />
@@ -346,20 +523,20 @@ export default function FarmerProfile() {
 
               {/* 3 Metric Badges matching user's image */}
               <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-1">
-                {/* Badge 1: 5.0 एकर जमीन */}
+                {/* Badge 1: Farm Size */}
                 <div className="bg-[#f4faf5] border border-emerald-100/90 rounded-2xl p-3 sm:p-4 text-center flex flex-col items-center justify-center">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#e6f5ea] flex items-center justify-center text-[#0a6c38] mb-1.5">
                     <Leaf className="w-4 h-4 sm:w-5 sm:h-5 text-[#0a6c38]" />
                   </div>
                   <h4 className="font-black text-sm sm:text-base text-slate-900 leading-tight">
-                    ५.० एकर
+                    {farmerLand}
                   </h4>
                   <p className="text-[10.5px] sm:text-xs text-slate-500 mt-0.5 font-medium">
                     जमीन
                   </p>
                 </div>
 
-                {/* Badge 2: 12 वर्षे शेतीचा अनुभव */}
+                {/* Badge 2: Experience */}
                 <div className="bg-[#f4faf5] border border-emerald-100/90 rounded-2xl p-3 sm:p-4 text-center flex flex-col items-center justify-center">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#e6f5ea] flex items-center justify-center text-[#0a6c38] mb-1.5">
                     {/* Farmer Hat SVG */}
@@ -370,20 +547,20 @@ export default function FarmerProfile() {
                     </svg>
                   </div>
                   <h4 className="font-black text-sm sm:text-base text-slate-900 leading-tight">
-                    १२ वर्षे
+                    {farmerExperience}
                   </h4>
                   <p className="text-[10.5px] sm:text-xs text-slate-500 mt-0.5 font-medium">
                     शेतीचा अनुभव
                   </p>
                 </div>
 
-                {/* Badge 3: 10+ पिकांचे प्रकार */}
+                {/* Badge 3: Crop Types */}
                 <div className="bg-[#f4faf5] border border-emerald-100/90 rounded-2xl p-3 sm:p-4 text-center flex flex-col items-center justify-center">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#e6f5ea] flex items-center justify-center text-[#0a6c38] mb-1.5">
                     <Sprout className="w-4 h-4 sm:w-5 sm:h-5 text-[#0a6c38]" />
                   </div>
                   <h4 className="font-black text-sm sm:text-base text-slate-900 leading-tight">
-                    10+
+                    {farmerCrops.length > 0 ? `${farmerCrops.length}+` : "10+"}
                   </h4>
                   <p className="text-[10.5px] sm:text-xs text-slate-500 mt-0.5 font-medium">
                     पिकांचे प्रकार
@@ -571,7 +748,8 @@ export default function FarmerProfile() {
             /* REAL ORDERS LIST */
             <div className="space-y-4">
               {displayedOrders.map((order) => {
-                const statusConfig = getStepperConfig(order.status);
+                const isPreOrder = Boolean(order.isPreOrder || order.preOrderSlot || order.preOrderProgress);
+                const statusConfig = isPreOrder ? getPreOrderStepperConfig(order) : getStepperConfig(order.status);
                 const StatusBadgeIcon = statusConfig.BadgeIcon;
                 const orderCode = getOrderDisplayCode(order);
                 const orderDateStr = formatRealOrderDateTime(order.createdAt);
@@ -595,9 +773,16 @@ export default function FarmerProfile() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-extrabold text-sm sm:text-base text-slate-900 leading-tight truncate">
-                            Order #{orderCode}
-                          </h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-extrabold text-sm sm:text-base text-slate-900 leading-tight truncate">
+                              Order #{orderCode}
+                            </h4>
+                            {isPreOrder && (
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                                Pre-order
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate">
                             {orderDateStr}
                           </p>
@@ -624,99 +809,142 @@ export default function FarmerProfile() {
                             className={`absolute left-4 ${statusConfig.lineWidthClass} top-1/2 -translate-y-1/2 h-0.5 bg-[#0a6c38] z-0 transition-all duration-500`}
                           />
 
-                          {/* Step 1: Packed */}
-                          <div className="relative z-10 flex flex-col items-center">
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
-                                statusConfig.activeStep >= 1
-                                  ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 1 ? "ring-4 ring-[#eef8f1]" : ""}`
-                                  : "bg-gray-200 text-slate-400"
-                              }`}
-                            >
-                              <Package className="w-4 h-4" />
-                            </div>
-                            <span
-                              className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
-                                statusConfig.activeStep === 1
-                                  ? "font-extrabold text-[#0a6c38]"
-                                  : statusConfig.activeStep > 1
-                                  ? "font-bold text-slate-800"
-                                  : "font-medium text-slate-400"
-                              }`}
-                            >
-                              Packed
-                            </span>
-                          </div>
+                          {isPreOrder ? (
+                            (statusConfig.steps || [
+                              { label: "Vendor" },
+                              { label: "Confirmed" },
+                              { label: "Sourced" },
+                              { label: "Dark Store" },
+                              { label: "Delivered" },
+                            ]).map((step, idx) => {
+                              const isDoneOrActive = statusConfig.activeStep >= idx + 1;
+                              const isCurrent = statusConfig.activeStep === idx + 1;
+                              return (
+                                <div key={step.label} className="relative z-10 flex flex-col items-center">
+                                  <div
+                                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
+                                      isDoneOrActive
+                                        ? `bg-[#0a6c38] text-white ${isCurrent ? "ring-4 ring-[#eef8f1]" : ""}`
+                                        : "bg-gray-200 text-slate-400"
+                                    }`}
+                                  >
+                                    {isDoneOrActive ? (
+                                      <Check className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <span className="text-[10px] font-bold">{idx + 1}</span>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-[9.5px] sm:text-[11px] mt-1.5 text-center ${
+                                      isCurrent
+                                        ? "font-extrabold text-[#0a6c38]"
+                                        : isDoneOrActive
+                                        ? "font-bold text-slate-800"
+                                        : "font-medium text-slate-400"
+                                    }`}
+                                  >
+                                    {step.label}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <>
+                              {/* Step 1: Packed */}
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
+                                    statusConfig.activeStep >= 1
+                                      ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 1 ? "ring-4 ring-[#eef8f1]" : ""}`
+                                      : "bg-gray-200 text-slate-400"
+                                  }`}
+                                >
+                                  <Package className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
+                                    statusConfig.activeStep === 1
+                                      ? "font-extrabold text-[#0a6c38]"
+                                      : statusConfig.activeStep > 1
+                                      ? "font-bold text-slate-800"
+                                      : "font-medium text-slate-400"
+                                  }`}
+                                >
+                                  Packed
+                                </span>
+                              </div>
 
-                          {/* Step 2: Dispatched */}
-                          <div className="relative z-10 flex flex-col items-center">
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
-                                statusConfig.activeStep >= 2
-                                  ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 2 ? "ring-4 ring-[#eef8f1]" : ""}`
-                                  : "bg-gray-200 text-slate-400"
-                              }`}
-                            >
-                              <Truck className="w-4 h-4" />
-                            </div>
-                            <span
-                              className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
-                                statusConfig.activeStep === 2
-                                  ? "font-extrabold text-[#0a6c38]"
-                                  : statusConfig.activeStep > 2
-                                  ? "font-bold text-slate-800"
-                                  : "font-medium text-slate-400"
-                              }`}
-                            >
-                              Dispatched
-                            </span>
-                          </div>
+                              {/* Step 2: Dispatched */}
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
+                                    statusConfig.activeStep >= 2
+                                      ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 2 ? "ring-4 ring-[#eef8f1]" : ""}`
+                                      : "bg-gray-200 text-slate-400"
+                                  }`}
+                                >
+                                  <Truck className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
+                                    statusConfig.activeStep === 2
+                                      ? "font-extrabold text-[#0a6c38]"
+                                      : statusConfig.activeStep > 2
+                                      ? "font-bold text-slate-800"
+                                      : "font-medium text-slate-400"
+                                  }`}
+                                >
+                                  Dispatched
+                                </span>
+                              </div>
 
-                          {/* Step 3: Out for Delivery */}
-                          <div className="relative z-10 flex flex-col items-center">
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
-                                statusConfig.activeStep >= 3
-                                  ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 3 ? "ring-4 ring-[#eef8f1] animate-pulse" : ""}`
-                                  : "bg-gray-200 text-slate-400"
-                              }`}
-                            >
-                              <Truck className="w-4 h-4" />
-                            </div>
-                            <span
-                              className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
-                                statusConfig.activeStep === 3
-                                  ? "font-extrabold text-[#0a6c38]"
-                                  : statusConfig.activeStep > 3
-                                  ? "font-bold text-slate-800"
-                                  : "font-medium text-slate-400"
-                              }`}
-                            >
-                              Out for Delivery
-                            </span>
-                          </div>
+                              {/* Step 3: Out for Delivery */}
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shadow-xs transition-all ${
+                                    statusConfig.activeStep >= 3
+                                      ? `bg-[#0a6c38] text-white ${statusConfig.activeStep === 3 ? "ring-4 ring-[#eef8f1] animate-pulse" : ""}`
+                                      : "bg-gray-200 text-slate-400"
+                                  }`}
+                                >
+                                  <Truck className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
+                                    statusConfig.activeStep === 3
+                                      ? "font-extrabold text-[#0a6c38]"
+                                      : statusConfig.activeStep > 3
+                                      ? "font-bold text-slate-800"
+                                      : "font-medium text-slate-400"
+                                  }`}
+                                >
+                                  Out for Delivery
+                                </span>
+                              </div>
 
-                          {/* Step 4: Delivered */}
-                          <div className="relative z-10 flex flex-col items-center">
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all ${
-                                statusConfig.activeStep >= 4
-                                  ? "bg-[#0a6c38] text-white shadow-xs ring-4 ring-[#eef8f1]"
-                                  : "bg-gray-200 text-slate-400"
-                              }`}
-                            >
-                              <Check className="w-4 h-4" />
-                            </div>
-                            <span
-                              className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
-                                statusConfig.activeStep >= 4
-                                  ? "font-extrabold text-[#0a6c38]"
-                                  : "font-medium text-slate-400"
-                              }`}
-                            >
-                              Delivered
-                            </span>
-                          </div>
+                              {/* Step 4: Delivered */}
+                              <div className="relative z-10 flex flex-col items-center">
+                                <div
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all ${
+                                    statusConfig.activeStep >= 4
+                                      ? "bg-[#0a6c38] text-white shadow-xs ring-4 ring-[#eef8f1]"
+                                      : "bg-gray-200 text-slate-400"
+                                  }`}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`text-[10px] sm:text-[11.5px] mt-1.5 ${
+                                    statusConfig.activeStep >= 4
+                                      ? "font-extrabold text-[#0a6c38]"
+                                      : "font-medium text-slate-400"
+                                  }`}
+                                >
+                                  Delivered
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     ) : (

@@ -42,7 +42,7 @@ class ApiClient {
                     : null) ??
                 '';
             final lower = message.toLowerCase();
-            if (lower.contains('admin') || lower.contains('blocked')) {
+            if (lower.contains('blocked')) {
               _authStorage.clear();
             }
           }

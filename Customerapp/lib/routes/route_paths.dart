@@ -27,4 +27,5 @@ class RoutePaths {
   static const terms = '/terms-and-conditions';
   static const location = '/location';
   static const shippingDetails = '/shipping-details';
+  static const farmerProfile = '/farmer-profile';
 }

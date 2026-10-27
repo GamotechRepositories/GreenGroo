@@ -64,9 +64,9 @@ class TrackingDriver {
     required this.name,
     required this.phone,
     this.vehicleType = 'Bike',
-    this.vehicleNumber = 'MH 12 AB 3456',
-    this.rating = 4.8,
-    this.totalDeliveries = 256,
+    this.vehicleNumber = '',
+    this.rating = 0.0,
+    this.totalDeliveries = 0,
   });
 
   final String name;
@@ -77,16 +77,16 @@ class TrackingDriver {
   final int totalDeliveries;
 
   factory TrackingDriver.fromJson(Map<String, dynamic> json) => TrackingDriver(
-        name: json['name']?.toString() ?? 'Delivery partner',
+        name: json['name']?.toString() ?? '',
         phone: json['phone']?.toString() ?? '',
         vehicleType: json['vehicleType']?.toString().isNotEmpty == true
             ? json['vehicleType'].toString()
             : 'Bike',
         vehicleNumber: json['vehicleNumber']?.toString().isNotEmpty == true
             ? json['vehicleNumber'].toString()
-            : 'MH 12 AB 3456',
-        rating: _toDouble(json['rating']) ?? 4.8,
-        totalDeliveries: (json['totalDeliveries'] as num?)?.toInt() ?? 256,
+            : '',
+        rating: _toDouble(json['rating']) ?? 0.0,
+        totalDeliveries: (json['totalDeliveries'] as num?)?.toInt() ?? 0,
       );
 }
 

@@ -15,7 +15,6 @@ import '../../../widgets/common/product_3d_image.dart';
 import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
 import '../feedback/order_feedback_sheet.dart';
-import '../tracking/order_tracking_panel.dart';
 import 'delivery_otp_resend_button.dart';
 import 'preorder_manage_card.dart';
 
@@ -297,18 +296,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
   Widget build(BuildContext context) {
     final order = widget.order;
 
-    // Full-page modern tracking view for live trackable orders matching UI mockup
-    if (_usesDarkStoreTracking(order)) {
-      return OrderTrackingPanel(
-        key: ValueKey('tracking-${order.id}'),
-        orderId: order.id,
-        order: order,
-        onStatusChanged: widget.onTrackingStatusChanged,
-        onOrderAgain: widget.onOrderAgain,
-        onInvoice: widget.onInvoice,
-      );
-    }
-
     final shipments = splitOrderShipments(order.items);
     final shipmentItems = shipments[_selectedShipment.clamp(0, shipments.length - 1)];
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
@@ -384,17 +371,91 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   statusLabel: statusLabel,
                   isDelivered: order.status == 'delivered',
                 ),
-                if (_usesDarkStoreTracking(order))
-                  OrderTrackingPanel(
-                    key: ValueKey('tracking-${order.id}'),
-                    orderId: order.id,
-                    onStatusChanged: widget.onTrackingStatusChanged,
-                  )
-                else
+                if (_usesDarkStoreTracking(order) &&
+                    order.status != 'delivered' &&
+                    order.status != 'cancelled' &&
+                    order.status != 'return') ...[
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    child: _OrderStatusTracker(status: order.status, pickup: order.isPickup),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF047857), Color(0xFF065F46)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF047857).withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => context.push('/orders/${order.id}/track'),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.pedal_bike_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: const [
+                                      Text(
+                                        'Track Order Live',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'View real-time delivery status & map',
+                                        style: TextStyle(
+                                          color: Color(0xFFD1FAE5),
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: Colors.white,
+                                  size: 15,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  child: _OrderStatusTracker(status: order.status, pickup: order.isPickup),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
                   child: Text(

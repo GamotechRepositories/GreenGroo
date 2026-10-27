@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,6 +26,14 @@ import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../features/settings/store_settings_provider.dart';
 import 'checkout_fulfillment_widgets.dart';
 import 'payment_method.dart';
+
+const _pageBg = Color(0xFFF1F2F6);
+const _ink = Color(0xFF0F172A);
+const _muted = Color(0xFF64748B);
+const _slate700 = Color(0xFF334155);
+const _slate200 = Color(0xFFE2E8F0);
+const _slate100 = Color(0xFFF1F5F9);
+const _accent = Color(0xFF047857);
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({
@@ -170,7 +178,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     return id;
   }
 
-  Map<String, dynamic>? _customerLocationPayload() {
+  Map<String, dynamic>? _customerLocationPayload({Address? address}) {
+    Address? target = address;
+    if (target == null && widget.selectedAddressId != null) {
+      final addresses = ref.read(addressControllerProvider).addresses;
+      target = addresses.where((a) => a.id == widget.selectedAddressId).firstOrNull;
+    }
+    if (target != null) {
+      final loc = target.location;
+      final lat = loc?['lat'];
+      final lng = loc?['lng'];
+      final latNum = lat is num ? lat.toDouble() : double.tryParse('$lat');
+      final lngNum = lng is num ? lng.toDouble() : double.tryParse('$lng');
+      return {
+        'city': target.city,
+        'area': target.area,
+        'state': target.state,
+        'pincode': target.pincode,
+        'fullAddress': target.fullAddress,
+        if (latNum != null && lngNum != null) ...{
+          'lat': latNum,
+          'lng': lngNum,
+          'location': {'lat': latNum, 'lng': lngNum},
+        },
+      };
+    }
     final loc = ref.read(deliveryLocationProvider);
     if (loc == null) return null;
     final map = <String, dynamic>{
@@ -234,6 +266,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Future<void> _processPayment(Address address) async {
     if (_placingOrder) return;
 
+    final auth = ref.read(authControllerProvider);
+    if (!auth.isLoggedIn || auth.user == null) {
+      ref.read(authControllerProvider.notifier).openAuthModal(AuthModalMode.login);
+      return;
+    }
+
     setState(() => _errorMessage = '');
 
     final cartItems = ref.read(cartControllerProvider).items;
@@ -266,7 +304,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'paymentMode': _paymentPlan,
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
-        'customerLocation': _customerLocationPayload(),
+        'customerLocation': _customerLocationPayload(address: address),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         ..._fulfillmentPayload(),
       });
@@ -346,7 +384,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'customerMessage': widget.customerMessage?.trim() ?? '',
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
-        'customerLocation': _customerLocationPayload(),
+        'customerLocation': _customerLocationPayload(address: defaultAddr),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'razorpay_order_id': response.orderId,
@@ -392,7 +430,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'customerMessage': widget.customerMessage?.trim() ?? '',
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
-        'customerLocation': _customerLocationPayload(),
+        'customerLocation': _customerLocationPayload(address: address),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         ..._fulfillmentPayload(),
       });
@@ -432,6 +470,58 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    if (!auth.isLoggedIn) {
+      return Scaffold(
+        backgroundColor: _pageBg,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          foregroundColor: _ink,
+          elevation: 0,
+          title: Text(
+            'Payment',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 56, color: _muted),
+                const SizedBox(height: 16),
+                Text(
+                  'Please login to complete your payment and place this order.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _slate700,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton(
+                    onPressed: () => ref.read(authControllerProvider.notifier).openAuthModal(AuthModalMode.login),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _accent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Login / Sign Up', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final cartItems = ref.watch(cartControllerProvider.select((s) => s.items));
     final addressList = ref.watch(addressControllerProvider.select((s) => s.addresses));
     final deliveryLoc = ref.watch(deliveryLocationProvider);
@@ -756,13 +846,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 }
-
-const _pageBg = Color(0xFFF1F2F6);
-const _ink = Color(0xFF0F172A);
-const _muted = Color(0xFF64748B);
-const _slate100 = Color(0xFFF1F5F9);
-const _slate200 = Color(0xFFE2E8F0);
-const _accent = Color(0xFF047857);
 
 /// Store â†’ customer route with the promised delivery time.
 class _DeliveryRouteCard extends StatelessWidget {

@@ -247,14 +247,14 @@ export function formatPreOrderSlot(order) {
 }
 
 export const PRE_ORDER_PROGRESS_STEPS = [
-  { key: "awaiting_vendor", label: "Awaiting confirmation" },
-  { key: "confirmed", label: "Confirmed" },
-  { key: "preparing", label: "Packed" },
-  { key: "dispatched", label: "Shipped" },
-  { key: "at_store", label: "Reached dark store" },
-  { key: "rider_assigned", label: "Delivery partner assigned" },
-  { key: "out_for_delivery", label: "Out for delivery" },
-  { key: "delivered", label: "Delivered" },
+  { key: "awaiting_vendor", label: "Order Placed · Sent to Vendor & Manager", subtitle: "Sent to vendor & product manager for verification" },
+  { key: "confirmed", label: "Vendor Confirmed", subtitle: "Vendor accepted and scheduled for harvest" },
+  { key: "preparing", label: "Sourced from Farmer / Collection House", subtitle: "Collection house & farmer harvesting fresh produce" },
+  { key: "dispatched", label: "Pickup Approved · In Transit to Dark Store", subtitle: "Dispatched from collection center to dark store" },
+  { key: "at_store", label: "Reached Dark Store", subtitle: "Order received at local dark store" },
+  { key: "rider_assigned", label: "Delivery Partner Assigned", subtitle: "Rider assigned for your area delivery" },
+  { key: "out_for_delivery", label: "Out for Delivery", subtitle: "Rider is delivering to your address" },
+  { key: "delivered", label: "Delivered", subtitle: "Delivered with OTP verification" },
 ];
 
 /** Live pre-order stage label ("Awaiting confirmation", "Reached dark store", …) or "". */

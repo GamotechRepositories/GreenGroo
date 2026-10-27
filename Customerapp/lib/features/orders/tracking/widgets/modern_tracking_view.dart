@@ -181,17 +181,23 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
         : (order.id.length > 8 ? order.id.substring(0, 8).toUpperCase() : order.id);
 
     final statusLabel = _formatStatusLabel(tracking.status);
+    final isDelivered = order.status == 'delivered' || tracking.status == 'delivered';
     final etaText = tracking.eta?.text.isNotEmpty == true
         ? tracking.eta!.text
-        : (order.status == 'delivered' ? '0 min' : '12 mins');
+        : (isDelivered
+            ? 'Delivered'
+            : (tracking.driver != null && tracking.driver!.name.isNotEmpty
+                ? 'Calculating...'
+                : 'ETA unavailable'));
 
     final driver = tracking.driver;
-    final driverName = driver?.name.isNotEmpty == true ? driver!.name : 'Rohit Kumar';
-    final driverPhone = driver?.phone.isNotEmpty == true ? driver!.phone : '+919876543210';
-    final driverVehicle = driver?.vehicleNumber.isNotEmpty == true ? driver!.vehicleNumber : 'MH 12 AB 3456';
-    final driverType = driver?.vehicleType.isNotEmpty == true ? driver!.vehicleType : 'Bike';
-    final driverRating = driver?.rating ?? 4.8;
-    final driverDeliveries = driver?.totalDeliveries ?? 256;
+    final hasRealDriver = driver != null && driver.name.trim().isNotEmpty && driver.name.trim() != 'Delivery partner';
+    final driverName = driver?.name.trim() ?? '';
+    final driverPhone = driver?.phone.trim() ?? '';
+    final driverVehicle = driver?.vehicleNumber.trim() ?? '';
+    final driverType = driver?.vehicleType.trim().isNotEmpty == true ? driver!.vehicleType.trim() : 'Bike';
+    final driverRating = driver?.rating ?? 0.0;
+    final driverDeliveries = driver?.totalDeliveries ?? 0;
 
     final outForDelivery = order.status == 'shipping' || tracking.status == 'out_for_delivery';
     final hasOtp = order.deliveryOtp.trim().isNotEmpty && outForDelivery && !tracking.isClosed;
@@ -436,115 +442,183 @@ class _ModernTrackingViewState extends State<ModernTrackingView> {
                       const SizedBox(height: 10),
 
                       // Card 2: Delivery Partner Card
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const CourierAvatarBadge(size: 44),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    driverName,
-                                    style: const TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0F172A),
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        size: 13.5,
-                                        color: Color(0xFFFFB300),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        '$driverRating ($driverDeliveries deliveries)',
-                                        style: const TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(2.5),
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.headerFadeBg,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.two_wheeler_rounded,
-                                          size: 11,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        driverVehicle,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        driverType,
-                                        style: const TextStyle(
-                                          fontSize: 9.5,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                      if (!hasRealDriver)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                            ),
-                            // Circular Call Button
-                            Material(
-                              color: AppColors.primary,
-                              shape: const CircleBorder(),
-                              elevation: 2,
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () => _callDriver(driverPhone),
-                                child: Container(
-                                  width: 38,
-                                  height: 38,
-                                  alignment: Alignment.center,
-                                  child: const Icon(
-                                    Icons.phone_rounded,
-                                    color: Colors.white,
-                                    size: 17,
-                                  ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: const Icon(
+                                  Icons.delivery_dining_outlined,
+                                  color: Color(0xFF64748B),
+                                  size: 22,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Waiting for driver assignment',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'A delivery partner will be assigned once order is packed.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const CourierAvatarBadge(size: 44),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      driverName,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    if (driverRating > 0) ...[
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.star_rounded,
+                                            size: 13.5,
+                                            color: Color(0xFFFFB300),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            '$driverRating ($driverDeliveries deliveries)',
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    if (driverVehicle.isNotEmpty || driverType.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(2.5),
+                                            decoration: const BoxDecoration(
+                                              color: AppColors.headerFadeBg,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.two_wheeler_rounded,
+                                              size: 11,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          if (driverVehicle.isNotEmpty) ...[
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              driverVehicle,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                          ],
+                                          if (driverType.isNotEmpty) ...[
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              driverType,
+                                              style: const TextStyle(
+                                                fontSize: 9.5,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (driverPhone.isNotEmpty)
+                                Material(
+                                  color: AppColors.primary,
+                                  shape: const CircleBorder(),
+                                  elevation: 2,
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () => _callDriver(driverPhone),
+                                    child: Container(
+                                      width: 38,
+                                      height: 38,
+                                      alignment: Alignment.center,
+                                      child: const Icon(
+                                        Icons.phone_rounded,
+                                        color: Colors.white,
+                                        size: 17,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 10),
 
                       // Card 3: Order Status Horizontal Stepper

@@ -133,7 +133,7 @@ class BlinkitOrderCard extends ConsumerWidget {
               isActive: isActive,
               isDelivered: isDelivered,
               rating: deliveryRating,
-              onTrack: () => context.push('/orders/${order.id}'),
+              onTrack: () => context.push('/orders/${order.id}/track'),
               onRate: () => _showRatingSheet(context, ref, order.id),
               onDownloadInvoice: () => context.push('/orders/${order.id}/invoice'),
               onReorder: () => _handleOrderAgain(context, order, productId),
@@ -470,15 +470,14 @@ class _OrderFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final buttons = <Widget>[
+      if (isActive)
+        _FooterActionButton(icon: Icons.pedal_bike_rounded, label: 'Track order', onTap: onTrack),
+      _FooterActionButton(icon: Icons.replay_rounded, label: 'Order again', onTap: onReorder),
+      _FooterActionButton(icon: Icons.description_outlined, label: 'Invoice', onTap: onDownloadInvoice),
       if (isDelivered)
         rating != null
             ? _RatedButton(rating: rating!, onTap: onRate)
             : _FooterActionButton(icon: Icons.star_outline_rounded, label: 'Rate order', onTap: onRate),
-      if (isActive)
-        _FooterActionButton(icon: Icons.pedal_bike_rounded, label: 'Track order', onTap: onTrack)
-      else
-        _FooterActionButton(icon: Icons.replay_rounded, label: 'Order again', onTap: onReorder),
-      _FooterActionButton(icon: Icons.description_outlined, label: 'Invoice', onTap: onDownloadInvoice),
     ];
 
     return SizedBox(
