@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   CalendarRange,
   ChartPie,
+  Download,
   Info,
   Loader2,
   Package,
@@ -24,6 +25,7 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -35,6 +37,7 @@ import {
   YAxis,
 } from 'recharts';
 import opsApi from '../api/opsApi';
+import { downloadAnalyticsExcel } from '../utils/analyticsExcel';
 import { BTN, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TD, TH } from '../utils/ui';
 
 const COLORS = ['#047857', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#64748b', '#ec4899', '#84cc16'];
@@ -147,6 +150,11 @@ const humanize = (s) => {
 
 const num = (n) => Number(n || 0).toLocaleString('en-IN');
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const sharePct = (part, total, digits = 1) => {
+  if (!total) return 0;
+  const f = 10 ** digits;
+  return Math.round((Number(part || 0) / total) * 100 * f) / f;
+};
 
 function inrShort(n) {
   const v = Number(n || 0);
@@ -315,16 +323,21 @@ function Donut({ data, nameKey, valueKey, format = 'num', labels, height = 220 }
   );
 }
 
-function HBars({ data, nameKey, valueKey, format = 'num', color = COLORS[0], height, labels }) {
+function HBars({ data, nameKey, valueKey, format = 'num', color = COLORS[0], height, labels, showShare = false }) {
   const rows = (data || []).filter((d) => Number(d[valueKey]) > 0);
   if (!rows.length) return <Empty />;
   const h = height || Math.max(160, rows.length * 34 + 20);
   const fmt = FORMATTERS[format] || num;
+  const total = rows.reduce((s, d) => s + Number(d[valueKey] || 0), 0);
   const label = (v) => (labels ? labels(v) : humanize(v));
+  const valueWithShare = (value) => {
+    const pct = sharePct(value, total);
+    return showShare ? `${fmt(value)} · ${pct}%` : fmt(value);
+  };
   return (
     <div style={{ height: h }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
+        <BarChart data={rows} layout="vertical" margin={{ left: 8, right: showShare ? 96 : 24, top: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
           <XAxis type="number" fontSize={11} stroke={AXIS} tickFormatter={format === 'inr' ? inrShort : undefined} allowDecimals={false} />
           <YAxis
@@ -344,12 +357,27 @@ function HBars({ data, nameKey, valueKey, format = 'num', color = COLORS[0], hei
               active && payload?.length ? (
                 <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold text-slate-800">{label(payload[0].payload[nameKey])}</p>
-                  <p className="text-slate-600">{fmt(payload[0].value)}</p>
+                  <p className="text-slate-600">{valueWithShare(payload[0].value)}</p>
                 </div>
               ) : null
             }
           />
-          <Bar dataKey={valueKey} fill={color} radius={[0, 6, 6, 0]} maxBarSize={22} />
+          <Bar dataKey={valueKey} fill={color} radius={[0, 6, 6, 0]} maxBarSize={22}>
+            {showShare ? (
+              <LabelList
+                dataKey={valueKey}
+                position="right"
+                content={({ x, y, width, height: barH, value }) => {
+                  if (value == null || x == null || y == null) return null;
+                  return (
+                    <text x={x + width + 6} y={y + barH / 2} dominantBaseline="middle" fontSize={10} fill="#334155">
+                      {valueWithShare(value)}
+                    </text>
+                  );
+                }}
+              />
+            ) : null}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -648,27 +676,34 @@ function SalesTab({ data }) {
         <ChartCard title="Fulfilment" subtitle="Home delivery vs. store pickup (orders)">
           <Donut data={sales.fulfilment} nameKey="type" valueKey="orders" labels={(k) => (k === 'pickup' ? 'Store pickup' : 'Home delivery')} />
         </ChartCard>
-        <ChartCard title="Order status value" subtitle="Value sitting in each status">
-          <HBars data={sales.statuses} nameKey="status" valueKey="value" format="inr" color={COLORS[3]} />
+        <ChartCard title="Order status value" subtitle="Value sitting in each status — rupees and share">
+          <HBars data={sales.statuses} nameKey="status" valueKey="value" format="inr" color={COLORS[3]} showShare />
         </ChartCard>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Order value by city" subtitle="From the delivery address">
-          <HBars data={sales.cities} nameKey="city" valueKey="gmv" format="inr" labels={(v) => v} />
+        <ChartCard title="Order value by city" subtitle="From the delivery address — rupees and share">
+          <HBars data={sales.cities} nameKey="city" valueKey="gmv" format="inr" labels={(v) => v} showShare />
         </ChartCard>
-        <ChartCard title="Busiest areas" subtitle="Top delivery areas by orders">
+        <ChartCard title="Busiest areas" subtitle="Top delivery areas by orders, with dark store ID">
           {sales.areas.length ? (
             <ul className="space-y-3">
               {sales.areas.map((a) => (
-                <li key={`${a.area}-${a.city}`} className="text-xs">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="truncate font-medium text-slate-700">
-                      {a.area}
-                      {a.city ? <span className="font-normal text-slate-400"> · {a.city}</span> : null}
-                    </span>
-                    <span className="shrink-0 text-slate-500">
-                      {num(a.orders)} orders · <span className="font-semibold text-slate-900">{inr(a.gmv)}</span>
+                <li key={`${a.darkStoreId || a.storeName}-${a.area}-${a.city}`} className="text-xs">
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-700">
+                        {a.area}
+                        {a.city ? <span className="font-normal text-slate-400"> · {a.city}</span> : null}
+                      </p>
+                      {a.storeName ? <p className="truncate text-[11px] text-slate-500">{a.storeName}</p> : null}
+                      <p className="truncate font-mono text-[10px] text-slate-400" title={a.darkStoreId || ''}>
+                        {a.darkStoreId ? `ID ${a.darkStoreId}` : 'Dark store ID unavailable'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-right text-slate-500">
+                      {num(a.orders)} orders
+                      <span className="block font-semibold text-slate-900">{inr(a.gmv)}</span>
                     </span>
                   </div>
                   <ShareBar value={a.orders} max={maxArea} color={COLORS[1]} />
@@ -1175,6 +1210,16 @@ export default function Analytics() {
               <span className="text-slate-400">vs. {prettyDate(data.range.previousFrom)} – {prettyDate(data.range.previousTo)}</span>
             </span>
           ) : null}
+          <button
+            type="button"
+            className={BTN}
+            disabled={!data || loading}
+            onClick={() => data && downloadAnalyticsExcel(data)}
+            title="Download Excel for every analytics section"
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Excel
+          </button>
           <button type="button" className={BTN} onClick={() => setReloadKey((k) => k + 1)} disabled={loading} title="Refresh">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>

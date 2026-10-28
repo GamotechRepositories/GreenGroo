@@ -13,6 +13,10 @@ export const queryKeys = {
     list: (section, placement) => ["banners", section, placement],
   },
   storeSettings: ["store-settings"],
+  orders: {
+    all: ["orders"],
+    mine: (userId) => ["orders", "mine", userId || "guest"],
+  },
   availableCoupons: (subtotal, userId) => ["coupons", "available", subtotal, userId || "guest"],
   products: {
     list: (params) => ["products", params],

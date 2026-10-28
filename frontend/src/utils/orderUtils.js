@@ -182,6 +182,15 @@ export function filterOrders(orders, { filter, query }) {
   });
 }
 
+/** Sum of placed orders that still count (not cancelled / returned / attempted). */
+export function getLifetimeOrderSpend(orders) {
+  return (orders || []).reduce((sum, order) => {
+    const status = String(order?.status || "").toLowerCase();
+    if (status === "cancelled" || status === "return" || status === "attempted") return sum;
+    return sum + (Number(order?.total) || 0);
+  }, 0);
+}
+
 export function buildOrdersSummary(orders) {
   return orders.reduce(
     (summary, order) => {

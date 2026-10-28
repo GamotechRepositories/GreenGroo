@@ -11,6 +11,7 @@ import {
   buildStoreProductUrl,
 } from "../../utils/storeSection";
 import OptimizedImg from "../common/OptimizedImg";
+import LifetimeOrderSpend from "../layout/LifetimeOrderSpend";
 
 export { sectionToStoreKey, storeToSection, buildStoreProductUrl };
 
@@ -152,7 +153,10 @@ export function HomeDeliveryBar() {
             className="h-8 w-auto max-w-[130px] object-contain object-left sm:h-9 sm:max-w-[150px]"
           />
         </Link>
-        <ProfileButton theme={theme} />
+        <div className="flex items-center gap-1.5">
+          <LifetimeOrderSpend compact />
+          <ProfileButton theme={theme} />
+        </div>
       </div>
 
       <div

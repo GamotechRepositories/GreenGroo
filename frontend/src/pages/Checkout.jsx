@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useAvailableCouponsQuery } from "../hooks/queries/useAvailableCouponsQuery";
+import { queryKeys } from "../hooks/queries/queryKeys";
+import { queryClient } from "../lib/queryClient";
 import {
   BillRow,
   Card,
@@ -861,6 +863,7 @@ function Checkout() {
     clearBuyNowCheckout();
     resetCart();
     await loadCart();
+    queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
     setShowSuccessModal(true);
   };
 

@@ -311,8 +311,9 @@ async function filterOptions() {
   };
 }
 
-async function salesSection(match, range) {
+async function salesSection(match, range, filters = {}) {
   const live = { ...match, status: { $nin: ["attempted", ...CANCELLED] } };
+  const storeMatch = storeOrderMatch(filters, range.from, range.to);
   const [daily, statuses, payments, fulfilment, departments, heat, cities, areas, promoTotals, coupons] =
     await Promise.all([
       Order.aggregate([
@@ -375,16 +376,25 @@ async function salesSection(match, range) {
         { $sort: { gmv: -1 } },
         { $limit: 12 },
       ]),
-      Order.aggregate([
-        { $match: { ...match, status: PLACED } },
+      StoreOrder.aggregate([
+        { $match: storeMatch },
         {
           $group: {
-            _id: { $ifNull: ["$deliveryAddress.area", "Unknown"] },
-            city: { $first: "$deliveryAddress.city" },
+            _id: {
+              area: {
+                $let: {
+                  vars: { a: { $trim: { input: { $ifNull: ["$area", ""] } } } },
+                  in: { $cond: [{ $eq: ["$$a", ""] }, "Unknown", "$$a"] },
+                },
+              },
+              store: { $ifNull: ["$darkStoreId", "$managerId"] },
+            },
+            city: { $first: "$city" },
             orders: { $sum: 1 },
-            gmv: sumIf({ $not: [isCancelled] }, "$total"),
+            gmv: { $sum: STORE_ORDER_VALUE },
           },
         },
+        { $lookup: { from: DeliveryManager.collection.name, localField: "_id.store", foreignField: "_id", as: "s" } },
         { $sort: { orders: -1, gmv: -1 } },
         { $limit: 10 },
       ]),
@@ -426,7 +436,18 @@ async function salesSection(match, range) {
       .sort((a, b) => b.value - a.value),
     heatmap: heat.map((h) => ({ dow: h._id.dow, hour: h._id.hour, orders: h.orders })),
     cities: cities.map((c) => ({ city: c._id || "Unknown", orders: c.orders, gmv: round(c.gmv), revenue: round(c.revenue) })),
-    areas: areas.map((a) => ({ area: a._id || "Unknown", city: a.city || "", orders: a.orders, gmv: round(a.gmv) })),
+    areas: areas.map((a) => {
+      const store = a.s?.[0];
+      const storeId = a._id?.store ? String(a._id.store) : "";
+      return {
+        area: a._id?.area || "Unknown",
+        city: a.city || store?.city || "",
+        darkStoreId: storeId,
+        storeName: store ? store.storeName || store.name || "Dark store" : storeId ? `Removed store #${storeId.slice(-6)}` : "",
+        orders: a.orders,
+        gmv: round(a.gmv),
+      };
+    }),
     promotions: {
       couponDiscount: round(p.coupon),
       rewardDiscount: round(p.reward),
@@ -812,7 +833,7 @@ export async function getAnalytics(req, res, next) {
         deliveryKpis(storeOrderMatch(filters, range.prevFrom, range.prevTo)),
         User.countDocuments(newCustomerMatch(filters, range.from, range.to)),
         User.countDocuments(newCustomerMatch(filters, range.prevFrom, range.prevTo)),
-        salesSection(current, range),
+        salesSection(current, range, filters),
         productsSection(current),
         customersSection(current, filters, range),
         deliverySection(filters, range),

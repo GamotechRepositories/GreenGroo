@@ -4,6 +4,7 @@ import { LOGO_URL } from "../layout/Header";
 import { useCart } from "../../context/CartContext";
 import MobileSearchBar from "./MobileSearchBar";
 import ShopCategoryPicker from "./ShopCategoryPicker";
+import LifetimeOrderSpend from "../layout/LifetimeOrderSpend";
 import OptimizedImg from "../common/OptimizedImg";
 
 function MobileHeader() {
@@ -51,6 +52,8 @@ function MobileHeader() {
               </div>
             </>
           )}
+
+          <LifetimeOrderSpend compact />
 
           <Link
             to="/cart"

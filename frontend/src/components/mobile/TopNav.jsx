@@ -9,6 +9,7 @@ import { useScrollDirection } from "../../hooks/useScrollDirection";
 import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 import DesktopSearchBar from "./DesktopSearchBar";
 import CategoryNavbar from "../layout/CategoryNavbar";
+import LifetimeOrderSpend from "../layout/LifetimeOrderSpend";
 import OptimizedImg from "../common/OptimizedImg";
 
 export const UPPER_BAR_H = 56;
@@ -215,6 +216,8 @@ function TopNav() {
             {/* Right corner: Search Bar + Solid Green Cart CTA + Account Button */}
             <div className="relative z-10 flex shrink-0 items-center gap-3">
               <DesktopSearchBar />
+
+              <LifetimeOrderSpend />
 
               {/* 1. Solid Green Quick-Commerce Cart CTA */}
               <Link
