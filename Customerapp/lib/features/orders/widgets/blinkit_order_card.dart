@@ -132,6 +132,7 @@ class BlinkitOrderCard extends ConsumerWidget {
             _OrderFooter(
               isActive: isActive,
               isDelivered: isDelivered,
+              isPreOrder: order.isPreOrder,
               rating: deliveryRating,
               onTrack: () => context.push('/orders/${order.id}/track'),
               onRate: () => _showRatingSheet(context, ref, order.id),
@@ -452,6 +453,7 @@ class _OrderFooter extends StatelessWidget {
   const _OrderFooter({
     required this.isActive,
     required this.isDelivered,
+    this.isPreOrder = false,
     required this.rating,
     required this.onTrack,
     required this.onRate,
@@ -461,6 +463,7 @@ class _OrderFooter extends StatelessWidget {
 
   final bool isActive;
   final bool isDelivered;
+  final bool isPreOrder;
   final int? rating;
   final VoidCallback onTrack;
   final VoidCallback onRate;
@@ -470,8 +473,12 @@ class _OrderFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final buttons = <Widget>[
-      if (isActive)
-        _FooterActionButton(icon: Icons.pedal_bike_rounded, label: 'Track order', onTap: onTrack),
+      if (isActive || isPreOrder)
+        _FooterActionButton(
+          icon: isPreOrder ? Icons.timeline_rounded : Icons.pedal_bike_rounded,
+          label: 'Track order',
+          onTap: onTrack,
+        ),
       _FooterActionButton(icon: Icons.replay_rounded, label: 'Order again', onTap: onReorder),
       _FooterActionButton(icon: Icons.description_outlined, label: 'Invoice', onTap: onDownloadInvoice),
       if (isDelivered)

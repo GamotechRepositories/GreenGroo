@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -178,7 +178,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return false;
     }).toList();
 
-    final recentProducts = query.isEmpty ? extractRecentOrderItems(orders) : <OrderItem>[];
+    final recentProducts = query.isEmpty
+        ? extractRecentOrderItemsWithOrder(orders)
+        : <RecentOrderItem>[];
 
     return Column(
       children: [
@@ -295,13 +297,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 SizedBox(
-                                  height: 232,
+                                  height: recentProducts.any((r) => r.order.isPreOrder) ? 274 : 232,
                                   child: ListView.separated(
                                     scrollDirection: Axis.horizontal,
                                     itemCount: recentProducts.length,
                                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                                     itemBuilder: (context, itemIdx) {
-                                      return BuyAgainCard(item: recentProducts[itemIdx]);
+                                      final recent = recentProducts[itemIdx];
+                                      return BuyAgainCard(
+                                        item: recent.item,
+                                        order: recent.order,
+                                      );
                                     },
                                   ),
                                 ),

@@ -65,3 +65,103 @@ export function preOrderProgressInfo(order) {
     steps: PRE_ORDER_PROGRESS_STEPS,
   };
 }
+
+export function buildPreOrderTimeline(order, customerOrder) {
+  if (!order?.isPreOrder) return [];
+  const progress = preOrderProgressInfo(order);
+  const currentKey = progress?.key || "awaiting_vendor";
+  const stepIdx = progress?.step ?? 0;
+
+  const placedTime = order.createdAt || customerOrder?.createdAt || null;
+  const vendorTime = order.vendorConfirmedAt || null;
+  const preparingTime = order.preparingAt || order.readyAt || null;
+  const forwardedTime = order.forwardedAt || null;
+  const storeReceivedTime = order.storeReceivedAt || null;
+  const assignedTime = order.assignedAt || order.fullTimeAssignedAt || null;
+  const outForDeliveryTime =
+    order.outForDeliveryAt || (order.status === "out_for_delivery" ? order.updatedAt : null);
+  const deliveredTime =
+    order.deliveredAt || (order.status === "delivered" ? order.updatedAt : null);
+
+  return [
+    {
+      key: "awaiting_vendor",
+      title: "Order Placed",
+      subtitle: "Sent to Vendor & Manager",
+      time: placedTime,
+      actor: "",
+      done: true,
+      active: currentKey === "awaiting_vendor",
+    },
+    {
+      key: "confirmed",
+      title: "Vendor Confirmed",
+      subtitle: order.vendorActionByName
+        ? `Approved by ${order.vendorActionByName}`
+        : "Vendor approved pre-order",
+      time: vendorTime,
+      actor: order.vendorActionByName || "",
+      done: Boolean(vendorTime) || stepIdx >= 1,
+      active: currentKey === "confirmed",
+    },
+    {
+      key: "preparing",
+      title: "Farmer Sourced & Preparation",
+      subtitle: "Sourced from Farmer / Collection House",
+      time: preparingTime,
+      actor: "",
+      done: Boolean(preparingTime) || stepIdx >= 2,
+      active: currentKey === "preparing",
+    },
+    {
+      key: "dispatched",
+      title: "Out for Collection Centre",
+      subtitle: order.forwardedByName
+        ? `Dispatched by ${order.forwardedByName}`
+        : "Pickup Approved · In Transit to Dark Store",
+      time: forwardedTime,
+      actor: order.forwardedByName || "",
+      done: Boolean(forwardedTime) || stepIdx >= 3,
+      active: currentKey === "dispatched",
+    },
+    {
+      key: "at_store",
+      title: "Collected at Collection Centre",
+      subtitle: order.storeReceivedByName
+        ? `Received by ${order.storeReceivedByName}`
+        : "Reached Dark Store / Collection Centre",
+      time: storeReceivedTime,
+      actor: order.storeReceivedByName || "",
+      done: Boolean(storeReceivedTime) || stepIdx >= 4,
+      active: currentKey === "at_store",
+    },
+    {
+      key: "rider_assigned",
+      title: "Delivery Partner Assigned",
+      subtitle: "Delivery partner assigned for local route",
+      time: assignedTime,
+      actor: "",
+      done: Boolean(assignedTime) || stepIdx >= 5,
+      active: currentKey === "rider_assigned",
+    },
+    {
+      key: "out_for_delivery",
+      title: "Out for Delivery",
+      subtitle: "Delivery partner is en route with your fresh order",
+      time: outForDeliveryTime,
+      actor: "",
+      done: Boolean(outForDeliveryTime) || stepIdx >= 6,
+      active: currentKey === "out_for_delivery",
+    },
+    {
+      key: "delivered",
+      title: "Completed / Delivered",
+      subtitle: "Delivered with Customer OTP confirmation",
+      time: deliveredTime,
+      actor: "",
+      done: Boolean(deliveredTime) || currentKey === "delivered",
+      active: currentKey === "delivered",
+    },
+  ];
+}
+

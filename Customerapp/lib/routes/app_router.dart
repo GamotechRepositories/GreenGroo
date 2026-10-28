@@ -177,6 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => OrderTrackingScreen(
           orderId: state.pathParameters['id']!,
+          selectedProductId: state.uri.queryParameters['productId'],
         ),
       ),
       GoRoute(

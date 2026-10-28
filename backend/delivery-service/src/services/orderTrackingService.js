@@ -10,7 +10,7 @@ import {
 } from "../../../legacy/utils/departmentHelpers.js";
 import { getIO } from "../../../socket.js";
 import { clearRouteCache, getRouteAndEta, toPoint } from "./directionsService.js";
-import { isVendorConfirmed, preOrderProgressInfo } from "./preOrderProgress.js";
+import { isVendorConfirmed, preOrderProgressInfo, buildPreOrderTimeline } from "./preOrderProgress.js";
 
 /** Rider has the parcel: GPS is streamed to the customer only in these statuses. */
 export const LIVE_TRACKING_STATUSES = ["pickup_verified", "out_for_delivery"];
@@ -297,7 +297,12 @@ export function buildStatusPayload(storeOrder, storeStatus = storeOrder?.status)
     orderType: resolveStoreOrderType(storeOrder),
     status: timelineKeyForStoreOrder(storeOrder, storeStatus),
     storeStatus,
-    ...(storeOrder.isPreOrder ? { preOrderProgress: preOrderProgressInfo(storeOrder) } : {}),
+    ...(storeOrder.isPreOrder
+      ? {
+          preOrderProgress: preOrderProgressInfo(storeOrder),
+          preOrderTimeline: buildPreOrderTimeline(storeOrder),
+        }
+      : {}),
     trackingEnabled,
     liveTracking: trackingEnabled && LIVE_TRACKING_STATUSES.includes(storeStatus),
     at: new Date().toISOString(),

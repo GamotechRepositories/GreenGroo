@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../config/env.dart';
+import '../../../core/utils/department_utils.dart';
+import '../../../features/auth/auth_controller.dart';
+import '../../../features/orders/orders_controller.dart';
+import '../../../models/order.dart';
 import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
@@ -20,7 +25,7 @@ const Color _slate500 = Color(0xFF64748B);
 /// 1. Meet Your Farmer card (Photo, Name, Location, Land, View Profile ->)
 /// 2. Pill Tabs: Details | Nutrition | Reviews
 /// 3. Product Information card with Name, Variety, Harvest Date, Packing Date, Source, Status, and Bullet points.
-class FarmerTraceabilityCard extends StatefulWidget {
+class FarmerTraceabilityCard extends ConsumerStatefulWidget {
   const FarmerTraceabilityCard({super.key, required this.product});
 
   final Product product;
@@ -70,11 +75,23 @@ class FarmerTraceabilityCard extends StatefulWidget {
   }
 
   @override
-  State<FarmerTraceabilityCard> createState() => _FarmerTraceabilityCardState();
+  ConsumerState<FarmerTraceabilityCard> createState() => _FarmerTraceabilityCardState();
 }
 
-class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
+class _FarmerTraceabilityCardState extends ConsumerState<FarmerTraceabilityCard> {
   int _activeTab = 0; // 0: Details, 1: Nutrition, 2: Reviews
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = ref.read(authControllerProvider);
+      if (auth.isLoggedIn) {
+        ref.read(ordersControllerProvider.notifier).loadOrders();
+      }
+    });
+  }
 
   void _openQrDialog(BuildContext context, String data) {
     showDialog<void>(
@@ -131,6 +148,26 @@ class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
     final f = product.farmer;
     final data = FarmerTraceabilityCard.qrPayload(product);
 
+    final isPreOrderProduct = product.department == Department.preorder;
+    final orders = ref.watch(ordersControllerProvider.select((s) => s.orders));
+
+    Order? placedPreOrder;
+    if (isPreOrderProduct) {
+      for (final order in orders) {
+        if (!order.isPreOrder) continue;
+        final st = order.status.toLowerCase();
+        if (st == 'cancelled' || st == 'canceled') continue;
+        final hasItem = order.items.any((item) =>
+            item.productId == product.id ||
+            (item.name.trim().isNotEmpty &&
+                item.name.trim().toLowerCase() == product.name.trim().toLowerCase()));
+        if (hasItem) {
+          placedPreOrder = order;
+          break;
+        }
+      }
+    }
+
     final rawName = f.name.trim();
     final displayName = rawName.isNotEmpty
         ? (rawName.startsWith('श्री.') || rawName.startsWith('श्री ') ? rawName : 'श्री. $rawName')
@@ -164,6 +201,77 @@ class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
           ),
         ),
         const SizedBox(height: 10),
+
+        if (isPreOrderProduct && placedPreOrder != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.eco_rounded, color: Color(0xFF16A34A), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Farm Traceability Active',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF14532D),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pre-order #${placedPreOrder.orderNumber.isNotEmpty ? placedPreOrder.orderNumber : (placedPreOrder.id.length > 6 ? placedPreOrder.id.substring(placedPreOrder.id.length - 6).toUpperCase() : placedPreOrder.id)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: const Color(0xFF166534),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () {
+                    context.push('/orders/${placedPreOrder!.id}/track?productId=${product.id}');
+                  },
+                  icon: const Icon(Icons.timeline_rounded, size: 14),
+                  label: Text(
+                    'View Traceability',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
 
         // 1. Meet Your Farmer Card
         Container(
@@ -315,7 +423,16 @@ class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
 
         // 3. Tab Content
         if (_activeTab == 0)
-          _buildDetailsTab(product, variety, harvestDate, packingDate, displayLocation, data)
+          _buildDetailsTab(
+            product,
+            variety,
+            harvestDate,
+            packingDate,
+            displayLocation,
+            data,
+            isPreOrderProduct: isPreOrderProduct,
+            placedPreOrder: placedPreOrder,
+          )
         else if (_activeTab == 1)
           _buildNutritionTab(product)
         else
@@ -355,8 +472,10 @@ class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
     String harvestDate,
     String packingDate,
     String source,
-    String qrData,
-  ) {
+    String qrData, {
+    required bool isPreOrderProduct,
+    required Order? placedPreOrder,
+  }) {
     final features = product.features.isNotEmpty
         ? product.features
         : const [
@@ -438,36 +557,88 @@ class _FarmerTraceabilityCardState extends State<FarmerTraceabilityCard> {
               ),
           ],
 
-          const SizedBox(height: 14),
-          // Traceability QR Button
-          GestureDetector(
-            onTap: () => _openQrDialog(context, qrData),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _lightGreen,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+          // Traceability action:
+          // If preorder-enabled product and customer placed preorder -> show View Farm Traceability
+          // If preorder-enabled product and customer has NOT placed preorder -> do NOT show preorder traceability
+          // If non-preorder product -> show standard QR traceability details
+          if (isPreOrderProduct) ...[
+            if (placedPreOrder != null) ...[
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () {
+                  context.push('/orders/${placedPreOrder.id}/track?productId=${product.id}');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _lightGreen,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.timeline_rounded, size: 22, color: _green),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'View Farm Traceability',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _green,
+                              ),
+                            ),
+                            Text(
+                              'Track pre-order harvest, dark store receipt & live status',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: _slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _green),
+                    ],
+                  ),
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.qr_code_2_rounded, size: 24, color: _green),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'View Farm Traceability QR & Details',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _green,
+            ],
+          ] else ...[
+            const SizedBox(height: 14),
+            // Traceability QR Button for standard / non-preorder products
+            GestureDetector(
+              onTap: () => _openQrDialog(context, qrData),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _lightGreen,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.qr_code_2_rounded, size: 24, color: _green),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'View Farm Traceability QR & Details',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _green,
+                        ),
                       ),
                     ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _green),
-                ],
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: _green),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

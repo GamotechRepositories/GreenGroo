@@ -10,13 +10,11 @@ class AppImagePlaceholder extends StatelessWidget {
     super.key,
     this.width,
     this.height,
-    this.isLoading = false,
     this.fit = BoxFit.contain,
   });
 
   final double? width;
   final double? height;
-  final bool isLoading;
   final BoxFit fit;
 
   @override
@@ -37,9 +35,7 @@ class AppImagePlaceholder extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Opacity(
-                  opacity: isLoading ? 0.6 : 1.0,
-                  child: Column(
+                Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -73,16 +69,6 @@ class AppImagePlaceholder extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                if (isLoading)
-                  SizedBox(
-                    width: (maxH * 0.3).clamp(14.0, 24.0),
-                    height: (maxH * 0.3).clamp(14.0, 24.0),
-                    child: const CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF047857),
-                    ),
                   ),
               ],
             ),
@@ -159,7 +145,6 @@ class AppNetworkImage extends StatelessWidget {
     return AppImagePlaceholder(
       width: width,
       height: height,
-      isLoading: true,
       fit: fit,
     );
   }
@@ -168,7 +153,6 @@ class AppNetworkImage extends StatelessWidget {
     return AppImagePlaceholder(
       width: width,
       height: height,
-      isLoading: false,
       fit: fit,
     );
   }

@@ -206,6 +206,7 @@ class Order {
     this.preOrderDate = '',
     this.preOrderProgress = '',
     this.preOrderProgressLabel = '',
+    this.preOrderTimeline = const [],
     this.darkStore,
     this.storeParts = const [],
   });
@@ -241,6 +242,8 @@ class Order {
   /// Pre-order journey key (`awaiting_vendor`, `confirmed`, `at_store`, …) and its label.
   final String preOrderProgress;
   final String preOrderProgressLabel;
+  /// Complete chronological timeline of preorder stages with real timestamps
+  final List<PreOrderTimelineStep> preOrderTimeline;
   /// Dark store fulfilling this order (name, address, manager phone)
   final DarkStore? darkStore;
   /// Store-side parts; a mixed cart has a quick part and a pre-order part.
@@ -251,6 +254,60 @@ class Order {
       preOrderSlot.isNotEmpty ||
       preOrderProgress.isNotEmpty ||
       storeParts.any((p) => p.isPreOrder);
+
+  List<PreOrderTimelineStep> get effectivePreOrderTimeline {
+    if (preOrderTimeline.isNotEmpty) return preOrderTimeline;
+    for (final part in storeParts) {
+      if (part.isPreOrder && part.preOrderTimeline.isNotEmpty) {
+        return part.preOrderTimeline;
+      }
+    }
+    // Fallback chronological stages if backend response has no timeline array
+    final key = preOrderProgress.isNotEmpty ? preOrderProgress : 'awaiting_vendor';
+    const steps = [
+      MapEntry('awaiting_vendor', 'Order Placed · Sent to Vendor & Manager'),
+      MapEntry('confirmed', 'Vendor Confirmed'),
+      MapEntry('preparing', 'Sourced from Farmer / Collection House'),
+      MapEntry('dispatched', 'Pickup Approved · In Transit to Dark Store'),
+      MapEntry('at_store', 'Reached Dark Store'),
+      MapEntry('rider_assigned', 'Delivery Partner Assigned'),
+      MapEntry('out_for_delivery', 'Out for Delivery'),
+      MapEntry('delivered', 'Delivered'),
+    ];
+    final currentIdx = steps.indexWhere((s) => s.key == key);
+    return steps.map((s) {
+      final idx = steps.indexOf(s);
+      final isDelivered = key == 'delivered';
+      final done = isDelivered || (currentIdx >= 0 && idx <= currentIdx);
+      final active = !isDelivered && idx == currentIdx;
+      DateTime? stepTime;
+      if (idx == 0) {
+        stepTime = createdAt;
+      } else if (s.key == 'confirmed') {
+        for (final p in storeParts) {
+          if (p.vendorConfirmedAt != null) {
+            stepTime = p.vendorConfirmedAt;
+            break;
+          }
+        }
+      } else if (s.key == 'at_store') {
+        for (final p in storeParts) {
+          if (p.storeReceivedAt != null) {
+            stepTime = p.storeReceivedAt;
+            break;
+          }
+        }
+      }
+      return PreOrderTimelineStep(
+        key: s.key,
+        title: s.value.split('·').first.trim(),
+        subtitle: s.value.contains('·') ? s.value.split('·').last.trim() : '',
+        time: stepTime,
+        done: done,
+        active: active,
+      );
+    }).toList();
+  }
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];
@@ -314,6 +371,10 @@ class Order {
       preOrderDate: json['preOrderDate']?.toString() ?? '',
       preOrderProgress: json['preOrderProgress']?.toString() ?? '',
       preOrderProgressLabel: json['preOrderProgressLabel']?.toString() ?? '',
+      preOrderTimeline: (json['preOrderTimeline'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(PreOrderTimelineStep.fromJson)
+          .toList(),
       darkStore: json['darkStore'] is Map<String, dynamic>
           ? DarkStore.fromJson(json['darkStore'] as Map<String, dynamic>)
           : null,
@@ -321,6 +382,45 @@ class Order {
           .whereType<Map<String, dynamic>>()
           .map(OrderStorePart.fromJson)
           .toList(),
+    );
+  }
+}
+
+class PreOrderTimelineStep {
+  const PreOrderTimelineStep({
+    required this.key,
+    required this.title,
+    this.subtitle = '',
+    this.time,
+    this.actor = '',
+    this.done = false,
+    this.active = false,
+  });
+
+  final String key;
+  final String title;
+  final String subtitle;
+  final DateTime? time;
+  final String actor;
+  final bool done;
+  final bool active;
+
+  bool get isCompleted => done;
+  bool get isCurrent => active;
+  DateTime? get timestamp => time;
+  String? get actorName => actor.isNotEmpty ? actor : null;
+
+  factory PreOrderTimelineStep.fromJson(Map<String, dynamic> json) {
+    return PreOrderTimelineStep(
+      key: json['key']?.toString() ?? '',
+      title: json['title']?.toString() ?? json['label']?.toString() ?? '',
+      subtitle: json['subtitle']?.toString() ?? '',
+      time: json['time'] != null
+          ? DateTime.tryParse(json['time'].toString())?.toLocal()
+          : (json['at'] != null ? DateTime.tryParse(json['at'].toString())?.toLocal() : null),
+      actor: json['actor']?.toString() ?? '',
+      done: json['done'] == true,
+      active: json['active'] == true,
     );
   }
 }
@@ -334,6 +434,9 @@ class OrderStorePart {
     this.preOrderDate = '',
     this.preOrderProgress = '',
     this.preOrderProgressLabel = '',
+    this.vendorConfirmedAt,
+    this.storeReceivedAt,
+    this.preOrderTimeline = const [],
   });
 
   final String orderNumber;
@@ -343,6 +446,9 @@ class OrderStorePart {
   final String preOrderDate;
   final String preOrderProgress;
   final String preOrderProgressLabel;
+  final DateTime? vendorConfirmedAt;
+  final DateTime? storeReceivedAt;
+  final List<PreOrderTimelineStep> preOrderTimeline;
 
   factory OrderStorePart.fromJson(Map<String, dynamic> json) {
     return OrderStorePart(
@@ -353,6 +459,16 @@ class OrderStorePart {
       preOrderDate: json['preOrderDate']?.toString() ?? '',
       preOrderProgress: json['preOrderProgress']?.toString() ?? '',
       preOrderProgressLabel: json['preOrderProgressLabel']?.toString() ?? '',
+      vendorConfirmedAt: json['vendorConfirmedAt'] != null
+          ? DateTime.tryParse(json['vendorConfirmedAt'].toString())?.toLocal()
+          : null,
+      storeReceivedAt: json['storeReceivedAt'] != null
+          ? DateTime.tryParse(json['storeReceivedAt'].toString())?.toLocal()
+          : null,
+      preOrderTimeline: (json['preOrderTimeline'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(PreOrderTimelineStep.fromJson)
+          .toList(),
     );
   }
 }

@@ -8,14 +8,20 @@ import '../../core/utils/order_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../features/orders/tracking/order_tracking_panel.dart';
+import '../../features/orders/tracking/preorder_tracking_view.dart';
 import '../../models/order.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
-  const OrderTrackingScreen({super.key, required this.orderId});
+  const OrderTrackingScreen({
+    super.key,
+    required this.orderId,
+    this.selectedProductId,
+  });
 
   final String orderId;
+  final String? selectedProductId;
 
   @override
   ConsumerState<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
@@ -147,6 +153,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
             ),
           ),
         ),
+      );
+    }
+
+    if (_order != null && _order!.isPreOrder) {
+      return PreOrderTrackingView(
+        order: _order!,
+        selectedProductId: widget.selectedProductId,
+        onStatusChanged: () => _loadOrder(silent: true),
       );
     }
 

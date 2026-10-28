@@ -20,10 +20,12 @@ class BuyAgainCard extends ConsumerWidget {
   const BuyAgainCard({
     super.key,
     required this.item,
+    this.order,
     this.width = 136,
   });
 
   final OrderItem item;
+  final Order? order;
   final double width;
 
   CartItem? _findCartLine(List<CartItem> items) {
@@ -259,6 +261,38 @@ class BuyAgainCard extends ConsumerWidget {
                 ),
             ],
           ),
+          if (order != null && order!.isPreOrder) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              height: 28,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.push('/orders/${order!.id}/track?productId=${item.productId}');
+                },
+                icon: const Icon(Icons.timeline_rounded, size: 13, color: _brandGreen),
+                label: const Text(
+                  'Track Order',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _brandGreen,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _brandGreen,
+                  backgroundColor: const Color(0xFFF0FDF4),
+                  side: const BorderSide(color: Color(0xFF86EFAC), width: 1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

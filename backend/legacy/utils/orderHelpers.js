@@ -9,6 +9,7 @@ import { isLocalProductId } from "./localProductId.js";
 import {
   PRE_ORDER_PROGRESS_STEPS,
   preOrderProgressInfo,
+  buildPreOrderTimeline,
 } from "../../delivery-service/src/services/preOrderProgress.js";
 import {
   getAvailableColors,
@@ -291,7 +292,7 @@ export async function attachCustomerDeliveryOtps(enriched) {
       sourceOrderId: { $in: withIds.map((o) => o._id) },
     })
       .select(
-        "sourceOrderId sourcePart managerId orderNumber status otpCode isPreOrder preOrderSlot preOrderDate preOrderStage vendorStatus vendorConfirmedAt storeReceivedAt fulfillmentType departments"
+        "sourceOrderId sourcePart managerId orderNumber status otpCode isPreOrder preOrderSlot preOrderDate preOrderStage vendorStatus vendorConfirmedAt vendorActionByName preparingAt readyAt forwardedAt forwardedByName storeReceivedAt storeReceivedByName assignedAt fullTimeAssignedAt outForDeliveryAt deliveredAt packedAt fulfillmentType departments createdAt updatedAt"
       )
       .sort({ createdAt: 1 })
       .lean();
@@ -336,6 +337,7 @@ export async function attachCustomerDeliveryOtps(enriched) {
       }
       order.storeParts = parts.map((part) => {
         const progress = part.isPreOrder ? preOrderProgressInfo(part) : null;
+        const timeline = part.isPreOrder ? buildPreOrderTimeline(part, order) : [];
         return {
           orderNumber: part.orderNumber,
           part: part.sourcePart || "",
@@ -347,7 +349,16 @@ export async function attachCustomerDeliveryOtps(enriched) {
           preOrderProgressLabel: progress?.label || "",
           preOrderProgressStep: progress?.step ?? -1,
           vendorConfirmedAt: part.vendorConfirmedAt || null,
+          vendorActionByName: part.vendorActionByName || "",
+          preparingAt: part.preparingAt || part.readyAt || null,
+          forwardedAt: part.forwardedAt || null,
+          forwardedByName: part.forwardedByName || "",
           storeReceivedAt: part.storeReceivedAt || null,
+          storeReceivedByName: part.storeReceivedByName || "",
+          assignedAt: part.assignedAt || part.fullTimeAssignedAt || null,
+          outForDeliveryAt: part.outForDeliveryAt || null,
+          deliveredAt: part.deliveredAt || null,
+          preOrderTimeline: timeline,
           fulfillmentType: part.fulfillmentType || "delivery",
           departments: part.departments || [],
         };
@@ -358,6 +369,7 @@ export async function attachCustomerDeliveryOtps(enriched) {
         order.preOrderProgressLabel = preOrderPart.preOrderProgressLabel;
         order.preOrderProgressStep = preOrderPart.preOrderProgressStep;
         order.preOrderProgressSteps = PRE_ORDER_PROGRESS_STEPS;
+        order.preOrderTimeline = preOrderPart.preOrderTimeline;
       }
     }
   } catch (err) {
