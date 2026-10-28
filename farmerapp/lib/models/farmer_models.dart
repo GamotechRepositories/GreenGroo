@@ -651,7 +651,11 @@ class ProductItem {
       for (final g in gradeRows) {
         final rawGrade = (g['grade'] ?? '').toString().trim().toUpperCase().replaceFirst(gradePrefix, '');
         final rawLabel = (g['label'] ?? g['name'] ?? '').toString().trim().toUpperCase().replaceFirst(gradePrefix, '');
-        final key = rawGrade.isNotEmpty ? rawGrade : rawLabel;
+        final letter = RegExp(r'^[A-D]$');
+        final labelKey = rawLabel.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+        final gradeKey = rawGrade.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+        // Prefer label when it names A–D — Mongo defaults every subdoc `grade` to "A".
+        final key = letter.hasMatch(labelKey) ? labelKey : (letter.hasMatch(gradeKey) ? gradeKey : (gradeKey.isNotEmpty ? gradeKey : labelKey));
         final q = (g['quantity'] ?? g['qty'] ?? g['stock'] ?? 0);
         final numQty = (q is num) ? q.toDouble() : (double.tryParse(q.toString()) ?? 0.0);
         final p = (g['price'] ?? g['rate'] ?? g['pricePerKg'] ?? 0);
@@ -712,18 +716,6 @@ class ProductItem {
     final pId = json['productId']?.toString() ?? json['businessId']?.toString() ?? rawId;
 
     String rawHarvest = json['harvestDate']?.toString() ?? (json['crop'] is Map ? json['crop']['expectedHarvestDate']?.toString() ?? '' : '');
-    String formattedHarvest = rawHarvest;
-    try {
-      if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(rawHarvest)) {
-        final parts = rawHarvest.split('-');
-        final year = parts[0];
-        final monthNum = int.tryParse(parts[1]) ?? 9;
-        final day = parts[2].substring(0, 2);
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-        final monthName = (monthNum >= 1 && monthNum <= 12) ? months[monthNum - 1] : 'Sept';
-        formattedHarvest = '$day $monthName $year';
-      }
-    } catch (_) {}
 
     return ProductItem(
       id: rawId,
@@ -741,7 +733,7 @@ class ProductItem {
       farmName: json['farmName']?.toString() ?? '',
       farmLocation: json['farmLocation']?.toString() ?? '',
       sowingDate: json['sowingDate']?.toString() ?? (json['crop'] is Map ? json['crop']['sowingDate']?.toString() ?? '' : ''),
-      harvestDate: formattedHarvest,
+      harvestDate: rawHarvest,
       availableFrom: json['availableFrom']?.toString() ?? '',
       availableUntil: json['availableUntil']?.toString() ?? '',
       status: json['status']?.toString() ?? json['stockStatus']?.toString() ?? '',

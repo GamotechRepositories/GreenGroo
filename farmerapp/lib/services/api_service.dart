@@ -414,11 +414,15 @@ class ApiService {
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
   Future<dynamic> fetchProducts(String farmerId) async {
     try {
-      final parsed = _coerceList(await getCached('/api/farmer/products'), const ['products', 'data']);
+      final parsed = _coerceList(await get('/api/farmer/products'), const ['products', 'data']);
       if (parsed != null) return parsed;
     } catch (_) {}
     try {
       final parsed = _coerceList(await get('/api/farmers/$farmerId/products'), const ['products', 'data']);
+      if (parsed != null) return parsed;
+    } catch (_) {}
+    try {
+      final parsed = _coerceList(await getCached('/api/farmer/products'), const ['products', 'data']);
       if (parsed != null) return parsed;
     } catch (_) {}
     return [];
@@ -493,12 +497,14 @@ class ApiService {
     return post('/api/farmers/$farmerId/products', body);
   }
 
-  Future<dynamic> updateProduct(String productId, Map<String, dynamic> body) async {
-    try {
-      return await put('/api/farmer/products/$productId', body);
-    } catch (_) {
-      return await put('/api/farmers/products/$productId', body);
+  Future<dynamic> updateProduct(String productId, Map<String, dynamic> body, {String? farmerId}) async {
+    final fid = (farmerId ?? '').trim();
+    if (fid.isNotEmpty) {
+      try {
+        return await put('/api/farmers/$fid/products/$productId', body);
+      } catch (_) {}
     }
+    return put('/api/farmer/products/$productId', body);
   }
 
   Future<dynamic> deleteProduct(String productId) async {

@@ -6,7 +6,6 @@ import 'crops/crops_screen.dart';
 import 'crops/add_crop_screen.dart';
 import 'crops/crop_planning_screen.dart';
 import 'products/products_screen.dart';
-import 'products/add_product_screen.dart';
 import 'orders/orders_screen.dart';
 import 'orders/harvest_orders_screen.dart';
 import 'schemes/schemes_screen.dart';
@@ -15,7 +14,6 @@ import 'documents/documents_screen.dart';
 import 'profile/profile_screen.dart';
 import 'auth/login_screen.dart';
 import 'market/market_comparison_screen.dart';
-import 'inventory/inventory_screen.dart';
 import '../services/farmer_state.dart';
 import '../services/app_language.dart';
 
@@ -327,22 +325,22 @@ class FarmerSidebarDrawer extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         _quickTabChip(
-                          label: lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Catalogs'),
-                          icon: Icons.storefront_outlined,
+                          label: lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
+                          icon: Icons.add_circle_outline,
                           isSelected: currentTabIndex == 1,
                           onTap: () => _handleSelectTab(context, 1, subTab: 0),
                         ),
                         const SizedBox(width: 6),
                         _quickTabChip(
-                          label: lang.tr(mr: 'सर्व उत्पादने', en: 'All Products'),
-                          icon: Icons.inventory_2_outlined,
+                          label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
+                          icon: Icons.eco_outlined,
                           isSelected: currentTabIndex == 1,
                           onTap: () => _handleSelectTab(context, 1, subTab: 1),
                         ),
                         const SizedBox(width: 6),
                         _quickTabChip(
-                          label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
-                          icon: Icons.eco_outlined,
+                          label: lang.tr(mr: 'स्टॉक इन्व्हेंटरी', en: 'Stock Inventory'),
+                          icon: Icons.warehouse_rounded,
                           isSelected: currentTabIndex == 1,
                           onTap: () => _handleSelectTab(context, 1, subTab: 2),
                         ),
@@ -455,29 +453,19 @@ class FarmerSidebarDrawer extends StatelessWidget {
                         childrenPadding: const EdgeInsets.only(left: 36),
                         children: [
                           _subItem(
-                            icon: Icons.storefront_outlined,
-                            label: lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Products Catalogs'),
+                            icon: Icons.add_circle_outline,
+                            label: lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
                             onTap: () => _handleSelectTab(context, 1, subTab: 0),
-                          ),
-                          _subItem(
-                            icon: Icons.inventory_2_outlined,
-                            label: lang.tr(mr: 'सर्व उत्पादने', en: 'All Products'),
-                            onTap: () => _handleSelectTab(context, 1, subTab: 1),
                           ),
                           _subItem(
                             icon: Icons.eco_outlined,
                             label: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
-                            onTap: () => _handleSelectTab(context, 1, subTab: 2),
-                          ),
-                          _subItem(
-                            icon: Icons.add_circle_outline,
-                            label: lang.tr(mr: 'नवीन उत्पादन जोडा', en: 'Add Product'),
-                            onTap: () => _handleNavigate(context, const AddProductScreen()),
+                            onTap: () => _handleSelectTab(context, 1, subTab: 1),
                           ),
                           _subItem(
                             icon: Icons.warehouse_rounded,
-                            label: lang.tr(mr: 'उपलब्ध साठा (Inventory)', en: 'Stock Inventory'),
-                            onTap: () => _handleNavigate(context, const InventoryScreen()),
+                            label: lang.tr(mr: 'स्टॉक इन्व्हेंटरी', en: 'Stock Inventory'),
+                            onTap: () => _handleSelectTab(context, 1, subTab: 2),
                           ),
                         ],
                       ),
@@ -486,7 +474,7 @@ class FarmerSidebarDrawer extends StatelessWidget {
                       _drawerItem(
                         icon: Icons.warehouse_rounded,
                         label: lang.tr(mr: 'इन्व्हेंटरी (साठा)', en: 'Inventory & Stock'),
-                        onTap: () => _handleNavigate(context, const InventoryScreen()),
+                        onTap: () => _handleSelectTab(context, 1, subTab: 2),
                       ),
 
                       // Orders Group

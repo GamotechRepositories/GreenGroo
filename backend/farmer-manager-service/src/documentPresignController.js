@@ -5,6 +5,7 @@ const DOCUMENT_MIME_TYPES = new Set([
   "image/jpg",
   "image/png",
   "image/webp",
+  "application/pdf",
   "video/mp4",
   "video/webm",
   "video/quicktime",

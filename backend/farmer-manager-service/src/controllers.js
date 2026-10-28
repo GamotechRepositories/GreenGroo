@@ -2586,11 +2586,19 @@ function sanitizeProductVideos(list, max = 2) {
     .slice(0, max);
 }
 
+function gradeLetterOf(value, idx = 0) {
+  const raw = String(value || "").replace(/grade\s*/i, "").trim();
+  const grade = raw.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase();
+  return grade || String.fromCharCode(65 + idx);
+}
+
 function normalizeProductGrades(grades = []) {
   const source = Array.isArray(grades) && grades.length ? grades : [];
   return source.map((g, idx) => {
-    const raw = String(g.grade || g.label || "").replace(/grade\s*/i, "").trim() || String.fromCharCode(65 + idx);
-    const grade = raw.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || String.fromCharCode(65 + idx);
+    const fromLabel = gradeLetterOf(g.label || g.name, idx);
+    const fromGrade = gradeLetterOf(g.grade, idx);
+    // Prefer the label when it names A–D. Mongoose defaults every subdoc `grade` to "A".
+    const grade = /^[A-D]$/.test(fromLabel) ? fromLabel : fromGrade;
     return {
       id: g.id || `g-${grade.toLowerCase()}-${idx}`,
       grade,
@@ -2603,6 +2611,38 @@ function normalizeProductGrades(grades = []) {
 
 function totalGradeQty(grades) {
   return (grades || []).reduce((sum, g) => sum + Number(g.quantity || 0), 0);
+}
+
+function qtyForGrade(grades, letter) {
+  return Number((grades || []).find((g) => String(g.grade || "").toUpperCase() === letter)?.quantity) || 0;
+}
+
+function priceForGrade(grades, letter) {
+  return Number((grades || []).find((g) => String(g.grade || "").toUpperCase() === letter)?.price) || 0;
+}
+
+function applyGradeQtyFields(product, grades) {
+  product.gradeAQty = qtyForGrade(grades, "A");
+  product.gradeBQty = qtyForGrade(grades, "B");
+  product.gradeCQty = qtyForGrade(grades, "C");
+  product.gradeAPrice = priceForGrade(grades, "A");
+  product.gradeBPrice = priceForGrade(grades, "B");
+  product.gradeCPrice = priceForGrade(grades, "C");
+}
+
+function ensureAbcGrades(grades, fallbackPrice = 0) {
+  const by = new Map((grades || []).map((g) => [String(g.grade || "").toUpperCase(), g]));
+  return ["A", "B", "C"].map((letter, idx) => {
+    const existing = by.get(letter);
+    if (existing) return existing;
+    return {
+      id: `g-${letter.toLowerCase()}-${idx}`,
+      grade: letter,
+      label: `Grade ${letter}`,
+      quantity: 0,
+      price: letter === "A" ? Number(fallbackPrice) || 0 : 0,
+    };
+  });
 }
 
 function applyStockDrivenStatus(currentStatus, quantity, lowStockLimit) {
@@ -2637,7 +2677,7 @@ function farmingTypeOf(product) {
 
 function publicMyProduct(product, farmer, crop) {
   const plain = toPlain(product);
-  const grades = normalizeProductGrades(plain.grades);
+  const grades = stockGradesOf(plain);
   const quantity = grades.length ? totalGradeQty(grades) : Number(plain.availableQuantity ?? plain.stock ?? 0);
   const status = normalizeProductStatus(plain.status);
   const media = plain.media || {};
@@ -2658,6 +2698,12 @@ function publicMyProduct(product, farmer, crop) {
     minimumOrderQuantity: Number(plain.minimumOrderQuantity || 1),
     farmingType: farmingTypeOf(plain),
     grades,
+    gradeAQty: grades.length ? qtyForGrade(grades, "A") : Number(plain.gradeAQty) || 0,
+    gradeBQty: grades.length ? qtyForGrade(grades, "B") : Number(plain.gradeBQty) || 0,
+    gradeCQty: grades.length ? qtyForGrade(grades, "C") : Number(plain.gradeCQty) || 0,
+    gradeAPrice: grades.length ? priceForGrade(grades, "A") : Number(plain.gradeAPrice || plain.sellingPrice || plain.pricePerKg) || 0,
+    gradeBPrice: grades.length ? priceForGrade(grades, "B") : Number(plain.gradeBPrice) || 0,
+    gradeCPrice: grades.length ? priceForGrade(grades, "C") : Number(plain.gradeCPrice) || 0,
     media: {
       mainPhoto,
       farmPhotos: media.farmPhotos || [],
@@ -2730,7 +2776,31 @@ function validateMyProductPayload(payload, { publish } = {}) {
   const cropName = String(payload.cropName || payload.crop || "").trim();
   const variety = String(payload.variety || "").trim();
   const unit = PRODUCT_UNITS_ALLOWED.includes(payload.unit) ? payload.unit : "";
-  const grades = normalizeProductGrades(payload.grades);
+  const grades = ensureAbcGrades(normalizeProductGrades(payload.grades), Number(payload.pricePerKg ?? payload.sellingPrice) || 0);
+  if (payload.gradeAQty != null) {
+    const row = grades.find((g) => g.grade === "A");
+    if (row) row.quantity = Number(payload.gradeAQty) || 0;
+  }
+  if (payload.gradeBQty != null) {
+    const row = grades.find((g) => g.grade === "B");
+    if (row) row.quantity = Number(payload.gradeBQty) || 0;
+  }
+  if (payload.gradeCQty != null) {
+    const row = grades.find((g) => g.grade === "C");
+    if (row) row.quantity = Number(payload.gradeCQty) || 0;
+  }
+  if (payload.gradeAPrice != null) {
+    const row = grades.find((g) => g.grade === "A");
+    if (row) row.price = Number(payload.gradeAPrice) || 0;
+  }
+  if (payload.gradeBPrice != null) {
+    const row = grades.find((g) => g.grade === "B");
+    if (row) row.price = Number(payload.gradeBPrice) || 0;
+  }
+  if (payload.gradeCPrice != null) {
+    const row = grades.find((g) => g.grade === "C");
+    if (row) row.price = Number(payload.gradeCPrice) || 0;
+  }
   const availableQuantity = grades.length ? totalGradeQty(grades) : Number(payload.availableQuantity);
   const gradePrice = Number(grades.find((g) => Number(g.price) > 0)?.price);
   const pricePerKg = Number(payload.pricePerKg ?? payload.sellingPrice) || (Number.isFinite(gradePrice) ? gradePrice : 0);
@@ -2785,11 +2855,11 @@ function applyProductFields(product, parsed, farmer, crop) {
   product.cropName = parsed.cropName || crop?.cropName || product.cropName || "";
   product.variety = parsed.variety || crop?.variety || product.variety || "";
   product.unit = parsed.unit;
-  product.grades = parsed.grades;
+  const grades = ensureAbcGrades(parsed.grades, parsed.pricePerKg);
+  product.grades = grades;
   product.availableQuantity = parsed.availableQuantity;
   product.stock = parsed.availableQuantity;
-  product.gradeAQty = Number(parsed.grades[0]?.quantity) || 0;
-  product.gradeBQty = Number(parsed.grades[1]?.quantity) || 0;
+  applyGradeQtyFields(product, grades);
   product.pricePerKg = parsed.pricePerKg;
   product.sellingPrice = parsed.pricePerKg;
   product.minimumOrderQuantity = parsed.minimumOrderQuantity;
@@ -3032,9 +3102,10 @@ export async function updateMyProduct(req, res) {
     let crop = null;
     if (parsed.cropId) {
       crop = await FarmerCrop.findOne({ farmerId: product.farmerId, $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }] });
-      if (!crop) return res.status(400).json({ message: "Selected crop was not found on your farm" });
-      crop = await ensureSharedCropBusinessId(crop);
-      parsed.cropId = crop.cropId || crop.id;
+      if (crop) {
+        crop = await ensureSharedCropBusinessId(crop);
+        parsed.cropId = crop.cropId || crop.id;
+      }
     }
 
     applyProductFields(product, parsed, farmer, crop);
@@ -3160,8 +3231,7 @@ export async function patchMyProductStock(req, res) {
     product.grades = grades;
     product.availableQuantity = nextQty;
     product.stock = nextQty;
-    product.gradeAQty = Number(grades[0]?.quantity) || 0;
-    product.gradeBQty = Number(grades[1]?.quantity) || 0;
+    applyGradeQtyFields(product, grades);
     if (req.body?.lowStockLimit != null) {
       const limit = Number(req.body.lowStockLimit);
       if (!Number.isFinite(limit) || limit < 0) return res.status(400).json({ message: "Low stock threshold cannot be negative" });
@@ -3206,14 +3276,17 @@ export async function patchMyProductStock(req, res) {
 
 /** The product's grades, falling back to A/B/C built from the legacy per-grade quantity fields. */
 function stockGradesOf(product) {
+  const price = Number(product.pricePerKg || product.sellingPrice || product.gradeAPrice || 0);
   const grades = normalizeProductGrades(product.grades);
-  if (grades.length) return grades;
-  const price = Number(product.pricePerKg || product.sellingPrice || 0);
-  return [
-    { id: "g-a-0", grade: "A", label: "Grade A", quantity: Number(product.gradeAQty) || 0, price },
-    { id: "g-b-1", grade: "B", label: "Grade B", quantity: Number(product.gradeBQty) || 0, price: 0 },
-    { id: "g-c-2", grade: "C", label: "Grade C", quantity: 0, price: 0 },
-  ];
+  if (grades.length) return ensureAbcGrades(grades, price);
+  return ensureAbcGrades(
+    [
+      { grade: "A", quantity: Number(product.gradeAQty) || 0, price: Number(product.gradeAPrice) || price },
+      { grade: "B", quantity: Number(product.gradeBQty) || 0, price: Number(product.gradeBPrice) || 0 },
+      { grade: "C", quantity: Number(product.gradeCQty) || 0, price: Number(product.gradeCPrice) || 0 },
+    ],
+    price
+  );
 }
 
 const gradeKeyOf = (value) =>
@@ -3252,12 +3325,12 @@ async function applyProductStockAdjustments(req, res, product, status) {
   }
   if (!changes.length) return res.status(400).json({ message: "Enter a quantity to add or deduct" });
 
-  const total = totalGradeQty(grades);
-  product.grades = grades;
+  const nextGrades = ensureAbcGrades(grades, Number(product.pricePerKg || product.sellingPrice) || 0);
+  const total = totalGradeQty(nextGrades);
+  product.grades = nextGrades;
   product.availableQuantity = total;
   product.stock = total;
-  product.gradeAQty = Number(grades.find((g) => g.grade === "A")?.quantity) || 0;
-  product.gradeBQty = Number(grades.find((g) => g.grade === "B")?.quantity) || 0;
+  applyGradeQtyFields(product, nextGrades);
   product.status = applyStockDrivenStatus(status, total, product.lowStockLimit);
   product.markModified("grades");
   await product.save();
@@ -3295,13 +3368,13 @@ export async function listVendorFarmerInventory(req, res) {
     const farmers = await Farmer.find({ vendorId }).select("id farmerId farmerCode name mobile address.village").lean();
     const { ids, farmerMap } = indexFarmersByIdentity(farmers);
     if (!ids.length) return res.json({ items: [] });
-    const products = await FarmerProduct.find({ farmerId: { $in: ids } })
-      .select("id productId sku name productName variety category unit grades gradeAQty gradeBQty stock availableQuantity reservedQuantity lowStockLimit status farmerId updatedAt")
+    const products = await FarmerProduct.find({ farmerId: { $in: ids }, isDeleted: { $ne: true } })
+      .select("id productId sku name productName variety category unit grades gradeAQty gradeBQty gradeCQty gradeAPrice gradeBPrice gradeCPrice stock availableQuantity reservedQuantity lowStockLimit status farmerId updatedAt")
       .sort({ updatedAt: -1 })
       .lean();
     const items = products.map((p) => {
       const f = farmerMap.get(p.farmerId) || {};
-      const grades = stockGradesOf(p).map(({ grade, label, quantity }) => ({ grade, label, quantity }));
+      const grades = stockGradesOf(p).map(({ grade, label, quantity, price }) => ({ grade, label, quantity, price }));
       const total = totalGradeQty(grades);
       const reserved = Number(p.reservedQuantity || 0);
       return {
@@ -3313,6 +3386,9 @@ export async function listVendorFarmerInventory(req, res) {
         category: p.category || "",
         unit: p.unit || "Kg",
         grades,
+        gradeAQty: qtyForGrade(grades, "A"),
+        gradeBQty: qtyForGrade(grades, "B"),
+        gradeCQty: qtyForGrade(grades, "C"),
         totalQuantity: total,
         reservedQuantity: reserved,
         availableQuantity: Math.max(0, total - reserved),
@@ -4429,20 +4505,16 @@ export async function createFarmerProduct(req, res) {
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
 
-    const grades = (payload.grades || []).map((g, idx) => ({
-      id: g.id || `g-${String.fromCharCode(97 + idx)}`,
-      label: g.label || `Grade ${String.fromCharCode(65 + idx)}`,
-      quantity: Number(g.quantity) || 0,
-    }));
-
+    let grades = normalizeProductGrades(payload.grades);
     if (!grades.length) {
-      grades.push(
-        { id: "g-a", label: "Grade A", quantity: Number(payload.gradeAQty) || 0 },
-        { id: "g-b", label: "Grade B", quantity: Number(payload.gradeBQty) || 0 }
-      );
+      grades = normalizeProductGrades([
+        { grade: "A", quantity: Number(payload.gradeAQty) || 0, price: Number(payload.gradeAPrice || payload.sellingPrice) || 0 },
+        { grade: "B", quantity: Number(payload.gradeBQty) || 0, price: Number(payload.gradeBPrice) || 0 },
+        { grade: "C", quantity: Number(payload.gradeCQty) || 0, price: Number(payload.gradeCPrice) || 0 },
+      ]);
     }
-
-    const totalStock = grades.reduce((s, g) => s + Number(g.quantity || 0), 0);
+    grades = ensureAbcGrades(grades, Number(payload.sellingPrice || payload.pricePerKg) || 0);
+    const totalStock = totalGradeQty(grades);
     const cropName = payload.cropName || payload.name || "";
     const id = await generateId({
       module: "ART",
@@ -4458,7 +4530,8 @@ export async function createFarmerProduct(req, res) {
       managerId: farmer.managerId,
       farmerId,
       sku: payload.sku || farmerSku(farmerId),
-      name: payload.name,
+      name: payload.name || payload.productName || cropName,
+      productName: payload.productName || payload.name || cropName,
       category: payload.category || "Vegetables",
       subCategory: payload.subCategory || "Fresh Produce",
       description: payload.description || "",
@@ -4466,21 +4539,26 @@ export async function createFarmerProduct(req, res) {
       images: payload.images?.length ? payload.images : [payload.image || payload.imageUrl || ""],
       unit: payload.unit || "Kg",
       harvestDate: payload.harvestDate || new Date().toISOString().split("T")[0],
-      produceType: payload.produceType || "organic",
+      produceType: payload.produceType || (payload.farmingType === "Conventional" ? "non-organic" : "organic"),
+      farmingType: payload.farmingType || "",
       farmLocation: payload.farmLocation || farmer.farmLocation || "",
       cropId: payload.cropId || "",
       cropName,
       variety: payload.variety || "",
       status: payload.status || "Approved",
       sellingPrice: Number(payload.sellingPrice) || 0,
+      pricePerKg: Number(payload.pricePerKg || payload.sellingPrice) || 0,
       mrp: Number(payload.mrp) || 0,
       lowStockLimit: Number(payload.lowStockLimit) || 10,
       stock: totalStock,
       availableQuantity: totalStock,
-      gradeAQty: Number(grades[0]?.quantity) || 0,
-      gradeBQty: Number(grades[1]?.quantity) || 0,
+      availableFrom: payload.availableFrom || "",
+      availableUntil: payload.availableUntil || "",
+      sowingDate: payload.sowingDate || "",
+      media: payload.media || {},
       grades,
     });
+    applyGradeQtyFields(product, grades);
 
     await product.save();
     await syncFarmerProductToErp(product, farmer, null);
@@ -4507,7 +4585,7 @@ export async function createFarmerProduct(req, res) {
       }
     }
 
-    res.status(201).json(product);
+    res.status(201).json(publicMyProduct(product, farmer, null));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create product" });
   }
@@ -4524,7 +4602,17 @@ export async function updateFarmerProduct(req, res) {
     });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    if (payload.name) product.name = payload.name;
+    if (payload.name || payload.productName) {
+      product.name = payload.productName || payload.name;
+      product.productName = payload.productName || payload.name;
+    }
+    if (payload.variety !== undefined) product.variety = String(payload.variety);
+    if (payload.cropName !== undefined) product.cropName = String(payload.cropName);
+    if (payload.farmingType !== undefined) product.farmingType = String(payload.farmingType);
+    if (payload.harvestDate !== undefined) product.harvestDate = String(payload.harvestDate);
+    if (payload.availableFrom !== undefined) product.availableFrom = String(payload.availableFrom);
+    if (payload.availableUntil !== undefined) product.availableUntil = String(payload.availableUntil);
+    if (payload.sowingDate !== undefined) product.sowingDate = String(payload.sowingDate);
     if (payload.category) product.category = payload.category;
     if (payload.subCategory) product.subCategory = payload.subCategory;
     if (payload.description !== undefined) product.description = payload.description;
@@ -4537,17 +4625,40 @@ export async function updateFarmerProduct(req, res) {
     if (payload.status) product.status = payload.status;
 
     const stockChanges = [];
-    if (payload.grades) {
-      const prevGrades = product.grades || [];
-      const nextGrades = payload.grades.map((g, idx) => ({
-        id: g.id || prevGrades[idx]?.id || `g-${String.fromCharCode(97 + idx)}`,
-        label: g.label || prevGrades[idx]?.label || `Grade ${String.fromCharCode(65 + idx)}`,
-        quantity: Number(g.quantity) || 0,
-      }));
+    if (payload.grades || payload.gradeAQty != null || payload.gradeBQty != null || payload.gradeCQty != null) {
+      const prevGrades = normalizeProductGrades(product.grades);
+      const nextGrades = ensureAbcGrades(
+        normalizeProductGrades(payload.grades),
+        Number(product.sellingPrice || product.pricePerKg) || 0
+      );
+      if (payload.gradeAQty != null) {
+        const row = nextGrades.find((g) => g.grade === "A");
+        if (row) row.quantity = Number(payload.gradeAQty) || 0;
+      }
+      if (payload.gradeBQty != null) {
+        const row = nextGrades.find((g) => g.grade === "B");
+        if (row) row.quantity = Number(payload.gradeBQty) || 0;
+      }
+      if (payload.gradeCQty != null) {
+        const row = nextGrades.find((g) => g.grade === "C");
+        if (row) row.quantity = Number(payload.gradeCQty) || 0;
+      }
+      if (payload.gradeAPrice != null) {
+        const row = nextGrades.find((g) => g.grade === "A");
+        if (row) row.price = Number(payload.gradeAPrice) || 0;
+      }
+      if (payload.gradeBPrice != null) {
+        const row = nextGrades.find((g) => g.grade === "B");
+        if (row) row.price = Number(payload.gradeBPrice) || 0;
+      }
+      if (payload.gradeCPrice != null) {
+        const row = nextGrades.find((g) => g.grade === "C");
+        if (row) row.price = Number(payload.gradeCPrice) || 0;
+      }
 
       // Check differences for history
       for (let i = 0; i < nextGrades.length; i++) {
-        const prevQty = Number(prevGrades[i]?.quantity) || 0;
+        const prevQty = Number(prevGrades.find((g) => g.grade === nextGrades[i].grade)?.quantity) || 0;
         const nextQty = Number(nextGrades[i]?.quantity) || 0;
         if (prevQty !== nextQty) {
           const diff = nextQty - prevQty;
@@ -4572,11 +4683,11 @@ export async function updateFarmerProduct(req, res) {
       }
 
       product.grades = nextGrades;
-      const totalStock = nextGrades.reduce((s, g) => s + Number(g.quantity || 0), 0);
+      const totalStock = totalGradeQty(nextGrades);
       product.stock = totalStock;
       product.availableQuantity = totalStock;
-      product.gradeAQty = Number(nextGrades[0]?.quantity) || 0;
-      product.gradeBQty = Number(nextGrades[1]?.quantity) || 0;
+      applyGradeQtyFields(product, nextGrades);
+      product.markModified("grades");
     }
 
     await product.save();
@@ -4593,7 +4704,8 @@ export async function updateFarmerProduct(req, res) {
         pushFarmerProductChange(product);
       }
     }
-    res.json(product);
+    const farmer = await Farmer.findOne({ id: farmerId }).lean();
+    res.json(publicMyProduct(product, farmer, null));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update product" });
   }
@@ -4700,11 +4812,10 @@ export async function adjustFarmerStock(req, res) {
     grades[gIdx].quantity = nextStock;
     product.grades = grades;
 
-    const totalStock = grades.reduce((sum, g) => sum + Number(g.quantity || 0), 0);
+    const totalStock = totalGradeQty(grades);
     product.stock = totalStock;
     product.availableQuantity = totalStock;
-    product.gradeAQty = Number(grades[0]?.quantity) || 0;
-    product.gradeBQty = Number(grades[1]?.quantity) || 0;
+    applyGradeQtyFields(product, grades);
     if (totalStock <= 0) product.status = "Out of Stock";
 
     await product.save();
@@ -5643,7 +5754,17 @@ export async function getFarmerDocuments(req, res) {
   }
 }
 
-const KYC_VIDEO_MIME_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+const KYC_DOCUMENT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-m4v",
+]);
 
 function farmerDocumentAccessError(req, farmer) {
   const role = req.user?.role;
@@ -5668,8 +5789,8 @@ export async function createFarmerDocumentUploadUrl(req, res) {
   try {
     const { farmerId } = req.params;
     const mimeType = String(req.body?.mimeType || "").toLowerCase();
-    if (!KYC_VIDEO_MIME_TYPES.has(mimeType)) {
-      return res.status(400).json({ message: "Only MP4, MOV or WEBM videos can be uploaded" });
+    if (!KYC_DOCUMENT_MIME_TYPES.has(mimeType)) {
+      return res.status(400).json({ message: "Upload a JPG, PNG, WEBP, PDF, MP4, MOV or WEBM file" });
     }
     if (!isS3Configured()) {
       return res.status(503).json({ message: "File storage is not configured on the server" });

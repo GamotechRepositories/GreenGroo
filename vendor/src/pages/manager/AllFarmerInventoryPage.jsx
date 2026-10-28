@@ -41,7 +41,23 @@ const BUCKET_BADGE = {
 const qty = (n) => Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 function gradeQty(item, grade) {
-  return Number(item.grades?.find((g) => g.grade === grade)?.quantity || 0);
+  const rows = Array.isArray(item.grades) ? item.grades : [];
+  const row = rows.find((g) => {
+    const key = String(g.grade || "")
+      .replace(/grade\s*/i, "")
+      .trim()
+      .toUpperCase();
+    const label = String(g.label || g.name || "")
+      .replace(/grade\s*/i, "")
+      .trim()
+      .toUpperCase();
+    return key === grade || label === grade;
+  });
+  if (row && row.quantity != null) return Number(row.quantity) || 0;
+  if (grade === "A") return Number(item.gradeAQty || 0);
+  if (grade === "B") return Number(item.gradeBQty || 0);
+  if (grade === "C") return Number(item.gradeCQty || 0);
+  return 0;
 }
 
 function otherGrades(item) {

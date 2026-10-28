@@ -239,11 +239,15 @@ const farmerProductSchema = new mongoose.Schema(
     availableUntil: { type: String, default: "" },
     gradeAQty: { type: Number, default: 0 },
     gradeBQty: { type: Number, default: 0 },
+    gradeCQty: { type: Number, default: 0 },
+    gradeAPrice: { type: Number, default: 0 },
+    gradeBPrice: { type: Number, default: 0 },
+    gradeCPrice: { type: Number, default: 0 },
     grades: [
       {
-        id: { type: String, default: "g-a" },
-        grade: { type: String, default: "A" },
-        label: { type: String, default: "Grade A" },
+        id: { type: String, default: "" },
+        grade: { type: String, default: "" },
+        label: { type: String, default: "" },
         quantity: { type: Number, default: 0 },
         price: { type: Number, default: 0 },
       },

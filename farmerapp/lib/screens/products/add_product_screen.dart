@@ -41,14 +41,24 @@ class AvailableProductOption {
 class AddProductScreen extends StatefulWidget {
   final String? prefilledCrop;
   final ProductItem? editingProduct;
+  final bool embedded;
+  final VoidCallback? onSaved;
 
-  const AddProductScreen({super.key, this.prefilledCrop, this.editingProduct});
+  const AddProductScreen({
+    super.key,
+    this.prefilledCrop,
+    this.editingProduct,
+    this.embedded = false,
+    this.onSaved,
+  });
 
   @override
   State<AddProductScreen> createState() => _AddProductScreenState();
 }
 
-class _AddProductScreenState extends State<AddProductScreen> {
+class _AddProductScreenState extends State<AddProductScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => widget.embedded;
   final _formKey = GlobalKey<FormState>();
   final ImagePicker _picker = ImagePicker();
 
@@ -72,6 +82,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   DateTime? _availableUntil;
 
   final List<GradeRow> _grades = [];
+  final Map<String, TextEditingController> _gradeQtyControllers = {};
   Map<String, String> _errors = {};
 
   // Photo slots matching web portal
@@ -84,8 +95,78 @@ class _AddProductScreenState extends State<AddProductScreen> {
   List<String> _extraHarvestPhotos = [];
 
   bool _isSubmitting = false;
+  int _formEpoch = 0;
 
   bool get isEditing => widget.editingProduct != null;
+
+  double _parseQty(String raw) => double.tryParse(raw.trim()) ?? 0.0;
+
+  double _parsePrice(String raw) => double.tryParse(raw.trim()) ?? 0.0;
+
+  double _gradeQty(String letter) {
+    final typed = _gradeQtyControllers[letter]?.text;
+    if (typed != null) return _parseQty(typed);
+    for (final g in _grades) {
+      if (g.grade == letter) return _parseQty(g.quantity);
+    }
+    return 0.0;
+  }
+
+  TextEditingController _qtyControllerFor(GradeRow row) {
+    final existing = _gradeQtyControllers[row.grade];
+    if (existing != null) return existing;
+    final controller = TextEditingController(text: row.quantity);
+    controller.addListener(() => row.quantity = controller.text);
+    _gradeQtyControllers[row.grade] = controller;
+    return controller;
+  }
+
+  void _disposeGradeControllers() {
+    for (final c in _gradeQtyControllers.values) {
+      c.dispose();
+    }
+    _gradeQtyControllers.clear();
+  }
+
+  double _gradePrice(String letter) {
+    for (final g in _grades) {
+      if (g.grade == letter) return _parsePrice(g.price);
+    }
+    return 0.0;
+  }
+
+  void _resetAddForm() {
+    _productNameController.clear();
+    _varietyController.clear();
+    _customFarmingTypeController.clear();
+    _availableQtyController.clear();
+    setState(() {
+      _formEpoch++;
+      _selectedProductOptionKey = null;
+      _cropName = '';
+      _productName = '';
+      _farmingType = 'Conventional';
+      _unit = 'Kg';
+      _sowingDate = null;
+      _harvestDate = null;
+      _availableFrom = null;
+      _availableUntil = null;
+      _grades
+        ..clear()
+        ..add(GradeRow(grade: 'A', quantity: '', price: ''));
+      for (final c in _gradeQtyControllers.values) {
+        c.text = '';
+      }
+      _errors = {};
+      _mainPhoto = '';
+      _farmPhoto = '';
+      _cropPhoto = '';
+      _harvestPhoto = '';
+      _extraFarmPhotos = [];
+      _extraCropPhotos = [];
+      _extraHarvestPhotos = [];
+    });
+  }
 
   String _translateOption(String val) {
     final lang = AppLanguage();
@@ -120,8 +201,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
   void initState() {
     super.initState();
     final p = widget.editingProduct;
-    FarmerState().fetchVendorAvailableProducts().then((_) {
-      if (mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FarmerState().fetchVendorAvailableProducts().then((_) {
+        if (mounted) setState(() {});
+      });
     });
     final options = _getProductOptions();
 
@@ -134,32 +218,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _availableQtyController.text = p.stockQuantity > 0 ? p.stockQuantity.toStringAsFixed(0) : '';
       _unit = _cropUnits.contains(p.unit) ? p.unit : 'Kg';
 
-      try {
-        if (p.sowingDate.isNotEmpty) _sowingDate = DateTime.tryParse(p.sowingDate);
-      } catch (_) {}
-      try {
-        if (p.harvestDate.isNotEmpty) _harvestDate = DateTime.tryParse(p.harvestDate);
-      } catch (_) {}
-      try {
-        if (p.availableFrom.isNotEmpty) _availableFrom = DateTime.tryParse(p.availableFrom);
-      } catch (_) {}
-      try {
-        if (p.availableUntil.isNotEmpty) _availableUntil = DateTime.tryParse(p.availableUntil);
-      } catch (_) {}
+      _sowingDate = _parseDate(p.sowingDate);
+      _harvestDate = _parseDate(p.harvestDate);
+      _availableFrom = _parseDate(p.availableFrom);
+      _availableUntil = _parseDate(p.availableUntil);
 
-      // Grade initialization
-      if (p.gradeAQty > 0 || p.gradeAPrice > 0) {
-        _grades.add(GradeRow(grade: 'A', quantity: p.gradeAQty > 0 ? p.gradeAQty.toStringAsFixed(0) : '', price: p.gradeAPrice > 0 ? p.gradeAPrice.toStringAsFixed(0) : ''));
-      }
-      if (p.gradeBQty > 0 || p.gradeBPrice > 0) {
-        _grades.add(GradeRow(grade: 'B', quantity: p.gradeBQty > 0 ? p.gradeBQty.toStringAsFixed(0) : '', price: p.gradeBPrice > 0 ? p.gradeBPrice.toStringAsFixed(0) : ''));
-      }
-      if (p.gradeCQty > 0 || p.gradeCPrice > 0) {
-        _grades.add(GradeRow(grade: 'C', quantity: p.gradeCQty > 0 ? p.gradeCQty.toStringAsFixed(0) : '', price: p.gradeCPrice > 0 ? p.gradeCPrice.toStringAsFixed(0) : ''));
-      }
-      if (_grades.isEmpty) {
-        _grades.add(GradeRow(grade: 'A', quantity: p.stockQuantity.toStringAsFixed(0), price: p.pricePerUnit.toStringAsFixed(0)));
-      }
+      String qtyText(double q) => q > 0 ? q.toStringAsFixed(q % 1 == 0 ? 0 : 1) : '';
+      String priceText(double q) => q > 0 ? q.toStringAsFixed(0) : '';
+      _grades.addAll([
+        GradeRow(grade: 'A', quantity: qtyText(p.gradeAQty > 0 ? p.gradeAQty : ((p.gradeBQty + p.gradeCQty) > 0 ? 0 : p.stockQuantity)), price: priceText(p.gradeAPrice > 0 ? p.gradeAPrice : p.pricePerUnit)),
+        GradeRow(grade: 'B', quantity: qtyText(p.gradeBQty), price: priceText(p.gradeBPrice)),
+        GradeRow(grade: 'C', quantity: qtyText(p.gradeCQty), price: priceText(p.gradeCPrice)),
+      ]);
 
       // Photos initialization
       _mainPhoto = p.imageUrl.isNotEmpty ? p.imageUrl : (p.photos.isNotEmpty ? p.photos.first : '');
@@ -213,15 +283,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
     for (final p in FarmerState().vendorAvailableProducts) {
       final name = (p['productName'] ?? p['name'] ?? '').toString().trim();
       if (name.isEmpty) continue;
-      final key = name.toLowerCase();
-      if (!seen.add(key)) continue;
       final variety = (p['variety'] ?? p['varietyName'] ?? '').toString().trim();
+      final key = '${name.toLowerCase()}:::${variety.toLowerCase()}';
+      if (!seen.add(key)) continue;
       final unit = (p['unit'] ?? 'Kg').toString().trim();
       final image = (p['image'] ?? p['imageUrl'] ?? '').toString().trim();
       final priceRaw = p['sellingPrice'] ?? p['discountedPrice'] ?? p['price'];
       list.add(AvailableProductOption(
         key: key,
-        displayName: name,
+        displayName: variety.isNotEmpty ? '$name · $variety' : name,
         cleanName: name,
         variety: variety.isNotEmpty ? variety : null,
         unit: unit.isNotEmpty ? unit : 'Kg',
@@ -246,28 +316,27 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _cropName = pName;
 
       final pVariety = (opt.variety ?? '').trim();
-      _varietyController.text = pVariety;
-
-      final pUnit = opt.unit ?? 'Kg';
-      if (_cropUnits.contains(pUnit)) {
-        _unit = pUnit;
+      if (!isEditing || _varietyController.text.trim().isEmpty) {
+        if (pVariety.isNotEmpty) _varietyController.text = pVariety;
       }
 
-      final img = opt.imageUrl ?? '';
-      if (img.isNotEmpty) {
-        _mainPhoto = img;
-      }
-
-      if (opt.suggestedPrice != null && opt.suggestedPrice! > 0) {
-        if (_grades.isNotEmpty) {
+      if (!isEditing) {
+        final pUnit = opt.unit ?? 'Kg';
+        if (_cropUnits.contains(pUnit)) {
+          _unit = pUnit;
+        }
+        final img = opt.imageUrl ?? '';
+        if (img.isNotEmpty && _mainPhoto.isEmpty) {
+          _mainPhoto = img;
+        }
+        if (opt.suggestedPrice != null && opt.suggestedPrice! > 0 && _grades.isNotEmpty) {
           _grades[0].price = opt.suggestedPrice!.toStringAsFixed(0);
         }
-      }
-
-      if (_harvestDate == null) {
-        _harvestDate = DateTime.now().add(const Duration(days: 30));
-        _availableFrom = _harvestDate;
-        _availableUntil = _harvestDate!.add(const Duration(days: 60));
+        if (_harvestDate == null) {
+          _harvestDate = DateTime.now().add(const Duration(days: 30));
+          _availableFrom = _harvestDate;
+          _availableUntil = _harvestDate!.add(const Duration(days: 60));
+        }
       }
 
       _errors.remove('productName');
@@ -276,9 +345,41 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
   }
 
+  DateTime? _parseDate(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty || s == '—') return null;
+    final iso = DateTime.tryParse(s);
+    if (iso != null) return DateTime(iso.year, iso.month, iso.day);
+    final ymd = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(s);
+    if (ymd != null) {
+      return DateTime(int.parse(ymd.group(1)!), int.parse(ymd.group(2)!), int.parse(ymd.group(3)!));
+    }
+    const months = {
+      'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
+      'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6,
+      'jul': 7, 'july': 7, 'aug': 8, 'august': 8,
+      'sep': 9, 'sept': 9, 'september': 9, 'oct': 10, 'october': 10,
+      'nov': 11, 'november': 11, 'dec': 12, 'december': 12,
+    };
+    final named = RegExp(r'^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})').firstMatch(s);
+    if (named != null) {
+      final month = months[named.group(2)!.toLowerCase()];
+      if (month != null) {
+        return DateTime(int.parse(named.group(3)!), month, int.parse(named.group(1)!));
+      }
+    }
+    return null;
+  }
+
   String _formatDate(DateTime? d) {
     if (d == null) return '';
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  String _dateForSave(DateTime? parsed, [String original = '']) {
+    if (parsed != null) return _formatDate(parsed);
+    final recovered = _parseDate(original);
+    return recovered != null ? _formatDate(recovered) : original.trim();
   }
 
   Future<void> _pickDate({required String field}) async {
@@ -397,7 +498,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   void _removeGrade(int index) {
     if (_grades.length <= 1) return;
     setState(() {
-      _grades.removeAt(index);
+      final removed = _grades.removeAt(index);
+      final c = _gradeQtyControllers.remove(removed.grade);
+      c?.dispose();
     });
   }
 
@@ -419,7 +522,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       if (_availableFrom != null && _availableUntil != null && _availableUntil!.isBefore(_availableFrom!)) {
         next['availableUntil'] = AppLanguage().tr(mr: 'शेवटची तारीख सुरुवातीच्या तारखेपूर्वी असू शकत नाही', en: 'Until date cannot be before from date');
       }
-      final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + (double.tryParse(g.quantity) ?? 0.0)) + (double.tryParse(_availableQtyController.text) ?? 0.0);
+      final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + _gradeQty(g.grade)) + (double.tryParse(_availableQtyController.text) ?? 0.0);
       if (totalQty <= 0) next['availableQuantity'] = AppLanguage().tr(mr: 'प्रमाण 0 पेक्षा जास्त असावे', en: 'Quantity must be greater than 0');
       if (_grades.isEmpty) next['grades'] = AppLanguage().tr(mr: 'किमान एक ग्रेड जोडा', en: 'Add at least one grade');
       if (_mainPhoto.isEmpty) next['mainPhoto'] = AppLanguage().tr(mr: 'मुख्य उत्पादन फोटो आवश्यक आहे', en: 'Main product photo is required');
@@ -435,8 +538,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + (double.tryParse(g.quantity) ?? 0.0));
-      final resolvedQty = totalQty > 0 ? totalQty : (double.tryParse(_availableQtyController.text) ?? 0);
+      for (final g in _grades) {
+        final c = _gradeQtyControllers[g.grade];
+        if (c != null) g.quantity = c.text;
+      }
+      final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + _parseQty(g.quantity));
+      final resolvedQty = totalQty > 0 ? totalQty : _parseQty(_availableQtyController.text);
       final resolvedFarmingType = _farmingType == 'Other' ? _customFarmingTypeController.text.trim() : _farmingType;
       final resolvedName = _productNameController.text.trim().isNotEmpty ? _productNameController.text.trim() : _productName.trim();
       final resolvedCrop = _cropName.isNotEmpty ? _cropName : resolvedName;
@@ -450,17 +557,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
       allPhotos.addAll(_extraCropPhotos);
       allPhotos.addAll(_extraHarvestPhotos);
 
-      final grA = _grades.firstWhere((g) => g.grade == 'A', orElse: () => GradeRow(grade: 'A', quantity: '0', price: '0'));
-      final grB = _grades.firstWhere((g) => g.grade == 'B', orElse: () => GradeRow(grade: 'B', quantity: '0', price: '0'));
-      final grC = _grades.firstWhere((g) => g.grade == 'C', orElse: () => GradeRow(grade: 'C', quantity: '0', price: '0'));
-
       final existingPrice = isEditing && widget.editingProduct != null ? widget.editingProduct!.pricePerUnit : 0.0;
-      final grAPrice = double.tryParse(grA.price) ?? existingPrice;
-      final grAQty = double.tryParse(grA.quantity) ?? resolvedQty;
-      final grBPrice = double.tryParse(grB.price) ?? (isEditing && widget.editingProduct != null ? widget.editingProduct!.gradeBPrice : 0.0);
-      final grBQty = double.tryParse(grB.quantity) ?? 0.0;
-      final grCPrice = double.tryParse(grC.price) ?? (isEditing && widget.editingProduct != null ? widget.editingProduct!.gradeCPrice : 0.0);
-      final grCQty = double.tryParse(grC.quantity) ?? 0.0;
+      var grAPrice = _gradePrice('A');
+      var grBPrice = _gradePrice('B');
+      var grCPrice = _gradePrice('C');
+      if (grAPrice <= 0) grAPrice = existingPrice;
+      final grAQty = _gradeQty('A');
+      final grBQty = _gradeQty('B');
+      final grCQty = _gradeQty('C');
+      final fallbackPrice = grAPrice > 0 ? grAPrice : existingPrice;
+      if (grBPrice <= 0 && grBQty > 0) grBPrice = fallbackPrice;
+      if (grCPrice <= 0 && grCQty > 0) grCPrice = fallbackPrice;
 
       final status = publish ? 'Active' : 'Draft';
 
@@ -481,10 +588,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
           farmingType: resolvedFarmingType.isNotEmpty ? resolvedFarmingType : 'Conventional',
           farmName: existing.farmName,
           farmLocation: existing.farmLocation,
-          sowingDate: _formatDate(_sowingDate),
-          harvestDate: _formatDate(_harvestDate),
-          availableFrom: _formatDate(_availableFrom),
-          availableUntil: _formatDate(_availableUntil),
+          sowingDate: _dateForSave(_sowingDate, existing.sowingDate),
+          harvestDate: _dateForSave(_harvestDate, existing.harvestDate),
+          availableFrom: _dateForSave(_availableFrom, existing.availableFrom),
+          availableUntil: _dateForSave(_availableUntil, existing.availableUntil),
           status: status,
           imageUrl: _mainPhoto,
           photos: allPhotos,
@@ -494,9 +601,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
           gradeBQty: grBQty,
           gradeCPrice: grCPrice,
           gradeCQty: grCQty,
+          isSelfAdded: existing.isSelfAdded,
         );
 
-        FarmerState().updateProduct(updated);
+        final saved = await FarmerState().updateProduct(updated);
+        if (!saved) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLanguage().tr(mr: 'ग्रेड सेव्ह झाले नाही. पुन्हा प्रयत्न करा.', en: 'Grades could not be saved. Please try again.')),
+                backgroundColor: const Color(0xFFDC2626),
+              ),
+            );
+          }
+          return;
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -505,7 +624,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
               backgroundColor: const Color(0xFF217346),
             ),
           );
-          Navigator.pop(context, updated);
+          if (widget.embedded) {
+            widget.onSaved?.call();
+          } else {
+            Navigator.pop(context, updated);
+          }
         }
       } else {
         final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
@@ -556,7 +679,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
               backgroundColor: const Color(0xFF217346),
             ),
           );
-          Navigator.pop(context, newProduct);
+          if (widget.embedded) {
+            _resetAddForm();
+            widget.onSaved?.call();
+          } else {
+            Navigator.pop(context, newProduct);
+          }
         }
       }
     } finally {
@@ -570,38 +698,56 @@ class _AddProductScreenState extends State<AddProductScreen> {
     _varietyController.dispose();
     _customFarmingTypeController.dispose();
     _availableQtyController.dispose();
+    _disposeGradeControllers();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final productOptions = _getProductOptions();
-    final unused = _unusedGrades;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          isEditing ? AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product') : AppLanguage().tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: const TextStyle(color: Color(0xFF217346), fontWeight: FontWeight.bold, fontSize: 13)),
+    super.build(context);
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final productOptions = _getProductOptions();
+        final unused = _unusedGrades;
+        final form = _buildProductForm(productOptions, unused);
+        if (widget.embedded) {
+          return ColoredBox(color: const Color(0xFFF8FAFC), child: form);
+        }
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0.5,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              isEditing ? AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product') : AppLanguage().tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: const TextStyle(color: Color(0xFF217346), fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Form(
+          body: SafeArea(child: form),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductForm(List<AvailableProductOption> productOptions, List<String> unused) {
+    return Column(
+      key: ValueKey('add-product-body-$_formEpoch'),
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,6 +812,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
                       _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
                       DropdownButtonFormField<String>(
+                        key: ValueKey('vendor-product-$_formEpoch-${productOptions.length}-$_selectedProductOptionKey'),
                         initialValue: _selectedProductOptionKey != null && productOptions.any((o) => o.key == _selectedProductOptionKey)
                             ? _selectedProductOptionKey
                             : null,
@@ -1061,7 +1208,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                 child: SizedBox(
                                   height: 38,
                                   child: TextFormField(
-                                    initialValue: grade.quantity,
+                                    key: ValueKey('grade-qty-$_formEpoch-$idx-${grade.grade}'),
+                                    controller: _qtyControllerFor(grade),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
                                     decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'प्रमाण', en: 'Qty')),
@@ -1179,7 +1327,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
+      Container(
         decoration: BoxDecoration(
           color: Colors.white,
           border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
@@ -1240,6 +1388,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           ),
         ),
       ),
+    ],
     );
   }
 

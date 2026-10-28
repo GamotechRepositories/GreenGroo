@@ -360,7 +360,6 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     if (vendorProductsLoading) return;
     if (vendorProductsLoaded && !force) return;
     vendorProductsLoading = true;
-    notifyListeners();
     try {
       final fId = profile.id.trim();
       final res = await ApiService().fetchVendorAvailableProducts(farmerId: fId.isNotEmpty ? fId : null);
@@ -1376,12 +1375,13 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     return false;
   }
 
-  void addProduct(ProductItem product) {
-    if (product.id.isNotEmpty) recordSelfAddedProductId(product.id);
-    if (product.productId.isNotEmpty) recordSelfAddedProductId(product.productId);
-    products.insert(0, product);
-    notifyListeners();
-    ApiService().createProduct(profile.id, {
+  Map<String, dynamic> _productWriteBody(ProductItem product) {
+    final grades = [
+      {'id': 'g-a', 'grade': 'A', 'label': 'Grade A', 'quantity': product.gradeAQty, 'price': product.gradeAPrice},
+      {'id': 'g-b', 'grade': 'B', 'label': 'Grade B', 'quantity': product.gradeBQty, 'price': product.gradeBPrice},
+      {'id': 'g-c', 'grade': 'C', 'label': 'Grade C', 'quantity': product.gradeCQty, 'price': product.gradeCPrice},
+    ];
+    return {
       'productName': product.productName,
       'name': product.productName,
       'variety': product.variety,
@@ -1408,49 +1408,114 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
         'mainPhoto': product.imageUrl,
         'photos': product.photos,
       },
-      'grades': [
-        {'grade': product.grade.replaceAll('Grade ', '').trim(), 'quantity': product.stockQuantity}
-      ]
+      'gradeAQty': product.gradeAQty,
+      'gradeBQty': product.gradeBQty,
+      'gradeCQty': product.gradeCQty,
+      'gradeAPrice': product.gradeAPrice,
+      'gradeBPrice': product.gradeBPrice,
+      'gradeCPrice': product.gradeCPrice,
+      'grades': grades,
+    };
+  }
+
+  void addProduct(ProductItem product) {
+    if (product.id.isNotEmpty) recordSelfAddedProductId(product.id);
+    if (product.productId.isNotEmpty) recordSelfAddedProductId(product.productId);
+    products.insert(0, product);
+    notifyListeners();
+    ApiService().createProduct(profile.id, _productWriteBody(product)).then((res) {
+      if (res is! Map<String, dynamic>) return;
+      try {
+        final saved = ProductItem.fromJson(res);
+        final idx = products.indexWhere((p) => p.id == product.id || p.productId == product.productId || p.id == saved.id || p.productId == saved.productId);
+        final merged = ProductItem(
+          id: saved.id.isNotEmpty ? saved.id : product.id,
+          productId: saved.productId.isNotEmpty ? saved.productId : product.productId,
+          productName: saved.productName.isNotEmpty ? saved.productName : product.productName,
+          variety: saved.variety.isNotEmpty ? saved.variety : product.variety,
+          category: saved.category.isNotEmpty ? saved.category : product.category,
+          cropLinked: saved.cropLinked.isNotEmpty ? saved.cropLinked : product.cropLinked,
+          grade: saved.grade.isNotEmpty ? saved.grade : product.grade,
+          unit: saved.unit.isNotEmpty ? saved.unit : product.unit,
+          pricePerUnit: saved.pricePerUnit > 0 ? saved.pricePerUnit : product.pricePerUnit,
+          stockQuantity: saved.stockQuantity > 0 ? saved.stockQuantity : product.stockQuantity,
+          minimumOrderQuantity: saved.minimumOrderQuantity > 0 ? saved.minimumOrderQuantity : product.minimumOrderQuantity,
+          farmingType: saved.farmingType.isNotEmpty ? saved.farmingType : product.farmingType,
+          farmName: saved.farmName.isNotEmpty ? saved.farmName : product.farmName,
+          farmLocation: saved.farmLocation.isNotEmpty ? saved.farmLocation : product.farmLocation,
+          sowingDate: saved.sowingDate.isNotEmpty ? saved.sowingDate : product.sowingDate,
+          harvestDate: saved.harvestDate.isNotEmpty ? saved.harvestDate : product.harvestDate,
+          availableFrom: saved.availableFrom.isNotEmpty ? saved.availableFrom : product.availableFrom,
+          availableUntil: saved.availableUntil.isNotEmpty ? saved.availableUntil : product.availableUntil,
+          status: saved.status.isNotEmpty ? saved.status : product.status,
+          imageUrl: saved.imageUrl.isNotEmpty ? saved.imageUrl : product.imageUrl,
+          photos: saved.photos.isNotEmpty ? saved.photos : product.photos,
+          gradeAPrice: saved.gradeAPrice > 0 ? saved.gradeAPrice : product.gradeAPrice,
+          gradeAQty: saved.gradeAQty > 0 || saved.gradeBQty > 0 || saved.gradeCQty > 0 ? saved.gradeAQty : product.gradeAQty,
+          gradeBPrice: saved.gradeBPrice > 0 ? saved.gradeBPrice : product.gradeBPrice,
+          gradeBQty: saved.gradeAQty > 0 || saved.gradeBQty > 0 || saved.gradeCQty > 0 ? saved.gradeBQty : product.gradeBQty,
+          gradeCPrice: saved.gradeCPrice > 0 ? saved.gradeCPrice : product.gradeCPrice,
+          gradeCQty: saved.gradeAQty > 0 || saved.gradeBQty > 0 || saved.gradeCQty > 0 ? saved.gradeCQty : product.gradeCQty,
+          isSelfAdded: true,
+        );
+        if (idx != -1) {
+          products[idx] = merged;
+        } else {
+          products.insert(0, merged);
+        }
+        recordSelfAddedProductId(merged.id);
+        recordSelfAddedProductId(merged.productId);
+        notifyListeners();
+      } catch (_) {}
     }).catchError((_) {});
   }
 
-  void updateProduct(ProductItem updated) {
+  Future<bool> updateProduct(ProductItem updated) async {
     final idx = products.indexWhere((p) => p.id == updated.id || p.productId == updated.productId);
+    final previous = idx != -1 ? products[idx] : null;
     if (idx != -1) {
       products[idx] = updated;
       notifyListeners();
     }
-    ApiService().updateProduct(updated.id, {
-      'productName': updated.productName,
-      'name': updated.productName,
-      'variety': updated.variety,
-      'category': updated.category,
-      'sellingPrice': updated.pricePerUnit,
-      'pricePerKg': updated.pricePerUnit,
-      'stock': updated.stockQuantity,
-      'stockQuantity': updated.stockQuantity,
-      'totalQuantity': updated.stockQuantity,
-      'availableQuantity': updated.stockQuantity,
-      'minimumOrderQuantity': updated.minimumOrderQuantity,
-      'unit': updated.unit,
-      'cropName': updated.cropLinked,
-      'farmingType': updated.farmingType,
-      'farmName': updated.farmName,
-      'farmLocation': updated.farmLocation,
-      'sowingDate': updated.sowingDate,
-      'harvestDate': updated.harvestDate,
-      'availableFrom': updated.availableFrom,
-      'availableUntil': updated.availableUntil,
-      'status': updated.status,
-      'image': updated.imageUrl,
-      'media': {
-        'mainPhoto': updated.imageUrl,
-        'photos': updated.photos,
-      },
-      'grades': [
-        {'grade': updated.grade.replaceAll('Grade ', '').trim(), 'quantity': updated.stockQuantity}
-      ]
-    }).catchError((_) {});
+    try {
+      final body = _productWriteBody(updated);
+      dynamic res;
+      try {
+        res = await ApiService().updateProduct(updated.id, body, farmerId: profile.id);
+      } catch (_) {
+        if (updated.productId.isNotEmpty && updated.productId != updated.id) {
+          res = await ApiService().updateProduct(updated.productId, body, farmerId: profile.id);
+        } else {
+          rethrow;
+        }
+      }
+      if (res is Map<String, dynamic>) {
+        try {
+          final saved = ProductItem.fromJson(res);
+          final i = products.indexWhere(
+            (p) => p.id == updated.id || p.productId == updated.productId || p.id == saved.id || p.productId == saved.productId,
+          );
+          if (i != -1) {
+            products[i].gradeAQty = saved.gradeAQty;
+            products[i].gradeBQty = saved.gradeBQty;
+            products[i].gradeCQty = saved.gradeCQty;
+            products[i].gradeAPrice = saved.gradeAPrice;
+            products[i].gradeBPrice = saved.gradeBPrice;
+            products[i].gradeCPrice = saved.gradeCPrice;
+            products[i].stockQuantity = saved.stockQuantity;
+            notifyListeners();
+          }
+        } catch (_) {}
+      }
+      await refreshProducts();
+      return true;
+    } catch (_) {
+      if (idx != -1 && previous != null) {
+        products[idx] = previous;
+        notifyListeners();
+      }
+      return false;
+    }
   }
 
   void updateProductStatus(String productId, String newStatus) {
@@ -1469,10 +1534,25 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  void updateProductStock(String productId, double newStock) {
+  void updateProductStock(
+    String productId,
+    double newStock, {
+    double? gradeAQty,
+    double? gradeBQty,
+    double? gradeCQty,
+    double? gradeAPrice,
+    double? gradeBPrice,
+    double? gradeCPrice,
+  }) {
     final idx = products.indexWhere((p) => p.id == productId || p.productId == productId);
     if (idx != -1) {
       products[idx].stockQuantity = newStock;
+      if (gradeAQty != null) products[idx].gradeAQty = gradeAQty;
+      if (gradeBQty != null) products[idx].gradeBQty = gradeBQty;
+      if (gradeCQty != null) products[idx].gradeCQty = gradeCQty;
+      if (gradeAPrice != null) products[idx].gradeAPrice = gradeAPrice;
+      if (gradeBPrice != null) products[idx].gradeBPrice = gradeBPrice;
+      if (gradeCPrice != null) products[idx].gradeCPrice = gradeCPrice;
       notifyListeners();
     }
   }
@@ -1711,6 +1791,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     'image/jpg',
     'image/png',
     'image/webp',
+    'application/pdf',
     'video/mp4',
     'video/webm',
     'video/quicktime',
@@ -1719,7 +1800,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   /// Base64 images/videos go to S3 so only a short URL is sent to the API.
   /// Falls back to the inline data URL if S3 upload is unavailable (e.g. older server).
   Future<String> _moveDataUrlToS3(String farmerId, String value, String docType) async {
-    final match = RegExp(r'^data:([\w/+.-]+);base64,', caseSensitive: false).firstMatch(value);
+    final match = RegExp(r'^data:([\w/+.-]+)(?:;[\w.=%-]+)*;base64,', caseSensitive: false).firstMatch(value);
     if (match == null) return value;
     final mimeType = match.group(1)!.toLowerCase();
     if (!_s3DocumentMimeTypes.contains(mimeType)) return value;
@@ -1734,7 +1815,8 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       );
     } on ApiHttpException catch (e) {
       // Videos are too big for the inline JSON path, so surface the real error.
-      if (isVideo || e.statusCode != 404) rethrow;
+      if (isVideo) rethrow;
+      if (e.statusCode != 404 && e.statusCode != 400) rethrow;
       return value;
     } catch (e) {
       if (isVideo) rethrow;

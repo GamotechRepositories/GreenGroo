@@ -9,13 +9,22 @@ import '../products/add_product_screen.dart';
 import '../products/product_detail_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
-  const InventoryScreen({super.key});
+  final bool embedded;
+  final VoidCallback? onAddProduct;
+
+  const InventoryScreen({
+    super.key,
+    this.embedded = false,
+    this.onAddProduct,
+  });
 
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+class _InventoryScreenState extends State<InventoryScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => widget.embedded;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _searchQuery = '';
   String _selectedFilter = 'all'; // all, in_stock, low_stock, out_of_stock
@@ -61,6 +70,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final lang = AppLanguage();
 
     return ListenableBuilder(
@@ -104,45 +114,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           return true;
         }).toList();
 
-        return Scaffold(
-          key: _scaffoldKey,
-          drawer: const FarmerSidebarDrawer(),
-          backgroundColor: const Color(0xFFF8FAFC),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0.5,
-            leading: IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFF217346)),
-              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
-              onPressed: () {
-                if (_scaffoldKey.currentState != null) {
-                  _scaffoldKey.currentState!.openDrawer();
-                } else {
-                  MainShell.openDrawer(context);
-                }
-              },
-            ),
-            title: Text(
-              lang.tr(mr: 'इन्व्हेंटरी व साठा', en: 'Inventory & Stock'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF217346)),
-                tooltip: lang.tr(mr: 'रिफ्रेश करा', en: 'Refresh'),
-                onPressed: () => FarmerState().refreshProducts(),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add, color: Color(0xFF217346)),
-                tooltip: lang.tr(mr: 'नवीन उत्पादन जोडा', en: 'Add Product'),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-                },
-              ),
-            ],
-          ),
-          body: SafeArea(
-            child: RefreshIndicator(
+        final content = RefreshIndicator(
               color: const Color(0xFF217346),
               onRefresh: () => FarmerState().refreshProducts(),
               child: CustomScrollView(
@@ -323,8 +295,51 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                 ],
               ),
+        );
+
+        if (widget.embedded) {
+          return ColoredBox(color: const Color(0xFFF8FAFC), child: content);
+        }
+
+        return Scaffold(
+          key: _scaffoldKey,
+          drawer: const FarmerSidebarDrawer(),
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0.5,
+            leading: IconButton(
+              icon: const Icon(Icons.menu, color: Color(0xFF217346)),
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+              onPressed: () {
+                if (_scaffoldKey.currentState != null) {
+                  _scaffoldKey.currentState!.openDrawer();
+                } else {
+                  MainShell.openDrawer(context);
+                }
+              },
             ),
+            title: Text(
+              lang.tr(mr: 'इन्व्हेंटरी व साठा', en: 'Inventory & Stock'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF217346)),
+                tooltip: lang.tr(mr: 'रिफ्रेश करा', en: 'Refresh'),
+                onPressed: () => FarmerState().refreshProducts(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, color: Color(0xFF217346)),
+                tooltip: lang.tr(mr: 'नवीन उत्पादन जोडा', en: 'Add Product'),
+                onPressed: widget.onAddProduct ??
+                    () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
+                    },
+              ),
+            ],
           ),
+          body: SafeArea(child: content),
         );
       },
     );
@@ -418,8 +433,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
       stockStatusBg = const Color(0xFFD1FAE5);
       stockStatusText = lang.tr(mr: 'उपलब्ध', en: 'In Stock');
     }
-
-    final hasGradeBreakdown = (product.gradeAQty > 0 || product.gradeBQty > 0 || product.gradeCQty > 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -603,57 +616,54 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
 
-          // Grade-wise stock breakdown if available
-          if (hasGradeBreakdown) ...[
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildGradePill(
-                        grade: 'Grade A',
-                        qty: product.gradeAQty,
-                        rate: product.gradeAPrice,
-                        unit: unit,
-                        color: const Color(0xFF065F46),
-                        bgColor: const Color(0xFFECFDF5),
-                      ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildGradePill(
+                      grade: 'Grade A',
+                      qty: product.gradeAQty,
+                      rate: product.gradeAPrice,
+                      unit: unit,
+                      color: const Color(0xFF065F46),
+                      bgColor: const Color(0xFFECFDF5),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _buildGradePill(
-                        grade: 'Grade B',
-                        qty: product.gradeBQty,
-                        rate: product.gradeBPrice,
-                        unit: unit,
-                        color: const Color(0xFF1E40AF),
-                        bgColor: const Color(0xFFEFF6FF),
-                      ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildGradePill(
+                      grade: 'Grade B',
+                      qty: product.gradeBQty,
+                      rate: product.gradeBPrice,
+                      unit: unit,
+                      color: const Color(0xFF1E40AF),
+                      bgColor: const Color(0xFFEFF6FF),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _buildGradePill(
-                        grade: 'Grade C',
-                        qty: product.gradeCQty,
-                        rate: product.gradeCPrice,
-                        unit: unit,
-                        color: const Color(0xFF92400E),
-                        bgColor: const Color(0xFFFFFBEB),
-                      ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildGradePill(
+                      grade: 'Grade C',
+                      qty: product.gradeCQty,
+                      rate: product.gradeCPrice,
+                      unit: unit,
+                      color: const Color(0xFF92400E),
+                      bgColor: const Color(0xFFFFFBEB),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
 
           const SizedBox(height: 10),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -863,9 +873,21 @@ class _StockUpdateBottomSheetState extends State<_StockUpdateBottomSheet> {
       p.gradeAQty = saved.gradeAQty;
       p.gradeBQty = saved.gradeBQty;
       p.gradeCQty = saved.gradeCQty;
+      p.gradeAPrice = saved.gradeAPrice;
+      p.gradeBPrice = saved.gradeBPrice;
+      p.gradeCPrice = saved.gradeCPrice;
       final total = saved.stockQuantity;
       p.stockQuantity = total;
-      FarmerState().updateProductStock(p.id, total);
+      FarmerState().updateProductStock(
+        p.id,
+        total,
+        gradeAQty: saved.gradeAQty,
+        gradeBQty: saved.gradeBQty,
+        gradeCQty: saved.gradeCQty,
+        gradeAPrice: saved.gradeAPrice,
+        gradeBPrice: saved.gradeBPrice,
+        gradeCPrice: saved.gradeCPrice,
+      );
       widget.onStockUpdated(total);
       FarmerState().refreshProducts();
 

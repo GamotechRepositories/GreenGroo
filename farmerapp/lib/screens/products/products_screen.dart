@@ -8,6 +8,7 @@ import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../main_shell.dart';
+import '../inventory/inventory_screen.dart';
 import '../../services/app_language.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -148,9 +149,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
           return const ProductsSkeletonLoader();
         }
 
-        final vendorProducts = state.vendorAvailableProducts;
         final myProducts = state.products;
-        final myAddedProducts = state.products.where((p) => state.isProductSelfAdded(p)).toList();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -170,9 +169,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
               IconButton(
                 icon: const Icon(Icons.add_circle_outline, color: Color(0xFF217346)),
                 tooltip: lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-                },
+                onPressed: () => switchToTab(0),
               ),
             ],
             bottom: TabBar(
@@ -190,19 +187,9 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.storefront_outlined, size: 16),
+                      const Icon(Icons.add_circle_outline, size: 16),
                       const SizedBox(width: 5),
-                      Text('${lang.tr(mr: 'प्रॉडक्ट कॅटलॉग', en: 'Products Catalogs')} (${vendorProducts.length})'),
-                    ],
-                  ),
-                ),
-                Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.inventory_2_outlined, size: 16),
-                      const SizedBox(width: 5),
-                      Text('${lang.tr(mr: 'सर्व उत्पादने', en: 'All Products')} (${myProducts.length})'),
+                      Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product')),
                     ],
                   ),
                 ),
@@ -212,7 +199,17 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
                     children: [
                       const Icon(Icons.eco_outlined, size: 16),
                       const SizedBox(width: 5),
-                      Text('${lang.tr(mr: 'माझी उत्पादने', en: 'My Products')} (${myAddedProducts.length})'),
+                      Text('${lang.tr(mr: 'माझी उत्पादने', en: 'My Products')} (${myProducts.length})'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warehouse_rounded, size: 16),
+                      const SizedBox(width: 5),
+                      Text(lang.tr(mr: 'स्टॉक इन्व्हेंटरी', en: 'Stock Inventory')),
                     ],
                   ),
                 ),
@@ -223,9 +220,17 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildAllProductsTab(context, state, lang),
+                AddProductScreen(
+                  key: const PageStorageKey('farmer-add-product-tab'),
+                  embedded: true,
+                  onSaved: () => switchToTab(2),
+                ),
                 _buildMyProductsTab(context, state, lang),
-                _buildMyAddedProductsTab(context, state, lang),
+                InventoryScreen(
+                  key: const PageStorageKey('farmer-stock-inventory-tab'),
+                  embedded: true,
+                  onAddProduct: () => switchToTab(0),
+                ),
               ],
             ),
           ),
@@ -237,6 +242,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
   // ==========================================
   // TAB 0: ALL PRODUCTS (व्हेंडरची उपलब्ध उत्पादने)
   // ==========================================
+  // ignore: unused_element
   Widget _buildAllProductsTab(BuildContext context, FarmerState state, AppLanguage lang) {
     final allVendorProds = state.vendorAvailableProducts;
 
@@ -862,7 +868,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            lang.tr(mr: 'सर्व उत्पादने, थेट बाजारपेठ', en: 'All Products, Direct Market'),
+                            lang.tr(mr: 'माझी उत्पादने, थेट बाजारपेठ', en: 'My Products, Direct Market'),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -926,9 +932,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
                     ),
                     icon: const Icon(Icons.add, size: 16),
                     label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-                    },
+                    onPressed: () => switchToTab(0),
                   ),
                 ),
               ],
@@ -1001,45 +1005,25 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
                     const SizedBox(height: 3),
                     Text(
                       AppLanguage().tr(
-                        mr: 'प्रॉडक्ट कॅटलॉग टॅबमधून उत्पादन निवडून विनंती पाठवा किंवा नवीन जोडा.',
-                        en: 'Request products from Products Catalogs tab or add a new product.',
+                        mr: 'उत्पादन जोडा टॅबमधून संकलन केंद्रातील उत्पादन निवडून जोडा.',
+                        en: 'Add a product from the Add Product tab using your collection centre catalog.',
                       ),
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF217346),
-                            side: const BorderSide(color: Color(0xFF217346)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.storefront, size: 15),
-                          label: Text(lang.tr(mr: 'प्रॉडक्ट कॅटलॉग पहा', en: 'Browse Products Catalogs'),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          onPressed: () => _tabController.animateTo(0),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF217346),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.add, size: 15),
-                          label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-                          },
-                        ),
-                      ],
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF217346),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.add, size: 15),
+                      label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () => switchToTab(0),
                     ),
                   ],
                 ),
@@ -1715,6 +1699,7 @@ class ProductsScreenState extends State<ProductsScreen> with SingleTickerProvide
   // ==========================================
   // TAB 2: MY PRODUCTS (स्वतः जोडलेली उत्पादने)
   // ==========================================
+  // ignore: unused_element
   Widget _buildMyAddedProductsTab(BuildContext context, FarmerState state, AppLanguage lang) {
     List<ProductItem> addedProducts = [];
     try {
