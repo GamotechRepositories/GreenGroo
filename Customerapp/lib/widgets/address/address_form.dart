@@ -49,6 +49,7 @@ class AddressForm extends ConsumerStatefulWidget {
 class _AddressFormState extends ConsumerState<AddressForm> {
   late final Map<String, TextEditingController> _controllers;
   String? _validationError;
+  int _detectLocationSeq = 0;
   bool _isDetecting = false;
   Map<String, dynamic>? _detectedLocation;
 
@@ -125,14 +126,15 @@ class _AddressFormState extends ConsumerState<AddressForm> {
   }
 
   Future<void> _handleDetectLocation() async {
+    final seq = ++_detectLocationSeq;
     setState(() => _isDetecting = true);
     try {
       final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       await ref.read(deliveryLocationProvider.notifier).setLocation(
             detected.toDeliveryLocation(),
           );
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       setState(() {
         _applyDetected(detected);
         _isDetecting = false;
@@ -147,13 +149,13 @@ class _AddressFormState extends ConsumerState<AddressForm> {
         ),
       );
     } on PhoneLocationException catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       setState(() => _isDetecting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       setState(() => _isDetecting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not detect your phone location.')),
@@ -181,6 +183,7 @@ class _AddressFormState extends ConsumerState<AddressForm> {
   }
 
   Future<void> _handleChooseOnMap() async {
+    _detectLocationSeq++;
     final result = await showMapLocationPickerSheet(
       context,
       ref,

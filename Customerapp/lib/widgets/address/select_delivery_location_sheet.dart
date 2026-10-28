@@ -32,6 +32,7 @@ class SelectDeliveryLocationSheetContent extends ConsumerStatefulWidget {
 
 class _SelectDeliveryLocationSheetContentState
     extends ConsumerState<SelectDeliveryLocationSheetContent> {
+  int _detectionSeq = 0;
   bool _isDetectingLocation = false;
   PhoneLocation? _detected;
   bool _isAddAddressExpanded = false;
@@ -51,15 +52,16 @@ class _SelectDeliveryLocationSheetContentState
   }
 
   Future<void> _detectLiveLocation({required bool closeAfterSave}) async {
+    final seq = ++_detectionSeq;
     setState(() => _isDetectingLocation = true);
     try {
       final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       await ref.read(deliveryLocationProvider.notifier).setLocation(
             detected.toDeliveryLocation(),
           );
       ref.invalidate(nearestStoreProvider);
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       setState(() {
         _detected = detected;
         _isDetectingLocation = false;
@@ -69,7 +71,7 @@ class _SelectDeliveryLocationSheetContentState
 
       final user = ref.read(authControllerProvider).user;
       if (user == null) {
-        if (!mounted) return;
+        if (!mounted || seq != _detectionSeq) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -87,7 +89,7 @@ class _SelectDeliveryLocationSheetContentState
       }
 
       final addressId = await _saveDetectedAddress(detected);
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       if (addressId != null) {
         Navigator.of(context).pop(addressId);
         return;
@@ -102,16 +104,16 @@ class _SelectDeliveryLocationSheetContentState
           email: user.email,
         ),
       );
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       if (savedId != null) Navigator.of(context).pop(savedId);
     } on PhoneLocationException catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       setState(() => _isDetectingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || seq != _detectionSeq) return;
       setState(() => _isDetectingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not detect your phone location.')),
@@ -168,6 +170,7 @@ class _SelectDeliveryLocationSheetContentState
   }
 
   Future<void> _selectAddress(DeliveryLocation loc, {String? addressId}) async {
+    _detectionSeq++; // Prevent in-flight GPS detection from overwriting manual address selection
     await ref.read(deliveryLocationProvider.notifier).setLocation(loc);
     ref.invalidate(nearestStoreProvider);
     if (mounted) {
@@ -185,6 +188,20 @@ class _SelectDeliveryLocationSheetContentState
       );
       Navigator.of(context).pop(addressId);
     }
+  }
+
+  bool _isAddressSelected(Address addr, DeliveryLocation? current) {
+    if (current == null) return false;
+    final lat = addr.location?['lat'];
+    final lng = addr.location?['lng'];
+    if (current.latitude != null && current.longitude != null && lat is num && lng is num) {
+      return (current.latitude! - lat.toDouble()).abs() < 0.0008 &&
+          (current.longitude! - lng.toDouble()).abs() < 0.0008;
+    }
+    if (current.address != null && current.address!.isNotEmpty && addr.fullAddress.isNotEmpty) {
+      return current.address!.contains(addr.fullAddress);
+    }
+    return false;
   }
 
   Future<void> _handleSaveAddressFromSheet(Map<String, String> form) async {
@@ -578,7 +595,7 @@ class _SelectDeliveryLocationSheetContentState
                     if (savedAddresses.isNotEmpty)
                       ...savedAddresses.map((addr) => _SavedAddressCardItem(
                             address: addr,
-                            isCurrent: currentLocation?.pincode == addr.pincode || addr.isDefault,
+                            isCurrent: _isAddressSelected(addr, currentLocation),
                             onSelect: () => _selectAddress(
                               DeliveryLocation(
                                 latitude: addr.location?['lat'] is num

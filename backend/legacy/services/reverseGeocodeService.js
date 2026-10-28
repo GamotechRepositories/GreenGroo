@@ -1,4 +1,9 @@
 import axios from "axios";
+import { lookupPincode } from "./indiaLocationService.js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const pincodeData = require("india-pincode-lookup/pincodes.json");
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse";
 
@@ -29,6 +34,70 @@ function norm(value) {
     .replace(/\s+/g, " ");
 }
 
+// Build in-memory index of official post offices by district for instant locality resolution
+const districtOfficeMap = new Map();
+for (const entry of pincodeData) {
+  const dist = norm(entry.districtName);
+  if (!dist) continue;
+  if (!districtOfficeMap.has(dist)) {
+    districtOfficeMap.set(dist, []);
+  }
+  districtOfficeMap.get(dist).push({
+    name: norm(entry.officeName),
+    cleanName: norm(entry.officeName.replace(/\b(s\.o|b\.o|h\.o|g\.p\.o)\b/gi, "").trim()),
+    pincode: String(entry.pincode).padStart(6, "0"),
+  });
+}
+
+// Well-known locality aliases within major delivery districts (e.g. Pune)
+// where India Post office names differ slightly from colloquial/OSM suburb names
+const LOCALITY_PIN_ALIASES = {
+  pune: {
+    balewadi: "411045",
+    "balewadi gaon": "411045",
+    "balewadi high street": "411045",
+    mahalunge: "411045",
+    mhalunge: "411045",
+    "hinjawadi phase 1": "411057",
+    "hinjawadi phase 2": "411057",
+    "hinjawadi phase 3": "411057",
+    "hinjewadi phase 1": "411057",
+    "hinjewadi phase 2": "411057",
+    "hinjewadi phase 3": "411057",
+    hinjewadi: "411057",
+    hinjawadi: "411057",
+    baner: "411045",
+    "baner gaon": "411045",
+    wakad: "411057",
+    "wakad gaav": "411057",
+    "wakad gaon": "411057",
+    aundh: "411007",
+    pashan: "411021",
+    bavdhan: "411021",
+    sus: "411021",
+    tathawade: "411033",
+    thathawade: "411033",
+    punawale: "411033",
+    ravet: "412101",
+    kiwale: "412101",
+    marunji: "411057",
+    marunje: "411057",
+    "pimple saudagar": "411027",
+    "pimple nilakh": "411027",
+    "pimple gurav": "411061",
+    moshi: "412105",
+    chakan: "410501",
+    kharadi: "411014",
+    viman: "411014",
+    "viman nagar": "411014",
+    hadapsar: "411028",
+    magarpatta: "411028",
+    kothrud: "411038",
+    warje: "411058",
+    dhayari: "411041",
+  },
+};
+
 function parsePincode(raw) {
   const pin = String(raw || "").replace(/\D/g, "").slice(0, 6);
   return /^\d{6}$/.test(pin) ? pin : "";
@@ -41,6 +110,11 @@ function pinPrefix(pincode) {
 function pincodeValidForState(pincode, state) {
   const pin = parsePincode(pincode);
   if (!pin) return false;
+
+  // Validate against official India Post dataset (rejects fake OSM codes like 411115 / 411405)
+  const verified = lookupPincode(pin);
+  if (verified.error) return false;
+
   const prefix = pinPrefix(pin);
   const stateKey = norm(state);
 
@@ -250,21 +324,88 @@ function withDeadline(promise, ms, fallback) {
   ]);
 }
 
+function resolvePincodeForLocality(names, district, state) {
+  const distKey = norm(district);
+
+  // 1. Check known locality aliases for the district
+  if (LOCALITY_PIN_ALIASES[distKey]) {
+    const aliasMap = LOCALITY_PIN_ALIASES[distKey];
+    for (const raw of names) {
+      const q = norm(raw);
+      if (!q) continue;
+      if (aliasMap[q]) return aliasMap[q];
+      for (const [locName, pin] of Object.entries(aliasMap)) {
+        if (q === locName || q.includes(locName) || locName.includes(q)) {
+          return pin;
+        }
+      }
+    }
+  }
+
+  // 2. Search official India Post offices for this district in pincodeData
+  const offices = districtOfficeMap.get(distKey) || [];
+  for (const raw of names) {
+    const q = norm(raw);
+    if (!q || q.length < 3) continue;
+    const match = offices.find(
+      (o) =>
+        o.cleanName === q ||
+        o.cleanName.startsWith(q + " ") ||
+        o.cleanName.endsWith(" " + q) ||
+        o.cleanName.includes(" " + q + " ") ||
+        o.name.includes("(" + q + ")") ||
+        o.name.includes("(" + q)
+    );
+    if (match) return match.pincode;
+  }
+
+  return null;
+}
+
 async function correctedPincode(lat, lng, parsed, rawAddress) {
-  // If Nominatim already returned a valid 6-digit postal code for the state, preserve it
-  if (parsed.pincodeValid && parsed.pincode) {
+  const district = norm(stripAdminSuffix(rawAddress.state_district || rawAddress.county || parsed.city));
+  const localityNames = [
+    parsed.area,
+    rawAddress.suburb,
+    rawAddress.neighbourhood,
+    rawAddress.village,
+    rawAddress.quarter,
+    rawAddress.city_district,
+    rawAddress.residential,
+  ].filter(Boolean);
+
+  // 1. Check if the detected locality matches a verified specific sub-office PIN
+  const localityPin = resolvePincodeForLocality(localityNames, district, parsed.state);
+  if (localityPin && pincodeValidForState(localityPin, parsed.state)) {
+    return localityPin;
+  }
+
+  // 2. Identify generic city GPO fallback or known OSM tagging errors
+  const isGenericGpo = Boolean(parsed.pincode && parsed.pincode.endsWith("001"));
+  const isKnownOsmErr = parsed.pincode === "411115" || parsed.pincode === "411405";
+
+  // If Nominatim already returned a valid 6-digit postal code that is neither GPO fallback nor known error, keep it
+  if (parsed.pincodeValid && parsed.pincode && !isGenericGpo && !isKnownOsmErr) {
     return parsed.pincode;
   }
+
+  // 3. Fallback to Overpass nearby building votes and India Post lookup
   const [vote, postPin] = await Promise.all([
-    withDeadline(nearbyPostcodeVote(lat, lng), 7000, null),
-    withDeadline(indiaPostPincodeForArea(rawAddress), 7000, ""),
+    withDeadline(nearbyPostcodeVote(lat, lng), 4000, null),
+    withDeadline(indiaPostPincodeForArea(rawAddress), 4000, ""),
   ]);
   const validVote = vote && pincodeValidForState(vote.pin, parsed.state) ? vote : null;
 
   if (validVote && validVote.samples >= 2 && validVote.share >= 0.6) return validVote.pin;
   if (postPin && pincodeValidForState(postPin, parsed.state)) return postPin;
   if (validVote && validVote.share >= 0.5) return validVote.pin;
-  return parsed.pincodeValid ? parsed.pincode : "";
+
+  // 4. If parsed.pincode is valid in official registry and not a known error, use it
+  if (parsed.pincodeValid && !isKnownOsmErr) {
+    return parsed.pincode;
+  }
+
+  return "";
 }
 
 const geocodeCache = new Map();
@@ -310,11 +451,13 @@ export async function reverseGeocodeCoords(lat, lng) {
     const result = {
       ...parsed,
       pincode,
-      pincodeValid: Boolean(pincode),
+      pincodeValid: Boolean(pincode && pincodeValidForState(pincode, parsed.state)),
       address: buildAddressLine(parsed.area, parsed.city, parsed.state, pincode) || parsed.address,
     };
-    if (geocodeCache.size > 2000) geocodeCache.clear();
-    geocodeCache.set(key, { at: Date.now(), value: result });
+    if (result.pincodeValid) {
+      if (geocodeCache.size > 2000) geocodeCache.clear();
+      geocodeCache.set(key, { at: Date.now(), value: result });
+    }
     return result;
   }
 

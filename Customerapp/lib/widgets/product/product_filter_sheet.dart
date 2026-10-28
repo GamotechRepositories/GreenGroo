@@ -109,6 +109,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
   late final TextEditingController _brandSearchController;
 
   String? _resolvedLocationText;
+  int _detectLocationSeq = 0;
   bool _isDetectingLocation = false;
   bool _isValidatingPincode = false;
   String _brandSearchQuery = '';
@@ -198,14 +199,16 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
   }
 
   Future<void> _detectCurrentLocation() async {
+    final seq = ++_detectLocationSeq;
     setState(() => _isDetectingLocation = true);
     try {
       final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       await ref.read(deliveryLocationProvider.notifier).setLocation(
             detected.toDeliveryLocation(),
           );
       ref.invalidate(nearestStoreProvider);
+      if (!mounted || seq != _detectLocationSeq) return;
       setState(() {
         _isDetectingLocation = false;
         if (detected.pincode.isNotEmpty) {
@@ -215,8 +218,20 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
             ? '${detected.area}, ${detected.city}'
             : detected.city;
       });
+    } on PhoneLocationException catch (e) {
+      if (!mounted || seq != _detectLocationSeq) return;
+      setState(() => _isDetectingLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.message,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _detectLocationSeq) return;
       setState(() => _isDetectingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -231,6 +246,7 @@ class _ProductFilterSheetState extends ConsumerState<ProductFilterSheet> {
   }
 
   Future<void> _lookupPincode(String pin) async {
+    _detectLocationSeq++;
     final clean = pin.trim();
     if (clean.length != 6) return;
     setState(() => _isValidatingPincode = true);

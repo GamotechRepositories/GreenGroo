@@ -32,6 +32,7 @@ class MapLocationPickerSheetContent extends ConsumerStatefulWidget {
 
 class _MapLocationPickerSheetContentState
     extends ConsumerState<MapLocationPickerSheetContent> {
+  int _gpsSeq = 0;
   final _searchController = TextEditingController();
   String _searchQuery = '';
   List<String> _searchResults = [];
@@ -42,8 +43,8 @@ class _MapLocationPickerSheetContentState
 
   final List<Map<String, dynamic>> _popularLocations = [
     {
-      'lat': 18.5756,
-      'lng': 73.7431,
+      'lat': 18.5685,
+      'lng': 73.7542,
       'city': 'Pune',
       'state': 'Maharashtra',
       'area': 'Mahalunge',
@@ -124,10 +125,11 @@ class _MapLocationPickerSheetContentState
   }
 
   Future<void> _detectCurrentGPS() async {
+    final seq = ++_gpsSeq;
     setState(() => _detectingGps = true);
     try {
       final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
-      if (!mounted) return;
+      if (!mounted || seq != _gpsSeq) return;
       setState(() {
         _selectedLocation = {
           'lat': detected.latitude,
@@ -150,11 +152,11 @@ class _MapLocationPickerSheetContentState
         ),
       );
     } on PhoneLocationException catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _gpsSeq) return;
       setState(() => _detectingGps = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || seq != _gpsSeq) return;
       setState(() => _detectingGps = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not detect your current location.')),
@@ -194,6 +196,7 @@ class _MapLocationPickerSheetContentState
   }
 
   void _selectSearchResult(String pincode) async {
+    _gpsSeq++;
     try {
       final data =
           await ref.read(apiServiceProvider).fetchLocationByPincode(pincode);
@@ -407,7 +410,10 @@ class _MapLocationPickerSheetContentState
                           loc['pincode'] == selectedPin;
 
                       return InkWell(
-                        onTap: () => setState(() => _selectedLocation = Map<String, dynamic>.from(loc)),
+                        onTap: () {
+                          _gpsSeq++;
+                          setState(() => _selectedLocation = Map<String, dynamic>.from(loc));
+                        },
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),

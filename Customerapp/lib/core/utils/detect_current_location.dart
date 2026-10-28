@@ -22,6 +22,7 @@ class PhoneLocation {
     this.pincode = '',
     this.address = '',
     this.label = 'Current location',
+    this.accuracy,
   });
 
   final double latitude;
@@ -32,6 +33,7 @@ class PhoneLocation {
   final String pincode;
   final String address;
   final String label;
+  final double? accuracy;
 
   String get displayLine {
     final line = [area, city, state, pincode].where((part) => part.isNotEmpty).join(', ');
@@ -54,7 +56,7 @@ class PhoneLocation {
   }
 }
 
-/// Phone GPS + `/api/location/reverse`, same path as the website.
+/// Phone GPS + `/api/location/reverse`, with strict GPS accuracy validation and error handling.
 Future<PhoneLocation> detectPhoneLocation(ApiService api) async {
   final serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) {
@@ -74,12 +76,12 @@ Future<PhoneLocation> detectPhoneLocation(ApiService api) async {
     );
   }
 
-  final Position position;
+  Position position;
   try {
     position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 18),
+        accuracy: LocationAccuracy.best,
+        timeLimit: Duration(seconds: 15),
       ),
     );
   } catch (_) {
@@ -88,23 +90,73 @@ Future<PhoneLocation> detectPhoneLocation(ApiService api) async {
     );
   }
 
+  // If the initial fix is coarse (e.g. cell tower accuracy > 100m) or stale (> 3 minutes old),
+  // attempt to acquire a fresh, high-accuracy fix from the GPS stream.
+  final isStale = DateTime.now().difference(position.timestamp) > const Duration(minutes: 3);
+  if (position.accuracy > 100 || isStale) {
+    try {
+      final fresh = await Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        ),
+      ).firstWhere(
+        (pos) => pos.accuracy <= 100,
+      ).timeout(const Duration(seconds: 6));
+      position = fresh;
+    } catch (_) {
+      // Keep best position available
+    }
+  }
+
+  // Reject fixes that have insufficient accuracy for urban delivery (e.g. > 250m)
+  if (position.accuracy > 250) {
+    throw PhoneLocationException(
+      'GPS accuracy is insufficient (±${position.accuracy.round()}m) for precise delivery. Please move outdoors or select your address manually.',
+    );
+  }
+
   Map<String, dynamic>? geo;
   try {
     geo = await api.reverseGeocode(lat: position.latitude, lng: position.longitude);
   } catch (_) {
-    geo = null;
+    throw PhoneLocationException(
+      'Unable to reach server to resolve your address. Check your connection or select manually.',
+    );
+  }
+
+  if (geo == null || geo.isEmpty) {
+    throw PhoneLocationException(
+      'Could not resolve an address for your current coordinates. Please select or enter your address manually.',
+    );
   }
 
   String text(String key) => geo?[key]?.toString().trim() ?? '';
+  final pincode = text('pincode').replaceAll(RegExp(r'\D'), '');
+
+  // Ensure that reverse geocoding resolved a valid 6-digit PIN code for these coordinates
+  final bool isValidPin = pincode.length == 6 && (geo['pincodeValid'] == true || geo['pincodeValid'] == null);
+  if (!isValidPin) {
+    throw PhoneLocationException(
+      'Could not reliably determine the PIN code for this location. Please confirm your address manually.',
+    );
+  }
+
+  final area = text('area');
+  final city = text('city');
+  final state = text('state');
+  final address = text('address');
+  final label = text('label').isNotEmpty ? text('label') : (area.isNotEmpty ? area : 'Current location');
 
   return PhoneLocation(
     latitude: position.latitude,
     longitude: position.longitude,
-    city: text('city'),
-    state: text('state'),
-    area: text('area'),
-    pincode: text('pincode').replaceAll(RegExp(r'\D'), ''),
-    address: text('address'),
-    label: text('label').isNotEmpty ? text('label') : 'Current location',
+    city: city,
+    state: state,
+    area: area,
+    pincode: pincode,
+    address: address,
+    label: label,
+    accuracy: position.accuracy,
   );
 }
