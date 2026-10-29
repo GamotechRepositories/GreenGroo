@@ -211,13 +211,16 @@ export default function InventoryHubPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filtered.map((row) => (
-              <Link
-                key={row.id}
-                to={`/inventory/${tab}/${encodeURIComponent(row.id)}`}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-[#217346]">
+            {filtered.map((row, index) => {
+              const rowKey = row.id || row._id || `inv-row-${index}`;
+              const targetId = row.id || row._id || '';
+              return (
+                <Link
+                  key={rowKey}
+                  to={`/inventory/${tab}/${encodeURIComponent(targetId)}`}
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-xs font-bold text-[#217346]">
                   {initials(row.name)}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -242,7 +245,8 @@ export default function InventoryHubPage() {
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
               </Link>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>

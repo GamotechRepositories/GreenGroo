@@ -312,6 +312,7 @@ router.get("/inventory-tools/realtime-stock", optionalAuth, getRealtimeStock);
 router.get("/inventory-tools/batches", optionalAuth, getBatchExpiryTracking);
 router.post("/inventory-tools/batches/:batchId/quarantine", optionalAuth, quarantineBatch);
 router.get("/inventory-tools/alerts", optionalAuth, getLowStockAlerts);
+router.get("/inventory-tools/low-stock-alerts", optionalAuth, getLowStockAlerts);
 router.get("/inventory-tools/grn", optionalAuth, getGrnList);
 router.post("/inventory-tools/grn", optionalAuth, createGrn);
 router.get("/inventory-tools/dead-stock", optionalAuth, getDeadStockReport);

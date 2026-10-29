@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "50988055235",
+        "project_id": "greengrocc-27df8",
+        "storage_bucket": "greengrocc-27df8.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:50988055235:android:11215dbd4857a9cfac0076",
+                "android_client_info": {
+                    "package_name": "com.greenrow.delivery"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyC2V68_-ob72N1qvGmfKF_IbIwDo7WR9hs"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

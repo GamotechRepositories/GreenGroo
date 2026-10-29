@@ -150,14 +150,17 @@ export async function listInventoryFarmers(req, res, next) {
     });
 
     let data = farmers.map((farmer) => {
-      const stock = byFarmer.get(String(farmer.id)) || {
-        skuCount: 0,
-        totalUnits: 0,
-        lowStockSkus: 0,
-        outOfStockSkus: 0,
-      };
+      const fid = farmer.id || String(farmer._id);
+      const stock =
+        byFarmer.get(String(farmer.id)) ||
+        byFarmer.get(String(farmer._id)) || {
+          skuCount: 0,
+          totalUnits: 0,
+          lowStockSkus: 0,
+          outOfStockSkus: 0,
+        };
       return {
-        id: farmer.id,
+        id: fid,
         name: farmer.name || farmer.fullName || "Farmer",
         mobile: farmer.mobile || "",
         email: farmer.email || "",
@@ -195,15 +198,21 @@ export async function listInventoryFarmers(req, res, next) {
 export async function getInventoryFarmer(req, res, next) {
   try {
     const farmerId = String(req.params.farmerId || "").trim();
-    const farmer = await Farmer.findOne({ id: farmerId }).select("-password").lean();
+    const filter = mongoose.Types.ObjectId.isValid(farmerId)
+      ? { $or: [{ id: farmerId }, { _id: farmerId }] }
+      : { id: farmerId };
+    const farmer = await Farmer.findOne(filter).select("-password").lean();
     if (!farmer) return fail(res, 404, "Farmer not found");
 
-    const products = await FarmerProduct.find({ farmerId }).sort({ name: 1 }).lean();
+    const fid = farmer.id || String(farmer._id);
+    const products = await FarmerProduct.find({
+      $or: [{ farmerId: fid }, { farmerId }],
+    }).sort({ name: 1 }).lean();
     const rows = flattenInventory(products);
     return ok(res, rows, {
       entity: {
         type: "farmer",
-        id: farmer.id,
+        id: fid,
         name: farmer.name || farmer.fullName || "Farmer",
         mobile: farmer.mobile || "",
         location: [farmer.village, farmer.taluka, farmer.district].filter(Boolean).join(", "),
@@ -284,15 +293,18 @@ export async function listInventoryVendors(req, res, next) {
     });
 
     let data = vendors.map((vendor) => {
-      const stock = byVendor.get(String(vendor.id)) || {
-        skuCount: 0,
-        totalUnits: 0,
-        lowStockSkus: 0,
-        outOfStockSkus: 0,
-        farmerIds: new Set(),
-      };
+      const vid = vendor.id || String(vendor._id);
+      const stock =
+        byVendor.get(String(vendor.id)) ||
+        byVendor.get(String(vendor._id)) || {
+          skuCount: 0,
+          totalUnits: 0,
+          lowStockSkus: 0,
+          outOfStockSkus: 0,
+          farmerIds: new Set(),
+        };
       return {
-        id: vendor.id,
+        id: vid,
         name: vendor.vendorName || vendor.ownerName || vendor.businessName || "Vendor",
         ownerName: vendor.ownerName || "",
         mobile: vendor.mobile || "",
@@ -333,12 +345,24 @@ export async function listInventoryVendors(req, res, next) {
 export async function getInventoryVendor(req, res, next) {
   try {
     const vendorId = String(req.params.vendorId || "").trim();
-    const vendor = await Vendor.findOne({ id: vendorId }).select("-password").lean();
+    const filter = mongoose.Types.ObjectId.isValid(vendorId)
+      ? { $or: [{ id: vendorId }, { _id: vendorId }] }
+      : { id: vendorId };
+    const vendor = await Vendor.findOne(filter).select("-password").lean();
     if (!vendor) return fail(res, 404, "Vendor not found");
 
-    const products = await FarmerProduct.find({ vendorId }).sort({ name: 1 }).lean();
-    const farmers = await Farmer.find({ vendorId }).select("id name").lean();
-    const farmerMap = new Map(farmers.map((f) => [String(f.id), f.name]));
+    const vid = vendor.id || String(vendor._id);
+    const products = await FarmerProduct.find({
+      $or: [{ vendorId: vid }, { vendorId }],
+    }).sort({ name: 1 }).lean();
+    const farmers = await Farmer.find({
+      $or: [{ vendorId: vid }, { vendorId }],
+    }).select("id _id name").lean();
+    const farmerMap = new Map();
+    farmers.forEach((f) => {
+      if (f.id) farmerMap.set(String(f.id), f.name);
+      if (f._id) farmerMap.set(String(f._id), f.name);
+    });
     const rows = flattenInventory(products).map((row) => ({
       ...row,
       farmerName: farmerMap.get(String(row.farmerId)) || row.farmerId || "—",
@@ -347,8 +371,8 @@ export async function getInventoryVendor(req, res, next) {
     return ok(res, rows, {
       entity: {
         type: "vendor",
-        id: vendor.id,
-        name: vendor.vendorName || vendor.ownerName || "Vendor",
+        id: vid,
+        name: vendor.vendorName || vendor.ownerName || vendor.businessName || "Vendor",
         mobile: vendor.mobile || "",
         location: [vendor.city, vendor.state].filter(Boolean).join(", "),
         status: vendor.status || "Active",
