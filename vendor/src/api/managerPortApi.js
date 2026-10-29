@@ -353,3 +353,13 @@ export async function getManagerFarmerEarnings(farmerId) {
 export async function getHarvestOrders() {
   return [];
 }
+
+export async function uploadManagerLabReport(orderId, data) {
+  const res = await vendorApi.uploadLabReport(orderId, data);
+  return res?.data;
+}
+
+export async function deleteManagerLabReport(orderId, reportId) {
+  const res = await vendorApi.deleteLabReport(orderId, reportId);
+  return res?.data;
+}

@@ -213,6 +213,8 @@ import {
   getQualityFinalSummary,
   getOrderQualityReport,
   updateOrderPaymentStatus,
+  uploadLabReport,
+  deleteLabReport,
 } from "./qualityControllers.js";
 import {
   listInventoryAlerts,
@@ -739,6 +741,8 @@ qualityRouter.post("/:orderId/photos", requireVendorOrManager, saveQualityPhotos
 qualityRouter.patch("/:orderId/parameters", requireVendorOrManager, saveQualityParameters);
 qualityRouter.patch("/:orderId/grading", requireVendorOrManager, saveQualityGrading);
 qualityRouter.post("/:orderId/confirm", requireVendorOrManager, confirmQualityGrading);
+qualityRouter.post("/:orderId/lab-reports", requireVendorOrManager, uploadLabReport);
+qualityRouter.delete("/:orderId/lab-reports/:reportId", requireVendorOrManager, deleteLabReport);
 
 export default [
   { path: "/api/farmers", router: farmerRouter },

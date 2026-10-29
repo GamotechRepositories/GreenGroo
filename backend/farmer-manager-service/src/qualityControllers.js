@@ -1129,6 +1129,17 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
       label: p.label || "",
       uploadedAt: p.uploadedAt,
     })),
+    labReports: (inspection.labReports || []).map((r) => ({
+      id: r.id || String(r._id),
+      reportName: r.reportName || "",
+      fileUrl: r.fileUrl || "",
+      fileName: r.fileName || "",
+      fileType: r.fileType || "",
+      fileSize: r.fileSize || 0,
+      notes: r.notes || "",
+      uploadedAt: r.uploadedAt,
+      uploadedBy: r.uploadedBy || "",
+    })),
     gradeAQuantity: locked ? qty(Math.max(0, split.gradeA - qty(gq["Grade A"]?.rejectedQuantity))) : split.gradeA,
     gradeBQuantity: locked ? qty(Math.max(0, split.gradeB - qty(gq["Grade B"]?.rejectedQuantity))) : split.gradeB,
     gradeCQuantity: locked ? qty(Math.max(0, split.gradeC - qty(gq["Grade C"]?.rejectedQuantity))) : split.gradeC,
@@ -1849,3 +1860,58 @@ export async function updateOrderPaymentStatus(req, res) {
   }
 }
 
+export async function uploadLabReport(req, res) {
+  try {
+    const { inspection, pickup, order, farmer, centre } = await requireEligibleBundle(req, req.params.orderId);
+    if (LOCKED_STATUSES.includes(inspection.status)) {
+      return res.status(409).json({ message: "Quality inspection is locked after grading confirmation" });
+    }
+    const { reportName, fileUrl, fileName, fileType, fileSize, notes } = req.body || {};
+    if (!reportName || !String(reportName).trim()) {
+      return res.status(400).json({ message: "Report Name is required" });
+    }
+    if (!fileUrl || !String(fileUrl).trim()) {
+      return res.status(400).json({ message: "Report file is required" });
+    }
+
+    const actor = actorOf(req);
+    const newReport = {
+      id: crypto.randomUUID ? crypto.randomUUID() : new Date().getTime().toString(),
+      reportName: String(reportName).trim(),
+      fileUrl: String(fileUrl).trim(),
+      fileName: String(fileName || "").trim(),
+      fileType: String(fileType || "").trim(),
+      fileSize: Number(fileSize) || 0,
+      notes: String(notes || "").trim(),
+      uploadedAt: new Date(),
+      uploadedBy: actor.name || actor.role || "Vendor",
+    };
+
+    inspection.labReports = [...(inspection.labReports || []), newReport];
+    recordAction(inspection, req, "UPLOAD_LAB_REPORT");
+    await inspection.save();
+
+    res.json(await presentInspection(inspection, pickup, order, farmer, centre));
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || "Failed to upload lab report" });
+  }
+}
+
+export async function deleteLabReport(req, res) {
+  try {
+    const { inspection, pickup, order, farmer, centre } = await requireEligibleBundle(req, req.params.orderId);
+    if (LOCKED_STATUSES.includes(inspection.status)) {
+      return res.status(409).json({ message: "Quality inspection is locked after grading confirmation" });
+    }
+    const reportId = req.params.reportId;
+    inspection.labReports = (inspection.labReports || []).filter(
+      (r) => String(r.id || r._id) !== String(reportId)
+    );
+    recordAction(inspection, req, "DELETE_LAB_REPORT");
+    await inspection.save();
+
+    res.json(await presentInspection(inspection, pickup, order, farmer, centre));
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || "Failed to delete lab report" });
+  }
+}

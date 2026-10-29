@@ -8,11 +8,14 @@ import {
   saveManagerQualityParameters,
   saveManagerQualityGrading,
   confirmManagerQuality,
+  uploadManagerLabReport,
+  deleteManagerLabReport,
 } from "../../api/farmerApi";
 import { formatMoney } from "../../utils/orderDisplay";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import QualityPhotos from "../../components/quality/QualityPhotos";
+import { Eye, ExternalLink, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -320,6 +323,66 @@ export default function ManagerQualityInspectionPage() {
   const [busy, setBusy] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [openGrades, setOpenGrades] = useState({});
+  const [labForm, setLabForm] = useState({
+    reportName: "",
+    fileUrl: "",
+    fileName: "",
+    fileType: "",
+    fileSize: 0,
+    notes: "",
+  });
+  const [uploadingLab, setUploadingLab] = useState(false);
+
+  const handleLabFilePick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File is too large. Max size is 10MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLabForm((prev) => ({
+        ...prev,
+        fileUrl: reader.result,
+        fileName: file.name,
+        fileType: file.type || "application/pdf",
+        fileSize: file.size,
+        reportName: prev.reportName || file.name.replace(/\.[^/.]+$/, ""),
+      }));
+    };
+    reader.onerror = () => toast.error("Could not read file");
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadLabReport = async () => {
+    if (!labForm.reportName || !labForm.fileUrl) {
+      toast.error("Please enter Report Name and select a file");
+      return;
+    }
+    setUploadingLab(true);
+    try {
+      const updated = await uploadManagerLabReport(orderId, labForm);
+      setData(updated);
+      setLabForm({ reportName: "", fileUrl: "", fileName: "", fileType: "", fileSize: 0, notes: "" });
+      toast.success("Lab report uploaded successfully!");
+    } catch (err) {
+      toast.error(err.message || "Failed to upload lab report");
+    } finally {
+      setUploadingLab(false);
+    }
+  };
+
+  const handleDeleteLabReport = async (reportId) => {
+    if (!window.confirm("Are you sure you want to delete this lab report?")) return;
+    try {
+      const updated = await deleteManagerLabReport(orderId, reportId);
+      setData(updated);
+      toast.success("Lab report deleted");
+    } catch (err) {
+      toast.error(err.message || "Failed to delete lab report");
+    }
+  };
   const [form, setForm] = useState({
     qualityParameters: {},
     qualityRemarks: "",
@@ -868,6 +931,205 @@ export default function ManagerQualityInspectionPage() {
         </div>
       </section>
 
+      {/* SECTION: Lab Reports */}
+      <section className={`${EXCEL_PANEL} print:hidden`}>
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-3 py-2.5 sm:px-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-purple-100 text-purple-700">
+              🧪
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
+              3. Lab Test Reports (प्रयोगशाळा तपासणी अहवाल)
+            </span>
+            <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 ring-1 ring-purple-200">
+              {(data.labReports || []).length} Uploaded
+            </span>
+          </div>
+        </div>
+
+        <div className="p-3 sm:p-4 space-y-4">
+          {/* Upload Form - available when not locked */}
+          {!locked ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-3.5 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <Upload className="h-4 w-4 text-purple-700" />
+                <span>Upload New Lab Report</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {/* 1. Report Name */}
+                <div className="sm:col-span-1 lg:col-span-2 space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block">
+                    Report Name * (अहवालाचे नाव)
+                  </label>
+                  <input
+                    type="text"
+                    value={labForm.reportName}
+                    onChange={(e) => setLabForm((prev) => ({ ...prev, reportName: e.target.value }))}
+                    placeholder="e.g. Pesticide Residue Analysis, Moisture Test..."
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600"
+                  />
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-1 pt-1">
+                    <span className="text-[9px] font-semibold text-slate-400">Quick Name:</span>
+                    {[
+                      "Pesticide Residue Analysis",
+                      "Moisture Content Test",
+                      "Microbiology & Pathogen Test",
+                      "Nutrient & Mineral Test",
+                      "Heavy Metals Lab Analysis",
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setLabForm((prev) => ({ ...prev, reportName: preset }))}
+                        className={`rounded px-1.5 py-0.5 text-[9px] font-semibold transition ${
+                          labForm.reportName === preset
+                            ? "bg-purple-600 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. File Upload Input */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-600 block">
+                    Upload Report File * (PDF or Image, max 10MB)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      id="labReportFileInput"
+                      accept=".pdf,image/*,application/pdf"
+                      onChange={handleLabFilePick}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="labReportFileInput"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-purple-700" />
+                      <span>{labForm.fileName ? "Change File" : "Choose File"}</span>
+                    </label>
+                    <span className="text-[11px] text-slate-500 truncate max-w-[150px]">
+                      {labForm.fileName || "No file chosen"}
+                    </span>
+                  </div>
+                  {labForm.fileName && (
+                    <p className="text-[10px] text-emerald-700 font-medium">
+                      ✓ Ready ({Math.round(labForm.fileSize / 1024)} KB)
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Optional Notes & Submit Button */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
+                <input
+                  type="text"
+                  value={labForm.notes}
+                  onChange={(e) => setLabForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Optional notes / lab agency name..."
+                  className="min-w-0 flex-1 max-w-md rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 outline-none focus:border-purple-600"
+                />
+
+                <button
+                  type="button"
+                  disabled={uploadingLab || !labForm.reportName || !labForm.fileUrl}
+                  onClick={handleUploadLabReport}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-purple-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-purple-800 disabled:opacity-50 transition"
+                >
+                  {uploadingLab ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Uploading…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Upload Report</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* List of Uploaded Lab Reports */}
+          {(!data.labReports || data.labReports.length === 0) ? (
+            <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-400">
+              <p className="text-xs font-medium">No lab reports uploaded for this batch yet.</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Upload pesticide, moisture, or quality lab certificates above.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {data.labReports.map((report) => (
+                <div
+                  key={report.id}
+                  className="flex flex-col justify-between rounded-xl border border-purple-100 bg-purple-50/30 p-3 shadow-2xs hover:border-purple-300 transition"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-purple-100 text-xs">
+                          {report.fileType?.includes('pdf') || report.fileName?.endsWith('.pdf') ? '📄' : '🖼️'}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 line-clamp-1">
+                          {report.reportName}
+                        </h4>
+                      </div>
+                      {!locked && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLabReport(report.id)}
+                          className="text-slate-400 hover:text-rose-600 transition p-0.5"
+                          title="Delete report"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {report.fileName || 'Report document'} · {report.fileSize ? `${Math.round(report.fileSize / 1024)} KB` : ''}
+                    </p>
+
+                    {report.notes ? (
+                      <p className="text-[10px] text-slate-600 italic line-clamp-1">
+                        "{report.notes}"
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-purple-100/80 pt-2 text-[10px]">
+                    <span className="text-slate-400">
+                      {new Date(report.uploadedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                    </span>
+                    <a
+                      href={report.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={report.fileName || `${report.reportName}.pdf`}
+                      className="inline-flex items-center gap-1 font-bold text-purple-700 hover:underline"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>View Report</span>
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       <section id="final-report" className={EXCEL_PANEL}>
         <div className={EXCEL_PANEL_HEAD}>4. Final Summary</div>
         <div className="p-3">
@@ -965,6 +1227,30 @@ export default function ManagerQualityInspectionPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Attached Lab Reports in Final Summary */}
+          {Array.isArray(data.labReports) && data.labReports.length > 0 ? (
+            <div className="mt-4 rounded-xl border border-purple-100 bg-purple-50/30 p-3">
+              <p className="text-xs font-bold text-purple-900 mb-2">
+                🧪 Attached Lab Test Reports ({data.labReports.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {data.labReports.map((report) => (
+                  <a
+                    key={report.id}
+                    href={report.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-white px-2.5 py-1 text-xs font-semibold text-purple-800 shadow-2xs hover:bg-purple-50 transition"
+                  >
+                    <span>{report.fileName?.endsWith('.pdf') || report.fileType?.includes('pdf') ? '📄' : '🖼️'}</span>
+                    <span>{report.reportName}</span>
+                    <ExternalLink className="h-3 w-3 text-purple-500" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 

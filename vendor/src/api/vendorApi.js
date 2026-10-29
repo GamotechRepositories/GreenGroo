@@ -221,6 +221,8 @@ export const vendorApi = {
   getQualityReport: (orderId) => api.get(`/api/quality/${orderId}/report`),
   updateOrderPayment: (orderId, data) => api.patch(`/api/quality/${orderId}/payment`, data),
   verifyQualityQr: (data) => api.post("/api/quality/verify-qr", data),
+  uploadLabReport: (orderId, data) => api.post(`/api/quality/${orderId}/lab-reports`, data),
+  deleteLabReport: (orderId, reportId) => api.delete(`/api/quality/${orderId}/lab-reports/${reportId}`),
 
   // Market Prices (APMC Mandi Rates & Trends)
   getLiveMarketPrices: (params) => api.get("/api/admin-ops/market-prices/live", { params }).then((res) => res.data),
