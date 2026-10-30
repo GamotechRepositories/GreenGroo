@@ -9,12 +9,16 @@ import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/utils/department_utils.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/product/deal_product_card.dart';
+import '../../widgets/product/product_filter_sheet.dart';
+import '../../widgets/product/product_filters_bar.dart';
 import '../auth/auth_controller.dart';
 import '../cart/cart_controller.dart';
 import '../home/home_providers.dart';
@@ -221,6 +225,129 @@ class _CatalogFlowScreenState extends ConsumerState<CatalogFlowScreen> {
   bool _searchOpen = false;
   String _filter = 'all';
 
+  ProductSortOption _sort = ProductSortOption.listingDefault;
+  String? _selectedBrand;
+  String? _selectedMinDiscount;
+  String? _selectedWeightSize;
+  String? _selectedPincode;
+  String? _selectedMinPrice;
+  String? _selectedMaxPrice;
+  bool _inStockOnly = false;
+
+  bool get _hasActiveFilters =>
+      _sort != ProductSortOption.listingDefault ||
+      (_selectedBrand != null && _selectedBrand!.isNotEmpty) ||
+      (_selectedMinDiscount != null && _selectedMinDiscount!.isNotEmpty) ||
+      (_selectedWeightSize != null && _selectedWeightSize!.isNotEmpty) ||
+      (_selectedPincode != null && _selectedPincode!.isNotEmpty) ||
+      (_selectedMinPrice != null && _selectedMinPrice!.isNotEmpty) ||
+      (_selectedMaxPrice != null && _selectedMaxPrice!.isNotEmpty) ||
+      _inStockOnly;
+
+  int get _activeFilterCount {
+    int count = 0;
+    if (_sort != ProductSortOption.listingDefault) count++;
+    if (_selectedBrand?.isNotEmpty ?? false) count++;
+    if (_selectedMinDiscount?.isNotEmpty ?? false) count++;
+    if (_selectedWeightSize?.isNotEmpty ?? false) count++;
+    if (_selectedPincode?.isNotEmpty ?? false) count++;
+    if (_selectedMinPrice?.isNotEmpty ?? false) count++;
+    if (_selectedMaxPrice?.isNotEmpty ?? false) count++;
+    if (_inStockOnly) count++;
+    return count;
+  }
+
+  void _clearListingFilters() {
+    setState(() {
+      _sort = ProductSortOption.listingDefault;
+      _selectedBrand = null;
+      _selectedMinDiscount = null;
+      _selectedWeightSize = null;
+      _selectedPincode = null;
+      _selectedMinPrice = null;
+      _selectedMaxPrice = null;
+      _inStockOnly = false;
+    });
+  }
+
+  void _openFilterSheet(List<Product> products) {
+    final allBrands = <String>{
+      ...extractBrands(products),
+      ...(ref.read(brandsProvider).value?.map((b) => b.brandName) ?? const <String>[]),
+    }.where((b) => b.isNotEmpty).toList();
+    allBrands.sort();
+
+    showProductFilterBottomSheet(
+      context: context,
+      brands: allBrands,
+      currentBrand: _selectedBrand,
+      currentSort: _sort,
+      currentMinPrice: _selectedMinPrice,
+      currentMaxPrice: _selectedMaxPrice,
+      currentMinDiscount: _selectedMinDiscount,
+      currentPincode: _selectedPincode ?? ref.read(deliveryLocationProvider)?.pincode,
+      currentWeightSize: _selectedWeightSize,
+      weightsSizes: extractWeightsAndSizes(products),
+      currentInStockOnly: _inStockOnly,
+      currentSearch: _needle.isNotEmpty ? _needle : null,
+      onApply: ({
+        brand,
+        sort,
+        minPrice,
+        maxPrice,
+        minDiscount,
+        pincode,
+        weightSize,
+        inStockOnly = false,
+        searchQuery,
+      }) {
+        setState(() {
+          if (sort != null) _sort = sort;
+          _selectedBrand = brand;
+          _selectedMinPrice = minPrice;
+          _selectedMaxPrice = maxPrice;
+          _selectedMinDiscount = minDiscount;
+          _selectedPincode = pincode;
+          _selectedWeightSize = weightSize;
+          _inStockOnly = inStockOnly;
+          if (searchQuery != null && searchQuery.isNotEmpty) {
+            _searchController.text = searchQuery;
+            _searchOpen = true;
+          }
+        });
+        if (pincode != null && pincode.isNotEmpty) {
+          final cur = ref.read(deliveryLocationProvider);
+          if (cur == null || cur.pincode != pincode) {
+            ref.read(deliveryLocationProvider.notifier).setLocation(
+              DeliveryLocation(
+                pincode: pincode,
+                area: cur?.area ?? '',
+                city: cur?.city ?? '',
+                state: cur?.state ?? '',
+                address: cur?.address ?? '',
+                label: 'Pin: $pincode',
+              ),
+            );
+          }
+        }
+      },
+      onClear: _clearListingFilters,
+    );
+  }
+
+  void _openPincodePicker() {
+    showSelectDeliveryLocationBottomSheet(context, ref).then((_) {
+      if (mounted) {
+        final loc = ref.read(deliveryLocationProvider);
+        if (loc?.pincode != null && loc!.pincode!.isNotEmpty) {
+          setState(() {
+            _selectedPincode = loc.pincode;
+          });
+        }
+      }
+    });
+  }
+
   @override
   void didUpdateWidget(CatalogFlowScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -228,6 +355,7 @@ class _CatalogFlowScreenState extends ConsumerState<CatalogFlowScreen> {
       _searchController.clear();
       _searchOpen = false;
       _filter = 'all';
+      _clearListingFilters();
     }
   }
 
@@ -477,10 +605,29 @@ class _CatalogFlowScreenState extends ConsumerState<CatalogFlowScreen> {
   Widget _buildProducts(BaseCard? active, bool loading) {
     final source = active?.items ?? const <Product>[];
     final needle = _needle;
-    final items = source
-        .where((p) => _filter == 'all' || _productTier(p) == _filter)
-        .where((p) => needle.isEmpty || p.name.toLowerCase().contains(needle))
-        .toList();
+
+    final allBrands = <String>{
+      ...extractBrands(source),
+      ...(ref.watch(brandsProvider).value?.map((b) => b.brandName) ?? const <String>[]),
+    }.where((b) => b.isNotEmpty).toList()
+      ..sort();
+
+    final tierFiltered = source.where((p) {
+      if (_filter != 'all' && _productTier(p) != _filter) return false;
+      return true;
+    }).toList();
+
+    final items = filterAndSortProducts(
+      products: tierFiltered,
+      searchQuery: needle.isNotEmpty ? needle : null,
+      brand: _selectedBrand,
+      minPrice: _selectedMinPrice,
+      maxPrice: _selectedMaxPrice,
+      minDiscount: _selectedMinDiscount,
+      weightSize: _selectedWeightSize,
+      inStockOnly: _inStockOnly,
+      sort: _sort,
+    );
     final heroImage = (active?.image.isNotEmpty ?? false) ? active!.image : _categoryImage;
     final topInset = MediaQuery.paddingOf(context).top;
     const bg = Color(0xFFF4F6F3);
@@ -569,23 +716,88 @@ class _CatalogFlowScreenState extends ConsumerState<CatalogFlowScreen> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (_searchOpen) ...[
                     _searchField('Search products', Colors.white),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                   _chips(_productFilters, const Color(0xFFE7F0E8)),
                 ],
               ),
             ),
           ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: ProductFiltersBar(
+                backgroundColor: Colors.transparent,
+                brands: allBrands,
+                selectedBrand: _selectedBrand ?? '',
+                sortBy: _sort,
+                selectedMinDiscount: _selectedMinDiscount,
+                selectedPincode: _selectedPincode ?? ref.watch(deliveryLocationProvider)?.pincode,
+                selectedWeightSize: _selectedWeightSize,
+                weightsSizes: extractWeightsAndSizes(source),
+                inStockOnly: _inStockOnly,
+                onBrandChange: (b) => setState(() => _selectedBrand = b.trim().isEmpty ? null : b.trim()),
+                onSortChange: (s) => setState(() => _sort = s),
+                onDiscountChange: (d) => setState(() => _selectedMinDiscount = d),
+                onPincodeTap: _openPincodePicker,
+                onWeightSizeChange: (w) => setState(() => _selectedWeightSize = w),
+                onInStockOnlyChange: (stock) => setState(() => _inStockOnly = stock),
+                onOpenFilterSheet: () => _openFilterSheet(source),
+                hasActiveFilters: _hasActiveFilters,
+                activeFiltersCount: _activeFilterCount,
+                onClear: _clearListingFilters,
+              ),
+            ),
+          ),
           if (loading && items.isEmpty)
             SliverToBoxAdapter(child: _message('Loading products…'))
           else if (items.isEmpty)
-            SliverToBoxAdapter(child: _message('No products in this list yet.'))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.search_off_rounded, size: 48, color: _slate400),
+                    const SizedBox(height: 12),
+                    Text(
+                      _hasActiveFilters || _filter != 'all' || needle.isNotEmpty
+                          ? 'No products match your selected filters.'
+                          : 'No products in this list yet.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                    if (_hasActiveFilters || _filter != 'all' || needle.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _filter = 'all';
+                            _searchController.clear();
+                          });
+                          _clearListingFilters();
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Reset all filters'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: _brandGreen,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            )
           else
             SliverPadding(
               padding: EdgeInsets.fromLTRB(12, 0, 12, ShellBottomInsets.of(context)),

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import mongoose from "mongoose";
 
 // ============================================================
@@ -1408,3 +1409,5 @@ export async function ensureFarmerIndexes() {
     console.warn("[Indexes] Error creating farmer indexes:", err.message);
   }
 }
+=======
+>>>>>>> Stashed changes

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import express from "express";
 import {
   getFarmers,
@@ -758,3 +759,5 @@ export default [
   { path: "/api/driver", router: driverRouter },
   { path: "/api/quality", router: qualityRouter },
 ];
+=======
+>>>>>>> Stashed changes
